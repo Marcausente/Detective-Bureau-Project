@@ -14,7 +14,7 @@ function App() {
         {/* Public Route */}
         <Route path="/" element={<Login />} />
 
-        {/* Interstitial Route (protected logically, but standalone visually) */}
+        {/* Interstitial Route */}
         <Route path="/welcome" element={<Welcome />} />
 
         {/* Protected Routes (wrapped in MainLayout) */}
@@ -32,7 +32,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
-  )
+  );
 }
 
-export default App
+export default App;
