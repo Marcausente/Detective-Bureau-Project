@@ -785,3 +785,43 @@ body {
     min-height: auto;
   }
 }
+
+/* Custom File Upload */
+.custom-file-upload {
+  display: inline-block;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  width: 100%;
+  text-align: center;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+}
+
+.custom-file-upload:hover {
+  border-color: var(--accent-gold);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.custom-file-upload input[type="file"] {
+  display: none;
+}
+
+/* Fix Select Options Background */
+.custom-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cfb53b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1em;
+}
+
+.custom-select option {
+  background-color: #1e293b;
+  /* --secondary-bg */
+  color: #f8fafc;
+  /* --text-primary */
+}
