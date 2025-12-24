@@ -105,10 +105,9 @@ returns uuid as $$
 declare
   new_user_id uuid;
   encrypted_pw text;
+  v_instance_id uuid;
 begin
-  -- Check permissions (Optional: enforce here or via RLS, but RPC usually runs as owner so we check role manually or rely on frontend + RLS of invoker)
-  -- ideally we check if the executing user has role 'Administrador', 'Comisionado' etc.
-  -- For now, we trust the app logic or add a check:
+  -- Check permissions
   if not exists (
     select 1 from public.users 
     where id = auth.uid() 
@@ -117,18 +116,64 @@ begin
       raise exception 'Unauthorized: Insufficient privileges';
   end if;
 
+  -- Get the correct instance_id from an existing user (e.g. the admin invoking this, or just any user)
+  -- This ensures we match the project's instance_id.
+  select instance_id into v_instance_id from auth.users limit 1;
+  
+  if v_instance_id is null then
+    -- Fallback to default if table is empty (unlikely if admin exists)
+    v_instance_id := '00000000-0000-0000-0000-000000000000';
+  end if;
+
   -- 1. Create auth user
   new_user_id := gen_random_uuid();
   encrypted_pw := crypt(p_password, gen_salt('bf'));
   
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+  insert into auth.users (
+    id, 
+    instance_id,
+    email, 
+    encrypted_password, 
+    email_confirmed_at, 
+    aud, 
+    role,
+    raw_app_meta_data, 
+    raw_user_meta_data, 
+    created_at, 
+    updated_at
+  )
   values (
     new_user_id,
+    v_instance_id,
     p_email,
     encrypted_pw,
-    now(), -- Auto confirm email
+    now(), 
+    'authenticated', -- aud
+    'authenticated', -- role
     '{"provider":"email","providers":["email"]}',
     '{}',
+    now(),
+    now()
+  );
+
+  -- 1b. Create identity (Required for login to work)
+  insert into auth.identities (
+    id,
+    user_id,
+    identity_data,
+    provider,
+    provider_id,
+    last_sign_in_at,
+    created_at,
+    updated_at
+  )
+  values (
+    gen_random_uuid(),
+    new_user_id,
+    jsonb_build_object('sub', new_user_id::text, 'email', p_email), -- Ensure UUID is text in JSON
+    'email',
+    new_user_id::text, -- provider_id is the user_id for email provider
+    now(),
     now(),
     now()
   );
@@ -323,14 +368,11 @@ begin
 
   -- Rule: Viewer > Target.
   if public.get_rank_level(v_author_rank) <= public.get_rank_level(v_target_rank) then
-    -- Return empty if not superior (and no error, so frontend sees "empty list" but might hide form if we handle it there)
-    -- Actually, if we return empty, the frontend 'canViewEvaluations' becomes TRUE unless we throw.
-    -- If we want to HIDE the section, we should probably Throw or handle it in frontend.
-    -- But the RPC is "get_evaluations". If I have no permission, I should get an error or empty?
-    -- If I return empty, frontend shows section but empty list.
-    -- The user wants to ADD evaluations too.
-    -- Let's RAISE EXCEPTION if not allowed, so frontend sets canView=false and HIDES it.
-    raise exception 'Insufficient privileges to view/add evaluations.';
+    raise exception 'Insufficient privileges. You are % (%) and target is % (%).', 
+      v_author_rank, 
+      public.get_rank_level(v_author_rank), 
+      v_target_rank, 
+      public.get_rank_level(v_target_rank);
   end if;
 
   return query
@@ -353,3 +395,30 @@ grant execute on function public.add_evaluation to authenticated;
 grant execute on function public.get_evaluations to authenticated;
 grant select, insert on public.evaluations to authenticated;
 
+
+-- Debug function to inspect current user's auth details
+create or replace function public.inspect_admin_user()
+returns table (
+  my_id uuid,
+  my_instance_id uuid,
+  my_aud text,
+  my_role text,
+  identity_provider text,
+  identity_provider_id text,
+  identity_data jsonb
+) as $$
+begin
+  return query
+  select 
+    u.id,
+    u.instance_id,
+    u.aud::text,
+    u.role::text,
+    i.provider::text,
+    i.provider_id::text,
+    i.identity_data
+  from auth.users u
+  left join auth.identities i on i.user_id = u.id
+  where u.id = auth.uid();
+end;
+$$ language plpgsql security definer;
