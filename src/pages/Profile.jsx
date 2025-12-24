@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
 import '../index.css';
 
@@ -7,11 +8,19 @@ function Profile() {
     const [updating, setUpdating] = useState(false);
     const [message, setMessage] = useState(null);
     const fileInputRef = useRef(null);
+    const editorRef = useRef(null);
+
+    // Cropper State
+    const [editorOpen, setEditorOpen] = useState(false);
+    const [imageSrc, setImageSrc] = useState(null);
+    const [scale, setScale] = useState(1.2);
 
     const [formData, setFormData] = useState({
         nombre: '',
         apellido: '',
         no_placa: '',
+        rango: '',
+        rol: '',
         profile_image: ''
     });
 
@@ -64,7 +73,7 @@ function Profile() {
         setPasswords({ ...passwords, [e.target.name]: e.target.value });
     };
 
-    // Image Compression Logic
+    // --- Image Handling ---
     const handleImageClick = () => {
         fileInputRef.current.click();
     };
@@ -74,46 +83,36 @@ function Profile() {
         if (file) {
             // Check file size (optional check before compression)
             if (file.size > 10000000) { // 10MB limit check
-                alert("File is very large, it will be compressed.");
+                alert("File is very large, please choose a smaller one or wait for processing.");
             }
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.src = e.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    // Increased limits for better quality while still saving space
-                    const MAX_WIDTH = 500;
-                    const MAX_HEIGHT = 500;
-                    let width = img.width;
-                    let height = img.height;
-
-                    // Resize logic
-                    if (width > height) {
-                        if (width > MAX_WIDTH) {
-                            height *= MAX_WIDTH / width;
-                            width = MAX_WIDTH;
-                        }
-                    } else {
-                        if (height > MAX_HEIGHT) {
-                            width *= MAX_HEIGHT / height;
-                            height = MAX_HEIGHT;
-                        }
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    // Compress to JPEG with 0.9 quality (High Quality)
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-                    setFormData({ ...formData, profile_image: dataUrl });
-                };
-            };
-            reader.readAsDataURL(file);
+            setImageSrc(file);
+            setEditorOpen(true);
+            // Reset input so same file can be selected again if needed
+            event.target.value = '';
         }
+    };
+
+    const handleSaveImage = () => {
+        if (editorRef.current) {
+            const canvas = editorRef.current.getImageScaledToCanvas();
+
+            // Create a temporary canvas to resize if needed (though AvatarEditor handles sizing, we double ensure max dimensions)
+            // But usually getImageScaledToCanvas respects the width/height props.
+            // We want high quality output.
+
+            // Convert to Base64 JPEG 0.9 quality
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            setFormData({ ...formData, profile_image: dataUrl });
+            setEditorOpen(false);
+            setImageSrc(null);
+            setScale(1.2);
+        }
+    };
+
+    const handleCancelImage = () => {
+        setEditorOpen(false);
+        setImageSrc(null);
+        setScale(1.2);
     };
 
     const handleSubmit = async (e) => {
@@ -312,6 +311,49 @@ function Profile() {
                     </div>
                 </div>
             </form>
+
+            {/* Image Cropper Modal */}
+            {editorOpen && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content">
+                        <h3>Adjust Profile Picture</h3>
+                        <div style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0' }}>
+                            <AvatarEditor
+                                ref={editorRef}
+                                image={imageSrc}
+                                width={250}
+                                height={250}
+                                border={20}
+                                borderRadius={125} // Circular mask
+                                color={[0, 0, 0, 0.6]} // RGBA
+                                scale={scale}
+                                rotate={0}
+                            />
+                        </div>
+
+                        <div className="cropper-controls">
+                            <div className="zoom-slider-container">
+                                <span>-</span>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="3"
+                                    step="0.01"
+                                    value={scale}
+                                    className="zoom-slider"
+                                    onChange={(e) => setScale(parseFloat(e.target.value))}
+                                />
+                                <span>+</span>
+                            </div>
+
+                            <div className="cropper-actions">
+                                <button type="button" className="login-button btn-secondary" onClick={handleCancelImage}>Cancel</button>
+                                <button type="button" className="login-button" onClick={handleSaveImage}>Save Image</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
