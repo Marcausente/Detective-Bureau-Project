@@ -67,5 +67,5 @@ $$ language plpgsql security definer;
 
 -- Trigger to call the function on new auth user
 create or replace trigger on_auth_user_created
-  after insert on auth.users
+  after insert on auth.users --test
   for each row execute procedure public.handle_new_user();
