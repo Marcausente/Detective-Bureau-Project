@@ -231,3 +231,125 @@ begin
 end;
 $$ language plpgsql security definer;
 
+
+-- =============================================
+-- EVALUATIONS SYSTEM
+-- =============================================
+
+create table if not exists public.evaluations (
+  id uuid primary key default gen_random_uuid(),
+  target_user_id uuid references public.users(id) on delete cascade not null,
+  author_user_id uuid references public.users(id) on delete set null,
+  content text not null,
+  created_at timestamptz default now()
+);
+
+-- Enable RLS
+alter table public.evaluations enable row level security;
+
+-- Helper to get numeric rank level for comparisons
+create or replace function public.get_rank_level(rango public.rango_enum)
+returns integer as $$
+begin
+  return case rango
+    when 'Capitan' then 100
+    when 'Teniente' then 90
+    when 'Detective III' then 80
+    when 'Detective II' then 70
+    when 'Detective I' then 60
+    -- All Oficial levels count as the same "tier" (cannot evaluate each other)
+    when 'Oficial III+' then 30
+    when 'Oficial III' then 30
+    when 'Oficial II' then 30
+    else 0
+  end;
+end;
+$$ language plpgsql immutable;
+
+
+-- RPC to Add Evaluation
+create or replace function public.add_evaluation(p_target_user_id uuid, p_content text)
+returns void as $$
+declare
+  v_author_rank public.rango_enum;
+  v_target_rank public.rango_enum;
+begin
+  -- Get Author Rank
+  select rango into v_author_rank from public.users where id = auth.uid();
+  if v_author_rank is null then raise exception 'User profile not found'; end if;
+
+  -- Get Target Rank
+  select rango into v_target_rank from public.users where id = p_target_user_id;
+  if v_target_rank is null then raise exception 'Target user not found'; end if;
+
+  -- Rule: Tenientes and Capitanes cannot receive evaluations
+  if v_target_rank in ('Teniente', 'Capitan') then
+    raise exception 'High Command officers cannot be evaluated.';
+  end if;
+
+  -- Rule: Author must be HIGHER than Target
+  if public.get_rank_level(v_author_rank) <= public.get_rank_level(v_target_rank) then
+    raise exception 'Insufficient rank to evaluate this officer.';
+  end if;
+
+  -- Insert
+  insert into public.evaluations (target_user_id, author_user_id, content)
+  values (p_target_user_id, auth.uid(), p_content);
+end;
+$$ language plpgsql security definer;
+
+
+-- RPC to Get Evaluations (with strict permission check)
+create or replace function public.get_evaluations(p_target_user_id uuid)
+returns table (
+  id uuid,
+  content text,
+  created_at timestamptz,
+  author_name text,
+  author_rank public.rango_enum
+) as $$
+declare
+  v_author_rank public.rango_enum;
+  v_target_rank public.rango_enum;
+  v_current_user_id uuid;
+begin
+  v_current_user_id := auth.uid();
+  
+  -- Get Requestor Rank
+  select rango into v_author_rank from public.users where id = v_current_user_id;
+  
+  -- Get Target Rank
+  select rango into v_target_rank from public.users where id = p_target_user_id;
+
+  -- Rule: Viewer > Target.
+  if public.get_rank_level(v_author_rank) <= public.get_rank_level(v_target_rank) then
+    -- Return empty if not superior (and no error, so frontend sees "empty list" but might hide form if we handle it there)
+    -- Actually, if we return empty, the frontend 'canViewEvaluations' becomes TRUE unless we throw.
+    -- If we want to HIDE the section, we should probably Throw or handle it in frontend.
+    -- But the RPC is "get_evaluations". If I have no permission, I should get an error or empty?
+    -- If I return empty, frontend shows section but empty list.
+    -- The user wants to ADD evaluations too.
+    -- Let's RAISE EXCEPTION if not allowed, so frontend sets canView=false and HIDES it.
+    raise exception 'Insufficient privileges to view/add evaluations.';
+  end if;
+
+  return query
+  select 
+    e.id,
+    e.content,
+    e.created_at,
+    (u.nombre || ' ' || u.apellido) as author_name,
+    u.rango as author_rank
+  from public.evaluations e
+  left join public.users u on e.author_user_id = u.id
+  where e.target_user_id = p_target_user_id
+  order by e.created_at desc;
+end;
+$$ language plpgsql security definer;
+
+-- Grant permissions explicitly to be safe
+grant execute on function public.get_rank_level to authenticated;
+grant execute on function public.add_evaluation to authenticated;
+grant execute on function public.get_evaluations to authenticated;
+grant select, insert on public.evaluations to authenticated;
+
