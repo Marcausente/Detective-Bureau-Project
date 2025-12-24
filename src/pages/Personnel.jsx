@@ -130,16 +130,16 @@ function Personnel() {
         try {
             // Call the RPC function
             const { data, error } = await supabase.rpc('create_new_personnel', {
-                email: formData.email,
-                password: formData.password,
-                nombre: formData.nombre,
-                apellido: formData.apellido,
-                no_placa: formData.no_placa,
-                rango: formData.rango,
-                rol: formData.rol,
-                fecha_ingreso: formData.fecha_ingreso || null,
-                fecha_ultimo_ascenso: null,
-                profile_image: formData.profile_image || null
+                p_email: formData.email,
+                p_password: formData.password,
+                p_nombre: formData.nombre,
+                p_apellido: formData.apellido,
+                p_no_placa: formData.no_placa,
+                p_rango: formData.rango,
+                p_rol: formData.rol,
+                p_fecha_ingreso: formData.fecha_ingreso || null,
+                p_fecha_ultimo_ascenso: null,
+                p_profile_image: formData.profile_image || null
             });
 
             if (error) throw error;

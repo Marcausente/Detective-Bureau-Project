@@ -85,17 +85,21 @@ create extension if not exists pgcrypto;
 
 -- RPC to create a new user with profile data
 -- This function mimics the Supabase Auth generic sign up but updates the profile immediately with extra data
+
+-- Drop old function signature if it exists to allow parameter renaming
+drop function if exists public.create_new_personnel(text,text,text,text,text,public.rango_enum,public.rol_enum,date,date,text);
+
 create or replace function public.create_new_personnel(
-    email text,
-    password text,
-    nombre text,
-    apellido text,
-    no_placa text,
-    rango public.rango_enum,
-    rol public.rol_enum,
-    fecha_ingreso date,
-    fecha_ultimo_ascenso date,
-    profile_image text default null
+    p_email text,
+    p_password text,
+    p_nombre text,
+    p_apellido text,
+    p_no_placa text,
+    p_rango public.rango_enum,
+    p_rol public.rol_enum,
+    p_fecha_ingreso date,
+    p_fecha_ultimo_ascenso date,
+    p_profile_image text default null
 )
 returns uuid as $$
 declare
@@ -115,12 +119,12 @@ begin
 
   -- 1. Create auth user
   new_user_id := gen_random_uuid();
-  encrypted_pw := crypt(password, gen_salt('bf'));
+  encrypted_pw := crypt(p_password, gen_salt('bf'));
   
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
   values (
     new_user_id,
-    email,
+    p_email,
     encrypted_pw,
     now(), -- Auto confirm email
     '{"provider":"email","providers":["email"]}',
@@ -134,14 +138,14 @@ begin
   
   update public.users
   set 
-    nombre = create_new_personnel.nombre,
-    apellido = create_new_personnel.apellido,
-    no_placa = create_new_personnel.no_placa,
-    rango = create_new_personnel.rango,
-    rol = create_new_personnel.rol,
-    fecha_ingreso = create_new_personnel.fecha_ingreso,
-    fecha_ultimo_ascenso = create_new_personnel.fecha_ultimo_ascenso,
-    profile_image = create_new_personnel.profile_image
+    nombre = p_nombre,
+    apellido = p_apellido,
+    no_placa = p_no_placa,
+    rango = p_rango,
+    rol = p_rol,
+    fecha_ingreso = p_fecha_ingreso,
+    fecha_ultimo_ascenso = p_fecha_ultimo_ascenso,
+    profile_image = p_profile_image
   where id = new_user_id;
   
   return new_user_id;
