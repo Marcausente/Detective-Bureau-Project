@@ -172,7 +172,7 @@ begin
     new_user_id,
     jsonb_build_object('sub', new_user_id::text, 'email', p_email), -- Ensure UUID is text in JSON
     'email',
-    new_user_id::text, -- provider_id is the user_id for email provider
+    p_email, -- provider_id for 'email' provider is the email address
     now(),
     now(),
     now()
@@ -408,17 +408,18 @@ returns table (
   identity_data jsonb
 ) as $$
 begin
+
   return query
   select 
+    i.provider::text,
+    i.provider_id::text,
+    i.identity_data,
     u.id,
     u.instance_id,
     u.aud::text,
-    u.role::text,
-    i.provider::text,
-    i.provider_id::text,
-    i.identity_data
+    u.role::text
   from auth.users u
   left join auth.identities i on i.user_id = u.id
-  where u.id = auth.uid();
+  limit 1;
 end;
 $$ language plpgsql security definer;
