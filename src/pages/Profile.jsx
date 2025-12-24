@@ -44,6 +44,8 @@ function Profile() {
                     nombre: data.nombre || '',
                     apellido: data.apellido || '',
                     no_placa: data.no_placa || '',
+                    rango: data.rango || '',
+                    rol: data.rol || 'Externo',
                     profile_image: data.profile_image || ''
                 });
             }
@@ -71,8 +73,8 @@ function Profile() {
         const file = event.target.files[0];
         if (file) {
             // Check file size (optional check before compression)
-            if (file.size > 5000000) { // 5MB limit check
-                alert("File is too large! compressing...");
+            if (file.size > 10000000) { // 10MB limit check
+                alert("File is very large, it will be compressed.");
             }
 
             const reader = new FileReader();
@@ -81,8 +83,9 @@ function Profile() {
                 img.src = e.target.result;
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 150;
-                    const MAX_HEIGHT = 150;
+                    // Increased limits for better quality while still saving space
+                    const MAX_WIDTH = 500;
+                    const MAX_HEIGHT = 500;
                     let width = img.width;
                     let height = img.height;
 
@@ -104,8 +107,8 @@ function Profile() {
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // Compress to JPEG with 0.6 quality
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                    // Compress to JPEG with 0.9 quality (High Quality)
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
                     setFormData({ ...formData, profile_image: dataUrl });
                 };
             };
@@ -129,6 +132,7 @@ function Profile() {
                     nombre: formData.nombre,
                     apellido: formData.apellido,
                     no_placa: formData.no_placa,
+                    rango: formData.rango,
                     profile_image: formData.profile_image,
                     updated_at: new Date()
                 })
@@ -159,6 +163,9 @@ function Profile() {
     };
 
     if (loading) return <div style={{ textAlign: 'center', marginTop: '50px' }}>Loading profile...</div>;
+
+    // Permissions
+    const canEditRank = ['Coordinador', 'Comisionado', 'Administrador'].includes(formData.rol);
 
     return (
         <div className="profile-container">
@@ -212,6 +219,34 @@ function Profile() {
                             value={formData.no_placa}
                             onChange={handleChange}
                         />
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">Rank {canEditRank ? '(Editable)' : '(Locked)'}</label>
+                        {canEditRank ? (
+                            <select
+                                className="form-input"
+                                name="rango"
+                                value={formData.rango}
+                                onChange={handleChange}
+                            >
+                                <option value="">Select Rank</option>
+                                <option value="Oficial II">Oficial II</option>
+                                <option value="Oficial III">Oficial III</option>
+                                <option value="Oficial III+">Oficial III+</option>
+                                <option value="Detective I">Detective I</option>
+                                <option value="Detective II">Detective II</option>
+                                <option value="Detective III">Detective III</option>
+                            </select>
+                        ) : (
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={formData.rango}
+                                disabled
+                                style={{ opacity: 0.7, cursor: 'not-allowed' }}
+                            />
+                        )}
                     </div>
 
                     <div className="section-divider"></div>
