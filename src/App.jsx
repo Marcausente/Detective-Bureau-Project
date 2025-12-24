@@ -37,24 +37,24 @@ function App() {
             <h2>Authorized Access</h2>
             <p>Please identify yourself, Detective.</p>
           </div>
-          
+
           <form onSubmit={handleLogin}>
             <div className="form-group">
-              <label className="form-label">Badge Number / Username</label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <label className="form-label">Email:</label>
+              <input
+                type="text"
+                className="form-input"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ex: 4284"
+                placeholder="Ex: mrosenberg@lspd.com"
               />
             </div>
-            
+
             <div className="form-group">
               <label className="form-label">Password</label>
-              <input 
-                type="password" 
-                className="form-input" 
+              <input
+                type="password"
+                className="form-input"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"

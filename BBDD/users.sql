@@ -1,26 +1,34 @@
 -- Create the custom users table
 -- Note: Supabase handles auth.users automatically. This table is for additional profile data.
--- You should set up a Trigger to automatically create a row here when a new user signs up via Auth.
 
-create type public.rango_enum as enum (
-  'Oficial II',
-  'Oficial III',
-  'Oficial III+',
-  'Detective I',
-  'Detective II',
-  'Detective III'
-);
+-- Safely create types (ignore if they already exist)
+do $$ begin
+    create type public.rango_enum as enum (
+      'Oficial II',
+      'Oficial III',
+      'Oficial III+',
+      'Detective I',
+      'Detective II',
+      'Detective III'
+    );
+exception
+    when duplicate_object then null;
+end $$;
 
-create type public.rol_enum as enum (
-  'Externo',
-  'Ayudante',
-  'Detective',
-  'Coordinador',
-  'Comisionado',
-  'Administrador'
-);
+do $$ begin
+    create type public.rol_enum as enum (
+      'Externo',
+      'Ayudante',
+      'Detective',
+      'Coordinador',
+      'Comisionado',
+      'Administrador'
+    );
+exception
+    when duplicate_object then null;
+end $$;
 
-create table public.users (
+create table if not exists public.users (
   id uuid primary key references auth.users(id) on delete cascade,
   email text unique not null,
   nombre text not null,
@@ -36,14 +44,28 @@ create table public.users (
 -- Enable Row Level Security (RLS)
 alter table public.users enable row level security;
 
--- Policies (Example: Users can read their own data)
+-- Policies
+drop policy if exists "Users can view their own profile" on public.users;
 create policy "Users can view their own profile" 
 on public.users for select 
 using (auth.uid() = id);
 
--- Policy for updating own profile
+drop policy if exists "Users can update their own profile" on public.users;
 create policy "Users can update their own profile" 
 on public.users for update 
 using (auth.uid() = id);
 
--- (Optional) If you want admins to see everything, add policies for 'Administrador' role.
+-- Function to handle new user creation
+create or replace function public.handle_new_user() 
+returns trigger as $$
+begin
+  insert into public.users (id, email, nombre, apellido)
+  values (new.id, new.email, '', ''); -- Start with empty name/surname or default
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Trigger to call the function on new auth user
+create or replace trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
