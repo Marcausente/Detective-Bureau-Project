@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
 import '../index.css';
 
@@ -12,6 +14,12 @@ function Personnel() {
     const [showModal, setShowModal] = useState(false);
     const [creating, setCreating] = useState(false);
     const [createMessage, setCreateMessage] = useState(null);
+
+    // Cropper State
+    const [editorOpen, setEditorOpen] = useState(false);
+    const [imageSrc, setImageSrc] = useState(null);
+    const [scale, setScale] = useState(1.2);
+    const editorRef = useRef(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -90,12 +98,28 @@ function Personnel() {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setFormData({ ...formData, profile_image: reader.result });
-            };
-            reader.readAsDataURL(file);
+            setImageSrc(file);
+            setEditorOpen(true);
+            // Clear input so same file can be chosen again
+            e.target.value = '';
         }
+    };
+
+    const handleSaveCroppedImage = () => {
+        if (editorRef.current) {
+            const canvas = editorRef.current.getImageScaledToCanvas();
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            setFormData({ ...formData, profile_image: dataUrl });
+            setEditorOpen(false);
+            setImageSrc(null);
+            setScale(1.2);
+        }
+    };
+
+    const handleCancelCrop = () => {
+        setEditorOpen(false);
+        setImageSrc(null);
+        setScale(1.2);
     };
 
     const handleCreateUser = async (e) => {
@@ -114,7 +138,7 @@ function Personnel() {
                 rango: formData.rango,
                 rol: formData.rol,
                 fecha_ingreso: formData.fecha_ingreso || null,
-                fecha_ultimo_ascenso: null, // Explicitly null as requested to remove input
+                fecha_ultimo_ascenso: null,
                 profile_image: formData.profile_image || null
             });
 
@@ -250,7 +274,7 @@ function Personnel() {
                                 <label className="form-label">Profile Image (Optional)</label>
                                 <label className="custom-file-upload">
                                     <input type="file" ref={fileInputRef} accept="image/*" onChange={handleFileChange} />
-                                    {formData.profile_image ? "Image Selected" : "Choose Image"}
+                                    {formData.profile_image ? "Image Selected (Click to change)" : "Choose Image"}
                                 </label>
                             </div>
 
@@ -292,6 +316,50 @@ function Personnel() {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* Image Cropper Modal (Portal) */}
+            {editorOpen && createPortal(
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content">
+                        <h3>Adjust Profile Picture</h3>
+                        <div style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0' }}>
+                            <AvatarEditor
+                                ref={editorRef}
+                                image={imageSrc}
+                                width={250}
+                                height={250}
+                                border={20}
+                                borderRadius={125} // Circular mask
+                                color={[0, 0, 0, 0.6]} // RGBA
+                                scale={scale}
+                                rotate={0}
+                            />
+                        </div>
+
+                        <div className="cropper-controls">
+                            <div className="zoom-slider-container">
+                                <span>-</span>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="3"
+                                    step="0.01"
+                                    value={scale}
+                                    className="zoom-slider"
+                                    onChange={(e) => setScale(parseFloat(e.target.value))}
+                                />
+                                <span>+</span>
+                            </div>
+
+                            <div className="cropper-actions">
+                                <button type="button" className="login-button btn-secondary" onClick={handleCancelCrop}>Cancel</button>
+                                <button type="button" className="login-button" onClick={handleSaveCroppedImage}>Save Image</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );
