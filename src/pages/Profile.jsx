@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
 import '../index.css';
@@ -313,7 +314,7 @@ function Profile() {
             </form>
 
             {/* Image Cropper Modal */}
-            {editorOpen && (
+            {editorOpen && createPortal(
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content">
                         <h3>Adjust Profile Picture</h3>
@@ -352,7 +353,8 @@ function Profile() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

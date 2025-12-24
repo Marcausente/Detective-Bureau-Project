@@ -199,7 +199,9 @@ body {
 /* --- Dashboard Layout --- */
 .layout-container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+  /* Prevent body scroll */
   background-color: var(--primary-bg);
 }
 
