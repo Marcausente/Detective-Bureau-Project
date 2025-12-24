@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import PlaceholderPage from './pages/PlaceholderPage';
 import Welcome from './pages/Welcome';
+import Personnel from './pages/Personnel';
 import MainLayout from './components/MainLayout';
 import './index.css';
 
@@ -24,7 +25,7 @@ function App() {
           <Route path="/cases" element={<PlaceholderPage title="Criminal Cases" />} />
           <Route path="/gangs" element={<PlaceholderPage title="Gang Intelligence" />} />
           <Route path="/interrogations" element={<PlaceholderPage title="Interrogations" />} />
-          <Route path="/personnel" element={<PlaceholderPage title="Bureau Personnel" />} />
+          <Route path="/personnel" element={<Personnel />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
 

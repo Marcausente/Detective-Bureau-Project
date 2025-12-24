@@ -9,7 +9,9 @@ do $$ begin
       'Oficial III+',
       'Detective I',
       'Detective II',
-      'Detective III'
+      'Detective III',
+      'Teniente',
+      'Capitan'
     );
 exception
     when duplicate_object then null;
