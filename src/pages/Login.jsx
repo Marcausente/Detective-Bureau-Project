@@ -25,7 +25,7 @@ function Login() {
             setLoading(false);
         } else {
             // Successful login
-            navigate('/dashboard');
+            navigate('/welcome');
         }
     };
 

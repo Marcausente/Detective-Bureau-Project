@@ -3,7 +3,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import PlaceholderPage from './pages/PlaceholderPage';
-
+import Welcome from './pages/Welcome';
 import MainLayout from './components/MainLayout';
 import './index.css';
 
@@ -13,6 +13,9 @@ function App() {
       <Routes>
         {/* Public Route */}
         <Route path="/" element={<Login />} />
+
+        {/* Interstitial Route (protected logically, but standalone visually) */}
+        <Route path="/welcome" element={<Welcome />} />
 
         {/* Protected Routes (wrapped in MainLayout) */}
         <Route element={<MainLayout />}>
