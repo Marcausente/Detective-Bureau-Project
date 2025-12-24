@@ -5,6 +5,7 @@ import Profile from './pages/Profile';
 import PlaceholderPage from './pages/PlaceholderPage';
 import Welcome from './pages/Welcome';
 import Personnel from './pages/Personnel';
+import PersonnelDetail from './pages/PersonnelDetail';
 import MainLayout from './components/MainLayout';
 import './index.css';
 
@@ -26,6 +27,7 @@ function App() {
           <Route path="/gangs" element={<PlaceholderPage title="Gang Intelligence" />} />
           <Route path="/interrogations" element={<PlaceholderPage title="Interrogations" />} />
           <Route path="/personnel" element={<Personnel />} />
+          <Route path="/personnel/:id" element={<PersonnelDetail />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
 

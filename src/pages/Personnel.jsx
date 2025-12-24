@@ -1,19 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
 import '../index.css';
 
 function Personnel() {
+    const navigate = useNavigate();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     // Auth State
     const [currentUserRole, setCurrentUserRole] = useState(null);
+
+    // Modal & Form State
     const [showModal, setShowModal] = useState(false);
-    const [creating, setCreating] = useState(false);
-    const [createMessage, setCreateMessage] = useState(null);
+    const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
+    const [editingUserId, setEditingUserId] = useState(null);
+
+    const [processing, setProcessing] = useState(false);
+    const [message, setMessage] = useState(null);
 
     // Cropper State
     const [editorOpen, setEditorOpen] = useState(false);
@@ -21,7 +28,6 @@ function Personnel() {
     const [scale, setScale] = useState(1.2);
     const editorRef = useRef(null);
 
-    // Form State
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -100,7 +106,6 @@ function Personnel() {
         if (file) {
             setImageSrc(file);
             setEditorOpen(true);
-            // Clear input so same file can be chosen again
             e.target.value = '';
         }
     };
@@ -122,53 +127,126 @@ function Personnel() {
         setScale(1.2);
     };
 
-    const handleCreateUser = async (e) => {
-        e.preventDefault();
-        setCreating(true);
-        setCreateMessage(null);
+    const openCreateModal = () => {
+        setModalMode('create');
+        setEditingUserId(null);
+        setFormData({
+            email: '', password: '', nombre: '', apellido: '', no_placa: '',
+            rango: 'Oficial II', rol: 'Ayudante', fecha_ingreso: '', profile_image: ''
+        });
+        setMessage(null);
+        setShowModal(true);
+    };
+
+    const openEditModal = (user) => {
+        setModalMode('edit');
+        setEditingUserId(user.id);
+        setFormData({
+            email: user.email,
+            password: '', // Don't prefill password
+            nombre: user.nombre,
+            apellido: user.apellido,
+            no_placa: user.no_placa || '',
+            rango: user.rango || 'Oficial II',
+            rol: user.rol || 'Ayudante',
+            fecha_ingreso: user.fecha_ingreso || '',
+            profile_image: user.profile_image || ''
+        });
+        setMessage(null);
+        setShowModal(true);
+    };
+
+    const handleDeleteUser = async (userId) => {
+        if (!window.confirm("Are you sure you want to delete this user? This cannot be undone.")) return;
 
         try {
-            // Call the RPC function
-            const { data, error } = await supabase.rpc('create_new_personnel', {
-                p_email: formData.email,
-                p_password: formData.password,
-                p_nombre: formData.nombre,
-                p_apellido: formData.apellido,
-                p_no_placa: formData.no_placa,
-                p_rango: formData.rango,
-                p_rol: formData.rol,
-                p_fecha_ingreso: formData.fecha_ingreso || null,
-                p_fecha_ultimo_ascenso: null,
-                p_profile_image: formData.profile_image || null
-            });
-
+            const { error } = await supabase.rpc('delete_personnel', { target_user_id: userId });
             if (error) throw error;
 
-            setCreateMessage({ type: 'success', text: 'Personnel added successfully!' });
-
-            // Refresh list and close modal after short delay
-            setTimeout(() => {
-                setShowModal(false);
-                setFormData({
-                    email: '', password: '', nombre: '', apellido: '', no_placa: '',
-                    rango: 'Oficial II', rol: 'Ayudante', fecha_ingreso: '', profile_image: ''
-                });
-                setCreateMessage(null);
-                fetchData();
-            }, 1500);
-
+            // Optimistic UI update or Refetch
+            setUsers(users.filter(u => u.id !== userId));
         } catch (err) {
-            console.error('Error creating user:', err);
-            setCreateMessage({ type: 'error', text: err.message });
-        } finally {
-            setCreating(false);
+            alert('Error deleting user: ' + err.message);
         }
     };
 
-    const canAddPersonnel = ['Comisionado', 'Coordinador', 'Administrador'].includes(currentUserRole);
+    const handleFormSubmit = async (e) => {
+        e.preventDefault();
+        setProcessing(true);
+        setMessage(null);
+
+        try {
+            if (modalMode === 'create') {
+                const { error } = await supabase.rpc('create_new_personnel', {
+                    p_email: formData.email,
+                    p_password: formData.password, // Required for create
+                    p_nombre: formData.nombre,
+                    p_apellido: formData.apellido,
+                    p_no_placa: formData.no_placa,
+                    p_rango: formData.rango,
+                    p_rol: formData.rol,
+                    p_fecha_ingreso: formData.fecha_ingreso || null,
+                    p_fecha_ultimo_ascenso: null,
+                    p_profile_image: formData.profile_image || null
+                });
+                if (error) throw error;
+                setMessage({ type: 'success', text: 'Personnel added successfully!' });
+            } else {
+                // Update
+                const { error } = await supabase.rpc('update_personnel_admin', {
+                    p_user_id: editingUserId,
+                    p_email: formData.email,
+                    p_password: formData.password || null, // Optional for update
+                    p_nombre: formData.nombre,
+                    p_apellido: formData.apellido,
+                    p_no_placa: formData.no_placa,
+                    p_rango: formData.rango,
+                    p_rol: formData.rol,
+                    p_fecha_ingreso: formData.fecha_ingreso || null,
+                    p_fecha_ultimo_ascenso: null,
+                    p_profile_image: formData.profile_image || null
+                });
+                if (error) throw error;
+                setMessage({ type: 'success', text: 'Personnel updated successfully!' });
+            }
+
+            setTimeout(() => {
+                setShowModal(false);
+                fetchData();
+            }, 1000);
+
+        } catch (err) {
+            console.error('Error saving user:', err);
+            setMessage({ type: 'error', text: err.message });
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const canManagePersonnel = ['Comisionado', 'Coordinador', 'Administrador'].includes(currentUserRole);
 
     const UserCard = ({ user }) => (
-        <div className="personnel-card">
+        <div className="personnel-card" onClick={() => navigate(`/personnel/${user.id}`)} style={{ cursor: 'pointer', position: 'relative' }}>
+            {/* Admin Controls */}
+            {canManagePersonnel && (
+                <div className="personnel-card-actions" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        className="card-action-btn edit-btn"
+                        title="Edit"
+                        onClick={() => openEditModal(user)}
+                    >
+                        ✏️
+                    </button>
+                    <button
+                        className="card-action-btn delete-btn"
+                        title="Delete"
+                        onClick={() => handleDeleteUser(user.id)}
+                    >
+                        🗑️
+                    </button>
+                </div>
+            )}
+
             <div className="personnel-image-container">
                 {user.profile_image ? (
                     <img src={user.profile_image} alt={`${user.nombre} ${user.apellido}`} className="personnel-image" />
@@ -190,11 +268,11 @@ function Personnel() {
         <div className="personnel-container">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h2 className="page-title" style={{ margin: 0 }}>Bureau Personnel</h2>
-                {canAddPersonnel && (
+                {canManagePersonnel && (
                     <button
                         className="login-button"
                         style={{ width: 'auto', padding: '0.5rem 1.5rem' }}
-                        onClick={() => setShowModal(true)}
+                        onClick={openCreateModal}
                     >
                         + Add Personnel
                     </button>
@@ -229,31 +307,41 @@ function Personnel() {
                 </div>
             </div>
 
-            {/* Add Personnel Modal */}
+            {/* Add/Edit Modal */}
             {showModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '600px', textAlign: 'left' }}>
-                        <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-primary)', textAlign: 'center' }}>Add New Personnel</h3>
+                        <h3 style={{ marginBottom: '1.5rem', color: 'var(--text-primary)', textAlign: 'center' }}>
+                            {modalMode === 'create' ? 'Add New Personnel' : 'Edit Personnel'}
+                        </h3>
 
-                        {createMessage && (
+                        {message && (
                             <div style={{
                                 padding: '1rem', marginBottom: '1rem', borderRadius: '8px',
-                                backgroundColor: createMessage.type === 'success' ? 'rgba(74, 222, 128, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                color: createMessage.type === 'success' ? '#4ade80' : '#ef4444',
-                                border: `1px solid ${createMessage.type === 'success' ? '#4ade80' : '#ef4444'}`
+                                backgroundColor: message.type === 'success' ? 'rgba(74, 222, 128, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                color: message.type === 'success' ? '#4ade80' : '#ef4444',
+                                border: `1px solid ${message.type === 'success' ? '#4ade80' : '#ef4444'}`
                             }}>
-                                {createMessage.text}
+                                {message.text}
                             </div>
                         )}
 
-                        <form onSubmit={handleCreateUser} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <form onSubmit={handleFormSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                             <div className="form-group">
                                 <label className="form-label">Email</label>
                                 <input required type="email" name="email" className="form-input" value={formData.email} onChange={handleInputChange} />
                             </div>
                             <div className="form-group">
-                                <label className="form-label">Password</label>
-                                <input required type="password" name="password" className="form-input" value={formData.password} onChange={handleInputChange} />
+                                <label className="form-label">Password {modalMode === 'edit' && '(Optional)'}</label>
+                                <input
+                                    type="password"
+                                    name="password"
+                                    className="form-input"
+                                    value={formData.password}
+                                    onChange={handleInputChange}
+                                    required={modalMode === 'create'}
+                                    placeholder={modalMode === 'edit' ? "Leave blank to keep current" : ""}
+                                />
                             </div>
 
                             <div className="form-group">
@@ -310,15 +398,17 @@ function Personnel() {
                             </div>
 
                             <div className="cropper-actions" style={{ gridColumn: '1 / -1', marginTop: '1rem' }}>
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)} disabled={creating}>Cancel</button>
-                                <button type="submit" className="login-button" disabled={creating}>{creating ? 'Creating...' : 'Create Personnel'}</button>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)} disabled={processing}>Cancel</button>
+                                <button type="submit" className="login-button" disabled={processing}>
+                                    {processing ? 'Saving...' : (modalMode === 'create' ? 'Create Personnel' : 'Update Personnel')}
+                                </button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
 
-            {/* Image Cropper Modal (Portal) */}
+            {/* Cropper Modal */}
             {editorOpen && createPortal(
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content">
@@ -330,28 +420,21 @@ function Personnel() {
                                 width={250}
                                 height={250}
                                 border={20}
-                                borderRadius={125} // Circular mask
-                                color={[0, 0, 0, 0.6]} // RGBA
+                                borderRadius={125}
+                                color={[0, 0, 0, 0.6]}
                                 scale={scale}
-                                rotate={0}
                             />
                         </div>
-
                         <div className="cropper-controls">
                             <div className="zoom-slider-container">
                                 <span>-</span>
                                 <input
-                                    type="range"
-                                    min="1"
-                                    max="3"
-                                    step="0.01"
-                                    value={scale}
+                                    type="range" min="1" max="3" step="0.01" value={scale}
                                     className="zoom-slider"
                                     onChange={(e) => setScale(parseFloat(e.target.value))}
                                 />
                                 <span>+</span>
                             </div>
-
                             <div className="cropper-actions">
                                 <button type="button" className="login-button btn-secondary" onClick={handleCancelCrop}>Cancel</button>
                                 <button type="button" className="login-button" onClick={handleSaveCroppedImage}>Save Image</button>
