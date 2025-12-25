@@ -1046,6 +1046,7 @@ body {
     font-size: 0.85rem;
     border-bottom: 1px dashed var(--glass-border);
     padding-bottom: 0.5rem;
+    padding-right: 2.5rem; /* Space for delete button */
 }
 
 .eval-author {
