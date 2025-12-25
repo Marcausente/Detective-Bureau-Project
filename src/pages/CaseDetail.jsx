@@ -309,16 +309,19 @@ function CaseDetail() {
                                 <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Open')}>Re-Open Case</button>
                             )}
 
-                            <button
-                                className="login-button"
-                                style={{
-                                    width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem',
-                                    backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444'
-                                }}
-                                onClick={handleDeleteCase}
-                            >
-                                Delete
-                            </button>
+                            {/* DELETE BUTTON: Only for Coordinador, Administrador, Comisionado */}
+                            {currentUser && ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol) && (
+                                <button
+                                    className="login-button"
+                                    style={{
+                                        width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444'
+                                    }}
+                                    onClick={handleDeleteCase}
+                                >
+                                    Delete
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

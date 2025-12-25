@@ -121,7 +121,7 @@ function Cases() {
             ) : cases.length === 0 ? (
                 <div className="empty-list">No {filter.toLowerCase()} cases found in the database.</div>
             ) : (
-                <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '2rem' }}>
+                <div className="dashboard-grid" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     {cases.map(c => (
                         <div
                             key={c.id}
