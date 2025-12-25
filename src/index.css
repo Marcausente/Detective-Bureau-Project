@@ -1412,5 +1412,148 @@ body {
     color: var(--text-secondary);
     font-style: italic;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
-    padding-top: 0.5rem;
+}
+/* --- Dashboard Announcements --- */
+.section-title {
+    color: var(--accent-gold);
+    text-transform: uppercase;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+}
+
+.announcements-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.announcement-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.announcement-card.pinned {
+    border-color: var(--accent-gold);
+    background: rgba(207, 181, 59, 0.05);
+}
+
+.pin-icon {
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    background: var(--accent-gold);
+    color: black;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.ann-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center; /* Changed from flex-start to center */
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ann-footer {
+    display: flex;
+    justify-content: flex-end; /* Align author info to the right */
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ann-author-info {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    text-align: right; /* Text aligns right */
+}
+
+/* Re-order flex for LTR text when aligned right if needed, but standard is fine. 
+   If we want the text to be to the left of the image when aligned right:
+   flex-direction: row-reverse?
+   Let's keep it standard for now: [Avatar] [Name/Date] aligned to the right. 
+*/
+
+.mini-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent-gold);
+}
+
+.mini-avatar-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--secondary-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--text-secondary);
+    color: var(--text-secondary);
+    font-weight: bold;
+}
+
+.ann-author-name {
+    display: block;
+    color: var(--accent-gold);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.ann-date {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.ann-title {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    margin-bottom: 0.8rem;
+}
+
+.ann-content {
+    color: #e2e8f0;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    font-size: 0.95rem;
+}
+
+.ann-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.icon-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.icon-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.1);
+}
+
+.icon-btn.delete:hover {
+    color: #ef4444;
 }
