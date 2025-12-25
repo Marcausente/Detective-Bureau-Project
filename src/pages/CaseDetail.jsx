@@ -15,6 +15,18 @@ function CaseDetail() {
     const [newUpdateImage, setNewUpdateImage] = useState(null); // Base64 string
     const [submittingUpdate, setSubmittingUpdate] = useState(false);
 
+    // Modals Data
+    const [users, setUsers] = useState([]);
+    const [availableInterrogations, setAvailableInterrogations] = useState([]);
+
+    // Modals Visibility
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [showLinkModal, setShowLinkModal] = useState(false);
+
+    // Temp Selection State
+    const [selectedAssignments, setSelectedAssignments] = useState([]);
+    const [selectedInterrogation, setSelectedInterrogation] = useState('');
+
     useEffect(() => {
         loadCaseDetails();
     }, [id]);
@@ -27,8 +39,76 @@ function CaseDetail() {
             alert('Failed to load case details.');
         } else {
             setCaseData(data);
+            // When loading, init selected assignments
+            const currentIds = data.assignments ? data.assignments.map(a => a.user_id) : [];
+            setSelectedAssignments(currentIds);
         }
         setLoading(false);
+    };
+
+    const openAssignModal = async () => {
+        // Fetch users if not loaded
+        if (users.length === 0) {
+            const { data } = await supabase.from('users').select('id, nombre, apellido, rango, profile_image').order('rango');
+            setUsers(data || []);
+        }
+        // Sync current selections
+        if (caseData?.assignments) {
+            setSelectedAssignments(caseData.assignments.map(a => a.user_id));
+        }
+        setShowAssignModal(true);
+    };
+
+    const openLinkModal = async () => {
+        // Fetch interrogations that have NO case_id
+        const { data, error } = await supabase
+            .from('interrogations')
+            .select('id, title, created_at, subjects')
+            .is('case_id', null)
+            .order('created_at', { ascending: false });
+
+        if (error) console.error(error);
+        else setAvailableInterrogations(data || []);
+
+        setSelectedInterrogation('');
+        setShowLinkModal(true);
+    };
+
+    const handleUpdateAssignments = async () => {
+        try {
+            const { error } = await supabase.rpc('update_case_assignments', {
+                p_case_id: id,
+                p_assigned_ids: selectedAssignments
+            });
+            if (error) throw error;
+            setShowAssignModal(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error updating assignments: ' + err.message);
+        }
+    };
+
+    const handleLinkInterrogation = async () => {
+        if (!selectedInterrogation) return;
+        try {
+            const { error } = await supabase.rpc('link_interrogation_to_case', {
+                p_interrogation_id: selectedInterrogation,
+                p_case_id: id
+            });
+            if (error) throw error;
+            setShowLinkModal(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error linking interrogation: ' + err.message);
+        }
+    };
+
+    const toggleAssignmentSelection = (status, userId) => {
+        if (status) {
+            setSelectedAssignments(prev => [...prev, userId]);
+        } else {
+            setSelectedAssignments(prev => prev.filter(uid => uid !== userId));
+        }
     };
 
     const handleStatusChange = async (newStatus) => {
@@ -217,7 +297,14 @@ function CaseDetail() {
                 <div className="case-sidebar">
                     {/* Assigned Detectives */}
                     <div className="sidebar-section" style={{ marginBottom: '2rem' }}>
-                        <h4 className="section-title" style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Assigned Detectives</h4>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>Assigned Detectives</h4>
+                            {info.status === 'Open' && (
+                                <button onClick={openAssignModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
+                                    Manage
+                                </button>
+                            )}
+                        </div>
                         <div className="assigned-list">
                             {assignments.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No detectives assigned.</div> : (
                                 assignments.map(user => (
@@ -235,7 +322,14 @@ function CaseDetail() {
 
                     {/* Linked Interrogations */}
                     <div className="sidebar-section">
-                        <h4 className="section-title" style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Linked Interrogations</h4>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>Linked Interrogations</h4>
+                            {info.status === 'Open' && (
+                                <button onClick={openLinkModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
+                                    + Link
+                                </button>
+                            )}
+                        </div>
                         <div className="linked-interrogations">
                             {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No interrogations linked.</div> : (
                                 interrogations.map(inv => (
@@ -252,10 +346,75 @@ function CaseDetail() {
                                 ))
                             )}
                         </div>
-                        {/* TODO: Add button to link existing interrogation (Later feature) */}
                     </div>
                 </div>
             </div>
+
+            {/* Assignments Modal */}
+            {showAssignModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content" style={{ maxWidth: '400px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Manage Assignments</h3>
+                        <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', border: '1px solid var(--glass-border)', borderRadius: '4px' }}>
+                            {users.map(u => (
+                                <div key={u.id}
+                                    onClick={() => toggleAssignmentSelection(!selectedAssignments.includes(u.id), u.id)}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', padding: '0.8rem',
+                                        cursor: 'pointer', background: selectedAssignments.includes(u.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent',
+                                        borderBottom: '1px solid rgba(255,255,255,0.05)'
+                                    }}>
+                                    <input type="checkbox" checked={selectedAssignments.includes(u.id)} readOnly style={{ marginRight: '10px' }} />
+                                    <img src={u.profile_image || '/anon.png'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '10px' }} />
+                                    <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                            <button className="login-button btn-secondary" onClick={() => setShowAssignModal(false)} style={{ width: 'auto' }}>Cancel</button>
+                            <button className="login-button" onClick={handleUpdateAssignments} style={{ width: 'auto' }}>Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Link Interrogation Modal */}
+            {showLinkModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content" style={{ maxWidth: '500px' }}>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Link Interrogation Log</h3>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                            Only unlinked interrogations are shown here.
+                        </p>
+
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <select
+                                className="form-input custom-select"
+                                value={selectedInterrogation}
+                                onChange={e => setSelectedInterrogation(e.target.value)}
+                                style={{ width: '100%' }}
+                            >
+                                <option value="">-- Select an Interrogation --</option>
+                                {availableInterrogations.map(inv => (
+                                    <option key={inv.id} value={inv.id}>
+                                        {inv.title} ({new Date(inv.created_at).toLocaleDateString()}) - {inv.subjects}
+                                    </option>
+                                ))}
+                            </select>
+                            {availableInterrogations.length === 0 && (
+                                <div style={{ marginTop: '0.5rem', color: '#f87171', fontSize: '0.9rem' }}>
+                                    No available interrogations found.
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                            <button className="login-button btn-secondary" onClick={() => setShowLinkModal(false)} style={{ width: 'auto' }}>Cancel</button>
+                            <button className="login-button" onClick={handleLinkInterrogation} disabled={!selectedInterrogation} style={{ width: 'auto' }}>Link Case</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
