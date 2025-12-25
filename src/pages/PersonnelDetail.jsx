@@ -184,6 +184,25 @@ function PersonnelDetail() {
         }
     };
 
+    const handleDeleteEvaluation = async (evalId) => {
+        if (!window.confirm("Are you sure you want to delete this evaluation?")) return;
+
+        try {
+            setEvalLoading(true);
+            const { error } = await supabase.rpc('delete_evaluation', { p_evaluation_id: evalId });
+
+            if (error) throw error;
+
+            // Refresh list
+            fetchEvaluations(id);
+        } catch (err) {
+            console.error("Error deleting evaluation:", err);
+            alert("Error deleting evaluation: " + err.message);
+        } finally {
+            setEvalLoading(false);
+        }
+    };
+
     if (loading) return <div className="loading-container">Loading Profile...</div>;
     if (error) return <div className="error-message">Error: {error}</div>;
     if (!user) return <div className="error-message">User not found.</div>;
@@ -261,7 +280,15 @@ function PersonnelDetail() {
                                     <div className="empty-evals">No evaluations recorded.</div>
                                 ) : (
                                     evaluations.map(ev => (
-                                        <div key={ev.id} className="evaluation-card">
+                                        <div key={ev.id} className="evaluation-card" style={{ position: 'relative' }}>
+                                            <button
+                                                className="card-action-btn delete-btn"
+                                                style={{ position: 'absolute', top: '10px', right: '10px' }}
+                                                onClick={() => handleDeleteEvaluation(ev.id)}
+                                                title="Delete Evaluation"
+                                            >
+                                                🗑️
+                                            </button>
                                             <div className="eval-header">
                                                 <span className="eval-author">{ev.author_rank} {ev.author_name}</span>
                                                 <span className="eval-date">{new Date(ev.created_at).toLocaleDateString()}</span>
