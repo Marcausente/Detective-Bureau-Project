@@ -1,6 +1,6 @@
 
--- Enable Linking for Visible Interrogations
--- Creates a secure RPC to fetch unlinked interrogations respecting the visibility rules.
+-- Enable Linking for Visible Interrogations (FIXED AMBIGUITY)
+-- Aliased table 'users' access to prevent 'id' ambiguity error.
 
 DROP FUNCTION IF EXISTS get_available_interrogations_to_link();
 
@@ -14,14 +14,24 @@ RETURNS TABLE (
 DECLARE
   v_uid UUID;
   v_user_fullname TEXT;
+  v_user_lastname TEXT;
   v_is_vip BOOLEAN;
 BEGIN
   v_uid := auth.uid();
   
-  -- Get user name safely
-  SELECT (nombre || ' ' || apellido) INTO v_user_fullname FROM public.users WHERE id = v_uid;
+  -- Get user name safely (Handle NULLs) - FIXED ALIAS u
+  SELECT 
+    TRIM(COALESCE(u.nombre, '') || ' ' || COALESCE(u.apellido, '')),
+    TRIM(COALESCE(u.apellido, ''))
+  INTO v_user_fullname, v_user_lastname
+  FROM public.users u 
+  WHERE u.id = v_uid;
   
-  -- Check VIP Status (Same logic as get_interrogations)
+  -- If name is empty, provide a dummy
+  IF v_user_fullname = '' THEN v_user_fullname := '___NOMATCH___'; END IF;
+  IF v_user_lastname = '' THEN v_user_lastname := '___NOMATCH___'; END IF;
+
+  -- Check VIP Status - FIXED ALIAS u
   SELECT EXISTS (
     SELECT 1 FROM public.users u 
     WHERE u.id = v_uid 
@@ -33,14 +43,14 @@ BEGIN
   ) INTO v_is_vip;
 
   IF v_is_vip THEN
-      -- VIP: See ALL unlinked interrogations
+      -- VIP
       RETURN QUERY
       SELECT i.id, i.title, i.created_at, i.subjects
       FROM public.interrogations i
       WHERE i.case_id IS NULL
       ORDER BY i.created_at DESC;
   ELSE
-      -- REGULAR: See Own + Tagged (if unlinked)
+      -- REGULAR
       RETURN QUERY
       SELECT i.id, i.title, i.created_at, i.subjects
       FROM public.interrogations i
@@ -48,7 +58,9 @@ BEGIN
       AND (
           (i.author_id = v_uid)
           OR
-          (i.agents_present ILIKE '%' || COALESCE(v_user_fullname, '___NOMATCH___') || '%')
+          (i.agents_present ILIKE '%' || v_user_fullname || '%')
+          OR
+          (LENGTH(v_user_lastname) > 2 AND i.agents_present ILIKE '%' || v_user_lastname || '%')
       )
       ORDER BY i.created_at DESC;
   END IF;
