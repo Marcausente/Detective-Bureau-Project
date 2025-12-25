@@ -3,10 +3,32 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import '../index.css';
 
+// Rank Hierarchy Helper
+const getRankLevel = (rank) => {
+    switch (rank) {
+        case 'Oficial II':
+        case 'Oficial III':
+        case 'Oficial III+':
+            return 1;
+        case 'Detective I':
+            return 2;
+        case 'Detective II':
+            return 3;
+        case 'Detective III':
+            return 4;
+        case 'Teniente':
+        case 'Capitan':
+            return 5;
+        default:
+            return 0;
+    }
+};
+
 function PersonnelDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState(null); // The Target User
+    const [viewer, setViewer] = useState(null); // The Current Logged-in User
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -18,54 +40,82 @@ function PersonnelDetail() {
     const [canViewEvaluations, setCanViewEvaluations] = useState(false);
 
     useEffect(() => {
-        fetchUserDetail();
+        loadData();
     }, [id]);
 
-    const fetchUserDetail = async () => {
+    const loadData = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
+
+            // 1. Get Current User (Viewer) Auth & Profile
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            if (!authUser) {
+                navigate('/');
+                return;
+            }
+
+            const { data: viewerData, error: viewerError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', authUser.id)
+                .single();
+
+            if (viewerError) throw viewerError;
+            setViewer(viewerData);
+
+            // 2. Get Target User Profile
+            const { data: targetData, error: targetError } = await supabase
                 .from('users')
                 .select('*')
                 .eq('id', id)
                 .single();
 
-            if (error) throw error;
-            setUser(data);
+            if (targetError) throw targetError;
+            setUser(targetData);
 
-            // Fetch evaluations after getting user
-            fetchEvaluations(data.id);
+            // 3. Check Permissions & Fetch Evaluations
+            checkAndFetchEvaluations(viewerData, targetData);
+
         } catch (err) {
-            console.error('Error fetching user:', err);
+            console.error('Error loading data:', err);
             setError(err.message);
         } finally {
             setLoading(false);
         }
     };
 
+    const checkAndFetchEvaluations = async (viewerProfile, targetProfile) => {
+        const viewerLevel = getRankLevel(viewerProfile.rango);
+        const targetLevel = getRankLevel(targetProfile.rango);
+
+        console.log(`Rank Check: Viewer (${viewerProfile.rango}, L${viewerLevel}) vs Target (${targetProfile.rango}, L${targetLevel})`);
+
+        // Rule: Viewer MUST be strictly higher than Target
+        if (viewerLevel > targetLevel) {
+            setCanViewEvaluations(true);
+            await fetchEvaluations(targetProfile.id);
+        } else {
+            setCanViewEvaluations(false);
+            setEvaluations([]);
+        }
+    };
+
     const fetchEvaluations = async (targetUserId) => {
         try {
             setEvalLoading(true);
-            console.log("Fetching evaluations for target:", targetUserId);
-
             const { data, error } = await supabase.rpc('get_evaluations', {
                 p_target_user_id: targetUserId
             });
 
-            console.log("RPC Response:", { data, error });
-
             if (error) {
-                console.warn("RPC Error (likely permission/RLS):", error.message);
-                setCanViewEvaluations(false);
-                setEvaluations([]);
+                console.warn("RPC Error:", error.message);
+                // If RPC fails (e.g. redundancy check), we just hide it
+                // setCanViewEvaluations(false); 
             } else {
-                console.log("Access Granted. Evaluations count:", data ? data.length : 0);
-                setCanViewEvaluations(true);
                 setEvaluations(data || []);
             }
         } catch (err) {
-            console.error("Fetch Exception:", err);
-            setCanViewEvaluations(false);
+            console.error("Fetch Eval Exception:", err);
         } finally {
             setEvalLoading(false);
         }
@@ -130,7 +180,7 @@ function PersonnelDetail() {
                         <div className="detail-grid">
                             <div className="detail-item">
                                 <label>Bureau Entry Date</label>
-                                <span>{user.fecha_ingreso || 'Unknown'}</span>
+                                <span>{user.fecha_ingreso ? new Date(user.fecha_ingreso).toLocaleDateString() : 'Unknown'}</span>
                             </div>
                             <div className="detail-item">
                                 <label>Email Contact</label>
@@ -140,7 +190,7 @@ function PersonnelDetail() {
                     </div>
 
                     {/* Evaluations Section */}
-                    {canViewEvaluations && (
+                    {canViewEvaluations ? (
                         <div className="detail-section" style={{ marginTop: '2rem' }}>
                             <h3>Officer Evaluations</h3>
 
@@ -181,6 +231,14 @@ function PersonnelDetail() {
                                 </button>
                             </form>
                         </div>
+                    ) : (
+                        /* Optional: Message explaining why they can't see it? Or just hidden.
+                           Given the rules, keeping it hidden is cleaner, but debug text helps. */
+                        user.rango !== 'Capitan' && user.rango !== 'Teniente' && (
+                            <div className="detail-section" style={{ marginTop: '2rem', opacity: 0.5 }}>
+                                <p style={{ fontStyle: 'italic', fontSize: '0.9rem' }}>Evaluations are restricted to superior ranks.</p>
+                            </div>
+                        )
                     )}
                 </div>
             </div>
@@ -189,3 +247,4 @@ function PersonnelDetail() {
 }
 
 export default PersonnelDetail;
+
