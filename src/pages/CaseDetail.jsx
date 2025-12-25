@@ -74,12 +74,8 @@ function CaseDetail() {
     };
 
     const openLinkModal = async () => {
-        // Fetch interrogations that have NO case_id
-        const { data, error } = await supabase
-            .from('interrogations')
-            .select('id, title, created_at, subjects')
-            .is('case_id', null)
-            .order('created_at', { ascending: false });
+        // Fetch interrogations that have NO case_id via RPC to respect visibility rules
+        const { data, error } = await supabase.rpc('get_available_interrogations_to_link');
 
         if (error) console.error(error);
         else setAvailableInterrogations(data || []);
