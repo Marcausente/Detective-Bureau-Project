@@ -33,6 +33,13 @@ function CaseDetail() {
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState("");
 
+    // Case Info Edit State
+    const [isEditingInfo, setIsEditingInfo] = useState(false);
+    const [editTitle, setEditTitle] = useState("");
+    const [editLocation, setEditLocation] = useState("");
+    const [editOccurredAt, setEditOccurredAt] = useState("");
+    const [editDescription, setEditDescription] = useState("");
+
     useEffect(() => {
         loadCaseDetails();
         loadCurrentUser();
@@ -256,78 +263,148 @@ function CaseDetail() {
         }
     };
 
-    if (loading) return <div className="loading-container">Loading Case File...</div>;
-    if (!caseData || !caseData.info) return <div className="loading-container">Case Not Found</div>;
+    const handleSaveInfo = async () => {
+        try {
+            const { error } = await supabase.rpc('update_case_details', {
+                p_case_id: id,
+                p_title: editTitle,
+                p_location: editLocation,
+                p_occurred_at: editOccurredAt,
+                p_description: editDescription
+            });
+            if (error) throw error;
+            setIsEditingInfo(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error updating case details: ' + err.message);
+        }
+    };
+
+    if (loading) return <div className="loading-screen">Loading Case File...</div>;
+    if (!caseData) return <div className="loading-screen" style={{ color: '#f87171' }}>Case File Not Found.</div>;
 
     const { info, assignments, updates, interrogations } = caseData;
+
+    // Permission Check using locally loaded User and Case Info
+    // Admins/High Command OR the Creator of the case
+    const isHighCommand = currentUser && ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol);
+    const isCreator = currentUser && info.created_by === currentUser.id;
+    const canEditCase = isHighCommand || isCreator;
+
+    // Initialize edit state when not editing
+    const startEditingInfo = () => {
+        setEditTitle(info.title);
+        setEditLocation(info.location || '');
+        // Format for datetime-local input: YYYY-MM-DDTHH:mm
+        const dt = new Date(info.occurred_at);
+        dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+        setEditOccurredAt(dt.toISOString().slice(0, 16));
+        setEditDescription(info.description || '');
+        setIsEditingInfo(true);
+    };
 
     return (
         <div className="documentation-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
             {/* Header */}
             <div className="case-detail-header" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem', marginBottom: '2rem' }}>
-                <button onClick={() => navigate('/cases')} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', marginBottom: '1rem' }}>
-                    ← Back to Cases
-                </button>
-
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                        <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>
-                            <span style={{ color: 'var(--text-secondary)', marginRight: '1rem' }}>#{String(info.case_number).padStart(3, '0')}</span>
-                            {info.title}
-                        </h1>
-                        <div style={{ color: 'var(--text-secondary)' }}>
-                            Located at <strong>{info.location}</strong> • Occurred on {new Date(info.occurred_at).toLocaleString()}
-                        </div>
-                    </div>
+                    <button onClick={() => navigate('/cases')} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', marginBottom: '1rem' }}>
+                        ← Back to Cases
+                    </button>
 
-                    <div style={{ textAlign: 'right' }}>
-                        <div className={`status-badge ${info.status.toLowerCase()}`}
-                            style={{
-                                display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase',
-                                backgroundColor: info.status === 'Open' ? 'rgba(74, 222, 128, 0.2)' : info.status === 'Closed' ? 'rgba(248, 113, 113, 0.2)' : 'rgba(148, 163, 184, 0.2)',
-                                color: info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#f87171' : '#94a3b8',
-                                border: `1px solid ${info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#f87171' : '#94a3b8'}`
-                            }}>
-                            {info.status}
-                        </div>
-
-
-
-
-
-                        <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                            {info.status === 'Open' && (
-                                <>
-                                    <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Closed')}>Close Case</button>
-                                    <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Archived')}>Archive</button>
-                                </>
-                            )}
-                            {info.status !== 'Open' && (
-                                <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Open')}>Re-Open Case</button>
-                            )}
-
-                            {/* DELETE BUTTON: Only for Coordinador, Administrador, Comisionado */}
-                            {currentUser && ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol) && (
-                                <button
-                                    className="login-button"
-                                    style={{
-                                        width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem',
-                                        backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444'
-                                    }}
-                                    onClick={handleDeleteCase}
-                                >
-                                    Delete
-                                </button>
-                            )}
-                        </div>
-                    </div>
+                    {!isEditingInfo && canEditCase && (
+                        <button onClick={startEditingInfo} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline' }}>
+                            Edit Details
+                        </button>
+                    )}
                 </div>
 
-                {/* Initial Description */}
-                <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', borderLeft: '4px solid var(--accent-gold)' }}>
-                    <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-gold)' }}>INITIAL REPORT</h4>
-                    <p style={{ margin: 0, whiteSpace: 'pre-line', color: 'var(--text-secondary)' }}>{info.description}</p>
-                </div>
+                {isEditingInfo ? (
+                    <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--accent-gold)' }}>
+                        <div style={{ display: 'grid', gap: '1rem', marginBottom: '1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Case Title</label>
+                                <input type="text" className="form-input" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Location</label>
+                                    <input type="text" className="form-input" value={editLocation} onChange={e => setEditLocation(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Date & Time</label>
+                                    <input type="datetime-local" className="form-input" value={editOccurredAt} onChange={e => setEditOccurredAt(e.target.value)} />
+                                </div>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Initial Report</label>
+                                <textarea className="eval-textarea" rows="5" value={editDescription} onChange={e => setEditDescription(e.target.value)} style={{ width: '100%' }} />
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                            <button className="login-button btn-secondary" onClick={() => setIsEditingInfo(false)} style={{ width: 'auto' }}>Cancel</button>
+                            <button className="login-button" onClick={handleSaveInfo} style={{ width: 'auto' }}>Save Changes</button>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                            <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>
+                                <span style={{ color: 'var(--text-secondary)', marginRight: '1rem' }}>#{String(info.case_number).padStart(3, '0')}</span>
+                                {info.title}
+                            </h1>
+                            <div style={{ color: 'var(--text-secondary)' }}>
+                                Located at <strong>{info.location}</strong> • Occurred on {new Date(info.occurred_at).toLocaleString()}
+                            </div>
+                        </div>
+
+                        <div style={{ textAlign: 'right' }}>
+                            <div className={`status-badge ${info.status.toLowerCase()}`}
+                                style={{
+                                    display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase',
+                                    backgroundColor: info.status === 'Open' ? 'rgba(74, 222, 128, 0.2)' : info.status === 'Closed' ? 'rgba(248, 113, 113, 0.2)' : 'rgba(148, 163, 184, 0.2)',
+                                    color: info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#f87171' : '#94a3b8',
+                                    border: `1px solid ${info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#f87171' : '#94a3b8'}`
+                                }}>
+                                {info.status}
+                            </div>
+
+                            <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                {info.status === 'Open' && (
+                                    <>
+                                        <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Closed')}>Close Case</button>
+                                        <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Archived')}>Archive</button>
+                                    </>
+                                )}
+                                {info.status !== 'Open' && (
+                                    <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Open')}>Re-Open Case</button>
+                                )}
+
+                                {/* DELETE BUTTON: Only for Coordinador, Administrador, Comisionado */}
+                                {currentUser && ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol) && (
+                                    <button
+                                        className="login-button"
+                                        style={{
+                                            width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem',
+                                            backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444'
+                                        }}
+                                        onClick={handleDeleteCase}
+                                    >
+                                        Delete
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Initial Description - Hide if editing because it's in the form */}
+                {!isEditingInfo && (
+                    <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', borderLeft: '4px solid var(--accent-gold)' }}>
+                        <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-gold)' }}>INITIAL REPORT</h4>
+                        <p style={{ margin: 0, whiteSpace: 'pre-line', color: 'var(--text-secondary)' }}>{info.description}</p>
+                    </div>
+                )}
             </div>
 
             <div className="case-layout" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
