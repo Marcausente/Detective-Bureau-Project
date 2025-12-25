@@ -30,6 +30,9 @@ function Profile() {
         confirmPassword: ''
     });
 
+    // DB Usage State
+    const [dbUsage, setDbUsage] = useState(null);
+
     useEffect(() => {
         fetchProfile();
     }, []);
@@ -58,11 +61,26 @@ function Profile() {
                     rol: data.rol || 'Externo',
                     profile_image: data.profile_image || ''
                 });
+
+                // Helper to check if admin
+                if (data.rol === 'Administrador') {
+                    fetchDbUsage();
+                }
             }
         } catch (error) {
             console.error('Error fetching profile:', error.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchDbUsage = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_db_usage');
+            if (error) throw error;
+            setDbUsage(data);
+        } catch (err) {
+            console.error("Failed to fetch DB usage:", err);
         }
     };
 
@@ -166,6 +184,22 @@ function Profile() {
 
     // Permissions
     const canEditRank = ['Coordinador', 'Comisionado', 'Administrador'].includes(formData.rol);
+    const isAdmin = formData.rol === 'Administrador';
+
+    // Storage formatting
+    const formatBytes = (bytes, decimals = 2) => {
+        if (!+bytes) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    };
+
+    // Calculate Storage % (Assuming 500MB Limit for free tier visualization interaction)
+    const MAX_STORAGE_BYTES = 500 * 1024 * 1024; // 500 MB
+    const usedBytes = dbUsage ? dbUsage.used_bytes : 0;
+    const usagePercent = Math.min(100, Math.max(0, (usedBytes / MAX_STORAGE_BYTES) * 100));
 
     return (
         <div className="profile-container">
@@ -283,6 +317,38 @@ function Profile() {
                     >
                         {updating ? 'Saving...' : 'Save Changes'}
                     </button>
+
+                    {/* Database Usage Statistic (Admin Only) */}
+                    {isAdmin && dbUsage && (
+                        <div style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+                            <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                                Database Storage (Admin View)
+                            </h4>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.3rem', color: 'var(--text-primary)' }}>
+                                <span>Used: {formatBytes(usedBytes)}</span>
+                                <span>Limit: 500 MB</span>
+                            </div>
+
+                            <div style={{
+                                width: '100%',
+                                height: '8px',
+                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                borderRadius: '4px',
+                                overflow: 'hidden'
+                            }}>
+                                <div style={{
+                                    width: `${usagePercent}%`,
+                                    height: '100%',
+                                    backgroundColor: usagePercent > 80 ? '#ef4444' : (usagePercent > 50 ? '#f59e0b' : '#3b82f6'),
+                                    transition: 'width 0.5s ease'
+                                }} />
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem', textAlign: 'right' }}>
+                                {usagePercent.toFixed(1)}% used
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Right Column: Image */}
