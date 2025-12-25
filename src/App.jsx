@@ -6,6 +6,7 @@ import PlaceholderPage from './pages/PlaceholderPage';
 import Welcome from './pages/Welcome';
 import Personnel from './pages/Personnel';
 import PersonnelDetail from './pages/PersonnelDetail';
+import Documentation from './pages/Documentation';
 import MainLayout from './components/MainLayout';
 import './index.css';
 
@@ -22,7 +23,7 @@ function App() {
         {/* Protected Routes (wrapped in MainLayout) */}
         <Route element={<MainLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/documentation" element={<PlaceholderPage title="Documentation" />} />
+          <Route path="/documentation" element={<Documentation />} />
           <Route path="/cases" element={<PlaceholderPage title="Criminal Cases" />} />
           <Route path="/gangs" element={<PlaceholderPage title="Gang Intelligence" />} />
           <Route path="/interrogations" element={<PlaceholderPage title="Interrogations" />} />
