@@ -9,28 +9,51 @@ function MainLayout() {
     const location = useLocation();
 
     useEffect(() => {
-        const fetchProfile = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                navigate('/');
-                return;
-            }
+        let mounted = true;
 
-            const { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', user.id)
-                .single();
+        const getProfile = async (session) => {
+            if (!session?.user) return;
 
-            if (error) {
-                console.error('Error fetching profile:', error);
-            } else {
-                setProfile(data);
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (error) {
+                    console.error('Error fetching profile:', error);
+                } else if (mounted) {
+                    setProfile(data);
+                }
+            } catch (err) {
+                console.error("Profile load error:", err);
             }
         };
 
-        fetchProfile();
-    }, [navigate]);
+        // Check initial session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (!session) {
+                navigate('/');
+            } else {
+                getProfile(session);
+            }
+        });
+
+        // Listen for changes
+        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_OUT' || !session) {
+                navigate('/');
+            } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                getProfile(session);
+            }
+        });
+
+        return () => {
+            mounted = false;
+            authListener.subscription.unsubscribe();
+        };
+    }, []); // Empty dependency to run once
 
     const handleLogout = async () => {
         await supabase.auth.signOut();

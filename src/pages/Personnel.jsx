@@ -241,7 +241,7 @@ function Personnel() {
         const isOnline = onlineUsers.has(user.id);
 
         return (
-            <div className="personnel-card" onClick={() => navigate(`/ personnel / ${user.id} `)} style={{ cursor: 'pointer', position: 'relative' }}>
+            <div className="personnel-card" onClick={() => navigate(`/personnel/${user.id}`)} style={{ cursor: 'pointer', position: 'relative' }}>
                 {/* Admin Controls */}
                 {canManagePersonnel && (
                     <div className="personnel-card-actions" onClick={(e) => e.stopPropagation()}>

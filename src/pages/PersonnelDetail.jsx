@@ -43,6 +43,9 @@ function PersonnelDetail() {
     const [evalError, setEvalError] = useState(null);
     const [canViewEvaluations, setCanViewEvaluations] = useState(false);
 
+    // Assigned Cases State
+    const [assignedCases, setAssignedCases] = useState([]);
+
     useEffect(() => {
         loadData();
     }, [id]);
@@ -53,9 +56,9 @@ function PersonnelDetail() {
 
             // 1. Get Current User (Viewer) Auth & Profile
             const { data: { user: authUser } } = await supabase.auth.getUser();
+
             if (!authUser) {
-                navigate('/');
-                return;
+                throw new Error("No authenticated session found.");
             }
 
             const { data: viewerData, error: viewerError } = await supabase
@@ -65,6 +68,7 @@ function PersonnelDetail() {
                 .single();
 
             if (viewerError) throw viewerError;
+            if (!viewerData) throw new Error("Viewer (Self) Profile not found");
             setViewer(viewerData);
 
             // 2. Get Target User Profile
@@ -75,13 +79,29 @@ function PersonnelDetail() {
                 .single();
 
             if (targetError) throw targetError;
+            if (!targetData) throw new Error("Target User Profile not found");
             setUser(targetData);
 
             // 3. Check Permissions & Fetch Evaluations
-            checkAndFetchEvaluations(viewerData, targetData);
+            if (viewerData && targetData) {
+                checkAndFetchEvaluations(viewerData, targetData);
+            }
 
             // 4. Fetch Interrogations where this agent was present
             fetchAgentInterrogations(targetData);
+
+            // 5. Fetch Assigned Cases
+            const { data: casesData, error: casesError } = await supabase
+                .from('cases')
+                .select('id, case_number, title, status, created_at, case_assignments!inner(user_id)')
+                .eq('case_assignments.user_id', id)
+                .order('created_at', { ascending: false });
+
+            if (casesError) {
+                console.error("Error fetching cases:", casesError);
+            } else if (casesData) {
+                setAssignedCases(casesData);
+            }
 
         } catch (err) {
             console.error('Error loading data:', err);
@@ -234,14 +254,45 @@ function PersonnelDetail() {
                         <h3>Official Information</h3>
                         <div className="detail-grid">
                             <div className="detail-item">
-                                <label>Bureau Entry Date</label>
+                                <span className="detail-label" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.2rem', color: 'var(--accent-gold)' }}>Bureau Entry Date</span>
                                 <span>{user.fecha_ingreso ? new Date(user.fecha_ingreso).toLocaleDateString() : 'Unknown'}</span>
                             </div>
                             <div className="detail-item">
-                                <label>Email Contact</label>
+                                <span className="detail-label" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.2rem', color: 'var(--accent-gold)' }}>Email Contact</span>
                                 <span>{user.email}</span>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="detail-section">
+                        <h3>Assigned Criminal Cases</h3>
+                        {assignedCases.length === 0 ? (
+                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No cases currently assigned.</div>
+                        ) : (
+                            <div style={{ display: 'grid', gap: '0.8rem' }}>
+                                {assignedCases.map(c => (
+                                    <div key={c.id}
+                                        onClick={() => navigate(`/cases/${c.id}`)}
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.05)', padding: '0.8rem', borderRadius: '6px',
+                                            display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer',
+                                            borderLeft: c.status === 'Open' ? '3px solid #4ade80' : '3px solid #f87171'
+                                        }}>
+                                        <div style={{
+                                            width: '12px', height: '12px', borderRadius: '50%',
+                                            backgroundColor: c.status === 'Open' ? '#4ade80' : '#f87171',
+                                            boxShadow: c.status === 'Open' ? '0 0 8px #4ade80' : 'none'
+                                        }} />
+                                        <div>
+                                            <div style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>#{c.case_number} - {c.title}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                                {new Date(c.created_at).toLocaleDateString()} • <span style={{ color: c.status === 'Open' ? '#4ade80' : '#f87171' }}>{c.status}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Interrogations History Section */}
@@ -304,6 +355,9 @@ function PersonnelDetail() {
                                 <h4 style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Add New Evaluation</h4>
                                 {evalError && <div className="error-text" style={{ color: '#ef4444', marginBottom: '0.5rem', fontSize: '0.9rem' }}>{evalError}</div>}
                                 <textarea
+                                    name="newEvaluation"
+                                    id="newEvaluation"
+                                    aria-label="New Evaluation Content"
                                     className="eval-textarea"
                                     value={newEvaluation}
                                     onChange={(e) => setNewEvaluation(e.target.value)}

@@ -364,7 +364,13 @@ function CaseDetail() {
                                         cursor: 'pointer', background: selectedAssignments.includes(u.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent',
                                         borderBottom: '1px solid rgba(255,255,255,0.05)'
                                     }}>
-                                    <input type="checkbox" checked={selectedAssignments.includes(u.id)} readOnly style={{ marginRight: '10px' }} />
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedAssignments.includes(u.id)}
+                                        readOnly
+                                        style={{ marginRight: '10px', pointerEvents: 'none' }}
+                                        aria-label={`Assign ${u.rango} ${u.nombre} ${u.apellido}`}
+                                    />
                                     <img src={u.profile_image || '/anon.png'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '10px' }} />
                                     <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
                                 </div>
@@ -393,6 +399,7 @@ function CaseDetail() {
                                 value={selectedInterrogation}
                                 onChange={e => setSelectedInterrogation(e.target.value)}
                                 style={{ width: '100%' }}
+                                aria-label="Select Interrogation to Link"
                             >
                                 <option value="">-- Select an Interrogation --</option>
                                 {availableInterrogations.map(inv => (
