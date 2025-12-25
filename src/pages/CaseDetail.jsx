@@ -173,6 +173,20 @@ function CaseDetail() {
         }
     };
 
+    const handleUnlink = async (e, intId) => {
+        e.stopPropagation();
+        if (!window.confirm("Are you sure you want to UNLINK this interrogation from the case?")) return;
+
+        try {
+            const { error } = await supabase.rpc('unlink_interrogation', { p_interrogation_id: intId });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            console.error("Error unlinking:", err);
+            alert("Error unlinking: " + err.message);
+        }
+    };
+
     const handleDeleteCase = async () => {
         if (!window.confirm("🛑 DANGER ZONE 🛑\n\nAre you sure you want to PERMANENTLY DELETE this case?\nThis includes all updates, evidence images, and assignments.\nLinked interrogations will be preserved but unlinked.\n\nThis action CANNOT be undone.")) return;
 
@@ -380,11 +394,27 @@ function CaseDetail() {
                                         onClick={() => navigate(`/interrogations?id=${inv.id}`)}
                                         style={{
                                             padding: '0.8rem', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', cursor: 'pointer',
-                                            borderLeft: '2px solid var(--accent-gold)'
+                                            borderLeft: '2px solid var(--accent-gold)',
+                                            position: 'relative'
                                         }}>
-                                        <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{inv.title}</div>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(inv.created_at).toLocaleDateString()}</div>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Subjects: {inv.subjects}</div>
+                                        <div style={{ paddingRight: '20px' }}>
+                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{inv.title}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(inv.created_at).toLocaleDateString()}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Subjects: {inv.subjects}</div>
+                                        </div>
+                                        {info.status === 'Open' && (
+                                            <button
+                                                onClick={(e) => handleUnlink(e, inv.id)}
+                                                style={{
+                                                    position: 'absolute', top: '2px', right: '5px',
+                                                    background: 'none', border: 'none', color: '#f87171',
+                                                    fontSize: '1.2rem', cursor: 'pointer', lineHeight: 1, padding: '0 5px'
+                                                }}
+                                                title="Unlink Interrogation"
+                                            >
+                                                &times;
+                                            </button>
+                                        )}
                                     </div>
                                 ))
                             )}
