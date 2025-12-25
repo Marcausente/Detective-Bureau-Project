@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import '../index.css';
 
 function Interrogations() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [interrogations, setInterrogations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -165,11 +167,23 @@ function Interrogations() {
         }
     };
 
-    const filteredItems = interrogations.filter(item =>
-        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.subjects?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.agents_present?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredItems = interrogations.filter(item => {
+        // 1. If ID param exists, show ONLY that item
+        const paramId = searchParams.get('id');
+        if (paramId) {
+            return item.id === paramId;
+        }
+        // 2. Otherwise apply search term
+        return (
+            item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.subjects?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.agents_present?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    });
+
+    const clearIdFilter = () => {
+        setSearchParams({});
+    };
 
     // Filter agents for selection (simple search inside modal could be added, but list is likely short enough)
 
@@ -177,7 +191,12 @@ function Interrogations() {
         <div className="documentation-container">
             <div className="doc-header">
                 <h2 className="page-title">Interrogations Log</h2>
-                <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    {searchParams.get('id') && (
+                        <button className="login-button btn-secondary" style={{ width: 'auto', padding: '0.5rem 1rem', marginRight: '0.5rem' }} onClick={clearIdFilter}>
+                            ← Show All
+                        </button>
+                    )}
                     <input
                         type="text"
                         placeholder="Search logs..."
@@ -185,6 +204,7 @@ function Interrogations() {
                         style={{ width: '250px' }}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        disabled={!!searchParams.get('id')}
                     />
                     <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={openCreate}>
                         + New Entry

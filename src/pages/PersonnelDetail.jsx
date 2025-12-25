@@ -32,6 +32,10 @@ function PersonnelDetail() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // Interrogations State
+    const [agentInterrogations, setAgentInterrogations] = useState([]);
+    const [intLoading, setIntLoading] = useState(false);
+
     // Evaluations State
     const [evaluations, setEvaluations] = useState([]);
     const [newEvaluation, setNewEvaluation] = useState('');
@@ -76,11 +80,43 @@ function PersonnelDetail() {
             // 3. Check Permissions & Fetch Evaluations
             checkAndFetchEvaluations(viewerData, targetData);
 
+            // 4. Fetch Interrogations where this agent was present
+            fetchAgentInterrogations(targetData);
+
         } catch (err) {
             console.error('Error loading data:', err);
             setError(err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchAgentInterrogations = async (targetUser) => {
+        try {
+            setIntLoading(true);
+            // Fetch ALL interrogations (simplest approach for now given text-based storage)
+            // In a larger app, we'd want a specific RPC with text search on the DB side.
+            const { data, error } = await supabase.rpc('get_interrogations', {});
+
+            if (error) throw error;
+
+            if (data) {
+                // Construct the search strings
+                // The format stored is typically: "Rank Name Surname"
+                // We should match loosely to be safe
+                const fullName = `${targetUser.nombre} ${targetUser.apellido}`;
+
+                const relevant = data.filter(item => {
+                    if (!item.agents_present) return false;
+                    // Check if the string contains the user's name (simplest reliable check)
+                    return item.agents_present.includes(fullName);
+                });
+                setAgentInterrogations(relevant);
+            }
+        } catch (err) {
+            console.error("Error loading agent interrogations:", err);
+        } finally {
+            setIntLoading(false);
         }
     };
 
@@ -187,6 +223,32 @@ function PersonnelDetail() {
                                 <span>{user.email}</span>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Interrogations History Section */}
+                    <div className="detail-section" style={{ marginTop: '2rem' }}>
+                        <h3>Interrogations Participation</h3>
+                        {intLoading ? (
+                            <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>Checking records...</div>
+                        ) : (
+                            <div className="interrogations-list">
+                                {agentInterrogations.length === 0 ? (
+                                    <div className="empty-evals">No interrogation records found for this agent.</div>
+                                ) : (
+                                    agentInterrogations.map(int => (
+                                        <div key={int.id} className="evaluation-card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/interrogations?id=${int.id}`)}>
+                                            <div className="eval-header">
+                                                <span className="eval-author">{int.title}</span>
+                                                <span className="eval-date">{int.interrogation_date}</span>
+                                            </div>
+                                            <div className="eval-content" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                                                Subjects: {int.subjects}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Evaluations Section */}
