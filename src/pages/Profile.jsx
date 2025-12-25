@@ -365,7 +365,7 @@ function Profile() {
                         {formData.profile_image ? (
                             <img src={formData.profile_image} alt="Profile" />
                         ) : (
-                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', color: 'rgba(255,255,255,0.2)' }}>+</div>
+                            <img src="/anon.png" alt="Default Profile" />
                         )}
                         <div className="profile-image-overlay">
                             <span className="image-upload-text">Click to Change</span>

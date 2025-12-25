@@ -71,8 +71,11 @@ function MainLayout() {
                     {profile && (
                         <div className="user-profile-summary">
                             <div className="user-avatar-small">
-                                {/* Placeholder for now if no image */}
-                                {profile.profile_image ? <img src={profile.profile_image} alt="Profile" /> : profile.nombre[0]}
+                                {profile.profile_image ? (
+                                    <img src={profile.profile_image} alt="Profile" />
+                                ) : (
+                                    <img src="/anon.png" alt="Profile" />
+                                )}
                             </div>
                             <div className="user-info">
                                 <div className="user-name">{profile.rango} {profile.nombre} {profile.apellido}</div>

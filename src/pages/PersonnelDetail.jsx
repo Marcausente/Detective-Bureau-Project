@@ -164,7 +164,7 @@ function PersonnelDetail() {
                         {user.profile_image ? (
                             <img src={user.profile_image} alt={`${user.nombre} ${user.apellido}`} className="detail-image" />
                         ) : (
-                            <div className="detail-placeholder-image" />
+                            <img src="/anon.png" alt="Anon" className="detail-image" />
                         )}
                     </div>
                     <div className="detail-title">
