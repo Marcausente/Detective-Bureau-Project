@@ -27,9 +27,23 @@ function CaseDetail() {
     const [selectedAssignments, setSelectedAssignments] = useState([]);
     const [selectedInterrogation, setSelectedInterrogation] = useState('');
 
+    // Edit/Delete Permissions State
+    const [currentUser, setCurrentUser] = useState(null);
+    const [editingId, setEditingId] = useState(null);
+    const [editContent, setEditContent] = useState("");
+
     useEffect(() => {
         loadCaseDetails();
+        loadCurrentUser();
     }, [id]);
+
+    const loadCurrentUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single();
+            setCurrentUser(profile);
+        }
+    };
 
     const loadCaseDetails = async () => {
         setLoading(true);
@@ -187,6 +201,36 @@ function CaseDetail() {
         }
     };
 
+    const handleDeleteUpdate = async (updateId) => {
+        if (!window.confirm("Are you sure you want to delete this message?")) return;
+        try {
+            const { error } = await supabase.rpc('delete_case_update', { p_update_id: updateId });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            alert("Error deleting: " + err.message);
+        }
+    };
+
+    const handleStartEdit = (update) => {
+        setEditingId(update.id);
+        setEditContent(update.content);
+    };
+
+    const handleSaveEdit = async (updateId) => {
+        try {
+            const { error } = await supabase.rpc('update_case_update_content', {
+                p_update_id: updateId,
+                p_content: editContent
+            });
+            if (error) throw error;
+            setEditingId(null);
+            loadCaseDetails();
+        } catch (err) {
+            alert("Error updating: " + err.message);
+        }
+    };
+
     const handleDeleteCase = async () => {
         if (!window.confirm("🛑 DANGER ZONE 🛑\n\nAre you sure you want to PERMANENTLY DELETE this case?\nThis includes all updates, evidence images, and assignments.\nLinked interrogations will be preserved but unlinked.\n\nThis action CANNOT be undone.")) return;
 
@@ -324,28 +368,98 @@ function CaseDetail() {
                     {/* Updates Feed */}
                     <div className="updates-feed">
                         {updates.length === 0 ? <div className="empty-list">No updates or developments recorded yet.</div> : (
-                            updates.map(update => (
-                                <div key={update.id} className="case-update-card" style={{
-                                    background: 'rgba(30, 41, 59, 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
-                                    borderLeft: '2px solid rgba(255,255,255,0.1)'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-                                        <img src={update.author_avatar || '/anon.png'} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px' }} />
-                                        <div>
-                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{update.author_rank} {update.author_name}</div>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(update.created_at).toLocaleString()}</div>
+                            updates.map(update => {
+                                const isAuthor = currentUser && currentUser.id === update.user_id;
+
+                                // Check permissions based on ROLE and RANK
+                                // "rol" field usually holds: Administrador, Coordinador, Ayudante, etc.
+                                // "rango" field usually holds: Capitan, Teniente, Detective, etc.
+                                const isHighCommand = currentUser && (
+                                    ['Coordinador', 'Administrador', 'Comisionado', 'Director', 'Fundador'].includes(currentUser.rol) ||
+                                    ['Capitan', 'Teniente'].includes(currentUser.rango)
+                                );
+
+                                // Debug log ONCE (or rarely) to help diagnosis if it fails
+                                if (currentUser && update === updates[0]) {
+                                    console.log("Permissions Check:", {
+                                        myId: currentUser.id,
+                                        myRole: currentUser.rol,
+                                        myRank: currentUser.rango,
+                                        isHighCommand
+                                    });
+                                }
+
+                                const canEdit = isAuthor;
+                                const canDelete = isAuthor || isHighCommand;
+                                const isEditing = editingId === update.id;
+
+                                return (
+                                    <div key={update.id} className="case-update-card" style={{
+                                        background: 'rgba(30, 41, 59, 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
+                                        borderLeft: '2px solid rgba(255,255,255,0.1)'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                <img src={update.author_avatar || '/anon.png'} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px' }} />
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{update.author_rank} {update.author_name}</div>
+                                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(update.created_at).toLocaleString()}</div>
+                                                </div>
+                                            </div>
+
+                                            {/* Action Buttons */}
+                                            {(canEdit || canDelete) && !isEditing && (
+                                                <div style={{ display: 'flex', gap: '5px' }}>
+                                                    {canEdit && (
+                                                        <button
+                                                            onClick={() => handleStartEdit(update)}
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }}
+                                                            title="Edit Message"
+                                                        >
+                                                            ✏️
+                                                        </button>
+                                                    )}
+                                                    {canDelete && (
+                                                        <button
+                                                            onClick={() => handleDeleteUpdate(update.id)}
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }}
+                                                            title="Delete Message"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
+
+                                        {isEditing ? (
+                                            <div style={{ marginBottom: '1rem' }}>
+                                                <textarea
+                                                    className="eval-textarea"
+                                                    value={editContent}
+                                                    onChange={e => setEditContent(e.target.value)}
+                                                    rows="4"
+                                                    style={{ width: '100%', marginBottom: '0.5rem', background: 'rgba(0,0,0,0.3)' }}
+                                                />
+                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                    <button className="login-button btn-secondary" onClick={() => setEditingId(null)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Cancel</button>
+                                                    <button className="login-button" onClick={() => handleSaveEdit(update.id)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Save Changes</button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ whiteSpace: 'pre-line', marginBottom: '1rem', color: 'var(--text-primary)' }}>{update.content}</div>
+                                        )}
+
+                                        {update.image && (
+                                            <div style={{ marginTop: '1rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                <a href={update.image} target="_blank" rel="noreferrer">
+                                                    <img src={update.image} alt="Evidence" style={{ width: '100%', display: 'block' }} />
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
-                                    <div style={{ whiteSpace: 'pre-line', marginBottom: '1rem', color: 'var(--text-primary)' }}>{update.content}</div>
-                                    {update.image && (
-                                        <div style={{ marginTop: '1rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                            <a href={update.image} target="_blank" rel="noreferrer">
-                                                <img src={update.image} alt="Evidence" style={{ width: '100%', display: 'block' }} />
-                                            </a>
-                                        </div>
-                                    )}
-                                </div>
-                            ))
+                                );
+                            })
                         )}
                     </div>
                 </div>
