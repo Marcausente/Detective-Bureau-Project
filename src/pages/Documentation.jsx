@@ -96,15 +96,37 @@ function Documentation() {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            // Check size (e.g. limit to 5MB to avoid exploding the DB column too much, though TEXT can handle it)
-            if (file.size > 5 * 1024 * 1024) {
-                alert("File is too large. Please select an image under 5MB.");
+            // Check size (Initial check needed, but we will compress anyway)
+            if (file.size > 10 * 1024 * 1024) {
+                alert("File is too large (Max 10MB original).");
                 return;
             }
 
             const reader = new FileReader();
-            reader.onloadend = () => {
-                setFormData({ ...formData, url: reader.result });
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Resize logic: Max width 1200px (maintain aspect ratio)
+                    const MAX_WIDTH = 1200;
+                    if (width > MAX_WIDTH) {
+                        height = Math.round(height * (MAX_WIDTH / width));
+                        width = MAX_WIDTH;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Compress to JPEG with 0.7 quality
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    setFormData({ ...formData, url: dataUrl });
+                };
+                img.src = event.target.result;
             };
             reader.readAsDataURL(file);
         }
