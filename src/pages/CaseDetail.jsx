@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import '../index.css';
+import CaseTodoList from '../components/CaseTodoList';
 
 function CaseDetail() {
     const { id } = useParams();
@@ -333,134 +334,162 @@ function CaseDetail() {
 
                 {/* Left Column: Updates & Timeline */}
                 <div className="case-main-content">
-                    <h3 className="section-title">Case Updates & Evidence</h3>
-
-                    {/* New Update Box */}
-                    {info.status !== 'Archived' && (
-                        <div className="new-update-box" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
-                            <form onSubmit={handlePostUpdate}>
-                                <textarea
-                                    className="eval-textarea"
-                                    rows="3"
-                                    placeholder="Log a new development, update or evidence..."
-                                    value={newUpdateContent}
-                                    onChange={e => setNewUpdateContent(e.target.value)}
-                                    style={{ marginBottom: '1rem' }}
-                                />
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                        <label className="custom-file-upload" style={{ display: 'inline-block', width: 'auto', margin: 0, fontSize: '0.9rem', padding: '0.4rem 1rem' }}>
-                                            <input type="file" accept="image/*" onChange={handleImageUpload} />
-                                            📸 Add Image
-                                        </label>
-                                        {newUpdateImage && <span style={{ color: '#4ade80', fontSize: '0.9rem' }}>Image Attached ✓</span>}
-                                        {newUpdateImage && <button type="button" onClick={() => setNewUpdateImage(null)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer' }}>Remove</button>}
-                                    </div>
-                                    <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submittingUpdate}>
-                                        {submittingUpdate ? 'Posting...' : 'Post Update'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    )}
-
-                    {/* Updates Feed */}
-                    <div className="updates-feed">
-                        {updates.length === 0 ? <div className="empty-list">No updates or developments recorded yet.</div> : (
-                            updates.map(update => {
-                                const isAuthor = currentUser && currentUser.id === update.user_id;
-
-                                // Check permissions based on ROLE and RANK
-                                // "rol" field usually holds: Administrador, Coordinador, Ayudante, etc.
-                                // "rango" field usually holds: Capitan, Teniente, Detective, etc.
-                                const isHighCommand = currentUser && (
-                                    ['Coordinador', 'Administrador', 'Comisionado', 'Director', 'Fundador'].includes(currentUser.rol) ||
-                                    ['Capitan', 'Teniente'].includes(currentUser.rango)
-                                );
-
-                                // Debug log ONCE (or rarely) to help diagnosis if it fails
-                                if (currentUser && update === updates[0]) {
-                                    console.log("Permissions Check:", {
-                                        myId: currentUser.id,
-                                        myRole: currentUser.rol,
-                                        myRank: currentUser.rango,
-                                        isHighCommand
-                                    });
-                                }
-
-                                const canEdit = isAuthor;
-                                const canDelete = isAuthor || isHighCommand;
-                                const isEditing = editingId === update.id;
-
-                                return (
-                                    <div key={update.id} className="case-update-card" style={{
-                                        background: 'rgba(30, 41, 59, 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
-                                        borderLeft: '2px solid rgba(255,255,255,0.1)'
-                                    }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                <img src={update.author_avatar || '/anon.png'} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px' }} />
-                                                <div>
-                                                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{update.author_rank} {update.author_name}</div>
-                                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(update.created_at).toLocaleString()}</div>
-                                                </div>
-                                            </div>
-
-                                            {/* Action Buttons */}
-                                            {(canEdit || canDelete) && !isEditing && (
-                                                <div style={{ display: 'flex', gap: '5px' }}>
-                                                    {canEdit && (
-                                                        <button
-                                                            onClick={() => handleStartEdit(update)}
-                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }}
-                                                            title="Edit Message"
-                                                        >
-                                                            ✏️
-                                                        </button>
-                                                    )}
-                                                    {canDelete && (
-                                                        <button
-                                                            onClick={() => handleDeleteUpdate(update.id)}
-                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }}
-                                                            title="Delete Message"
-                                                        >
-                                                            🗑️
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {isEditing ? (
-                                            <div style={{ marginBottom: '1rem' }}>
-                                                <textarea
-                                                    className="eval-textarea"
-                                                    value={editContent}
-                                                    onChange={e => setEditContent(e.target.value)}
-                                                    rows="4"
-                                                    style={{ width: '100%', marginBottom: '0.5rem', background: 'rgba(0,0,0,0.3)' }}
-                                                />
-                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                    <button className="login-button btn-secondary" onClick={() => setEditingId(null)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Cancel</button>
-                                                    <button className="login-button" onClick={() => handleSaveEdit(update.id)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Save Changes</button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div style={{ whiteSpace: 'pre-line', marginBottom: '1rem', color: 'var(--text-primary)' }}>{update.content}</div>
-                                        )}
-
-                                        {update.image && (
-                                            <div style={{ marginTop: '1rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                                <a href={update.image} target="_blank" rel="noreferrer">
-                                                    <img src={update.image} alt="Evidence" style={{ width: '100%', display: 'block' }} />
-                                                </a>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })
-                        )}
+                    {/* Tab Navigation */}
+                    <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '1.5rem' }}>
+                        <button
+                            onClick={() => setActiveTab('updates')}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: activeTab === 'updates' ? '2px solid var(--accent-gold)' : '2px solid transparent',
+                                color: activeTab === 'updates' ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                                padding: '0.5rem 1rem',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Updates & Evidence
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('todo')}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: activeTab === 'todo' ? '2px solid var(--accent-gold)' : '2px solid transparent',
+                                color: activeTab === 'todo' ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                                padding: '0.5rem 1rem',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            To-Do List
+                        </button>
                     </div>
+
+                    {activeTab === 'updates' ? (
+                        <>
+                            {/* New Update Box */}
+                            {info.status !== 'Archived' && (
+                                <div className="new-update-box" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
+                                    <form onSubmit={handlePostUpdate}>
+                                        <textarea
+                                            className="eval-textarea"
+                                            rows="3"
+                                            placeholder="Log a new development, update or evidence..."
+                                            value={newUpdateContent}
+                                            onChange={e => setNewUpdateContent(e.target.value)}
+                                            style={{ marginBottom: '1rem' }}
+                                        />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                <label className="custom-file-upload" style={{ display: 'inline-block', width: 'auto', margin: 0, fontSize: '0.9rem', padding: '0.4rem 1rem' }}>
+                                                    <input type="file" accept="image/*" onChange={handleImageUpload} />
+                                                    📸 Add Image
+                                                </label>
+                                                {newUpdateImage && <span style={{ color: '#4ade80', fontSize: '0.9rem' }}>Image Attached ✓</span>}
+                                                {newUpdateImage && <button type="button" onClick={() => setNewUpdateImage(null)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer' }}>Remove</button>}
+                                            </div>
+                                            <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submittingUpdate}>
+                                                {submittingUpdate ? 'Posting...' : 'Post Update'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            )}
+
+                            {/* Updates Feed */}
+                            <div className="updates-feed">
+                                {updates.length === 0 ? <div className="empty-list">No updates or developments recorded yet.</div> : (
+                                    updates.map(update => {
+                                        const isAuthor = currentUser && currentUser.id === update.user_id;
+
+                                        // Check permissions based on ROLE and RANK
+                                        const isHighCommand = currentUser && (
+                                            ['Coordinador', 'Administrador', 'Comisionado', 'Director', 'Fundador'].includes(currentUser.rol) ||
+                                            ['Capitan', 'Teniente'].includes(currentUser.rango)
+                                        );
+
+                                        const canEdit = isAuthor;
+                                        const canDelete = isAuthor || isHighCommand;
+                                        const isEditing = editingId === update.id;
+
+                                        return (
+                                            <div key={update.id} className="case-update-card" style={{
+                                                background: 'rgba(30, 41, 59, 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
+                                                borderLeft: '2px solid rgba(255,255,255,0.1)'
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                        <img src={update.author_avatar || '/anon.png'} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px' }} />
+                                                        <div>
+                                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{update.author_rank} {update.author_name}</div>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(update.created_at).toLocaleString()}</div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Action Buttons */}
+                                                    {(canEdit || canDelete) && !isEditing && (
+                                                        <div style={{ display: 'flex', gap: '5px' }}>
+                                                            {canEdit && (
+                                                                <button
+                                                                    onClick={() => handleStartEdit(update)}
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }}
+                                                                    title="Edit Message"
+                                                                >
+                                                                    ✏️
+                                                                </button>
+                                                            )}
+                                                            {canDelete && (
+                                                                <button
+                                                                    onClick={() => handleDeleteUpdate(update.id)}
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }}
+                                                                    title="Delete Message"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {isEditing ? (
+                                                    <div style={{ marginBottom: '1rem' }}>
+                                                        <textarea
+                                                            className="eval-textarea"
+                                                            value={editContent}
+                                                            onChange={e => setEditContent(e.target.value)}
+                                                            rows="4"
+                                                            style={{ width: '100%', marginBottom: '0.5rem', background: 'rgba(0,0,0,0.3)' }}
+                                                        />
+                                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                            <button className="login-button btn-secondary" onClick={() => setEditingId(null)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Cancel</button>
+                                                            <button className="login-button" onClick={() => handleSaveEdit(update.id)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Save Changes</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ whiteSpace: 'pre-line', marginBottom: '1rem', color: 'var(--text-primary)' }}>{update.content}</div>
+                                                )}
+
+                                                {update.image && (
+                                                    <div style={{ marginTop: '1rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                        <a href={update.image} target="_blank" rel="noreferrer">
+                                                            <img src={update.image} alt="Evidence" style={{ width: '100%', display: 'block' }} />
+                                                        </a>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <CaseTodoList caseId={id} />
+                    )}
                 </div>
 
                 {/* Right Column: Key Info & Linked Data */}

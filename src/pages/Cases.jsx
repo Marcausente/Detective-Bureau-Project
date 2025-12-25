@@ -85,7 +85,7 @@ function Cases() {
     return (
         <div className="documentation-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
             <div className="doc-header" style={{ marginBottom: '2rem' }}>
-                <h2 className="page-title">CRIMINAL INVESTIGATION DIVISION</h2>
+                <h2 className="page-title">MAJOR CRIMES DIVISION</h2>
                 <button className="login-button" style={{ width: 'auto' }} onClick={() => setShowCreateModal(true)}>
                     + New Case File
                 </button>
