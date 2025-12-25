@@ -17,6 +17,9 @@ function CaseDetail() {
     const [newUpdateImages, setNewUpdateImages] = useState([]); // Array of Base64 strings
     const [submittingUpdate, setSubmittingUpdate] = useState(false);
 
+    // Image Viewer Modal State
+    const [expandedImage, setExpandedImage] = useState(null);
+
     // Modals Data
     const [users, setUsers] = useState([]);
     const [availableInterrogations, setAvailableInterrogations] = useState([]);
@@ -578,26 +581,22 @@ function CaseDetail() {
                                                 {(update.images && update.images.length > 0) ? (
                                                     <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                                                         {update.images.map((imgSrc, i) => (
-                                                            <div key={i} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', maxWidth: '100%' }}>
-                                                                <a href={imgSrc} target="_blank" rel="noreferrer">
-                                                                    <img
-                                                                        src={imgSrc}
-                                                                        alt="Evidence"
-                                                                        style={{ display: 'block', maxHeight: '400px', maxWidth: '100%', objectFit: 'contain' }}
-                                                                    />
-                                                                </a>
+                                                            <div key={i} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', maxWidth: '100%', cursor: 'pointer' }} onClick={() => setExpandedImage(imgSrc)}>
+                                                                <img
+                                                                    src={imgSrc}
+                                                                    alt="Evidence"
+                                                                    style={{ display: 'block', maxHeight: '400px', maxWidth: '100%', objectFit: 'contain' }}
+                                                                />
                                                             </div>
                                                         ))}
                                                     </div>
                                                 ) : update.image ? (
-                                                    <div style={{ marginTop: '1rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                                        <a href={update.image} target="_blank" rel="noreferrer">
-                                                            <img
-                                                                src={update.image}
-                                                                alt="Evidence"
-                                                                style={{ display: 'block', maxHeight: '400px', maxWidth: '100%', objectFit: 'contain' }}
-                                                            />
-                                                        </a>
+                                                    <div style={{ marginTop: '1rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }} onClick={() => setExpandedImage(update.image)}>
+                                                        <img
+                                                            src={update.image}
+                                                            alt="Evidence"
+                                                            style={{ display: 'block', maxHeight: '400px', maxWidth: '100%', objectFit: 'contain' }}
+                                                        />
                                                     </div>
                                                 ) : null}
                                             </div>
@@ -754,6 +753,35 @@ function CaseDetail() {
                             <button className="login-button" onClick={handleLinkInterrogation} disabled={!selectedInterrogation} style={{ width: 'auto' }}>Link Case</button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* FULL SCREEN IMAGE VIEWER */}
+            {expandedImage && (
+                <div
+                    style={{
+                        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                        backgroundColor: 'rgba(0, 0, 0, 0.95)', zIndex: 9999,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'zoom-out'
+                    }}
+                    onClick={() => setExpandedImage(null)}
+                >
+                    <img
+                        src={expandedImage}
+                        alt="Expanded Evidence"
+                        style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', borderRadius: '4px', boxShadow: '0 0 20px rgba(0,0,0,0.5)' }}
+                    />
+                    <button
+                        onClick={() => setExpandedImage(null)}
+                        style={{
+                            position: 'absolute', top: '20px', right: '30px',
+                            background: 'none', border: 'none', color: '#fff', fontSize: '2rem', cursor: 'pointer',
+                            textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+                        }}
+                    >
+                        &times;
+                    </button>
                 </div>
             )}
         </div>
