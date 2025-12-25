@@ -178,34 +178,20 @@ function CaseDetail() {
 
         try {
             setLoading(true);
+            console.log("Attempting to delete case:", id);
 
-            // 1. Unlink Interrogations
-            const { error: intError } = await supabase
-                .from('interrogations')
-                .update({ case_id: null })
-                .eq('case_id', id);
-            if (intError) throw intError;
+            // Use the RPC to ensuring rigorous deletion (bypass RLS if needed)
+            const { data: result, error } = await supabase.rpc('delete_case_fully', {
+                p_case_id: id
+            });
 
-            // 2. Delete Assignments
-            const { error: assignError } = await supabase
-                .from('case_assignments')
-                .delete()
-                .eq('case_id', id);
-            if (assignError) throw assignError;
+            console.log("Delete RPC Result:", result, error);
 
-            // 3. Delete Updates (and embedded images)
-            const { error: updatesError } = await supabase
-                .from('case_updates')
-                .delete()
-                .eq('case_id', id);
-            if (updatesError) throw updatesError;
+            if (error) throw error;
 
-            // 4. Delete Case
-            const { error: caseError } = await supabase
-                .from('cases')
-                .delete()
-                .eq('id', id);
-            if (caseError) throw caseError;
+            if (result === 'NOT_FOUND') {
+                alert("Server reported: Case ID not found during deletion. It might be already deleted.");
+            }
 
             navigate('/cases');
         } catch (err) {

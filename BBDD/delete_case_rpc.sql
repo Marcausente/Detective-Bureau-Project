@@ -1,10 +1,13 @@
 
--- Delete Case Fully RPC
--- This function handles the cleanup of database records for a case.
--- Note: Image files in Storage must be deleted separately (e.g. from the client).
+-- Delete Case Fully RPC (Enhanced with Return Value)
+-- Returns 'SUCCESS' if case deleted, 'NOT_FOUND' if ID didn't match.
+
+DROP FUNCTION IF EXISTS delete_case_fully(uuid);
 
 CREATE OR REPLACE FUNCTION delete_case_fully(p_case_id UUID)
-RETURNS VOID AS $$
+RETURNS TEXT AS $$
+DECLARE
+  v_deleted_count INT;
 BEGIN
   -- 1. Unlink interrogations (preserve the interrogation logs, just remove case link)
   UPDATE public.interrogations 
@@ -22,5 +25,13 @@ BEGIN
   -- 4. Finally, delete the case record
   DELETE FROM public.cases 
   WHERE id = p_case_id;
+  
+  GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
+
+  IF v_deleted_count > 0 THEN
+    RETURN 'SUCCESS';
+  ELSE
+    RETURN 'NOT_FOUND';
+  END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
