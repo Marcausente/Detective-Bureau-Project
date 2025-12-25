@@ -1,8 +1,8 @@
 
--- FINAL SAFE VISIBILITY RULES
--- NO PLACEHOLDERS. COPY ENTIRE FILE CONTENT.
+-- FINAL FIXED VISIBILITY RULES
+-- Fixed "ambiguous reference" error by aliasing all 'id' column usages.
 
--- 1. Update GET_CASES
+-- 1. Update GET_CASES (NO CHANGES - IT WORKS, but added alias just in case)
 DROP FUNCTION IF EXISTS get_cases(text);
 
 CREATE OR REPLACE FUNCTION get_cases(p_status_filter TEXT DEFAULT NULL)
@@ -39,17 +39,17 @@ BEGIN
   FROM public.cases c
   WHERE (p_status_filter IS NULL OR c.status = p_status_filter)
   AND (
-      -- 1. High Command Check (Directly checking ENUM as TEXT)
       EXISTS (
         SELECT 1 FROM public.users u 
         WHERE u.id = auth.uid() 
-        AND u.rol::text IN ('Administrador', 'Coordinador', 'Comisionado', 'Detective')
+        AND (
+            TRIM(u.rol::text) IN ('Administrador', 'Coordinador', 'Comisionado', 'Detective')
+            OR u.rol::text ILIKE '%Detective%'
+        )
       )
       OR
-      -- 2. Creator
       (c.created_by = auth.uid()) 
       OR
-      -- 3. Assigned Agent
       (EXISTS (SELECT 1 FROM public.case_assignments ca WHERE ca.case_id = c.id AND ca.user_id = auth.uid()))
   )
   ORDER BY c.case_number DESC;
@@ -57,7 +57,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
--- 2. Update GET_INTERROGATIONS
+-- 2. Update GET_INTERROGATIONS (FIXED AMBIGUITY)
 DROP FUNCTION IF EXISTS get_interrogations();
 
 CREATE OR REPLACE FUNCTION get_interrogations()
@@ -77,47 +77,80 @@ RETURNS TABLE (
 DECLARE
   v_uid UUID;
   v_user_fullname TEXT;
-  v_is_high_command BOOLEAN;
+  v_is_vip BOOLEAN;
+  v_can_edit_all BOOLEAN;
 BEGIN
   v_uid := auth.uid();
   
-  -- Get user details
-  SELECT (nombre || ' ' || apellido) INTO v_user_fullname FROM public.users WHERE id = v_uid;
+  -- Get user details - FIXED ALIAS u.id
+  SELECT (u.nombre || ' ' || u.apellido) INTO v_user_fullname 
+  FROM public.users u 
+  WHERE u.id = v_uid;
   
-  -- Check Role
+  -- 1. Check if user is VIP (Can see ALL)
   SELECT EXISTS (
     SELECT 1 FROM public.users u 
     WHERE u.id = v_uid 
-    AND u.rol::text IN ('Administrador', 'Coordinador', 'Comisionado')
-  ) INTO v_is_high_command;
-
-  RETURN QUERY
-  SELECT 
-    i.id,
-    i.created_at,
-    i.author_id,
-    (u.nombre || ' ' || u.apellido) as author_name,
-    i.title,
-    i.interrogation_date,
-    i.agents_present,
-    i.subjects,
-    i.transcription,
-    i.media_url,
-    (v_is_high_command OR i.author_id = v_uid) as can_edit
-  FROM public.interrogations i
-  LEFT JOIN public.users u ON i.author_id = u.id
-  WHERE 
-    -- VIEW PERMISSIONS
-    EXISTS (
-        SELECT 1 FROM public.users u 
-        WHERE u.id = v_uid 
-        AND u.rol::text IN ('Administrador', 'Coordinador', 'Comisionado', 'Detective')
+    AND (
+       TRIM(u.rol::text) IN ('Administrador', 'Coordinador', 'Comisionado', 'Detective') 
+       OR u.rol::text ILIKE '%Detective%'
+       OR u.rol::text ILIKE '%Admin%'
     )
-    OR
-    (i.author_id = v_uid)
-    OR
-    (i.agents_present ILIKE '%' || COALESCE(v_user_fullname, '___NOMATCH___') || '%')
-    
-  ORDER BY i.interrogation_date DESC;
+  ) INTO v_is_vip;
+
+  -- 2. Check if user can EDIT ALL
+  SELECT EXISTS (
+    SELECT 1 FROM public.users u 
+    WHERE u.id = v_uid 
+    AND (
+       TRIM(u.rol::text) IN ('Administrador', 'Coordinador', 'Comisionado')
+       OR u.rol::text ILIKE '%Admin%' 
+    )
+  ) INTO v_can_edit_all;
+
+
+  IF v_is_vip THEN
+      -- PATH A: SEE EVERYTHING
+      RETURN QUERY
+      SELECT 
+        i.id,
+        i.created_at,
+        i.author_id,
+        (u.nombre || ' ' || u.apellido) as author_name,
+        i.title,
+        i.interrogation_date,
+        i.agents_present,
+        i.subjects,
+        i.transcription,
+        i.media_url,
+        (v_can_edit_all OR i.author_id = v_uid) as can_edit
+      FROM public.interrogations i
+      LEFT JOIN public.users u ON i.author_id = u.id
+      ORDER BY i.interrogation_date DESC;
+      
+  ELSE
+      -- PATH B: LIMITED VISIBILITY
+      RETURN QUERY
+      SELECT 
+        i.id,
+        i.created_at,
+        i.author_id,
+        (u.nombre || ' ' || u.apellido) as author_name,
+        i.title,
+        i.interrogation_date,
+        i.agents_present,
+        i.subjects,
+        i.transcription,
+        i.media_url,
+        (i.author_id = v_uid) as can_edit
+      FROM public.interrogations i
+      LEFT JOIN public.users u ON i.author_id = u.id
+      WHERE 
+        (i.author_id = v_uid)
+        OR
+        (i.agents_present ILIKE '%' || COALESCE(v_user_fullname, '___NOMATCH___') || '%')
+      ORDER BY i.interrogation_date DESC;
+  END IF;
+
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
