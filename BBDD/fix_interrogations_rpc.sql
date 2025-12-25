@@ -6,7 +6,7 @@ DROP FUNCTION IF EXISTS public.get_interrogations();
 -- Drop with arguments if it was created that way by mistake previously
 DROP FUNCTION IF EXISTS public.manage_interrogation(text, uuid, text, date, text, text, text, text);
 
--- 2. Re-create get_interrogations
+-- 2. Re-create get_interrogations with AMBIGUITY FIX
 CREATE OR REPLACE FUNCTION get_interrogations()
 RETURNS TABLE (
   id UUID,
@@ -28,7 +28,8 @@ BEGIN
   v_user_id := auth.uid();
   
   -- Handle case where user is not logged in or user record missing
-  SELECT rol INTO v_user_role FROM public.users WHERE id = v_user_id;
+  -- FIX: qualified 'id' with table alias 'u' to avoid ambiguity with output column 'id'
+  SELECT rol INTO v_user_role FROM public.users u WHERE u.id = v_user_id;
 
   RETURN QUERY
   SELECT 
@@ -48,7 +49,6 @@ BEGIN
   LEFT JOIN public.users u ON i.author_id = u.id
   WHERE 
     -- Logic: If high rank, see all. If Ayudante/Detective, see only own? 
-    -- Actually, usually interrogations are visible to all detectives, but let's keep the logic broad or restricted as implemented
     CASE 
       WHEN v_user_role IN ('Detective', 'Coordinador', 'Comisionado', 'Administrador') THEN TRUE
       ELSE i.author_id = v_user_id OR v_user_role IS NULL -- Fallback
@@ -73,7 +73,7 @@ DECLARE
   v_user_role app_role;
   v_author_id UUID;
 BEGIN
-  SELECT rol INTO v_user_role FROM public.users WHERE id = auth.uid();
+  SELECT rol INTO v_user_role FROM public.users u WHERE u.id = auth.uid();
 
   -- Get author of the target post if updating/deleting
   IF p_id IS NOT NULL THEN
