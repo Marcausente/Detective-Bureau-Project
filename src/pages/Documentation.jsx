@@ -155,9 +155,21 @@ function Documentation() {
 
     const canManage = ['Coordinador', 'Comisionado', 'Administrador'].includes(userRole);
 
+    // Image Modal State
+    const [viewImage, setViewImage] = useState(null);
+
     // Filter Posts
     const docs = posts.filter(p => !p.category || p.category === 'documentation');
     const resources = posts.filter(p => p.category === 'resource');
+
+    const handleCardClick = (e, post) => {
+        const isImage = post.url && post.url.startsWith('data:image');
+        if (isImage) {
+            e.preventDefault();
+            setViewImage(post.url);
+        }
+        // If not image, let default anchor behavior happen (open in new tab)
+    };
 
     const renderGrid = (items, emptyMsg) => (
         <div className="doc-grid">
@@ -167,14 +179,20 @@ function Documentation() {
                 items.map(post => {
                     const isImage = post.url && post.url.startsWith('data:image');
                     return (
-                        <div key={post.id} className="doc-card">
+                        <div key={post.id} className="doc-card" onClick={(e) => handleCardClick(e, post)} style={{ cursor: 'pointer' }}>
                             {canManage && (
                                 <div className="doc-actions">
                                     <button onClick={(e) => { e.stopPropagation(); openEdit(post); }}>✏️</button>
                                     <button onClick={(e) => { e.stopPropagation(); handleDelete(post.id); }}>🗑️</button>
                                 </div>
                             )}
-                            <a href={post.url} target="_blank" rel="noopener noreferrer" className="doc-link-wrapper">
+                            <a
+                                href={post.url}
+                                target={isImage ? undefined : "_blank"}
+                                rel={isImage ? undefined : "noopener noreferrer"}
+                                className="doc-link-wrapper"
+                                onClick={(e) => isImage && e.preventDefault()} // Prevent default anchor if image
+                            >
                                 <div className="doc-icon" style={isImage ? { padding: 0, overflow: 'hidden', background: 'transparent', border: 'none' } : {}}>
                                     {isImage ? (
                                         <img src={post.url} alt="Resource" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '12px' }} />
@@ -225,6 +243,47 @@ function Documentation() {
                         {renderGrid(resources, "No resources found.")}
                     </div>
                 </>
+            )}
+
+            {/* Image Viewer Modal */}
+            {viewImage && (
+                <div
+                    className="cropper-modal-overlay"
+                    onClick={() => setViewImage(null)}
+                    style={{ zIndex: 3000, cursor: 'zoom-out' }}
+                >
+                    <div
+                        style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}
+                        onClick={(e) => e.stopPropagation()} // Allow clicking image without closing
+                    >
+                        <img
+                            src={viewImage}
+                            alt="Full View"
+                            style={{
+                                maxWidth: '100%',
+                                maxHeight: '90vh',
+                                objectFit: 'contain',
+                                borderRadius: '8px',
+                                boxShadow: '0 0 50px rgba(0,0,0,0.8)',
+                                cursor: 'default' // Indicate standard context menu works
+                            }}
+                        />
+                        <button
+                            className="login-button"
+                            style={{
+                                position: 'absolute',
+                                top: '-40px',
+                                right: '0',
+                                width: 'auto',
+                                padding: '0.5rem 1rem',
+                                background: 'rgba(0,0,0,0.7)'
+                            }}
+                            onClick={() => setViewImage(null)}
+                        >
+                            Close ✕
+                        </button>
+                    </div>
+                </div>
             )}
 
             {showModal && (
