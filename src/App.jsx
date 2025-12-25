@@ -4,6 +4,8 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import PlaceholderPage from './pages/PlaceholderPage';
 import Welcome from './pages/Welcome';
+import Cases from './pages/Cases';
+import CaseDetail from './pages/CaseDetail'; // Import
 import Personnel from './pages/Personnel';
 import PersonnelDetail from './pages/PersonnelDetail';
 import Documentation from './pages/Documentation';
@@ -27,7 +29,8 @@ function App() {
           <Route element={<MainLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/documentation" element={<Documentation />} />
-            <Route path="/cases" element={<PlaceholderPage title="Criminal Cases" />} />
+            <Route path="/cases" element={<Cases />} />
+            <Route path="/cases/:id" element={<CaseDetail />} /> {/* New Route */}
             <Route path="/gangs" element={<PlaceholderPage title="Gang Intelligence" />} />
             <Route path="/interrogations" element={<Interrogations />} />
             <Route path="/personnel" element={<Personnel />} />
