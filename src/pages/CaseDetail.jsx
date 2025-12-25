@@ -12,8 +12,9 @@ function CaseDetail() {
     const [activeTab, setActiveTab] = useState('updates'); // updates, evidence, interrogations
 
     // New Update State
+    // New Update State
     const [newUpdateContent, setNewUpdateContent] = useState('');
-    const [newUpdateImage, setNewUpdateImage] = useState(null); // Base64 string
+    const [newUpdateImages, setNewUpdateImages] = useState([]); // Array of Base64 strings
     const [submittingUpdate, setSubmittingUpdate] = useState(false);
 
     // Modals Data
@@ -141,48 +142,53 @@ function CaseDetail() {
     };
 
     const handleImageUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
 
-        // Compress Image Logic
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target.result;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800; // Resize for updates
-                const scaleSize = MAX_WIDTH / img.width;
-                canvas.width = MAX_WIDTH;
-                canvas.height = img.height * scaleSize;
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    // Only resize if wider than max
+                    const scaleSize = img.width > MAX_WIDTH ? (MAX_WIDTH / img.width) : 1;
+                    canvas.width = img.width * scaleSize;
+                    canvas.height = img.height * scaleSize;
 
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-                // Compress to JPEG 0.7 quality
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                setNewUpdateImage(dataUrl);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    setNewUpdateImages(prev => [...prev, dataUrl]);
+                };
             };
-        };
+        });
     };
 
     const handlePostUpdate = async (e) => {
         e.preventDefault();
-        if (!newUpdateContent.trim()) return;
+        // Allow if content OR images exist
+        if (!newUpdateContent.trim() && newUpdateImages.length === 0) {
+            alert("Please enter text or attach an image.");
+            return;
+        }
 
         setSubmittingUpdate(true);
         try {
             const { error } = await supabase.rpc('add_case_update', {
                 p_case_id: id,
                 p_content: newUpdateContent,
-                p_image: newUpdateImage
+                p_images: newUpdateImages // Send array
             });
 
             if (error) throw error;
 
             setNewUpdateContent('');
-            setNewUpdateImage(null);
+            setNewUpdateImages([]);
             loadCaseDetails();
         } catch (err) {
             alert('Error posting update: ' + err.message);
@@ -461,14 +467,31 @@ function CaseDetail() {
                                             onChange={e => setNewUpdateContent(e.target.value)}
                                             style={{ marginBottom: '1rem' }}
                                         />
+
+                                        {/* Image Previews */}
+                                        {newUpdateImages.length > 0 && (
+                                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                                {newUpdateImages.map((imgSrc, idx) => (
+                                                    <div key={idx} style={{ position: 'relative' }}>
+                                                        <img src={imgSrc} alt="" style={{ height: '80px', borderRadius: '4px', border: '1px solid var(--accent-gold)' }} />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setNewUpdateImages(prev => prev.filter((_, i) => i !== idx))}
+                                                            style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '20px', height: '20px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}
+                                                        >
+                                                            &times;
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                                 <label className="custom-file-upload" style={{ display: 'inline-block', width: 'auto', margin: 0, fontSize: '0.9rem', padding: '0.4rem 1rem' }}>
-                                                    <input type="file" accept="image/*" onChange={handleImageUpload} />
-                                                    📸 Add Image
+                                                    <input type="file" accept="image/*" multiple onChange={handleImageUpload} />
+                                                    📸 Add Images
                                                 </label>
-                                                {newUpdateImage && <span style={{ color: '#4ade80', fontSize: '0.9rem' }}>Image Attached ✓</span>}
-                                                {newUpdateImage && <button type="button" onClick={() => setNewUpdateImage(null)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer' }}>Remove</button>}
                                             </div>
                                             <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submittingUpdate}>
                                                 {submittingUpdate ? 'Posting...' : 'Post Update'}
@@ -551,13 +574,32 @@ function CaseDetail() {
                                                     <div style={{ whiteSpace: 'pre-line', marginBottom: '1rem', color: 'var(--text-primary)' }}>{update.content}</div>
                                                 )}
 
-                                                {update.image && (
+                                                {/* Render Images from Array (new) or Single (legacy) */}
+                                                {(update.images && update.images.length > 0) ? (
+                                                    <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                        {update.images.map((imgSrc, i) => (
+                                                            <div key={i} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', maxWidth: '100%' }}>
+                                                                <a href={imgSrc} target="_blank" rel="noreferrer">
+                                                                    <img
+                                                                        src={imgSrc}
+                                                                        alt="Evidence"
+                                                                        style={{ display: 'block', maxHeight: '400px', maxWidth: '100%', objectFit: 'contain' }}
+                                                                    />
+                                                                </a>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : update.image ? (
                                                     <div style={{ marginTop: '1rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
                                                         <a href={update.image} target="_blank" rel="noreferrer">
-                                                            <img src={update.image} alt="Evidence" style={{ width: '100%', display: 'block' }} />
+                                                            <img
+                                                                src={update.image}
+                                                                alt="Evidence"
+                                                                style={{ display: 'block', maxHeight: '400px', maxWidth: '100%', objectFit: 'contain' }}
+                                                            />
                                                         </a>
                                                     </div>
-                                                )}
+                                                ) : null}
                                             </div>
                                         );
                                     })
