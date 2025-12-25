@@ -101,8 +101,8 @@ function Profile() {
             // But usually getImageScaledToCanvas respects the width/height props.
             // We want high quality output.
 
-            // Convert to Base64 JPEG 0.9 quality
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            // Convert to Base64 JPEG 0.6 quality (Compressed for DB space)
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
             setFormData({ ...formData, profile_image: dataUrl });
             setEditorOpen(false);
             setImageSrc(null);

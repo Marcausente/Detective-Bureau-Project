@@ -113,7 +113,7 @@ function Personnel() {
     const handleSaveCroppedImage = () => {
         if (editorRef.current) {
             const canvas = editorRef.current.getImageScaledToCanvas();
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // Compressed to 0.6 for BBDD space
             setFormData({ ...formData, profile_image: dataUrl });
             setEditorOpen(false);
             setImageSrc(null);
