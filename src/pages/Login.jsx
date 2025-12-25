@@ -12,7 +12,7 @@ function Login() {
 
     const handleLogin = async (e) => {
         e.preventDefault();
-        setLoading(true);
+        setLoading(true); //test
         setError(null);
 
         const { data, error } = await supabase.auth.signInWithPassword({
