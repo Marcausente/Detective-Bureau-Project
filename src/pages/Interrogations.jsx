@@ -28,11 +28,11 @@ function Interrogations() {
     const loadData = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase.rpc('get_interrogations');
+            const { data, error } = await supabase.rpc('get_interrogations', {});
             if (error) throw error;
             setInterrogations(data || []);
         } catch (err) {
-            console.error('Error loading interrogations:', err);
+            console.error('Error loading interrogations:', err.message || err, err.details || '', err.hint || '');
         } finally {
             setLoading(false);
         }
