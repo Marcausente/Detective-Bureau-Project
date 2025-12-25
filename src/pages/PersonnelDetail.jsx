@@ -90,12 +90,10 @@ function PersonnelDetail() {
             // 4. Fetch Interrogations where this agent was present
             fetchAgentInterrogations(targetData);
 
-            // 5. Fetch Assigned Cases
-            const { data: casesData, error: casesError } = await supabase
-                .from('cases')
-                .select('id, case_number, title, status, created_at, case_assignments!inner(user_id)')
-                .eq('case_assignments.user_id', id)
-                .order('created_at', { ascending: false });
+            // 5. Fetch Assigned Cases (SECURE RPC, filters by viewer permissions)
+            const { data: casesData, error: casesError } = await supabase.rpc('get_personnel_visible_cases', {
+                p_target_user_id: id
+            });
 
             if (casesError) {
                 console.error("Error fetching cases:", casesError);
