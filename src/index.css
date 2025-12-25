@@ -838,7 +838,7 @@ body {
 /* --- Personnel Card Actions --- */
 .personnel-card-actions {
     position: absolute;
-    top: 10px;
+    top: 35px; /* Moved down to avoid overlapping with online status */
     right: 10px;
     display: flex;
     gap: 8px;

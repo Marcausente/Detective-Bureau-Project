@@ -9,9 +9,10 @@ function Dashboard() {
     const [announcements, setAnnouncements] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Create Modal State
+    // Create/Edit Modal State
     const [showModal, setShowModal] = useState(false);
     const [newPost, setNewPost] = useState({ title: '', content: '', pinned: false });
+    const [editingId, setEditingId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
@@ -58,29 +59,51 @@ function Dashboard() {
         }
     };
 
-    const handleCreateAnnouncement = async (e) => {
+    const handleSaveAnnouncement = async (e) => {
         e.preventDefault();
-        console.log("Creating announcement:", newPost);
         if (!newPost.title.trim() || !newPost.content.trim()) return;
 
         try {
             setSubmitting(true);
-            const { error } = await supabase.rpc('create_announcement', {
-                p_title: newPost.title,
-                p_content: newPost.content,
-                p_pinned: newPost.pinned
-            });
 
-            if (error) throw error;
+            if (editingId) {
+                // Update existing
+                const { error } = await supabase.rpc('update_announcement', {
+                    p_id: editingId,
+                    p_title: newPost.title,
+                    p_content: newPost.content,
+                    p_pinned: newPost.pinned
+                });
+                if (error) throw error;
+            } else {
+                // Create new
+                const { error } = await supabase.rpc('create_announcement', {
+                    p_title: newPost.title,
+                    p_content: newPost.content,
+                    p_pinned: newPost.pinned
+                });
+                if (error) throw error;
+            }
 
-            setShowModal(false);
-            setNewPost({ title: '', content: '', pinned: false });
+            closeModal();
             fetchAnnouncements();
         } catch (err) {
-            alert('Error creating post: ' + err.message);
+            alert('Error saving post: ' + err.message);
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleEdit = (ann) => {
+        setNewPost({ title: ann.title, content: ann.content, pinned: ann.pinned });
+        setEditingId(ann.id);
+        setShowModal(true);
+    };
+
+    const closeModal = () => {
+        setShowModal(false);
+        setNewPost({ title: '', content: '', pinned: false });
+        setEditingId(null);
     };
 
     const handleDelete = async (id) => {
@@ -128,7 +151,7 @@ function Dashboard() {
                         Log Out
                     </button>
                     {canPost && (
-                        <button className="login-button" style={{ width: 'auto' }} onClick={() => setShowModal(true)}>
+                        <button className="login-button" style={{ width: 'auto' }} onClick={() => { setEditingId(null); setNewPost({ title: '', content: '', pinned: false }); setShowModal(true); }}>
                             + New Announcement
                         </button>
                     )}
@@ -157,9 +180,14 @@ function Dashboard() {
                                                 </button>
                                             )}
                                             {ann.cur_user_can_delete && (
-                                                <button onClick={() => handleDelete(ann.id)} className="icon-btn delete" title="Delete">
-                                                    🗑️
-                                                </button>
+                                                <>
+                                                    <button onClick={() => handleEdit(ann)} className="icon-btn edit" title="Edit">
+                                                        ✏️
+                                                    </button>
+                                                    <button onClick={() => handleDelete(ann.id)} className="icon-btn delete" title="Delete">
+                                                        🗑️
+                                                    </button>
+                                                </>
                                             )}
                                         </div>
                                     </div>
@@ -186,12 +214,14 @@ function Dashboard() {
                 </section>
             </div>
 
-            {/* Create Modal */}
+            {/* Create/Edit Modal */}
             {showModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '600px', textAlign: 'left' }}>
-                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>New Announcement</h3>
-                        <form onSubmit={handleCreateAnnouncement}>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>
+                            {editingId ? 'Edit Announcement' : 'New Announcement'}
+                        </h3>
+                        <form onSubmit={handleSaveAnnouncement}>
                             <div className="form-group">
                                 <label className="form-label">Title</label>
                                 <input
@@ -224,11 +254,11 @@ function Dashboard() {
                                 </div>
                             )}
                             <div className="cropper-actions" style={{ justifyContent: 'flex-end' }}>
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)} style={{ width: 'auto' }}>
+                                <button type="button" className="login-button btn-secondary" onClick={closeModal} style={{ width: 'auto' }}>
                                     Cancel
                                 </button>
                                 <button type="submit" className="login-button" disabled={submitting} style={{ width: 'auto' }}>
-                                    {submitting ? 'Posting...' : 'Post Announcement'}
+                                    {submitting ? 'Saving...' : (editingId ? 'Update Post' : 'Post Announcement')}
                                 </button>
                             </div>
                         </form>

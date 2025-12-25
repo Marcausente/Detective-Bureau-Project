@@ -78,7 +78,44 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 5. RPC: delete_announcement
+-- 5. RPC: update_announcement (NEW)
+CREATE OR REPLACE FUNCTION update_announcement(
+  p_id UUID,
+  p_title TEXT,
+  p_content TEXT,
+  p_pinned BOOLEAN
+)
+RETURNS VOID AS $$
+DECLARE
+  v_author_id UUID;
+  v_user_role app_role;
+BEGIN
+  SELECT a.author_id INTO v_author_id FROM public.announcements a WHERE a.id = p_id;
+  SELECT u.rol INTO v_user_role FROM public.users u WHERE u.id = auth.uid();
+
+  -- Verify existence
+  IF v_author_id IS NULL THEN
+     RAISE EXCEPTION 'Announcement not found';
+  END IF;
+
+  -- Logic: Allow edit if Author OR High Command
+  IF auth.uid() = v_author_id OR v_user_role IN ('Administrador', 'Comisionado', 'Coordinador') THEN
+    UPDATE public.announcements
+    SET title = p_title,
+        content = p_content
+    WHERE id = p_id;
+
+    -- Only allow updating Pinned if High Command
+    IF v_user_role IN ('Administrador', 'Comisionado', 'Coordinador') THEN
+        UPDATE public.announcements SET pinned = p_pinned WHERE id = p_id;
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Access Denied: You cannot edit this announcement.';
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 6. RPC: delete_announcement
 CREATE OR REPLACE FUNCTION delete_announcement(p_id UUID)
 RETURNS VOID AS $$
 DECLARE
@@ -97,7 +134,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 6. RPC: toggle_pin_announcement (Optional but useful)
+-- 7. RPC: toggle_pin_announcement
 CREATE OR REPLACE FUNCTION toggle_pin_announcement(p_id UUID)
 RETURNS VOID AS $$
 DECLARE

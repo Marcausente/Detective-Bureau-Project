@@ -42,8 +42,41 @@ function Personnel() {
 
     const fileInputRef = useRef(null);
 
+    // Presence State
+    const [onlineUsers, setOnlineUsers] = useState(new Set());
+
     useEffect(() => {
         fetchData();
+
+        // Realtime Presence
+        const room = supabase.channel('online-users');
+
+        room
+            .on('presence', { event: 'sync' }, () => {
+                const newState = room.presenceState();
+                const ids = new Set();
+                for (const id in newState) {
+                    // Each user can have multiple presence entries (tabs), we just need to know if they are there.
+                    // We assume the presence key/user_id is passed or we track it.
+                    // Ideally we track by user ID.
+                    newState[id].forEach(p => {
+                        if (p.user_id) ids.add(p.user_id);
+                    });
+                }
+                setOnlineUsers(ids);
+            })
+            .subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        await room.track({ user_id: user.id, online_at: new Date().toISOString() });
+                    }
+                }
+            });
+
+        return () => {
+            supabase.removeChannel(room);
+        };
     }, []);
 
     const fetchData = async () => {
@@ -233,42 +266,61 @@ function Personnel() {
 
     const canManagePersonnel = ['Comisionado', 'Coordinador', 'Administrador'].includes(currentUserRole);
 
-    const UserCard = ({ user }) => (
-        <div className="personnel-card" onClick={() => navigate(`/personnel/${user.id}`)} style={{ cursor: 'pointer', position: 'relative' }}>
-            {/* Admin Controls */}
-            {canManagePersonnel && (
-                <div className="personnel-card-actions" onClick={(e) => e.stopPropagation()}>
-                    <button
-                        className="card-action-btn edit-btn"
-                        title="Edit"
-                        onClick={() => openEditModal(user)}
-                    >
-                        ✏️
-                    </button>
-                    <button
-                        className="card-action-btn delete-btn"
-                        title="Delete"
-                        onClick={() => handleDeleteUser(user.id)}
-                    >
-                        🗑️
-                    </button>
-                </div>
-            )}
+    const UserCard = ({ user }) => {
+        const isOnline = onlineUsers.has(user.id);
 
-            <div className="personnel-image-container">
-                {user.profile_image ? (
-                    <img src={user.profile_image} alt={`${user.nombre} ${user.apellido}`} className="personnel-image" />
-                ) : (
-                    <img src="/anon.png" alt="Anon" className="personnel-image" />
+        return (
+            <div className="personnel-card" onClick={() => navigate(`/personnel/${user.id}`)} style={{ cursor: 'pointer', position: 'relative' }}>
+                {/* Admin Controls */}
+                {canManagePersonnel && (
+                    <div className="personnel-card-actions" onClick={(e) => e.stopPropagation()}>
+                        <button
+                            className="card-action-btn edit-btn"
+                            title="Edit"
+                            onClick={() => openEditModal(user)}
+                        >
+                            ✏️
+                        </button>
+                        <button
+                            className="card-action-btn delete-btn"
+                            title="Delete"
+                            onClick={() => handleDeleteUser(user.id)}
+                        >
+                            🗑️
+                        </button>
+                    </div>
+                )}
+
+                <div className="personnel-image-container">
+                    {user.profile_image ? (
+                        <img src={user.profile_image} alt={`${user.nombre} ${user.apellido}`} className="personnel-image" />
+                    ) : (
+                        <img src="/anon.png" alt="Anon" className="personnel-image" />
+                    )}
+                </div>
+                <div className="personnel-info">
+                    <div className="personnel-rank">{user.rango}</div>
+                    <div className="personnel-name">{user.nombre} {user.apellido}</div>
+                    <div className="personnel-badge">#{user.no_placa || '---'}</div>
+                </div>
+
+                {isOnline && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '10px',
+                        right: '10px',
+                        width: '12px',
+                        height: '12px',
+                        backgroundColor: '#4ade80',
+                        borderRadius: '50%',
+                        border: '2px solid rgba(15, 23, 42, 1)',
+                        boxShadow: '0 0 8px #4ade80',
+                        zIndex: 5
+                    }} title="Online" />
                 )}
             </div>
-            <div className="personnel-info">
-                <div className="personnel-rank">{user.rango}</div>
-                <div className="personnel-name">{user.nombre} {user.apellido}</div>
-                <div className="personnel-badge">#{user.no_placa || '---'}</div>
-            </div>
-        </div>
-    );
+        );
+    };
 
     if (loading && users.length === 0) return <div className="loading-container">Loading Personnel...</div>;
 
