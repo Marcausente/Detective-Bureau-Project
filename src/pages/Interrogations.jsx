@@ -7,6 +7,9 @@ function Interrogations() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
+    // Personnel State (for Agent Selection)
+    const [personnel, setPersonnel] = useState([]);
+
     // Modal State
     const [showModal, setShowModal] = useState(false);
     const [modalMode, setModalMode] = useState('create');
@@ -14,15 +17,19 @@ function Interrogations() {
     const [formData, setFormData] = useState({
         title: '',
         date: new Date().toISOString().split('T')[0],
-        agents: '',
+        agents: '', // Stored as string to match BBDD
         subjects: '',
         transcription: '',
         url: ''
     });
+    // Temporary state to hold array of currently selected agent names in the modal
+    const [selectedAgents, setSelectedAgents] = useState([]);
+
     const [submitLoading, setSubmitLoading] = useState(false);
 
     useEffect(() => {
         loadData();
+        fetchPersonnel();
     }, []);
 
     const loadData = async () => {
@@ -38,9 +45,46 @@ function Interrogations() {
         }
     };
 
+    const fetchPersonnel = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('nombre, apellido, rango, no_placa')
+                .order('nombre'); // basic sort, we'll custom sort below
+
+            if (error) throw error;
+
+            if (data) {
+                // Rank Priorities (Same as Personnel.jsx)
+                const rankPriority = {
+                    'Capitan': 100,
+                    'Teniente': 90,
+                    'Detective III': 80,
+                    'Detective II': 70,
+                    'Detective I': 60,
+                    'Oficial III+': 50,
+                    'Oficial III': 40,
+                    'Oficial II': 30
+                };
+                const getRankPriority = (rank) => rankPriority[rank] || 0;
+
+                // Sort by Rank DESC, then Name ASC
+                const sorted = data.sort((a, b) => {
+                    const rankDiff = getRankPriority(b.rango) - getRankPriority(a.rango);
+                    if (rankDiff !== 0) return rankDiff;
+                    return a.nombre.localeCompare(b.nombre);
+                });
+
+                setPersonnel(sorted);
+            }
+        } catch (err) {
+            console.error('Error fetching personnel:', err);
+        }
+    };
+
     const openCreate = () => {
         setModalMode('create');
-        const today = new Date().toLocaleDateString('en-GB'); // DD/MM/YYYY format roughly
+        const today = new Date().toLocaleDateString('en-GB'); // DD/MM/YYYY
         setFormData({
             title: `${today} - [Subject Name]`,
             date: new Date().toISOString().split('T')[0],
@@ -49,12 +93,14 @@ function Interrogations() {
             transcription: '',
             url: ''
         });
+        setSelectedAgents([]);
         setShowModal(true);
     };
 
     const openEdit = (item) => {
         setModalMode('update');
         setEditingId(item.id);
+        const currentAgents = item.agents_present ? item.agents_present.split(',').map(s => s.trim()).filter(Boolean) : [];
         setFormData({
             title: item.title,
             date: item.interrogation_date,
@@ -63,19 +109,34 @@ function Interrogations() {
             transcription: item.transcription || '',
             url: item.media_url || ''
         });
+        setSelectedAgents(currentAgents);
         setShowModal(true);
+    };
+
+    const toggleAgent = (agentName) => {
+        let newSelection;
+        if (selectedAgents.includes(agentName)) {
+            newSelection = selectedAgents.filter(name => name !== agentName);
+        } else {
+            newSelection = [...selectedAgents, agentName];
+        }
+        setSelectedAgents(newSelection);
+        setFormData(prev => ({ ...prev, agents: newSelection.join(', ') }));
     };
 
     const handleAction = async (e) => {
         e.preventDefault();
         setSubmitLoading(true);
+        // Ensure formData.agents is synced with selectedAgents just in case
+        const finalAgents = selectedAgents.join(', ');
+
         try {
             const { error } = await supabase.rpc('manage_interrogation', {
                 p_action: modalMode,
                 p_id: editingId,
                 p_title: formData.title,
                 p_date: formData.date,
-                p_agents: formData.agents,
+                p_agents: finalAgents,
                 p_subjects: formData.subjects,
                 p_transcription: formData.transcription,
                 p_url: formData.url
@@ -109,6 +170,8 @@ function Interrogations() {
         item.subjects?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.agents_present?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Filter agents for selection (simple search inside modal could be added, but list is likely short enough)
 
     return (
         <div className="documentation-container">
@@ -177,24 +240,72 @@ function Interrogations() {
             {/* Modal */}
             {showModal && (
                 <div className="cropper-modal-overlay">
-                    <div className="cropper-modal-content" style={{ maxWidth: '700px', width: '90%' }}>
+                    <div className="cropper-modal-content" style={{ maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
                         <h3>{modalMode === 'create' ? 'New Interrogation Log' : 'Edit Log'}</h3>
                         <form onSubmit={handleAction} style={{ textAlign: 'left', marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <div className="form-group" style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                <div className="form-group" style={{ flex: '1 1 200px' }}>
                                     <label className="form-label">Date</label>
                                     <input type="date" className="form-input" required value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
                                 </div>
-                                <div className="form-group" style={{ flex: 2 }}>
+                                <div className="form-group" style={{ flex: '2 1 300px' }}>
                                     <label className="form-label">Title (Template: DD/MM/YYYY - Name)</label>
                                     <input className="form-input" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
                                 </div>
                             </div>
 
+                            {/* Custom Agent Selector */}
                             <div className="form-group">
-                                <label className="form-label">Agents Present</label>
-                                <input className="form-input" placeholder="e.g. Det. Vance, Of. Smith" value={formData.agents} onChange={e => setFormData({ ...formData, agents: e.target.value })} />
+                                <label className="form-label">Agents Present (Select multiple)</label>
+                                <div className="agent-selector-container" style={{
+                                    border: '1px solid var(--glass-border)',
+                                    borderRadius: '8px',
+                                    padding: '1rem',
+                                    background: 'rgba(0,0,0,0.2)',
+                                    maxHeight: '200px',
+                                    overflowY: 'auto',
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                                    gap: '0.5rem'
+                                }}>
+                                    {personnel.map(p => {
+                                        const fullName = `${p.rango} ${p.nombre} ${p.apellido}`;
+                                        const isSelected = selectedAgents.includes(fullName);
+                                        return (
+                                            <div
+                                                key={p.no_placa + p.nombre} // somewhat unique key
+                                                onClick={() => toggleAgent(fullName)}
+                                                style={{
+                                                    padding: '0.5rem',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.85rem',
+                                                    border: isSelected ? '1px solid var(--accent-gold)' : '1px solid transparent',
+                                                    background: isSelected ? 'rgba(207, 181, 59, 0.1)' : 'transparent',
+                                                    color: isSelected ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                                                    transition: 'all 0.2s',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.5rem'
+                                                }}
+                                            >
+                                                <div style={{
+                                                    width: '16px', height: '16px', borderRadius: '4px',
+                                                    border: '1px solid var(--text-secondary)',
+                                                    background: isSelected ? 'var(--accent-gold)' : 'transparent',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                }}>
+                                                    {isSelected && <span style={{ color: 'black', fontSize: '10px' }}>✓</span>}
+                                                </div>
+                                                {fullName}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                                    Selected: {selectedAgents.length > 0 ? selectedAgents.join(', ') : 'None'}
+                                </div>
                             </div>
 
                             <div className="form-group">
