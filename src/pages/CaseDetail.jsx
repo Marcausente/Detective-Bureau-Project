@@ -173,6 +173,48 @@ function CaseDetail() {
         }
     };
 
+    const handleDeleteCase = async () => {
+        if (!window.confirm("🛑 DANGER ZONE 🛑\n\nAre you sure you want to PERMANENTLY DELETE this case?\nThis includes all updates, evidence images, and assignments.\nLinked interrogations will be preserved but unlinked.\n\nThis action CANNOT be undone.")) return;
+
+        try {
+            setLoading(true);
+
+            // 1. Unlink Interrogations
+            const { error: intError } = await supabase
+                .from('interrogations')
+                .update({ case_id: null })
+                .eq('case_id', id);
+            if (intError) throw intError;
+
+            // 2. Delete Assignments
+            const { error: assignError } = await supabase
+                .from('case_assignments')
+                .delete()
+                .eq('case_id', id);
+            if (assignError) throw assignError;
+
+            // 3. Delete Updates (and embedded images)
+            const { error: updatesError } = await supabase
+                .from('case_updates')
+                .delete()
+                .eq('case_id', id);
+            if (updatesError) throw updatesError;
+
+            // 4. Delete Case
+            const { error: caseError } = await supabase
+                .from('cases')
+                .delete()
+                .eq('id', id);
+            if (caseError) throw caseError;
+
+            navigate('/cases');
+        } catch (err) {
+            console.error('Error deleting case:', err);
+            alert('Error deleting case: ' + err.message);
+            setLoading(false);
+        }
+    };
+
     if (loading) return <div className="loading-container">Loading Case File...</div>;
     if (!caseData || !caseData.info) return <div className="loading-container">Case Not Found</div>;
 
@@ -208,7 +250,11 @@ function CaseDetail() {
                             {info.status}
                         </div>
 
-                        <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+
+
+
+
+                        <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                             {info.status === 'Open' && (
                                 <>
                                     <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Closed')}>Close Case</button>
@@ -218,6 +264,17 @@ function CaseDetail() {
                             {info.status !== 'Open' && (
                                 <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Open')}>Re-Open Case</button>
                             )}
+
+                            <button
+                                className="login-button"
+                                style={{
+                                    width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444'
+                                }}
+                                onClick={handleDeleteCase}
+                            >
+                                Delete
+                            </button>
                         </div>
                     </div>
                 </div>
