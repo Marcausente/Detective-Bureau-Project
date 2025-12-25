@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
+import { usePresence } from '../contexts/PresenceContext';
 import '../index.css';
 
 function Personnel() {
@@ -13,6 +14,9 @@ function Personnel() {
 
     // Auth State
     const [currentUserRole, setCurrentUserRole] = useState(null);
+
+    // Global Presence
+    const { onlineUsers } = usePresence();
 
     // Modal & Form State
     const [showModal, setShowModal] = useState(false);
@@ -42,41 +46,8 @@ function Personnel() {
 
     const fileInputRef = useRef(null);
 
-    // Presence State
-    const [onlineUsers, setOnlineUsers] = useState(new Set());
-
     useEffect(() => {
         fetchData();
-
-        // Realtime Presence
-        const room = supabase.channel('online-users');
-
-        room
-            .on('presence', { event: 'sync' }, () => {
-                const newState = room.presenceState();
-                const ids = new Set();
-                for (const id in newState) {
-                    // Each user can have multiple presence entries (tabs), we just need to know if they are there.
-                    // We assume the presence key/user_id is passed or we track it.
-                    // Ideally we track by user ID.
-                    newState[id].forEach(p => {
-                        if (p.user_id) ids.add(p.user_id);
-                    });
-                }
-                setOnlineUsers(ids);
-            })
-            .subscribe(async (status) => {
-                if (status === 'SUBSCRIBED') {
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (user) {
-                        await room.track({ user_id: user.id, online_at: new Date().toISOString() });
-                    }
-                }
-            });
-
-        return () => {
-            supabase.removeChannel(room);
-        };
     }, []);
 
     const fetchData = async () => {
@@ -270,7 +241,7 @@ function Personnel() {
         const isOnline = onlineUsers.has(user.id);
 
         return (
-            <div className="personnel-card" onClick={() => navigate(`/personnel/${user.id}`)} style={{ cursor: 'pointer', position: 'relative' }}>
+            <div className="personnel-card" onClick={() => navigate(`/ personnel / ${user.id} `)} style={{ cursor: 'pointer', position: 'relative' }}>
                 {/* Admin Controls */}
                 {canManagePersonnel && (
                     <div className="personnel-card-actions" onClick={(e) => e.stopPropagation()}>
@@ -293,7 +264,7 @@ function Personnel() {
 
                 <div className="personnel-image-container">
                     {user.profile_image ? (
-                        <img src={user.profile_image} alt={`${user.nombre} ${user.apellido}`} className="personnel-image" />
+                        <img src={user.profile_image} alt={`${user.nombre} ${user.apellido} `} className="personnel-image" />
                     ) : (
                         <img src="/anon.png" alt="Anon" className="personnel-image" />
                     )}
@@ -380,7 +351,7 @@ function Personnel() {
                                 padding: '1rem', marginBottom: '1rem', borderRadius: '8px',
                                 backgroundColor: message.type === 'success' ? 'rgba(74, 222, 128, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                                 color: message.type === 'success' ? '#4ade80' : '#ef4444',
-                                border: `1px solid ${message.type === 'success' ? '#4ade80' : '#ef4444'}`
+                                border: `1px solid ${message.type === 'success' ? '#4ade80' : '#ef4444'} `
                             }}>
                                 {message.text}
                             </div>
