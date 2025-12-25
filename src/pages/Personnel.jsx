@@ -177,6 +177,14 @@ function Personnel() {
 
         try {
             if (modalMode === 'create') {
+                console.log("Creating User Payload:", {
+                    email: formData.email,
+                    password: formData.password,
+                    nombre: formData.nombre,
+                    apellido: formData.apellido,
+                    rango: formData.rango,
+                    rol: formData.rol
+                });
                 const { error } = await supabase.rpc('create_new_personnel', {
                     p_email: formData.email,
                     p_password: formData.password, // Required for create
