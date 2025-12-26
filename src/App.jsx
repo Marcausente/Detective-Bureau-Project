@@ -6,6 +6,7 @@ import PlaceholderPage from './pages/PlaceholderPage';
 import Welcome from './pages/Welcome';
 import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail'; // Import
+import Gangs from './pages/Gangs'; // Import
 import Incidents from './pages/Incidents'; // Import
 import Personnel from './pages/Personnel';
 import PersonnelDetail from './pages/PersonnelDetail';
@@ -33,7 +34,7 @@ function App() {
             <Route path="/documentation" element={<Documentation />} />
             <Route path="/cases" element={<Cases />} />
             <Route path="/cases/:id" element={<CaseDetail />} /> {/* New Route */}
-            <Route path="/gangs" element={<PlaceholderPage title="Gang Intelligence" />} />
+            <Route path="/gangs" element={<Gangs />} />
             <Route path="/incidents" element={<Incidents />} />
             <Route path="/interrogations" element={<Interrogations />} />
             <Route path="/personnel" element={<Personnel />} />

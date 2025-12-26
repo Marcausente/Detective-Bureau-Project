@@ -838,7 +838,8 @@ body {
 /* --- Personnel Card Actions --- */
 .personnel-card-actions {
     position: absolute;
-    top: 35px; /* Moved down to avoid overlapping with online status */
+    top: 35px;
+    /* Moved down to avoid overlapping with online status */
     right: 10px;
     display: flex;
     gap: 8px;
@@ -1046,7 +1047,8 @@ body {
     font-size: 0.85rem;
     border-bottom: 1px dashed var(--glass-border);
     padding-bottom: 0.5rem;
-    padding-right: 2.5rem; /* Space for delete button */
+    padding-right: 2.5rem;
+    /* Space for delete button */
 }
 
 .eval-author {
@@ -1413,6 +1415,7 @@ body {
     font-style: italic;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
+
 /* --- Dashboard Announcements --- */
 .section-title {
     color: var(--accent-gold);
@@ -1454,13 +1457,14 @@ body {
     font-weight: 800;
     padding: 2px 8px;
     border-radius: 4px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 .ann-header {
     display: flex;
     justify-content: space-between;
-    align-items: center; /* Changed from flex-start to center */
+    align-items: center;
+    /* Changed from flex-start to center */
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -1468,7 +1472,8 @@ body {
 
 .ann-footer {
     display: flex;
-    justify-content: flex-end; /* Align author info to the right */
+    justify-content: flex-end;
+    /* Align author info to the right */
     margin-top: 1rem;
     padding-top: 1rem;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -1478,7 +1483,8 @@ body {
     display: flex;
     align-items: center;
     gap: 0.8rem;
-    text-align: right; /* Text aligns right */
+    text-align: right;
+    /* Text aligns right */
 }
 
 /* Re-order flex for LTR text when aligned right if needed, but standard is fine. 
@@ -1551,9 +1557,302 @@ body {
 
 .icon-btn:hover {
     color: var(--text-primary);
-    background: rgba(255,255,255,0.1);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .icon-btn.delete:hover {
     color: #ef4444;
+}
+
+/* --- Gangs Intelligence UI --- */
+
+.gangs-tabs {
+    display: flex;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    border-radius: 9999px;
+    border: 1px solid var(--glass-border);
+}
+
+.gang-tab-btn {
+    padding: 0.5rem 1.5rem;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+}
+
+.gang-tab-btn.active {
+    background: var(--text-primary);
+    color: var(--primary-bg);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+}
+
+/* Main Container: Full viewport minus header */
+.gang-scroll-container {
+    flex: 1;
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* No vertical scroll for the wrapper */
+    padding: 1rem 2rem;
+    gap: 2.5rem;
+    height: 100%;
+    align-items: flex-start;
+    /* Align columns to top */
+    /* Scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: var(--glass-border) transparent;
+}
+
+/* Individual Column: Independent Vertical Scroll */
+.gang-column {
+    flex: 0 0 420px;
+    /* Rigid width */
+    width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    position: relative;
+    max-height: 100%;
+    /* Respect parent height */
+    overflow-y: auto;
+    /* Enable internal vertical scroll */
+    padding-right: 10px;
+    padding-bottom: 2rem;
+    /* Extra space at bottom */
+
+    /* Animation */
+    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* Scrollbar for Column */
+    scrollbar-width: thin;
+    scrollbar-color: var(--glass-border) transparent;
+}
+
+
+
+.gang-header-card {
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+    border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
+    /* Prevent compression */
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--glass-border);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.gang-header-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.6);
+}
+
+.gang-header-top {
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+}
+
+.gang-title {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-size: 1.4rem;
+    font-weight: 800;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.gang-actions {
+    display: flex;
+    gap: 0.8rem;
+}
+
+.gang-action-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    color: var(--text-secondary);
+}
+
+.gang-action-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+    transform: scale(1.1);
+}
+
+.gang-image-container {
+    height: 220px;
+    width: 100%;
+    background: #0f172a;
+    position: relative;
+    overflow: hidden;
+}
+
+.gang-image-empty {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+}
+
+.gang-stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.gang-stat-box {
+    background: rgba(30, 41, 59, 0.4);
+    border: 1px solid var(--glass-border);
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+    transition: background 0.2s;
+}
+
+.gang-stat-box:hover {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.gang-section-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 0;
+    /* Header internal padding */
+    /* overflow: hidden; REMOVED AS PER USER REQUEST */
+    flex-shrink: 0;
+    /* Prevent compression */
+    display: flex;
+    flex-direction: column;
+}
+
+.gang-section-header {
+    padding: 0.8rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.gang-section-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.gang-add-btn {
+    background: var(--accent-gold);
+    color: #000;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.gang-add-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 10px rgba(207, 181, 59, 0.5);
+}
+
+/* Consistent Scrolling for Content Lists (Intel, Vehicles, Homes) */
+/* --- FORCED SCOPED CSS FOR GANGS --- */
+#gangs-page .gang-scroll-container {
+    display: flex !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 1rem 2rem !important;
+    gap: 2.5rem !important;
+    height: 100% !important;
+    align-items: flex-start !important;
+}
+
+#gangs-page .gang-column {
+    flex: 0 0 400px !important;
+    /* Balanced Width */
+    width: 400px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1.5rem !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    padding-right: 15px !important;
+    padding-bottom: 2rem !important;
+}
+
+#gangs-page .gang-image-container {
+    width: 100% !important;
+    aspect-ratio: 1 / 1 !important;
+    /* Forces Square */
+    height: auto !important;
+}
+
+/* SECTION SCROLLING */
+#gangs-page .gang-list-content {
+    padding: 1rem !important;
+    min-height: 180px !important;
+    max-height: 500px !important;
+    overflow-y: auto !important;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    /* Subtle border */
+}
+
+#gangs-page .gang-member-grid {
+    display: grid !important;
+    padding: 1rem !important;
+    min-height: 180px !important;
+    max-height: 500px !important;
+    overflow-y: auto !important;
+}
+
+.gang-member-item {
+    text-align: center;
+    transition: transform 0.2s;
+}
+
+.gang-member-item:hover {
+    transform: translateY(-3px);
+}
+
+.gang-member-photo {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 0.4rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }

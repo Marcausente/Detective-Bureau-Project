@@ -15,6 +15,7 @@ function Incidents() {
 
     // Data for Selectors
     const [users, setUsers] = useState([]);
+    const [gangs, setGangs] = useState([]); // List of gangs for selection
 
     // --- FORM STATE: INCIDENT ---
     const [incTitle, setIncTitle] = useState('');
@@ -22,6 +23,7 @@ function Incidents() {
     const [incDate, setIncDate] = useState('');
     const [incTablet, setIncTablet] = useState('');
     const [incDesc, setIncDesc] = useState('');
+    const [incGangId, setIncGangId] = useState(''); // Selected Gang
     const [incImages, setIncImages] = useState([]);
 
     // --- FORM STATE: OUTING ---
@@ -30,12 +32,14 @@ function Incidents() {
     const [outDetectives, setOutDetectives] = useState([]); // Array of IDs
     const [outReason, setOutReason] = useState('');
     const [outInfo, setOutInfo] = useState('');
+    const [outGangId, setOutGangId] = useState(''); // Selected Gang
     const [outImages, setOutImages] = useState([]);
 
 
     useEffect(() => {
         loadData();
         fetchUsers();
+        fetchGangs();
     }, []);
 
     const loadData = async () => {
@@ -54,6 +58,12 @@ function Incidents() {
     const fetchUsers = async () => {
         const { data } = await supabase.from('users').select('id, nombre, apellido, rango, profile_image').order('rango');
         setUsers(data || []);
+    };
+
+    const fetchGangs = async () => {
+        // Simple fetch for dropdown
+        const { data } = await supabase.from('gangs').select('id, name').order('name');
+        setGangs(data || []);
     };
 
     // --- IMAGE HANDLING ---
@@ -87,7 +97,12 @@ function Incidents() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const { error } = await supabase.rpc('create_incident_v2', {
+            // Updated to use create_incident_v2 (note: SQL needs to support gang_id if not already added to RPC or via separate update)
+            // Correction: The v2 RPC in SQL doesn't have p_gang_id param yet. 
+            // Strategy: Create then Link, OR update RPC. Updating RPC is cleaner but requires user to run SQL again.
+            // I'll do Create then Link implicitly via direct UPDATE if RPC doesn't support it, but better to use the link_incident_gang RPC I made.
+
+            const { data: newId, error } = await supabase.rpc('create_incident_v2', {
                 p_title: incTitle,
                 p_location: incLocation,
                 p_occurred_at: new Date(incDate).toISOString(),
@@ -97,7 +112,10 @@ function Incidents() {
             });
             if (error) throw error;
 
-            // Allow RPC failure (e.g. tablet number optional but passed empty might be ok if refined later)
+            if (incGangId) {
+                await supabase.rpc('link_incident_gang', { p_incident_id: newId, p_gang_id: incGangId });
+            }
+
             setShowIncidentModal(false);
             resetIncidentForm();
             loadData();
@@ -112,7 +130,7 @@ function Incidents() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const { error } = await supabase.rpc('create_outing', {
+            const { data: newId, error } = await supabase.rpc('create_outing', {
                 p_title: outTitle,
                 p_occurred_at: new Date(outDate).toISOString(),
                 p_reason: outReason,
@@ -121,6 +139,10 @@ function Incidents() {
                 p_detective_ids: outDetectives
             });
             if (error) throw error;
+
+            if (outGangId) {
+                await supabase.rpc('link_outing_gang', { p_outing_id: newId, p_gang_id: outGangId });
+            }
 
             setShowOutingModal(false);
             resetOutingForm();
@@ -153,10 +175,10 @@ function Incidents() {
 
     // --- HELPERS ---
     const resetIncidentForm = () => {
-        setIncTitle(''); setIncLocation(''); setIncDate(''); setIncTablet(''); setIncDesc(''); setIncImages([]);
+        setIncTitle(''); setIncLocation(''); setIncDate(''); setIncTablet(''); setIncDesc(''); setIncGangId(''); setIncImages([]);
     };
     const resetOutingForm = () => {
-        setOutTitle(''); setOutDate(''); setOutDetectives([]); setOutReason(''); setOutInfo(''); setOutImages([]);
+        setOutTitle(''); setOutDate(''); setOutDetectives([]); setOutReason(''); setOutInfo(''); setOutGangId(''); setOutImages([]);
     };
 
     // Toggle Detective Selection
@@ -188,8 +210,8 @@ function Incidents() {
                     <div className="column-container">
                         <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>General Incidents</h3>
                         <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                            {incidents.length === 0 ? <div className="empty-list">No incidents logged.</div> :
-                                incidents.map(inc => (
+                            {incidents.filter(i => !i.gang_id).length === 0 ? <div className="empty-list">No unlinked incidents.</div> :
+                                incidents.filter(i => !i.gang_id).map(inc => (
                                     <IncidentCard
                                         key={inc.record_id}
                                         data={inc}
@@ -201,13 +223,20 @@ function Incidents() {
                         </div>
                     </div>
 
-                    {/* COLUMN 2: LINKED INCIDENTS (PLACEHOLDER) */}
-                    <div className="column-container" style={{ opacity: 0.7 }}>
+                    {/* COLUMN 2: LINKED INCIDENTS */}
+                    <div className="column-container">
                         <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Gang Linked Incidents</h3>
-                        <div className="empty-list" style={{ marginTop: '2rem', textAlign: 'center' }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔒</div>
-                            <div>Module "Gangs" not active yet.</div>
-                            <div style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>Linked incidents will appear here automatically.</div>
+                        <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                            {incidents.filter(i => i.gang_id).length === 0 ? <div className="empty-list">No linked incidents.</div> :
+                                incidents.filter(i => i.gang_id).map(inc => (
+                                    <IncidentCard
+                                        key={inc.record_id}
+                                        data={inc}
+                                        onExpand={setExpandedImage}
+                                        onDelete={handleDeleteIncident}
+                                    />
+                                ))
+                            }
                         </div>
                     </div>
 
@@ -238,6 +267,13 @@ function Incidents() {
                         <h3 className="section-title">Log New Incident</h3>
                         <form onSubmit={handleSubmitIncident}>
                             <div className="form-group"><label>Title</label><input className="form-input" required value={incTitle} onChange={e => setIncTitle(e.target.value)} /></div>
+                            <div className="form-group">
+                                <label>Link to Syndicate (Optional)</label>
+                                <select className="form-input" value={incGangId} onChange={e => setIncGangId(e.target.value)}>
+                                    <option value="">-- None --</option>
+                                    {gangs.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                </select>
+                            </div>
                             <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={incDate} onChange={e => setIncDate(e.target.value)} /></div>
                             <div className="form-group"><label>Location (Optional)</label><input className="form-input" value={incLocation} onChange={e => setIncLocation(e.target.value)} /></div>
                             <div className="form-group"><label>Tablet Incident # (Optional)</label><input className="form-input" value={incTablet} onChange={e => setIncTablet(e.target.value)} /></div>
@@ -300,6 +336,14 @@ function Incidents() {
                                         </div>
                                     ))}
                                 </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Link to Syndicate (Optional)</label>
+                                <select className="form-input" value={outGangId} onChange={e => setOutGangId(e.target.value)}>
+                                    <option value="">-- None --</option>
+                                    {gangs.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                </select>
                             </div>
 
                             <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
@@ -442,6 +486,5 @@ function OutingCard({ data, onExpand, onDelete }) {
         </div>
     );
 }
-
 
 export default Incidents;
