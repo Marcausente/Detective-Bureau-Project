@@ -9,6 +9,8 @@ function Incidents() {
 
     // Modals
     const [showIncidentModal, setShowIncidentModal] = useState(false);
+    const [showEditIncidentModal, setShowEditIncidentModal] = useState(false);
+    const [editingIncident, setEditingIncident] = useState(null);
     const [showOutingModal, setShowOutingModal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [expandedImage, setExpandedImage] = useState(null);
@@ -23,7 +25,7 @@ function Incidents() {
     const [incDate, setIncDate] = useState('');
     const [incTablet, setIncTablet] = useState('');
     const [incDesc, setIncDesc] = useState('');
-    const [incGangId, setIncGangId] = useState(''); // Selected Gang
+    const [incGangIds, setIncGangIds] = useState([]); // Changed to array for multiple gangs
     const [incImages, setIncImages] = useState([]);
 
     // --- FORM STATE: OUTING ---
@@ -32,7 +34,7 @@ function Incidents() {
     const [outDetectives, setOutDetectives] = useState([]); // Array of IDs
     const [outReason, setOutReason] = useState('');
     const [outInfo, setOutInfo] = useState('');
-    const [outGangId, setOutGangId] = useState(''); // Selected Gang
+    const [outGangIds, setOutGangIds] = useState([]); // Changed to array for multiple gangs
     const [outImages, setOutImages] = useState([]);
 
 
@@ -97,11 +99,6 @@ function Incidents() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            // Updated to use create_incident_v2 (note: SQL needs to support gang_id if not already added to RPC or via separate update)
-            // Correction: The v2 RPC in SQL doesn't have p_gang_id param yet. 
-            // Strategy: Create then Link, OR update RPC. Updating RPC is cleaner but requires user to run SQL again.
-            // I'll do Create then Link implicitly via direct UPDATE if RPC doesn't support it, but better to use the link_incident_gang RPC I made.
-
             const { data: newId, error } = await supabase.rpc('create_incident_v2', {
                 p_title: incTitle,
                 p_location: incLocation,
@@ -112,8 +109,11 @@ function Incidents() {
             });
             if (error) throw error;
 
-            if (incGangId) {
-                await supabase.rpc('link_incident_gang', { p_incident_id: newId, p_gang_id: incGangId });
+            // Link to multiple gangs
+            if (incGangIds.length > 0) {
+                for (const gangId of incGangIds) {
+                    await supabase.rpc('link_incident_gang', { p_incident_id: newId, p_gang_id: gangId });
+                }
             }
 
             setShowIncidentModal(false);
@@ -140,8 +140,11 @@ function Incidents() {
             });
             if (error) throw error;
 
-            if (outGangId) {
-                await supabase.rpc('link_outing_gang', { p_outing_id: newId, p_gang_id: outGangId });
+            // Link to multiple gangs
+            if (outGangIds.length > 0) {
+                for (const gangId of outGangIds) {
+                    await supabase.rpc('link_outing_gang', { p_outing_id: newId, p_gang_id: gangId });
+                }
             }
 
             setShowOutingModal(false);
@@ -173,12 +176,84 @@ function Incidents() {
         } catch (err) { alert(err.message); }
     };
 
+    // --- EDIT HANDLERS ---
+    const handleEditIncident = async (incident) => {
+        setEditingIncident(incident);
+        setIncTitle(incident.title);
+        setIncLocation(incident.location || '');
+        setIncDate(incident.occurred_at ? new Date(incident.occurred_at).toISOString().slice(0, 16) : '');
+        setIncTablet(incident.tablet_incident_number || '');
+        setIncDesc(incident.description || '');
+
+        // Load linked gangs
+        const { data: linkedGangs, error } = await supabase.rpc('get_incident_gangs', { p_incident_id: incident.record_id });
+        if (!error && linkedGangs) {
+            setIncGangIds(linkedGangs.map(g => g.gang_id));
+        } else {
+            setIncGangIds([]);
+        }
+
+        setShowEditIncidentModal(true);
+    };
+
+    const handleUpdateIncident = async (e) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            // Update incident details
+            const { error: updateError } = await supabase.rpc('update_incident', {
+                p_incident_id: editingIncident.record_id,
+                p_title: incTitle,
+                p_location: incLocation,
+                p_occurred_at: new Date(incDate).toISOString(),
+                p_tablet_number: incTablet,
+                p_description: incDesc
+            });
+            if (updateError) throw updateError;
+
+            // Get current gang links
+            const { data: currentGangs } = await supabase.rpc('get_incident_gangs', { p_incident_id: editingIncident.record_id });
+            const currentGangIds = currentGangs ? currentGangs.map(g => g.gang_id) : [];
+
+            // Remove unselected gangs
+            for (const gangId of currentGangIds) {
+                if (!incGangIds.includes(gangId)) {
+                    await supabase.rpc('unlink_incident_gang', { p_incident_id: editingIncident.record_id, p_gang_id: gangId });
+                }
+            }
+
+            // Add newly selected gangs
+            for (const gangId of incGangIds) {
+                if (!currentGangIds.includes(gangId)) {
+                    await supabase.rpc('link_incident_gang', { p_incident_id: editingIncident.record_id, p_gang_id: gangId });
+                }
+            }
+
+            setShowEditIncidentModal(false);
+            setEditingIncident(null);
+            resetIncidentForm();
+            loadData();
+        } catch (err) {
+            alert('Error updating incident: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     // --- HELPERS ---
     const resetIncidentForm = () => {
-        setIncTitle(''); setIncLocation(''); setIncDate(''); setIncTablet(''); setIncDesc(''); setIncGangId(''); setIncImages([]);
+        setIncTitle(''); setIncLocation(''); setIncDate(''); setIncTablet(''); setIncDesc(''); setIncGangIds([]); setIncImages([]);
     };
     const resetOutingForm = () => {
-        setOutTitle(''); setOutDate(''); setOutDetectives([]); setOutReason(''); setOutInfo(''); setOutGangId(''); setOutImages([]);
+        setOutTitle(''); setOutDate(''); setOutDetectives([]); setOutReason(''); setOutInfo(''); setOutGangIds([]); setOutImages([]);
+    };
+
+    const toggleGangIncident = (gangId) => {
+        setIncGangIds(prev => prev.includes(gangId) ? prev.filter(id => id !== gangId) : [...prev, gangId]);
+    };
+
+    const toggleGangOuting = (gangId) => {
+        setOutGangIds(prev => prev.includes(gangId) ? prev.filter(id => id !== gangId) : [...prev, gangId]);
     };
 
     // Toggle Detective Selection
@@ -217,6 +292,7 @@ function Incidents() {
                                         data={inc}
                                         onExpand={setExpandedImage}
                                         onDelete={handleDeleteIncident}
+                                        onEdit={handleEditIncident}
                                     />
                                 ))
                             }
@@ -234,6 +310,7 @@ function Incidents() {
                                         data={inc}
                                         onExpand={setExpandedImage}
                                         onDelete={handleDeleteIncident}
+                                        onEdit={handleEditIncident}
                                     />
                                 ))
                             }
@@ -268,11 +345,15 @@ function Incidents() {
                         <form onSubmit={handleSubmitIncident}>
                             <div className="form-group"><label>Title</label><input className="form-input" required value={incTitle} onChange={e => setIncTitle(e.target.value)} /></div>
                             <div className="form-group">
-                                <label>Link to Syndicate (Optional)</label>
-                                <select className="form-input" value={incGangId} onChange={e => setIncGangId(e.target.value)}>
-                                    <option value="">-- None --</option>
-                                    {gangs.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                                </select>
+                                <label>Link to Syndicates (Optional)</label>
+                                <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                    {gangs.map(g => (
+                                        <div key={g.id} onClick={() => toggleGangIncident(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: incGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                            <input type="checkbox" checked={incGangIds.includes(g.id)} readOnly style={{ marginRight: '10px' }} />
+                                            <span style={{ fontSize: '0.9rem' }}>{g.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                             <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={incDate} onChange={e => setIncDate(e.target.value)} /></div>
                             <div className="form-group"><label>Location (Optional)</label><input className="form-input" value={incLocation} onChange={e => setIncLocation(e.target.value)} /></div>
@@ -317,6 +398,38 @@ function Incidents() {
                 </div>
             )}
 
+            {/* --- MODAL: EDIT INCIDENT --- */}
+            {showEditIncidentModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <h3 className="section-title">Edit Incident</h3>
+                        <form onSubmit={handleUpdateIncident}>
+                            <div className="form-group"><label>Title</label><input className="form-input" required value={incTitle} onChange={e => setIncTitle(e.target.value)} /></div>
+                            <div className="form-group">
+                                <label>Link to Syndicates (Optional)</label>
+                                <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                    {gangs.map(g => (
+                                        <div key={g.id} onClick={() => toggleGangIncident(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: incGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                            <input type="checkbox" checked={incGangIds.includes(g.id)} readOnly style={{ marginRight: '10px' }} />
+                                            <span style={{ fontSize: '0.9rem' }}>{g.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={incDate} onChange={e => setIncDate(e.target.value)} /></div>
+                            <div className="form-group"><label>Location (Optional)</label><input className="form-input" value={incLocation} onChange={e => setIncLocation(e.target.value)} /></div>
+                            <div className="form-group"><label>Tablet Incident # (Optional)</label><input className="form-input" value={incTablet} onChange={e => setIncTablet(e.target.value)} /></div>
+                            <div className="form-group"><label>Description (Optional)</label><textarea className="eval-textarea" rows="4" value={incDesc} onChange={e => setIncDesc(e.target.value)} /></div>
+
+                            <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
+                                <button type="button" className="login-button btn-secondary" onClick={() => { setShowEditIncidentModal(false); setEditingIncident(null); resetIncidentForm(); }} style={{ width: 'auto' }}>Cancel</button>
+                                <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Update'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* --- MODAL: NEW OUTING --- */}
             {showOutingModal && (
                 <div className="cropper-modal-overlay">
@@ -339,11 +452,15 @@ function Incidents() {
                             </div>
 
                             <div className="form-group">
-                                <label>Link to Syndicate (Optional)</label>
-                                <select className="form-input" value={outGangId} onChange={e => setOutGangId(e.target.value)}>
-                                    <option value="">-- None --</option>
-                                    {gangs.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                                </select>
+                                <label>Link to Syndicates (Optional)</label>
+                                <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                    {gangs.map(g => (
+                                        <div key={g.id} onClick={() => toggleGangOuting(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                            <input type="checkbox" checked={outGangIds.includes(g.id)} readOnly style={{ marginRight: '10px' }} />
+                                            <span style={{ fontSize: '0.9rem' }}>{g.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
                             <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
@@ -399,17 +516,25 @@ function Incidents() {
 }
 
 // --- SUB-COMPONENTS ---
-function IncidentCard({ data, onExpand, onDelete }) {
+function IncidentCard({ data, onExpand, onDelete, onEdit }) {
     return (
         <div className="announcement-card" style={{ marginBottom: '1rem', background: 'rgba(30, 41, 59, 0.4)', padding: '1rem' }}>
-            <div style={{ display: 'flex', justifySelf: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
                     <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>{data.title}</h4>
                     {data.tablet_incident_number && <div style={{ fontSize: '0.8rem', color: 'var(--accent-gold)' }}>Tablet #: {data.tablet_incident_number}</div>}
+                    {data.gang_names && data.gang_names.length > 0 && (
+                        <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '3px' }}>
+                            🏴 {data.gang_names.join(', ')}
+                        </div>
+                    )}
                 </div>
-                {data.can_delete && (
-                    <button onClick={() => onDelete(data.record_id)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '1.2rem' }}>&times;</button>
-                )}
+                <div style={{ display: 'flex', gap: '5px' }}>
+                    {onEdit && <button onClick={() => onEdit(data)} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '1.2rem' }}>✏️</button>}
+                    {data.can_delete && (
+                        <button onClick={() => onDelete(data.record_id)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '1.2rem' }}>&times;</button>
+                    )}
+                </div>
             </div>
 
             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.5rem 0' }}>
