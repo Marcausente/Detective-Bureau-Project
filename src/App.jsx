@@ -6,6 +6,7 @@ import PlaceholderPage from './pages/PlaceholderPage';
 import Welcome from './pages/Welcome';
 import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail'; // Import
+import Incidents from './pages/Incidents'; // Import
 import Personnel from './pages/Personnel';
 import PersonnelDetail from './pages/PersonnelDetail';
 import Documentation from './pages/Documentation';
@@ -15,6 +16,7 @@ import { PresenceProvider } from './contexts/PresenceContext';
 import './index.css';
 
 function App() {
+  // Main Entry Point
   return (
     <PresenceProvider>
       <Router>
@@ -32,7 +34,7 @@ function App() {
             <Route path="/cases" element={<Cases />} />
             <Route path="/cases/:id" element={<CaseDetail />} /> {/* New Route */}
             <Route path="/gangs" element={<PlaceholderPage title="Gang Intelligence" />} />
-            <Route path="/incidents" element={<PlaceholderPage title="Incident Reports" />} />
+            <Route path="/incidents" element={<Incidents />} />
             <Route path="/interrogations" element={<Interrogations />} />
             <Route path="/personnel" element={<Personnel />} />
             <Route path="/personnel/:id" element={<PersonnelDetail />} />
