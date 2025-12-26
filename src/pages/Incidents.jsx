@@ -184,6 +184,7 @@ function Incidents() {
         setIncDate(incident.occurred_at ? new Date(incident.occurred_at).toISOString().slice(0, 16) : '');
         setIncTablet(incident.tablet_incident_number || '');
         setIncDesc(incident.description || '');
+        setIncImages(incident.images || []); // Load existing images
 
         // Load linked gangs
         const { data: linkedGangs, error } = await supabase.rpc('get_incident_gangs', { p_incident_id: incident.record_id });
@@ -207,7 +208,9 @@ function Incidents() {
                 p_location: incLocation,
                 p_occurred_at: new Date(incDate).toISOString(),
                 p_tablet_number: incTablet,
-                p_description: incDesc
+                p_tablet_number: incTablet,
+                p_description: incDesc,
+                p_images: incImages // Pass updated images
             });
             if (updateError) throw updateError;
 
@@ -420,6 +423,35 @@ function Incidents() {
                             <div className="form-group"><label>Location (Optional)</label><input className="form-input" value={incLocation} onChange={e => setIncLocation(e.target.value)} /></div>
                             <div className="form-group"><label>Tablet Incident # (Optional)</label><input className="form-input" value={incTablet} onChange={e => setIncTablet(e.target.value)} /></div>
                             <div className="form-group"><label>Description (Optional)</label><textarea className="eval-textarea" rows="4" value={incDesc} onChange={e => setIncDesc(e.target.value)} /></div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Images (Optional)</label>
+                                <label htmlFor="inc-edit-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                                    📷 Upload Images
+                                </label>
+                                <input
+                                    id="inc-edit-upload"
+                                    type="file"
+                                    multiple
+                                    accept="image/*"
+                                    onChange={(e) => handleImageUpload(e, setIncImages)}
+                                    style={{ display: 'none' }}
+                                />
+                                <div style={{ display: 'flex', gap: '5px', marginTop: '10px', flexWrap: 'wrap' }}>
+                                    {incImages.map((src, i) => (
+                                        <div key={i} style={{ position: 'relative' }}>
+                                            <img src={src} style={{ height: '60px', borderRadius: '4px', border: '1px solid #444' }} alt="" />
+                                            <button
+                                                type="button"
+                                                onClick={() => setIncImages(prev => prev.filter((_, idx) => idx !== i))}
+                                                style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '18px', height: '18px', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
 
                             <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
                                 <button type="button" className="login-button btn-secondary" onClick={() => { setShowEditIncidentModal(false); setEditingIncident(null); resetIncidentForm(); }} style={{ width: 'auto' }}>Cancel</button>
