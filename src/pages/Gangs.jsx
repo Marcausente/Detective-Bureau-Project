@@ -14,6 +14,7 @@ function Gangs() {
     // --- MODAL CONTROLS ---
     const [activeModal, setActiveModal] = useState(null); // 'createGang', 'vehicle', 'home', 'member', 'info'
     const [activeGangId, setActiveGangId] = useState(null); // Which gang is being edited
+    const [editingItemId, setEditingItemId] = useState(null); // ID of the specific item being edited (vehicle, member, etc.)
     const [submitting, setSubmitting] = useState(false);
 
     // --- FORMS STATE ---
@@ -132,6 +133,32 @@ function Gangs() {
         } catch (err) { alert(err.message); }
     };
 
+    const handleDeleteItem = async (type, id) => {
+        if (!confirm("Delete this item permanently?")) return;
+        try {
+            const { error } = await supabase.rpc('delete_gang_item', { p_table: type, p_id: id });
+            if (error) throw error;
+            loadGangs();
+        } catch (err) { alert(err.message); }
+    };
+
+    const handleEditItem = (type, gangId, item) => {
+        setActiveGangId(gangId);
+        setEditingItemId(item.id);
+        setActiveModal(type);
+
+        // Populate inputs based on type
+        if (type === 'vehicle') {
+            setVehModel(item.model); setVehPlate(item.plate); setVehOwner(item.owner); setVehNotes(item.notes); setVehImages(item.images || []);
+        } else if (type === 'home') {
+            setHomeOwner(item.owner); setHomeNotes(item.notes); setHomeImages(item.images || []);
+        } else if (type === 'member') {
+            setMemName(item.name); setMemRole(item.role); setMemNotes(item.notes); setMemPhoto(item.photo);
+        } else if (type === 'info') {
+            setInfoType(item.type); setInfoContent(item.content); setInfoImages(item.images || []);
+        }
+    };
+
     // --- SUBMISSION HANDLERS ---
 
     const handleCreateGang = async (e) => {
@@ -149,10 +176,17 @@ function Gangs() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const { error } = await supabase.rpc('add_gang_vehicle', {
-                p_gang_id: activeGangId, p_model: vehModel, p_plate: vehPlate, p_owner: vehOwner, p_notes: vehNotes, p_images: vehImages
-            });
-            if (error) throw error;
+            if (editingItemId) {
+                const { error } = await supabase.rpc('update_gang_vehicle', {
+                    p_vehicle_id: editingItemId, p_model: vehModel, p_plate: vehPlate, p_owner: vehOwner, p_notes: vehNotes, p_images: vehImages
+                });
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.rpc('add_gang_vehicle', {
+                    p_gang_id: activeGangId, p_model: vehModel, p_plate: vehPlate, p_owner: vehOwner, p_notes: vehNotes, p_images: vehImages
+                });
+                if (error) throw error;
+            }
             closeModal();
             loadGangs();
         } catch (err) { alert(err.message); } finally { setSubmitting(false); }
@@ -162,10 +196,17 @@ function Gangs() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const { error } = await supabase.rpc('add_gang_home', {
-                p_gang_id: activeGangId, p_owner: homeOwner, p_notes: homeNotes, p_images: homeImages
-            });
-            if (error) throw error;
+            if (editingItemId) {
+                const { error } = await supabase.rpc('update_gang_home', {
+                    p_home_id: editingItemId, p_owner: homeOwner, p_notes: homeNotes, p_images: homeImages
+                });
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.rpc('add_gang_home', {
+                    p_gang_id: activeGangId, p_owner: homeOwner, p_notes: homeNotes, p_images: homeImages
+                });
+                if (error) throw error;
+            }
             closeModal();
             loadGangs();
         } catch (err) { alert(err.message); } finally { setSubmitting(false); }
@@ -175,10 +216,17 @@ function Gangs() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const { error } = await supabase.rpc('add_gang_member', {
-                p_gang_id: activeGangId, p_name: memName, p_role: memRole, p_photo: memPhoto, p_notes: memNotes
-            });
-            if (error) throw error;
+            if (editingItemId) {
+                const { error } = await supabase.rpc('update_gang_member', {
+                    p_member_id: editingItemId, p_name: memName, p_role: memRole, p_photo: memPhoto, p_notes: memNotes
+                });
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.rpc('add_gang_member', {
+                    p_gang_id: activeGangId, p_name: memName, p_role: memRole, p_photo: memPhoto, p_notes: memNotes
+                });
+                if (error) throw error;
+            }
             closeModal();
             loadGangs();
         } catch (err) { alert(err.message); } finally { setSubmitting(false); }
@@ -188,10 +236,17 @@ function Gangs() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const { error } = await supabase.rpc('add_gang_info', {
-                p_gang_id: activeGangId, p_type: infoType, p_content: infoContent, p_images: infoImages
-            });
-            if (error) throw error;
+            if (editingItemId) {
+                const { error } = await supabase.rpc('update_gang_info', {
+                    p_info_id: editingItemId, p_type: infoType, p_content: infoContent, p_images: infoImages
+                });
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.rpc('add_gang_info', {
+                    p_gang_id: activeGangId, p_type: infoType, p_content: infoContent, p_images: infoImages
+                });
+                if (error) throw error;
+            }
             closeModal();
             loadGangs();
         } catch (err) { alert(err.message); } finally { setSubmitting(false); }
@@ -225,6 +280,7 @@ function Gangs() {
     const closeModal = () => {
         setActiveModal(null);
         setActiveGangId(null);
+        setEditingItemId(null);
         // Reset forms
         setNewName(''); setNewColor('#ffffff'); setZonesImage(null);
         setVehModel(''); setVehPlate(''); setVehOwner(''); setVehNotes(''); setVehImages([]);
@@ -284,6 +340,8 @@ function Gangs() {
                             onArchive={() => handleToggleArchive(gang.gang_id, gang.is_archived)}
                             onDelete={() => handleDeleteGang(gang.gang_id)}
                             onViewImage={setExpandedImage}
+                            onEdit={handleEditItem}
+                            onDeleteSubItem={handleDeleteItem}
                         />
                     ))
                 )}
@@ -307,9 +365,9 @@ function Gangs() {
                 </Modal>
             )}
 
-            {/* Add Vehicle */}
+            {/* Add/Edit Vehicle */}
             {activeModal === 'vehicle' && (
-                <Modal title="Add Vehicle Intelligence" onClose={closeModal} onSubmit={handleAddVehicle} submitting={submitting}>
+                <Modal title={editingItemId ? "Edit Vehicle" : "Add Vehicle Intelligence"} onClose={closeModal} onSubmit={handleAddVehicle} submitting={submitting}>
                     <Input label="Model" value={vehModel} onChange={e => setVehModel(e.target.value)} />
                     <Input label="Plate" value={vehPlate} onChange={e => setVehPlate(e.target.value)} />
                     <Input label="Registered Owner" value={vehOwner} onChange={e => setVehOwner(e.target.value)} />
@@ -318,18 +376,18 @@ function Gangs() {
                 </Modal>
             )}
 
-            {/* Add Home */}
+            {/* Add/Edit Home */}
             {activeModal === 'home' && (
-                <Modal title="Add Property Intelligence" onClose={closeModal} onSubmit={handleAddHome} submitting={submitting}>
+                <Modal title={editingItemId ? "Edit Property" : "Add Property Intelligence"} onClose={closeModal} onSubmit={handleAddHome} submitting={submitting}>
                     <Input label="Registered Owner / Occupant" value={homeOwner} onChange={e => setHomeOwner(e.target.value)} />
                     <TextArea label="Address & Notes" value={homeNotes} onChange={e => setHomeNotes(e.target.value)} />
                     <MultiImageUpload images={homeImages} setImages={setHomeImages} onUpload={e => handleImageUpload(e, setHomeImages)} />
                 </Modal>
             )}
 
-            {/* Add Member */}
+            {/* Add/Edit Member */}
             {activeModal === 'member' && (
-                <Modal title="Identify Member" onClose={closeModal} onSubmit={handleAddMember} submitting={submitting}>
+                <Modal title={editingItemId ? "Edit Member" : "Identify Member"} onClose={closeModal} onSubmit={handleAddMember} submitting={submitting}>
                     <Input label="Full Name / Alias" value={memName} onChange={e => setMemName(e.target.value)} required />
                     <div className="form-group">
                         <label>Role / Hierarchy</label>
@@ -345,9 +403,9 @@ function Gangs() {
                 </Modal>
             )}
 
-            {/* Add Info */}
+            {/* Add/Edit Info */}
             {activeModal === 'info' && (
-                <Modal title="Add Intelligence" onClose={closeModal} onSubmit={handleAddInfo} submitting={submitting}>
+                <Modal title={editingItemId ? "Edit Intel" : "Add Intelligence"} onClose={closeModal} onSubmit={handleAddInfo} submitting={submitting}>
                     <div className="form-group">
                         <label>Entry Type</label>
                         <select className="form-input" value={infoType} onChange={e => setInfoType(e.target.value)}>
@@ -373,7 +431,14 @@ function Gangs() {
 
 // --- SUB-COMPONENTS ---
 
-function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage }) {
+function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem }) {
+    // Helper for buttons
+    const ActionButtons = ({ type, item }) => (
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px' }}>
+            <button onClick={() => onEdit(type, gang.gang_id, item)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }}>✏️</button>
+            <button onClick={() => onDeleteSubItem(type, item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }}>🗑️</button>
+        </div>
+    );
     return (
         <div className="gang-column">
 
@@ -435,9 +500,12 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage }) {
                         <div key={i.id} style={{
                             fontSize: '0.85rem', marginBottom: '0.8rem',
                             borderLeft: `3px solid ${i.type === 'characteristic' ? 'var(--accent-gold)' : '#64748b'}`,
-                            paddingLeft: '0.8rem', color: '#cbd5e1'
+                            paddingLeft: '0.8rem', color: '#cbd5e1', position: 'relative'
                         }}>
-                            {i.content}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div style={{ flex: 1, marginRight: '10px' }}>{i.content}</div>
+                                <ActionButtons type="info" item={i} />
+                            </div>
                             {i.images && i.images.length > 0 && (
                                 <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
                                     {i.images.map((img, idx) => (
@@ -459,11 +527,16 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage }) {
                 </div>
                 <div className="gang-list-content">
                     {gang.vehicles.map(v => (
-                        <div key={v.id} className="gang-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between' }}>
+                        <div key={v.id} className="gang-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid #3b82f6', paddingLeft: '0.8rem' }}>
+                            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{v.model}</span>
-                                <span style={{ color: 'var(--accent-gold)', marginLeft: 'auto', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>[{v.plate}]</span>
+                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--accent-gold)', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>[{v.plate}]</span>
+                                    <ActionButtons type="vehicle" item={v} />
+                                </div>
                             </div>
+                            {v.owner && <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '3px' }}>Owner: {v.owner}</div>}
+                            {v.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{v.notes}</div>}
                             {/* Vehicle Images */}
                             {v.images && v.images.length > 0 && (
                                 <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
@@ -486,8 +559,12 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage }) {
                 </div>
                 <div className="gang-list-content">
                     {gang.homes.map(h => (
-                        <div key={h.id} className="gang-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                            <span>{h.owner}</span>
+                        <div key={h.id} className="gang-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid #10b981', paddingLeft: '0.8rem' }}>
+                            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between' }}>
+                                <span>{h.owner}</span>
+                                <ActionButtons type="home" item={h} />
+                            </div>
+                            {h.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{h.notes}</div>}
                             {/* Home Images */}
                             {h.images && h.images.length > 0 && (
                                 <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
@@ -520,6 +597,11 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage }) {
                             />
                             <div style={{ fontSize: '0.75rem', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
                             <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{m.role}</div>
+                            {m.notes && <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic', textAlign: 'center' }} title={m.notes}>📋</div>}
+                            <div style={{ marginTop: '5px', display: 'flex', justifyContent: 'center', gap: '5px' }}>
+                                <button onClick={() => onEdit('member', gang.gang_id, m)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>✏️</button>
+                                <button onClick={() => onDeleteSubItem('member', m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>🗑️</button>
+                            </div>
                         </div>
                     ))}
                     {gang.members.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>No known members.</div>}
