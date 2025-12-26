@@ -16,7 +16,8 @@ function Cases() {
         location: '',
         occurred_at: '',
         description: '',
-        assignments: [] // Array of user IDs
+        assignments: [], // Array of user IDs
+        initialImage: null // New Field
     });
     const [users, setUsers] = useState([]); // For assignment selection
     const [submitting, setSubmitting] = useState(false);
@@ -51,7 +52,8 @@ function Cases() {
                 p_location: newCase.location,
                 p_occurred_at: timestamp,
                 p_description: newCase.description,
-                p_assigned_ids: newCase.assignments
+                p_assigned_ids: newCase.assignments,
+                p_image: newCase.initialImage
             });
 
             if (error) throw error;
@@ -74,6 +76,30 @@ function Cases() {
         } else {
             setNewCase({ ...newCase, assignments: [...current, userId] });
         }
+    };
+
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800; // Consistent with Gangs
+                const scaleSize = img.width > MAX_WIDTH ? (MAX_WIDTH / img.width) : 1;
+                canvas.width = img.width * scaleSize;
+                canvas.height = img.height * scaleSize;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                // Compress to 0.6 quality
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                setNewCase({ ...newCase, initialImage: dataUrl });
+            };
+        };
     };
 
     const statusColors = {
@@ -190,6 +216,20 @@ function Cases() {
                                 <label className="form-label">Initial Report / Description</label>
                                 <textarea className="eval-textarea" rows="5" required
                                     value={newCase.description} onChange={e => setNewCase({ ...newCase, description: e.target.value })} placeholder="Describe the initial facts..." />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Evidence / Scene Photo (Optional)</label>
+                                <label className="login-button btn-secondary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center', height: '50px', borderStyle: 'dashed' }}>
+                                    📷 Add Photo
+                                    <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+                                </label>
+                                {newCase.initialImage && (
+                                    <div style={{ position: 'relative', marginTop: '10px' }}>
+                                        <img src={newCase.initialImage} style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} alt="Evidence" />
+                                        <button type="button" onClick={() => setNewCase({ ...newCase, initialImage: null })} style={{ position: 'absolute', top: 5, right: 5, background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer' }}>×</button>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="form-group">

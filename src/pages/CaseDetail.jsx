@@ -411,6 +411,12 @@ function CaseDetail() {
                 {!isEditingInfo && (
                     <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', borderLeft: '4px solid var(--accent-gold)' }}>
                         <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-gold)' }}>INITIAL REPORT</h4>
+                        {info.initial_image_url && (
+                            <div style={{ marginBottom: '1rem', borderRadius: '4px', overflow: 'hidden', cursor: 'pointer', maxWidth: '400px', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => setExpandedImage(info.initial_image_url)}>
+                                <img src={info.initial_image_url} alt="Initial Evidence" style={{ width: '100%', display: 'block' }} />
+                                <div style={{ fontSize: '0.7rem', color: '#aaa', padding: '2px 5px', background: 'rgba(0,0,0,0.5)', textAlign: 'right' }}>Click to expand</div>
+                            </div>
+                        )}
                         <p style={{ margin: 0, whiteSpace: 'pre-line', color: 'var(--text-secondary)' }}>{info.description}</p>
                     </div>
                 )}
