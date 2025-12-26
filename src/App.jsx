@@ -32,6 +32,7 @@ function App() {
             <Route path="/cases" element={<Cases />} />
             <Route path="/cases/:id" element={<CaseDetail />} /> {/* New Route */}
             <Route path="/gangs" element={<PlaceholderPage title="Gang Intelligence" />} />
+            <Route path="/incidents" element={<PlaceholderPage title="Incident Reports" />} />
             <Route path="/interrogations" element={<Interrogations />} />
             <Route path="/personnel" element={<Personnel />} />
             <Route path="/personnel/:id" element={<PersonnelDetail />} />

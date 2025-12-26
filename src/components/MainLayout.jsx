@@ -65,6 +65,7 @@ function MainLayout() {
         { name: 'Documentation', path: '/documentation' },
         { name: 'Criminal Cases', path: '/cases' },
         { name: 'Gangs', path: '/gangs' },
+        { name: 'Incidents', path: '/incidents' },
         { name: 'Interrogations', path: '/interrogations' },
         { name: 'Personnel', path: '/personnel' },
     ];
