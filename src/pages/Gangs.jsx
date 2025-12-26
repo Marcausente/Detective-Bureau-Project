@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import IncidentCard from '../components/IncidentCard';
+import OutingCard from '../components/OutingCard';
 import '../index.css';
 
 function Gangs() {
@@ -16,6 +18,12 @@ function Gangs() {
     const [activeGangId, setActiveGangId] = useState(null); // Which gang is being edited
     const [editingItemId, setEditingItemId] = useState(null); // ID of the specific item being edited (vehicle, member, etc.)
     const [submitting, setSubmitting] = useState(false);
+
+    // --- ACTIVITY VIEW STATE ---
+    const [showActivity, setShowActivity] = useState(false);
+    const [activityType, setActivityType] = useState('incidents'); // 'incidents' | 'outings'
+    const [activityLog, setActivityLog] = useState([]);
+    const [loadingActivity, setLoadingActivity] = useState(false);
 
     // --- FORMS STATE ---
     // Gang
@@ -266,6 +274,26 @@ function Gangs() {
         } catch (err) { alert(err.message); } finally { setSubmitting(false); }
     };
 
+    const handleViewActivity = async (type, gangId) => {
+        setActiveGangId(gangId);
+        setActivityType(type);
+        setShowActivity(true);
+        setLoadingActivity(true);
+        setActivityLog([]);
+
+        try {
+            const rpcName = type === 'incidents' ? 'get_gang_incidents' : 'get_gang_outings';
+            const { data, error } = await supabase.rpc(rpcName, { p_gang_id: gangId });
+            if (error) throw error;
+            setActivityLog(data || []);
+        } catch (err) {
+            console.error("Error fetching activity:", err);
+            alert("Could not load activity log.");
+        } finally {
+            setLoadingActivity(false);
+        }
+    };
+
     // --- HELPER HANDLERS ---
     const openModal = (type, gangId) => {
         setActiveModal(type);
@@ -287,6 +315,9 @@ function Gangs() {
         setHomeOwner(''); setHomeNotes(''); setHomeImages([]);
         setMemName(''); setMemRole('Sospechoso'); setMemNotes(''); setMemPhoto(null);
         setInfoType('info'); setInfoContent(''); setInfoImages([]);
+        // Activity
+        setShowActivity(false);
+        setActivityLog([]);
     };
 
 
@@ -342,6 +373,7 @@ function Gangs() {
                             onViewImage={setExpandedImage}
                             onEdit={handleEditItem}
                             onDeleteSubItem={handleDeleteItem}
+                            onViewActivity={handleViewActivity}
                         />
                     ))
                 )}
@@ -418,6 +450,50 @@ function Gangs() {
                 </Modal>
             )}
 
+            {/* Activity View Modal */}
+            {showActivity && (
+                <div className="cropper-modal-overlay" onClick={closeModal}>
+                    <div className="cropper-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <h3 className="section-title" style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
+                            {activityType === 'incidents' ? '📁 Related Incidents' : '🚓 Related Patrols & Outings'}
+                        </h3>
+
+                        {loadingActivity ? (
+                            <div style={{ textAlign: 'center', padding: '2rem' }}>Loading records...</div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {activityLog.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic', opacity: 0.7 }}>No records found for this syndicate.</div>
+                                ) : (
+                                    activityLog.map(item => (
+                                        activityType === 'incidents' ? (
+                                            <IncidentCard
+                                                key={item.record_id}
+                                                data={item}
+                                                onExpand={setExpandedImage}
+                                                // Disable edit/delete from this view to prevent complexity, or implement if needed
+                                                onDelete={null}
+                                                onEdit={null}
+                                            />
+                                        ) : (
+                                            <OutingCard
+                                                key={item.record_id}
+                                                data={item}
+                                                onExpand={setExpandedImage}
+                                                onDelete={null}
+                                            />
+                                        )
+                                    ))
+                                )}
+                            </div>
+                        )}
+                        <div style={{ marginTop: '2rem', textAlign: 'right' }}>
+                            <button className="login-button btn-secondary" onClick={closeModal} style={{ width: 'auto' }}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Image Viewer */}
             {expandedImage && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.9)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }} onClick={() => setExpandedImage(null)}>
@@ -431,7 +507,7 @@ function Gangs() {
 
 // --- SUB-COMPONENTS ---
 
-function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem }) {
+function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity }) {
     // Helper for buttons
     const ActionButtons = ({ type, item }) => (
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px' }}>
@@ -485,8 +561,8 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
 
             {/* Stats Grid */}
             <div className="gang-stat-grid">
-                <StatBox label="Incidents" count={gang.incident_count} />
-                <StatBox label="Outings" count={gang.outing_count} />
+                <StatBox label="Incidents" count={gang.incident_count} onClick={() => onViewActivity('incidents', gang.gang_id)} />
+                <StatBox label="Outings" count={gang.outing_count} onClick={() => onViewActivity('outings', gang.gang_id)} />
             </div>
 
             {/* Intel Section */}
@@ -734,9 +810,9 @@ function MultiImageUpload({ images, setImages, onUpload }) {
     );
 }
 
-function StatBox({ label, count }) {
+function StatBox({ label, count, onClick }) {
     return (
-        <div className="gang-stat-box">
+        <div className="gang-stat-box" onClick={onClick} style={{ cursor: 'pointer' }}>
             <div style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-primary)' }}>{count || 0}</div>
             <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '1px' }}>{label}</div>
         </div>
