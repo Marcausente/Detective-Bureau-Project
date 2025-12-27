@@ -1856,3 +1856,21 @@ body {
     margin-bottom: 0.4rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
+/* --- Leaflet Custom Dark Popups --- */
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    background: rgba(15, 23, 42, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #f8fafc !important;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+    backdrop-filter: blur(5px);
+    border-radius: 8px !important;
+}
+
+.leaflet-popup-content {
+    margin: 15px !important;
+    line-height: 1.5 !important;
+}
+
+.leaflet-container {
+    background: #0f172a !important; /* Force dark background */
+}
