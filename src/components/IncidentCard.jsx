@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import '../index.css';
 
 function IncidentCard({ data, onExpand, onDelete, onEdit }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+
     return (
         <div className="announcement-card" style={{ marginBottom: '1rem', background: 'rgba(30, 41, 59, 0.4)', padding: '1rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -26,7 +29,26 @@ function IncidentCard({ data, onExpand, onDelete, onEdit }) {
                 {data.location && <span>📍 {data.location}</span>}
             </div>
 
-            {data.description && <div style={{ fontSize: '0.9rem', whiteSpace: 'pre-line', marginBottom: '0.5rem' }}>{data.description}</div>}
+            {data.description && (
+                <div
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    title={isExpanded ? "Click to collapse" : "Click to expand"}
+                    style={{
+                        fontSize: '0.9rem',
+                        whiteSpace: 'pre-line',
+                        marginBottom: '0.5rem',
+                        cursor: 'pointer',
+                        ...(isExpanded ? {} : {
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                        })
+                    }}
+                >
+                    {data.description}
+                </div>
+            )}
 
             {data.images && data.images.length > 0 && (
                 <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '0.5rem' }}>
