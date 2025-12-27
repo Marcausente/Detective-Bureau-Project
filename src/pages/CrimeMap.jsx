@@ -37,8 +37,10 @@ export default function CrimeMap() {
     // Dropdown Data
     const [gangs, setGangs] = useState([]);
     const [cases, setCases] = useState([]);
+    const [incidents, setIncidents] = useState([]);
     const [selectedGang, setSelectedGang] = useState('');
     const [selectedCase, setSelectedCase] = useState('');
+    const [selectedIncident, setSelectedIncident] = useState('');
 
     // Refs for closure access
     const modeRef = useRef(mode);
@@ -161,6 +163,8 @@ export default function CrimeMap() {
         if (g) setGangs(g);
         const { data: c } = await supabase.rpc('get_cases');
         if (c) setCases(c);
+        const { data: i } = await supabase.rpc('get_incidents_v2');
+        if (i) setIncidents(i);
     };
 
 
@@ -182,6 +186,7 @@ export default function CrimeMap() {
                     <p style="margin: 0 0 10px 0; color: #ccc; font-size: 0.9em;">${zone.description || ''}</p>
                     ${zone.gang_name ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">Gang:</strong> ${authorized ? zone.gang_name : '<span style="color: #ef4444; font-weight: bold;">SIN ACCESO</span>'}</div>` : ''}
                     ${zone.case_title ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">Case:</strong> ${authorized ? zone.case_title : '<span style="color: #ef4444; font-weight: bold;">SIN ACCESO</span>'}</div>` : ''}
+                    ${zone.incident_title ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">Incident:</strong> ${authorized ? zone.incident_title : '<span style="color: #ef4444; font-weight: bold;">SIN ACCESO</span>'}</div>` : ''}
                 `;
 
                 if (authorized) {
@@ -265,6 +270,7 @@ export default function CrimeMap() {
         });
         setSelectedGang(zone.gang_id || '');
         setSelectedCase(zone.case_id || '');
+        setSelectedIncident(zone.incident_id || '');
         setEditingZoneId(zone.id);
         setShowModal(true);
     };
@@ -275,6 +281,7 @@ export default function CrimeMap() {
         setTempZoneData({ name: '', description: '', color: '#ef4444' });
         setSelectedGang('');
         setSelectedCase('');
+        setSelectedIncident('');
         setShowModal(true);
     };
 
@@ -291,6 +298,7 @@ export default function CrimeMap() {
                 p_description: tempZoneData.description,
                 p_gang_id: selectedGang || null,
                 p_case_id: selectedCase || null,
+                p_incident_id: selectedIncident || null,
                 p_color: tempZoneData.color
             };
             const res = await supabase.rpc('update_map_zone', payload);
@@ -304,6 +312,7 @@ export default function CrimeMap() {
                 p_type: 'polygon',
                 p_gang_id: selectedGang || null,
                 p_case_id: selectedCase || null,
+                p_incident_id: selectedIncident || null,
                 p_color: tempZoneData.color
             };
             const res = await supabase.rpc('create_map_zone', payload);
@@ -321,6 +330,7 @@ export default function CrimeMap() {
             setTempZoneData({ name: '', description: '', color: '#ef4444' });
             setSelectedGang('');
             setSelectedCase('');
+            setSelectedIncident('');
         }
     };
 
@@ -473,6 +483,18 @@ export default function CrimeMap() {
                             >
                                 <option value="">-- None --</option>
                                 {cases.map(c => <option key={c.id} value={c.id}>#{c.case_number} - {c.title}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Linked Incident</label>
+                            <select
+                                className="form-input"
+                                value={selectedIncident}
+                                onChange={e => setSelectedIncident(e.target.value)}
+                            >
+                                <option value="">-- None --</option>
+                                {incidents.map(i => <option key={i.record_id} value={i.record_id}>{i.tablet_incident_number ? `[${i.tablet_incident_number}] ` : ''}{i.title}</option>)}
                             </select>
                         </div>
 
