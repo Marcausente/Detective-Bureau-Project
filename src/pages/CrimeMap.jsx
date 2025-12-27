@@ -3,7 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../supabaseClient';
 import GTAVMap from '../assets/GTAV-HD-MAP-satellite.jpg';
-import '../doc_styles.css'; // Ensure we have access to common styles
+import '../doc_styles.css';
 
 // Fix icons
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -28,8 +28,11 @@ export default function CrimeMap() {
     const [authorized, setAuthorized] = useState(false);
     const [mode, setMode] = useState('view'); // 'view', 'draw'
     const [drawingPoints, setDrawingPoints] = useState([]);
+
+    // Form State
     const [tempZoneData, setTempZoneData] = useState({ name: '', description: '', color: '#ef4444' });
     const [showModal, setShowModal] = useState(false);
+    const [editingZoneId, setEditingZoneId] = useState(null); // ID if editing, null if creating
 
     // Dropdown Data
     const [gangs, setGangs] = useState([]);
@@ -42,6 +45,12 @@ export default function CrimeMap() {
     useEffect(() => { modeRef.current = mode; }, [mode]);
     const drawingPointsRef = useRef(drawingPoints);
     useEffect(() => { drawingPointsRef.current = drawingPoints; }, [drawingPoints]);
+
+    // We need to access handleEditZone inside the popup click handler
+    // Since popup HTML strings are not React components, we attach a global or custom event listener,
+    // or we render the popup using ReactDOM (complex with Leaflet),
+    // OR simplest: Assign a function to the window object (hacky but works for vanilla JS popups).
+    // Better approach: Use event delegation on the map container for the 'edit-btn' class.
 
     useEffect(() => {
         checkAuth();
@@ -60,14 +69,13 @@ export default function CrimeMap() {
                 maxZoom: 2,
                 zoom: -1,
                 center: [4096, 4096],
-                zoomControl: false, // Custom placement if needed
+                zoomControl: false,
                 attributionControl: false,
                 maxBounds: bounds,
-                maxBoundsViscosity: 1.0, // Strict bounds
+                maxBoundsViscosity: 1.0,
                 bounceAtZoomLimits: false
             });
 
-            // Dark background for container
             mapContainerRef.current.style.background = '#0f172a';
 
             L.imageOverlay(GTAVMap, bounds).addTo(map);
@@ -90,6 +98,25 @@ export default function CrimeMap() {
                 }
             });
 
+            // Event delegation for popup buttons
+            const container = map.getContainer();
+            container.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-zone-btn')) {
+                    const id = e.target.getAttribute('data-id');
+                    handleDeleteZone(id);
+                }
+                if (e.target.classList.contains('edit-zone-btn')) {
+                    const id = e.target.getAttribute('data-id');
+                    // We need to find the zone data. 
+                    // Since specific zone data isn't easily passed via HTML attribute, 
+                    // we'll trigger a custom event or look it up in state.
+                    // Accessing 'zones' state here directly might be stale if not careful, 
+                    // but we can use a custom event dispatch to the component.
+                    const event = new CustomEvent('edit-zone-click', { detail: { id } });
+                    window.dispatchEvent(event);
+                }
+            });
+
             mapInstanceRef.current = map;
         }
 
@@ -100,6 +127,20 @@ export default function CrimeMap() {
             }
         };
     }, []);
+
+    // Listen for the custom event to handle edit with fresh state
+    useEffect(() => {
+        const handleEditEvent = (e) => {
+            const id = e.detail.id;
+            const zoneToEdit = zones.find(z => z.id === id);
+            if (zoneToEdit) {
+                prepareEdit(zoneToEdit);
+            }
+        };
+        window.addEventListener('edit-zone-click', handleEditEvent);
+        return () => window.removeEventListener('edit-zone-click', handleEditEvent);
+    }, [zones]); // Re-bind when zones change so we have fresh data
+
 
     // --- DATA FETCHING ---
     const checkAuth = async () => {
@@ -136,9 +177,7 @@ export default function CrimeMap() {
                     weight: 2
                 });
 
-                const popupContent = document.createElement('div');
-                popupContent.className = 'map-popup-content';
-                popupContent.innerHTML = `
+                let popupHTML = `
                     <h3 style="margin: 0 0 5px 0; color: #cfb53b; text-transform: uppercase;">${zone.name}</h3>
                     <p style="margin: 0 0 10px 0; color: #ccc; font-size: 0.9em;">${zone.description || ''}</p>
                     ${zone.gang_name ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">Gang:</strong> ${authorized ? zone.gang_name : '<span style="color: #ef4444; font-weight: bold;">SIN ACCESO</span>'}</div>` : ''}
@@ -146,36 +185,42 @@ export default function CrimeMap() {
                 `;
 
                 if (authorized) {
-                    const btn = document.createElement('button');
-                    btn.innerText = 'DELETE ZONE';
-                    btn.style.cssText = `
-                        background: #ef4444; 
-                        color: white; 
-                        border: none; 
-                        padding: 6px 12px; 
-                        margin-top: 10px; 
-                        cursor: pointer; 
-                        border-radius: 4px;
-                        font-size: 0.75rem;
-                        font-weight: 600;
-                        text-transform: uppercase;
-                        width: 100%;
+                    popupHTML += `
+                        <div style="display: flex; gap: 5px; margin-top: 10px;">
+                            <button class="edit-zone-btn" data-id="${zone.id}" style="
+                                flex: 1;
+                                background: #3b82f6; 
+                                color: white; 
+                                border: none; 
+                                padding: 6px; 
+                                cursor: pointer; 
+                                border-radius: 4px;
+                                font-size: 0.75rem;
+                                font-weight: 600;
+                                text-transform: uppercase;
+                            ">EDIT</button>
+                            <button class="delete-zone-btn" data-id="${zone.id}" style="
+                                flex: 1;
+                                background: #ef4444; 
+                                color: white; 
+                                border: none; 
+                                padding: 6px; 
+                                cursor: pointer; 
+                                border-radius: 4px;
+                                font-size: 0.75rem;
+                                font-weight: 600;
+                                text-transform: uppercase;
+                            ">DELETE</button>
+                        </div>
                     `;
-                    btn.onclick = () => handleDeleteZone(zone.id);
-                    popupContent.appendChild(btn);
                 }
 
-                poly.bindPopup(popupContent, {
+                poly.bindPopup(popupHTML, {
                     className: 'custom-popup-dark'
                 });
 
-                // Highlight on hover
-                poly.on('mouseover', function () {
-                    this.setStyle({ fillOpacity: 0.6, weight: 3 });
-                });
-                poly.on('mouseout', function () {
-                    this.setStyle({ fillOpacity: 0.35, weight: 2 });
-                });
+                poly.on('mouseover', function () { this.setStyle({ fillOpacity: 0.6, weight: 3 }); });
+                poly.on('mouseout', function () { this.setStyle({ fillOpacity: 0.35, weight: 2 }); });
 
                 poly.addTo(layerGroupRef.current);
             });
@@ -212,25 +257,59 @@ export default function CrimeMap() {
         else fetchZones();
     };
 
+    const prepareEdit = (zone) => {
+        setTempZoneData({
+            name: zone.name,
+            description: zone.description || '',
+            color: zone.color || '#ef4444'
+        });
+        setSelectedGang(zone.gang_id || '');
+        setSelectedCase(zone.case_id || '');
+        setEditingZoneId(zone.id);
+        setShowModal(true);
+    };
+
     const handleFinishDraw = () => {
         if (drawingPoints.length < 3) return alert("Zone must have at least 3 points");
+        setEditingZoneId(null); // Ensure we are creating
+        setTempZoneData({ name: '', description: '', color: '#ef4444' });
+        setSelectedGang('');
+        setSelectedCase('');
         setShowModal(true);
     };
 
     const handleSaveZone = async () => {
         if (!tempZoneData.name) return alert("Name is required");
 
-        const payload = {
-            p_name: tempZoneData.name,
-            p_description: tempZoneData.description,
-            p_coordinates: drawingPoints,
-            p_type: 'polygon',
-            p_gang_id: selectedGang || null,
-            p_case_id: selectedCase || null,
-            p_color: tempZoneData.color
-        };
+        let error;
 
-        const { error } = await supabase.rpc('create_map_zone', payload);
+        if (editingZoneId) {
+            // UPDATE EXISTING
+            const payload = {
+                p_id: editingZoneId,
+                p_name: tempZoneData.name,
+                p_description: tempZoneData.description,
+                p_gang_id: selectedGang || null,
+                p_case_id: selectedCase || null,
+                p_color: tempZoneData.color
+            };
+            const res = await supabase.rpc('update_map_zone', payload);
+            error = res.error;
+        } else {
+            // CREATE NEW
+            const payload = {
+                p_name: tempZoneData.name,
+                p_description: tempZoneData.description,
+                p_coordinates: drawingPoints,
+                p_type: 'polygon',
+                p_gang_id: selectedGang || null,
+                p_case_id: selectedCase || null,
+                p_color: tempZoneData.color
+            };
+            const res = await supabase.rpc('create_map_zone', payload);
+            error = res.error;
+        }
+
         if (error) {
             alert('Error: ' + error.message);
         } else {
@@ -238,6 +317,7 @@ export default function CrimeMap() {
             setMode('view');
             setDrawingPoints([]);
             setShowModal(false);
+            setEditingZoneId(null);
             setTempZoneData({ name: '', description: '', color: '#ef4444' });
             setSelectedGang('');
             setSelectedCase('');
@@ -278,14 +358,11 @@ export default function CrimeMap() {
         textAlign: 'center'
     };
 
-    // Using inline styles for simplicity here, but would ideally move to CSS file
     return (
         <div style={{ position: 'relative', height: 'calc(100vh - 140px)', width: '100%', overflow: 'hidden', background: '#0f172a', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
 
-            {/* Map Container */}
             <div ref={mapContainerRef} style={{ width: '100%', height: '100%', outline: 'none' }} />
 
-            {/* Floating Toolbar */}
             <div style={toolbarStyle}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
                     <div style={{ width: '10px', height: '10px', background: '#cfb53b', borderRadius: '50%', boxShadow: '0 0 10px #cfb53b' }}></div>
@@ -338,7 +415,9 @@ export default function CrimeMap() {
                     zIndex: 2000
                 }}>
                     <div className="login-card" style={{ maxWidth: '450px', animation: 'zoomIn 0.3s ease' }}>
-                        <h2 style={{ textAlign: 'center', color: '#cfb53b', marginBottom: '1.5rem', textTransform: 'uppercase', letterSpacing: '2px' }}>Define Zone</h2>
+                        <h2 style={{ textAlign: 'center', color: '#cfb53b', marginBottom: '1.5rem', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                            {editingZoneId ? 'Edit Zone' : 'Define New Zone'}
+                        </h2>
 
                         <div className="form-group">
                             <label className="form-label">Zone Name</label>
@@ -403,7 +482,7 @@ export default function CrimeMap() {
                                 className="login-button"
                                 style={{ flex: 1, color: '#000', background: '#cfb53b' }}
                             >
-                                Save Data
+                                {editingZoneId ? 'Update' : 'Save'}
                             </button>
                             <button
                                 onClick={() => setShowModal(false)}
@@ -420,6 +499,3 @@ export default function CrimeMap() {
         </div>
     );
 }
-
-// Additional CSS for popup injected into head or via class
-// Note: Leaflet popups are rendered outside React root usually, so standard CSS works best.
