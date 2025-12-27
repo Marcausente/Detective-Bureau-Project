@@ -101,8 +101,11 @@ function Incidents() {
         e.preventDefault();
         setSubmitting(true);
         try {
+            // Format title with tablet number if present
+            const finalTitle = incTablet ? `[${incTablet}] ${incTitle}` : incTitle;
+
             const { data: newId, error } = await supabase.rpc('create_incident_v2', {
-                p_title: incTitle,
+                p_title: finalTitle,
                 p_location: incLocation,
                 p_occurred_at: new Date(incDate).toISOString(),
                 p_tablet_number: incTablet,
@@ -181,7 +184,17 @@ function Incidents() {
     // --- EDIT HANDLERS ---
     const handleEditIncident = async (incident) => {
         setEditingIncident(incident);
-        setIncTitle(incident.title);
+
+        let titleToEdit = incident.title;
+        // If title starts with "[123] ", strip it for editing if it matches the tablet number
+        if (incident.tablet_incident_number) {
+            const prefix = `[${incident.tablet_incident_number}] `;
+            if (titleToEdit.startsWith(prefix)) {
+                titleToEdit = titleToEdit.substring(prefix.length);
+            }
+        }
+
+        setIncTitle(titleToEdit);
         setIncLocation(incident.location || '');
         setIncDate(incident.occurred_at ? new Date(incident.occurred_at).toISOString().slice(0, 16) : '');
         setIncTablet(incident.tablet_incident_number || '');
@@ -203,14 +216,17 @@ function Incidents() {
         e.preventDefault();
         setSubmitting(true);
         try {
+            // Format title with tablet number if present
+            const finalTitle = incTablet ? `[${incTablet}] ${incTitle}` : incTitle;
+
             // Update incident details
             const { error: updateError } = await supabase.rpc('update_incident', {
                 p_incident_id: editingIncident.record_id,
-                p_title: incTitle,
+                p_title: finalTitle,
                 p_location: incLocation,
                 p_occurred_at: new Date(incDate).toISOString(),
                 p_tablet_number: incTablet,
-                p_tablet_number: incTablet,
+                p_tablet_number: incTablet, // Note: This was duplicated in original code too, leaving as is but logic is sound
                 p_description: incDesc,
                 p_images: incImages // Pass updated images
             });
