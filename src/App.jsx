@@ -13,6 +13,7 @@ import PersonnelDetail from './pages/PersonnelDetail';
 import Documentation from './pages/Documentation';
 import Interrogations from './pages/Interrogations';
 import CrimeMap from './pages/CrimeMap'; // Import
+import PublicGangMap from './pages/PublicGangMap'; // Import
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
 import './index.css';
@@ -25,6 +26,7 @@ function App() {
         <Routes>
           {/* Public Route */}
           <Route path="/" element={<Login />} />
+          <Route path="/public-map" element={<PublicGangMap />} />
 
           {/* Interstitial Route */}
           <Route path="/welcome" element={<Welcome />} />

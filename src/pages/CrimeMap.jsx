@@ -30,7 +30,7 @@ export default function CrimeMap() {
     const [drawingPoints, setDrawingPoints] = useState([]);
 
     // Form State
-    const [tempZoneData, setTempZoneData] = useState({ name: '', description: '', color: '#ef4444' });
+    const [tempZoneData, setTempZoneData] = useState({ name: '', description: '', color: '#ef4444', is_gang_zone: false });
     const [showModal, setShowModal] = useState(false);
     const [editingZoneId, setEditingZoneId] = useState(null); // ID if editing, null if creating
 
@@ -187,6 +187,7 @@ export default function CrimeMap() {
                     ${zone.gang_name ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">Gang:</strong> ${zone.gang_name}</div>` : ''}
                     ${zone.case_title ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">Case:</strong> ${authorized ? zone.case_title : '<span style="color: #ef4444; font-weight: bold;">SIN ACCESO</span>'}</div>` : ''}
                     ${zone.incident_title ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">Incident:</strong> ${zone.incident_title}</div>` : ''}
+                    ${zone.is_gang_zone ? `<div style="font-size: 0.8em; margin-top: 5px; color: #ef4444; font-weight: bold; border: 1px solid #ef4444; padding: 2px 5px; border-radius: 4px; display: inline-block;">GANG / DROGA ZONE</div>` : ''}
                 `;
 
                 if (authorized) {
@@ -266,7 +267,8 @@ export default function CrimeMap() {
         setTempZoneData({
             name: zone.name,
             description: zone.description || '',
-            color: zone.color || '#ef4444'
+            color: zone.color || '#ef4444',
+            is_gang_zone: zone.is_gang_zone || false
         });
         setSelectedGang(zone.gang_id || '');
         setSelectedCase(zone.case_id || '');
@@ -278,7 +280,7 @@ export default function CrimeMap() {
     const handleFinishDraw = () => {
         if (drawingPoints.length < 3) return alert("Zone must have at least 3 points");
         setEditingZoneId(null); // Ensure we are creating
-        setTempZoneData({ name: '', description: '', color: '#ef4444' });
+        setTempZoneData({ name: '', description: '', color: '#ef4444', is_gang_zone: false });
         setSelectedGang('');
         setSelectedCase('');
         setSelectedIncident('');
@@ -299,7 +301,9 @@ export default function CrimeMap() {
                 p_gang_id: selectedGang || null,
                 p_case_id: selectedCase || null,
                 p_incident_id: selectedIncident || null,
-                p_color: tempZoneData.color
+
+                p_color: tempZoneData.color,
+                p_is_gang_zone: tempZoneData.is_gang_zone
             };
             const res = await supabase.rpc('update_map_zone', payload);
             error = res.error;
@@ -313,7 +317,9 @@ export default function CrimeMap() {
                 p_gang_id: selectedGang || null,
                 p_case_id: selectedCase || null,
                 p_incident_id: selectedIncident || null,
-                p_color: tempZoneData.color
+
+                p_color: tempZoneData.color,
+                p_is_gang_zone: tempZoneData.is_gang_zone
             };
             const res = await supabase.rpc('create_map_zone', payload);
             error = res.error;
@@ -437,6 +443,19 @@ export default function CrimeMap() {
                                 onChange={e => setTempZoneData({ ...tempZoneData, name: e.target.value })}
                                 placeholder="Designation..."
                             />
+                        </div>
+
+                        <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '25px', marginBottom: '15px', padding: '12px', background: 'rgba(255,255,255,0.08)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)' }}>
+                            <input
+                                type="checkbox"
+                                id="isGangZone"
+                                checked={tempZoneData.is_gang_zone}
+                                onChange={e => setTempZoneData({ ...tempZoneData, is_gang_zone: e.target.checked })}
+                                style={{ width: '22px', height: '22px', cursor: 'pointer', accentColor: '#cfb53b' }}
+                            />
+                            <label htmlFor="isGangZone" style={{ color: '#fff', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>
+                                Mostrar público <span style={{ fontSize: '0.8em', color: '#94a3b8', marginLeft: '5px', fontWeight: 'normal' }}>(Visible sin login)</span>
+                            </label>
                         </div>
 
                         <div className="form-group">
