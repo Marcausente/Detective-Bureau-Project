@@ -1856,12 +1856,14 @@ body {
     margin-bottom: 0.4rem;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
+
 /* --- Leaflet Custom Dark Popups --- */
-.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
     background: rgba(15, 23, 42, 0.95) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     color: #f8fafc !important;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
     backdrop-filter: blur(5px);
     border-radius: 8px !important;
 }
@@ -1872,5 +1874,27 @@ body {
 }
 
 .leaflet-container {
-    background: #0f172a !important; /* Force dark background */
+    background: #0f172a !important;
+    /* Force dark background */
+}
+
+/* Custom Scrollbar for Feeds */
+.scroll-feed {
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-gold) transparent;
+}
+
+.scroll-feed::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scroll-feed::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scroll-feed::-webkit-scrollbar-thumb {
+    background-color: var(--accent-gold);
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background-clip: content-box;
 }
