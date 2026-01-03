@@ -16,6 +16,8 @@ function Incidents() {
     const [showOutingModal, setShowOutingModal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [expandedImage, setExpandedImage] = useState(null);
+    const [showEditOutingModal, setShowEditOutingModal] = useState(false);
+    const [editingOuting, setEditingOuting] = useState(null);
 
     // Data for Selectors
     const [users, setUsers] = useState([]);
@@ -226,7 +228,6 @@ function Incidents() {
                 p_location: incLocation,
                 p_occurred_at: new Date(incDate).toISOString(),
                 p_tablet_number: incTablet,
-                p_tablet_number: incTablet, // Note: This was duplicated in original code too, leaving as is but logic is sound
                 p_description: incDesc,
                 p_images: incImages // Pass updated images
             });
@@ -256,6 +257,95 @@ function Incidents() {
             loadData();
         } catch (err) {
             alert('Error updating incident: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleEditOuting = async (outing) => {
+        setEditingOuting(outing);
+        setOutTitle(outing.title);
+        setOutDate(outing.occurred_at ? new Date(outing.occurred_at).toISOString().slice(0, 16) : '');
+        setOutReason(outing.reason || '');
+        setOutInfo(outing.info_obtained || '');
+        setOutImages(outing.images || []);
+
+        // Setup detectives
+        // Note: outing.detectives now contains { id, name, rank, avatar } thanks to updated RPC
+        if (outing.detectives && outing.detectives.length > 0) {
+            setOutDetectives(outing.detectives.map(d => d.id).filter(id => id));
+        } else {
+            setOutDetectives([]);
+        }
+
+        // Setup Gangs - fetch linked
+        const { data: linkedGangs, error } = await supabase.rpc('get_outing_gangs', { p_outing_id: outing.record_id });
+        if (!error && linkedGangs) {
+            setOutGangIds(linkedGangs.map(g => g.gang_id));
+        } else {
+            setOutGangIds([]);
+        }
+
+        setShowEditOutingModal(true);
+    };
+
+    const handleUpdateOuting = async (e) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            const { error: updateError } = await supabase.rpc('update_outing', {
+                p_outing_id: editingOuting.record_id,
+                p_title: outTitle,
+                p_occurred_at: new Date(outDate).toISOString(),
+                p_reason: outReason,
+                p_info_obtained: outInfo,
+                p_images: outImages
+            });
+            if (updateError) throw updateError;
+
+            // --- Update Gangs ---
+            const { data: currentGangs } = await supabase.rpc('get_outing_gangs', { p_outing_id: editingOuting.record_id });
+            const currentGangIds = currentGangs ? currentGangs.map(g => g.gang_id) : [];
+
+            // Unlink
+            for (const gangId of currentGangIds) {
+                if (!outGangIds.includes(gangId)) {
+                    await supabase.rpc('unlink_outing_gang', { p_outing_id: editingOuting.record_id, p_gang_id: gangId });
+                }
+            }
+            // Link
+            for (const gangId of outGangIds) {
+                if (!currentGangIds.includes(gangId)) {
+                    await supabase.rpc('link_outing_gang', { p_outing_id: editingOuting.record_id, p_gang_id: gangId });
+                }
+            }
+
+            // --- Update Detectives ---
+            // Fetch current detectives from RPC to be safe, or assume existing state is accurate enough for diffing if we haven't changed anything else.
+            // Using get_outing_detectives RPC I added.
+            const { data: currentDetectives } = await supabase.rpc('get_outing_detectives', { p_outing_id: editingOuting.record_id });
+            // currentDetectives is array of objects { user_id }
+            const currentDetIds = currentDetectives ? currentDetectives.map(d => d.user_id) : [];
+
+            // Unlink removed
+            for (const uid of currentDetIds) {
+                if (!outDetectives.includes(uid)) {
+                    await supabase.rpc('unlink_outing_detective', { p_outing_id: editingOuting.record_id, p_user_id: uid });
+                }
+            }
+            // Link new
+            for (const uid of outDetectives) {
+                if (!currentDetIds.includes(uid)) {
+                    await supabase.rpc('link_outing_detective', { p_outing_id: editingOuting.record_id, p_user_id: uid });
+                }
+            }
+
+            setShowEditOutingModal(false);
+            setEditingOuting(null);
+            resetOutingForm();
+            loadData();
+        } catch (err) {
+            alert('Error updating outing: ' + err.message);
         } finally {
             setSubmitting(false);
         }
@@ -349,6 +439,7 @@ function Incidents() {
                                         data={out}
                                         onExpand={setExpandedImage}
                                         onDelete={handleDeleteOuting}
+                                        onEdit={handleEditOuting}
                                     />
                                 ))
                             }
@@ -549,6 +640,81 @@ function Incidents() {
                             <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
                                 <button type="button" className="login-button btn-secondary" onClick={() => setShowOutingModal(false)} style={{ width: 'auto' }}>Cancel</button>
                                 <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Create Outing'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* --- MODAL: EDIT OUTING --- */}
+            {showEditOutingModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>Edit Outing</h3>
+                        <form onSubmit={handleUpdateOuting}>
+                            <div className="form-group"><label>Title</label><input className="form-input" required value={outTitle} onChange={e => setOutTitle(e.target.value)} /></div>
+
+                            {/* User Selector */}
+                            <div className="form-group">
+                                <label>Detectives Present</label>
+                                <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                    {users.map(u => (
+                                        <div key={u.id} onClick={() => toggleDetective(u.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outDetectives.includes(u.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                            <input type="checkbox" checked={outDetectives.includes(u.id)} readOnly style={{ marginRight: '10px' }} />
+                                            <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Link to Syndicates (Optional)</label>
+                                <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                    {gangs.map(g => (
+                                        <div key={g.id} onClick={() => toggleGangOuting(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                            <input type="checkbox" checked={outGangIds.includes(g.id)} readOnly style={{ marginRight: '10px' }} />
+                                            <span style={{ fontSize: '0.9rem' }}>{g.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
+                            <div className="form-group"><label>Reason</label><input className="form-input" value={outReason} onChange={e => setOutReason(e.target.value)} /></div>
+                            <div className="form-group"><label>Information Obtained</label><textarea className="eval-textarea" rows="4" value={outInfo} onChange={e => setOutInfo(e.target.value)} /></div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Images (Optional)</label>
+                                <label htmlFor="out-edit-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                                    📷 Upload Images
+                                </label>
+                                <input
+                                    id="out-edit-upload"
+                                    type="file"
+                                    multiple
+                                    accept="image/*"
+                                    onChange={(e) => handleImageUpload(e, setOutImages)}
+                                    style={{ display: 'none' }}
+                                />
+                                <div style={{ display: 'flex', gap: '5px', marginTop: '10px', flexWrap: 'wrap' }}>
+                                    {outImages.map((src, i) => (
+                                        <div key={i} style={{ position: 'relative' }}>
+                                            <img src={src} style={{ height: '60px', borderRadius: '4px', border: '1px solid #444' }} alt="" />
+                                            <button
+                                                type="button"
+                                                onClick={() => setOutImages(prev => prev.filter((_, idx) => idx !== i))}
+                                                style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '18px', height: '18px', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
+                                <button type="button" className="login-button btn-secondary" onClick={() => { setShowEditOutingModal(false); setEditingOuting(null); resetOutingForm(); }} style={{ width: 'auto' }}>Cancel</button>
+                                <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Update Outing'}</button>
                             </div>
                         </form>
                     </div>

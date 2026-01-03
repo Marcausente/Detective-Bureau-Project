@@ -1,6 +1,3 @@
--- FIXUSERCREATION.sql
--- Run this script in your Supabase SQL Editor to update the create_new_personnel function.
--- This aligns user creation with the Sabbathweb implementation, fixing login issues.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -22,7 +19,6 @@ DECLARE
 BEGIN
   new_user_id := gen_random_uuid();
 
-  -- 1. Insert into auth.users (Mimicking Sabbathweb structure)
   INSERT INTO auth.users (
     instance_id,
     id,
@@ -48,7 +44,7 @@ BEGIN
     'authenticated',
     p_email,
     crypt(p_password, gen_salt('bf')),
-    NOW(), -- Auto-confirm
+    NOW(),
     null,
     null,
     '{"provider": "email", "providers": ["email"]}',
@@ -61,7 +57,6 @@ BEGIN
     ''
   );
 
-  -- 2. Insert into auth.identities (CRITICAL FIX from Sabbathweb)
   INSERT INTO auth.identities (
     id,
     user_id,
@@ -82,8 +77,6 @@ BEGIN
     NOW()
   );
 
-  -- 3. Handle Public User Data
-  -- UPSERT to handle potential trigger firing
   INSERT INTO public.users (
     id, email, nombre, apellido, no_placa, rango, rol, fecha_ingreso, profile_image
   ) VALUES (
