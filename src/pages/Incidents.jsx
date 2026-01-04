@@ -41,6 +41,7 @@ function Incidents() {
     const [outReason, setOutReason] = useState('');
     const [outInfo, setOutInfo] = useState('');
     const [outGangIds, setOutGangIds] = useState([]); // Changed to array for multiple gangs
+    const [outInterrogationIds, setOutInterrogationIds] = useState([]); // Array of linked interrogation IDs
     const [outImages, setOutImages] = useState([]);
 
 
@@ -57,7 +58,10 @@ function Incidents() {
         const { data: outData, error: outError } = await supabase.rpc('get_outings');
 
         if (incError) console.error("Incidents Error:", incError);
-        if (outError) console.error("Outings Error:", outError);
+        if (outError) {
+            console.error("Outings Error:", outError);
+            alert("Error loading outings: " + outError.message);
+        }
 
         setIncidents(incData || []);
         setOutings(outData || []);
@@ -172,6 +176,13 @@ function Incidents() {
             if (outGangIds.length > 0) {
                 for (const gangId of outGangIds) {
                     await supabase.rpc('link_outing_gang', { p_outing_id: newId, p_gang_id: gangId });
+                }
+            }
+
+            // Link to Interrogations
+            if (outInterrogationIds.length > 0) {
+                for (const intId of outInterrogationIds) {
+                    await supabase.rpc('link_outing_interrogation', { p_outing_id: newId, p_interrogation_id: intId });
                 }
             }
 
@@ -333,6 +344,14 @@ function Incidents() {
                 setOutGangIds([]);
             }
 
+            // Setup Interrogations - fetch linked
+            const { data: linkedInters, error: intError } = await supabase.rpc('get_outing_interrogations', { p_outing_id: outing.record_id });
+            if (!intError && linkedInters) {
+                setOutInterrogationIds(linkedInters.map(i => i.id));
+            } else {
+                setOutInterrogationIds([]);
+            }
+
             setShowEditOutingModal(true);
         } catch (e) {
             console.error("Error opening outing edit modal:", e);
@@ -391,6 +410,23 @@ function Incidents() {
                 }
             }
 
+            // --- Update Interrogations ---
+            const { data: currentInters } = await supabase.rpc('get_outing_interrogations', { p_outing_id: editingOuting.record_id });
+            const currentIntIds = currentInters ? currentInters.map(i => i.id) : [];
+
+            // Unlink removed
+            for (const intId of currentIntIds) {
+                if (!outInterrogationIds.includes(intId)) {
+                    await supabase.rpc('unlink_outing_interrogation', { p_outing_id: editingOuting.record_id, p_interrogation_id: intId });
+                }
+            }
+            // Link new
+            for (const intId of outInterrogationIds) {
+                if (!currentIntIds.includes(intId)) {
+                    await supabase.rpc('link_outing_interrogation', { p_outing_id: editingOuting.record_id, p_interrogation_id: intId });
+                }
+            }
+
             setShowEditOutingModal(false);
             setEditingOuting(null);
             resetOutingForm();
@@ -407,7 +443,7 @@ function Incidents() {
         setIncTitle(''); setIncLocation(''); setIncDate(''); setIncTablet(''); setIncDesc(''); setIncGangIds([]); setIncInterrogationIds([]); setIncImages([]);
     };
     const resetOutingForm = () => {
-        setOutTitle(''); setOutDate(''); setOutDetectives([]); setOutReason(''); setOutInfo(''); setOutGangIds([]); setOutImages([]);
+        setOutTitle(''); setOutDate(''); setOutDetectives([]); setOutReason(''); setOutInfo(''); setOutGangIds([]); setOutInterrogationIds([]); setOutImages([]);
     };
 
     const toggleGangIncident = (gangId) => {
@@ -420,6 +456,10 @@ function Incidents() {
 
     const toggleGangOuting = (gangId) => {
         setOutGangIds(prev => prev.includes(gangId) ? prev.filter(id => id !== gangId) : [...prev, gangId]);
+    };
+
+    const toggleInterrogationOuting = (intId) => {
+        setOutInterrogationIds(prev => prev.includes(intId) ? prev.filter(id => id !== intId) : [...prev, intId]);
     };
 
     // Toggle Detective Selection
@@ -695,6 +735,20 @@ function Incidents() {
                                     </div>
                                 </div>
 
+                                <div className="form-group">
+                                    <label>Link to Interrogations (Optional)</label>
+                                    <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                        {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>No interrogations available.</div> :
+                                            interrogations.map(int => (
+                                                <div key={int.id} onClick={() => toggleInterrogationOuting(int.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outInterrogationIds.includes(int.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                                    <input type="checkbox" checked={outInterrogationIds.includes(int.id)} readOnly style={{ marginRight: '10px' }} />
+                                                    <span style={{ fontSize: '0.9rem' }}>{int.title} ({new Date(int.created_at).toLocaleDateString()})</span>
+                                                </div>
+                                            ))
+                                        }
+                                    </div>
+                                </div>
+
                                 <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
                                 <div className="form-group"><label>Reason</label><input className="form-input" value={outReason} onChange={e => setOutReason(e.target.value)} /></div>
                                 <div className="form-group"><label>Information Obtained</label><textarea className="eval-textarea" rows="4" value={outInfo} onChange={e => setOutInfo(e.target.value)} /></div>
@@ -769,6 +823,20 @@ function Incidents() {
                                                 <span style={{ fontSize: '0.9rem' }}>{g.name}</span>
                                             </div>
                                         ))}
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label>Link to Interrogations (Optional)</label>
+                                    <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                        {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>No interrogations available.</div> :
+                                            interrogations.map(int => (
+                                                <div key={int.id} onClick={() => toggleInterrogationOuting(int.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outInterrogationIds.includes(int.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                                    <input type="checkbox" checked={outInterrogationIds.includes(int.id)} readOnly style={{ marginRight: '10px' }} />
+                                                    <span style={{ fontSize: '0.9rem' }}>{int.title} ({new Date(int.created_at).toLocaleDateString()})</span>
+                                                </div>
+                                            ))
+                                        }
                                     </div>
                                 </div>
 

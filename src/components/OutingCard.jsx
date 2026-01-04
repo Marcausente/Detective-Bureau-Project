@@ -58,6 +58,19 @@ function OutingCard({ data, onExpand, onDelete, onEdit }) {
                 </div>
             )}
 
+            {data.interrogations && data.interrogations.length > 0 && (
+                <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>Linked Interrogations:</strong>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                        {data.interrogations.map(int => (
+                            <span key={int.id} style={{ fontSize: '0.75rem', background: '#2563eb', color: 'white', padding: '2px 8px', borderRadius: '12px' }}>
+                                📄 {int.title}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {data.images && data.images.length > 0 && (
                 <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '0.5rem' }}>
                     {data.images.map((src, i) => (
