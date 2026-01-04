@@ -1,6 +1,6 @@
 import '../index.css';
 
-function OutingCard({ data, onExpand, onDelete }) {
+function OutingCard({ data, onExpand, onDelete, onEdit }) {
     return (
         <div className="announcement-card" style={{ marginBottom: '1rem', background: 'rgba(20, 20, 20, 0.6)', padding: '1rem', borderLeft: '2px solid var(--accent-gold)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

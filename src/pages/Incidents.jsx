@@ -22,6 +22,7 @@ function Incidents() {
     // Data for Selectors
     const [users, setUsers] = useState([]);
     const [gangs, setGangs] = useState([]); // List of gangs for selection
+    const [interrogations, setInterrogations] = useState([]); // List of interrogations for selection
 
     // --- FORM STATE: INCIDENT ---
     const [incTitle, setIncTitle] = useState('');
@@ -30,6 +31,7 @@ function Incidents() {
     const [incTablet, setIncTablet] = useState('');
     const [incDesc, setIncDesc] = useState('');
     const [incGangIds, setIncGangIds] = useState([]); // Changed to array for multiple gangs
+    const [incInterrogationIds, setIncInterrogationIds] = useState([]); // Array of linked interrogation IDs
     const [incImages, setIncImages] = useState([]);
 
     // --- FORM STATE: OUTING ---
@@ -46,6 +48,7 @@ function Incidents() {
         loadData();
         fetchUsers();
         fetchGangs();
+        fetchInterrogations();
     }, []);
 
     const loadData = async () => {
@@ -70,6 +73,17 @@ function Incidents() {
         // Simple fetch for dropdown
         const { data } = await supabase.from('gangs').select('id, name').order('name');
         setGangs(data || []);
+    };
+
+    const fetchInterrogations = async () => {
+        // Fetch available interrogations for linking
+        console.log("Fetching interrogations...");
+        const { data, error } = await supabase.rpc('get_available_interrogations_to_link');
+        if (error) console.error("Error fetching interrogations:", error);
+        if (data) {
+            console.log("Interrogations fetched:", data);
+            setInterrogations(data);
+        }
     };
 
     // --- IMAGE HANDLING ---
@@ -120,6 +134,13 @@ function Incidents() {
             if (incGangIds.length > 0) {
                 for (const gangId of incGangIds) {
                     await supabase.rpc('link_incident_gang', { p_incident_id: newId, p_gang_id: gangId });
+                }
+            }
+
+            // Link to Interrogations
+            if (incInterrogationIds.length > 0) {
+                for (const intId of incInterrogationIds) {
+                    await supabase.rpc('link_incident_interrogation', { p_incident_id: newId, p_interrogation_id: intId });
                 }
             }
 
@@ -207,8 +228,14 @@ function Incidents() {
         const { data: linkedGangs, error } = await supabase.rpc('get_incident_gangs', { p_incident_id: incident.record_id });
         if (!error && linkedGangs) {
             setIncGangIds(linkedGangs.map(g => g.gang_id));
+        }
+
+        // Load linked interrogations
+        const { data: linkedInters, error: intError } = await supabase.rpc('get_incident_interrogations', { p_incident_id: incident.record_id });
+        if (!intError && linkedInters) {
+            setIncInterrogationIds(linkedInters.map(i => i.id));
         } else {
-            setIncGangIds([]);
+            setIncInterrogationIds([]);
         }
 
         setShowEditIncidentModal(true);
@@ -251,6 +278,23 @@ function Incidents() {
                 }
             }
 
+            // --- Update Interrogations ---
+            const { data: currentInters } = await supabase.rpc('get_incident_interrogations', { p_incident_id: editingIncident.record_id });
+            const currentIntIds = currentInters ? currentInters.map(i => i.id) : [];
+
+            // Unlink removed
+            for (const intId of currentIntIds) {
+                if (!incInterrogationIds.includes(intId)) {
+                    await supabase.rpc('unlink_incident_interrogation', { p_incident_id: editingIncident.record_id, p_interrogation_id: intId });
+                }
+            }
+            // Link new
+            for (const intId of incInterrogationIds) {
+                if (!currentIntIds.includes(intId)) {
+                    await supabase.rpc('link_incident_interrogation', { p_incident_id: editingIncident.record_id, p_interrogation_id: intId });
+                }
+            }
+
             setShowEditIncidentModal(false);
             setEditingIncident(null);
             resetIncidentForm();
@@ -263,30 +307,37 @@ function Incidents() {
     };
 
     const handleEditOuting = async (outing) => {
-        setEditingOuting(outing);
-        setOutTitle(outing.title);
-        setOutDate(outing.occurred_at ? new Date(outing.occurred_at).toISOString().slice(0, 16) : '');
-        setOutReason(outing.reason || '');
-        setOutInfo(outing.info_obtained || '');
-        setOutImages(outing.images || []);
+        try {
+            setEditingOuting(outing);
+            setOutTitle(outing.title);
+            setOutDate(outing.occurred_at ? new Date(outing.occurred_at).toISOString().slice(0, 16) : '');
+            setOutReason(outing.reason || '');
+            setOutInfo(outing.info_obtained || '');
+            setOutImages(outing.images || []);
 
-        // Setup detectives
-        // Note: outing.detectives now contains { id, name, rank, avatar } thanks to updated RPC
-        if (outing.detectives && outing.detectives.length > 0) {
-            setOutDetectives(outing.detectives.map(d => d.id).filter(id => id));
-        } else {
-            setOutDetectives([]);
+            // Setup detectives
+            if (outing.detectives && outing.detectives.length > 0) {
+                setOutDetectives(outing.detectives.map(d => d.id).filter(id => id));
+            } else {
+                setOutDetectives([]);
+            }
+
+            // Setup Gangs - fetch linked
+            const { data: linkedGangs, error } = await supabase.rpc('get_outing_gangs', { p_outing_id: outing.record_id });
+            if (error) {
+                console.error("Error fetching outing gangs:", error);
+            }
+            if (!error && linkedGangs) {
+                setOutGangIds(linkedGangs.map(g => g.gang_id));
+            } else {
+                setOutGangIds([]);
+            }
+
+            setShowEditOutingModal(true);
+        } catch (e) {
+            console.error("Error opening outing edit modal:", e);
+            alert("Error opening edit menu: " + e.message);
         }
-
-        // Setup Gangs - fetch linked
-        const { data: linkedGangs, error } = await supabase.rpc('get_outing_gangs', { p_outing_id: outing.record_id });
-        if (!error && linkedGangs) {
-            setOutGangIds(linkedGangs.map(g => g.gang_id));
-        } else {
-            setOutGangIds([]);
-        }
-
-        setShowEditOutingModal(true);
     };
 
     const handleUpdateOuting = async (e) => {
@@ -353,7 +404,7 @@ function Incidents() {
 
     // --- HELPERS ---
     const resetIncidentForm = () => {
-        setIncTitle(''); setIncLocation(''); setIncDate(''); setIncTablet(''); setIncDesc(''); setIncGangIds([]); setIncImages([]);
+        setIncTitle(''); setIncLocation(''); setIncDate(''); setIncTablet(''); setIncDesc(''); setIncGangIds([]); setIncInterrogationIds([]); setIncImages([]);
     };
     const resetOutingForm = () => {
         setOutTitle(''); setOutDate(''); setOutDetectives([]); setOutReason(''); setOutInfo(''); setOutGangIds([]); setOutImages([]);
@@ -361,6 +412,10 @@ function Incidents() {
 
     const toggleGangIncident = (gangId) => {
         setIncGangIds(prev => prev.includes(gangId) ? prev.filter(id => id !== gangId) : [...prev, gangId]);
+    };
+
+    const toggleInterrogationIncident = (intId) => {
+        setIncInterrogationIds(prev => prev.includes(intId) ? prev.filter(id => id !== intId) : [...prev, intId]);
     };
 
     const toggleGangOuting = (gangId) => {
@@ -467,6 +522,22 @@ function Incidents() {
                                     ))}
                                 </div>
                             </div>
+
+
+                            <div className="form-group">
+                                <label>Link to Interrogations (Optional)</label>
+                                <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                    {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>No interrogations available.</div> :
+                                        interrogations.map(int => (
+                                            <div key={int.id} onClick={() => toggleInterrogationIncident(int.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: incInterrogationIds.includes(int.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                                <input type="checkbox" checked={incInterrogationIds.includes(int.id)} readOnly style={{ marginRight: '10px' }} />
+                                                <span style={{ fontSize: '0.9rem' }}>{int.title} ({new Date(int.created_at).toLocaleDateString()})</span>
+                                            </div>
+                                        ))
+                                    }
+                                </div>
+                            </div>
+
                             <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={incDate} onChange={e => setIncDate(e.target.value)} /></div>
                             <div className="form-group"><label>Location (Optional)</label><input className="form-input" value={incLocation} onChange={e => setIncLocation(e.target.value)} /></div>
                             <div className="form-group"><label>Tablet Incident # (Optional)</label><input className="form-input" value={incTablet} onChange={e => setIncTablet(e.target.value)} /></div>
@@ -497,6 +568,8 @@ function Incidents() {
                                                 ×
                                             </button>
                                         </div>
+
+
                                     ))}
                                 </div>
                             </div>
@@ -506,228 +579,251 @@ function Incidents() {
                                 <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Create'}</button>
                             </div>
                         </form>
-                    </div>
-                </div>
+                    </div >
+                </div >
             )}
 
             {/* --- MODAL: EDIT INCIDENT --- */}
-            {showEditIncidentModal && (
-                <div className="cropper-modal-overlay">
-                    <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3 className="section-title">Edit Incident</h3>
-                        <form onSubmit={handleUpdateIncident}>
-                            <div className="form-group"><label>Title</label><input className="form-input" required value={incTitle} onChange={e => setIncTitle(e.target.value)} /></div>
-                            <div className="form-group">
-                                <label>Link to Syndicates (Optional)</label>
-                                <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
-                                    {gangs.map(g => (
-                                        <div key={g.id} onClick={() => toggleGangIncident(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: incGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
-                                            <input type="checkbox" checked={incGangIds.includes(g.id)} readOnly style={{ marginRight: '10px' }} />
-                                            <span style={{ fontSize: '0.9rem' }}>{g.name}</span>
-                                        </div>
-                                    ))}
+            {
+                showEditIncidentModal && (
+                    <div className="cropper-modal-overlay">
+                        <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <h3 className="section-title">Edit Incident</h3>
+                            <form onSubmit={handleUpdateIncident}>
+                                <div className="form-group"><label>Title</label><input className="form-input" required value={incTitle} onChange={e => setIncTitle(e.target.value)} /></div>
+                                <div className="form-group">
+                                    <label>Link to Syndicates (Optional)</label>
+                                    <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                        {gangs.map(g => (
+                                            <div key={g.id} onClick={() => toggleGangIncident(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: incGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                                <input type="checkbox" checked={incGangIds.includes(g.id)} readOnly style={{ marginRight: '10px' }} />
+                                                <span style={{ fontSize: '0.9rem' }}>{g.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={incDate} onChange={e => setIncDate(e.target.value)} /></div>
-                            <div className="form-group"><label>Location (Optional)</label><input className="form-input" value={incLocation} onChange={e => setIncLocation(e.target.value)} /></div>
-                            <div className="form-group"><label>Tablet Incident # (Optional)</label><input className="form-input" value={incTablet} onChange={e => setIncTablet(e.target.value)} /></div>
-                            <div className="form-group"><label>Description (Optional)</label><textarea className="eval-textarea" rows="4" value={incDesc} onChange={e => setIncDesc(e.target.value)} /></div>
 
-                            <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Images (Optional)</label>
-                                <label htmlFor="inc-edit-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
-                                    📷 Upload Images
-                                </label>
-                                <input
-                                    id="inc-edit-upload"
-                                    type="file"
-                                    multiple
-                                    accept="image/*"
-                                    onChange={(e) => handleImageUpload(e, setIncImages)}
-                                    style={{ display: 'none' }}
-                                />
-                                <div style={{ display: 'flex', gap: '5px', marginTop: '10px', flexWrap: 'wrap' }}>
-                                    {incImages.map((src, i) => (
-                                        <div key={i} style={{ position: 'relative' }}>
-                                            <img src={src} style={{ height: '60px', borderRadius: '4px', border: '1px solid #444' }} alt="" />
-                                            <button
-                                                type="button"
-                                                onClick={() => setIncImages(prev => prev.filter((_, idx) => idx !== i))}
-                                                style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '18px', height: '18px', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                            >
-                                                ×
-                                            </button>
-                                        </div>
-                                    ))}
+                                <div className="form-group">
+                                    <label>Link to Interrogations (Optional)</label>
+                                    <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                        {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>No interrogations available.</div> :
+                                            interrogations.map(int => (
+                                                <div key={int.id} onClick={() => toggleInterrogationIncident(int.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: incInterrogationIds.includes(int.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                                    <input type="checkbox" checked={incInterrogationIds.includes(int.id)} readOnly style={{ marginRight: '10px' }} />
+                                                    <span style={{ fontSize: '0.9rem' }}>{int.title} ({new Date(int.created_at).toLocaleDateString()})</span>
+                                                </div>
+                                            ))
+                                        }
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
-                                <button type="button" className="login-button btn-secondary" onClick={() => { setShowEditIncidentModal(false); setEditingIncident(null); resetIncidentForm(); }} style={{ width: 'auto' }}>Cancel</button>
-                                <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Update'}</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+                                <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={incDate} onChange={e => setIncDate(e.target.value)} /></div>
+                                <div className="form-group"><label>Location (Optional)</label><input className="form-input" value={incLocation} onChange={e => setIncLocation(e.target.value)} /></div>
+                                <div className="form-group"><label>Tablet Incident # (Optional)</label><input className="form-input" value={incTablet} onChange={e => setIncTablet(e.target.value)} /></div>
+                                <div className="form-group"><label>Description (Optional)</label><textarea className="eval-textarea" rows="4" value={incDesc} onChange={e => setIncDesc(e.target.value)} /></div>
+
+                                <div className="form-group">
+                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>Images (Optional)</label>
+                                    <label htmlFor="inc-edit-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                                        📷 Upload Images
+                                    </label>
+                                    <input
+                                        id="inc-edit-upload"
+                                        type="file"
+                                        multiple
+                                        accept="image/*"
+                                        onChange={(e) => handleImageUpload(e, setIncImages)}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <div style={{ display: 'flex', gap: '5px', marginTop: '10px', flexWrap: 'wrap' }}>
+                                        {incImages.map((src, i) => (
+                                            <div key={i} style={{ position: 'relative' }}>
+                                                <img src={src} style={{ height: '60px', borderRadius: '4px', border: '1px solid #444' }} alt="" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIncImages(prev => prev.filter((_, idx) => idx !== i))}
+                                                    style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '18px', height: '18px', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
+                                    <button type="button" className="login-button btn-secondary" onClick={() => { setShowEditIncidentModal(false); setEditingIncident(null); resetIncidentForm(); }} style={{ width: 'auto' }}>Cancel</button>
+                                    <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Update'}</button>
+                                </div>
+                            </form >
+                        </div >
+                    </div >
+                )
+            }
 
             {/* --- MODAL: NEW OUTING --- */}
-            {showOutingModal && (
-                <div className="cropper-modal-overlay">
-                    <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>Log New Outing</h3>
-                        <form onSubmit={handleSubmitOuting}>
-                            <div className="form-group"><label>Title</label><input className="form-input" required value={outTitle} onChange={e => setOutTitle(e.target.value)} /></div>
+            {
+                showOutingModal && (
+                    <div className="cropper-modal-overlay">
+                        <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>Log New Outing</h3>
+                            <form onSubmit={handleSubmitOuting}>
+                                <div className="form-group"><label>Title</label><input className="form-input" required value={outTitle} onChange={e => setOutTitle(e.target.value)} /></div>
 
-                            {/* User Selector */}
-                            <div className="form-group">
-                                <label>Detectives Present</label>
-                                <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
-                                    {users.map(u => (
-                                        <div key={u.id} onClick={() => toggleDetective(u.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outDetectives.includes(u.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
-                                            <input type="checkbox" checked={outDetectives.includes(u.id)} readOnly style={{ marginRight: '10px' }} />
-                                            <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
-                                        </div>
-                                    ))}
+                                {/* User Selector */}
+                                <div className="form-group">
+                                    <label>Detectives Present</label>
+                                    <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                        {users.map(u => (
+                                            <div key={u.id} onClick={() => toggleDetective(u.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outDetectives.includes(u.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                                <input type="checkbox" checked={outDetectives.includes(u.id)} readOnly style={{ marginRight: '10px' }} />
+                                                <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="form-group">
-                                <label>Link to Syndicates (Optional)</label>
-                                <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
-                                    {gangs.map(g => (
-                                        <div key={g.id} onClick={() => toggleGangOuting(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
-                                            <input type="checkbox" checked={outGangIds.includes(g.id)} readOnly style={{ marginRight: '10px' }} />
-                                            <span style={{ fontSize: '0.9rem' }}>{g.name}</span>
-                                        </div>
-                                    ))}
+                                <div className="form-group">
+                                    <label>Link to Syndicates (Optional)</label>
+                                    <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                        {gangs.map(g => (
+                                            <div key={g.id} onClick={() => toggleGangOuting(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                                <input type="checkbox" checked={outGangIds.includes(g.id)} readOnly style={{ marginRight: '10px' }} />
+                                                <span style={{ fontSize: '0.9rem' }}>{g.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
-                            <div className="form-group"><label>Reason</label><input className="form-input" value={outReason} onChange={e => setOutReason(e.target.value)} /></div>
-                            <div className="form-group"><label>Information Obtained</label><textarea className="eval-textarea" rows="4" value={outInfo} onChange={e => setOutInfo(e.target.value)} /></div>
+                                <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
+                                <div className="form-group"><label>Reason</label><input className="form-input" value={outReason} onChange={e => setOutReason(e.target.value)} /></div>
+                                <div className="form-group"><label>Information Obtained</label><textarea className="eval-textarea" rows="4" value={outInfo} onChange={e => setOutInfo(e.target.value)} /></div>
 
-                            <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Images (Optional)</label>
-                                <label htmlFor="out-file-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
-                                    📷 Upload Images
-                                </label>
-                                <input
-                                    id="out-file-upload"
-                                    type="file"
-                                    multiple
-                                    accept="image/*"
-                                    onChange={(e) => handleImageUpload(e, setOutImages)}
-                                    style={{ display: 'none' }}
-                                />
-                                <div style={{ display: 'flex', gap: '5px', marginTop: '10px', flexWrap: 'wrap' }}>
-                                    {outImages.map((src, i) => (
-                                        <div key={i} style={{ position: 'relative' }}>
-                                            <img src={src} style={{ height: '60px', borderRadius: '4px', border: '1px solid #444' }} alt="" />
-                                            <button
-                                                type="button"
-                                                onClick={() => setOutImages(prev => prev.filter((_, idx) => idx !== i))}
-                                                style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '18px', height: '18px', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                            >
-                                                ×
-                                            </button>
-                                        </div>
-                                    ))}
+                                <div className="form-group">
+                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>Images (Optional)</label>
+                                    <label htmlFor="out-file-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                                        📷 Upload Images
+                                    </label>
+                                    <input
+                                        id="out-file-upload"
+                                        type="file"
+                                        multiple
+                                        accept="image/*"
+                                        onChange={(e) => handleImageUpload(e, setOutImages)}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <div style={{ display: 'flex', gap: '5px', marginTop: '10px', flexWrap: 'wrap' }}>
+                                        {outImages.map((src, i) => (
+                                            <div key={i} style={{ position: 'relative' }}>
+                                                <img src={src} style={{ height: '60px', borderRadius: '4px', border: '1px solid #444' }} alt="" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOutImages(prev => prev.filter((_, idx) => idx !== i))}
+                                                    style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '18px', height: '18px', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowOutingModal(false)} style={{ width: 'auto' }}>Cancel</button>
-                                <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Create Outing'}</button>
-                            </div>
-                        </form>
+                                <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
+                                    <button type="button" className="login-button btn-secondary" onClick={() => setShowOutingModal(false)} style={{ width: 'auto' }}>Cancel</button>
+                                    <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Create Outing'}</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* --- MODAL: EDIT OUTING --- */}
-            {showEditOutingModal && (
-                <div className="cropper-modal-overlay">
-                    <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>Edit Outing</h3>
-                        <form onSubmit={handleUpdateOuting}>
-                            <div className="form-group"><label>Title</label><input className="form-input" required value={outTitle} onChange={e => setOutTitle(e.target.value)} /></div>
+            {
+                showEditOutingModal && (
+                    <div className="cropper-modal-overlay">
+                        <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>Edit Outing</h3>
+                            <form onSubmit={handleUpdateOuting}>
+                                <div className="form-group"><label>Title</label><input className="form-input" required value={outTitle} onChange={e => setOutTitle(e.target.value)} /></div>
 
-                            {/* User Selector */}
-                            <div className="form-group">
-                                <label>Detectives Present</label>
-                                <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
-                                    {users.map(u => (
-                                        <div key={u.id} onClick={() => toggleDetective(u.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outDetectives.includes(u.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
-                                            <input type="checkbox" checked={outDetectives.includes(u.id)} readOnly style={{ marginRight: '10px' }} />
-                                            <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
-                                        </div>
-                                    ))}
+                                {/* User Selector */}
+                                <div className="form-group">
+                                    <label>Detectives Present</label>
+                                    <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                        {users.map(u => (
+                                            <div key={u.id} onClick={() => toggleDetective(u.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outDetectives.includes(u.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                                <input type="checkbox" checked={outDetectives.includes(u.id)} readOnly style={{ marginRight: '10px' }} />
+                                                <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="form-group">
-                                <label>Link to Syndicates (Optional)</label>
-                                <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
-                                    {gangs.map(g => (
-                                        <div key={g.id} onClick={() => toggleGangOuting(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
-                                            <input type="checkbox" checked={outGangIds.includes(g.id)} readOnly style={{ marginRight: '10px' }} />
-                                            <span style={{ fontSize: '0.9rem' }}>{g.name}</span>
-                                        </div>
-                                    ))}
+                                <div className="form-group">
+                                    <label>Link to Syndicates (Optional)</label>
+                                    <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
+                                        {gangs.map(g => (
+                                            <div key={g.id} onClick={() => toggleGangOuting(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
+                                                <input type="checkbox" checked={outGangIds.includes(g.id)} readOnly style={{ marginRight: '10px' }} />
+                                                <span style={{ fontSize: '0.9rem' }}>{g.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
-                            <div className="form-group"><label>Reason</label><input className="form-input" value={outReason} onChange={e => setOutReason(e.target.value)} /></div>
-                            <div className="form-group"><label>Information Obtained</label><textarea className="eval-textarea" rows="4" value={outInfo} onChange={e => setOutInfo(e.target.value)} /></div>
+                                <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
+                                <div className="form-group"><label>Reason</label><input className="form-input" value={outReason} onChange={e => setOutReason(e.target.value)} /></div>
+                                <div className="form-group"><label>Information Obtained</label><textarea className="eval-textarea" rows="4" value={outInfo} onChange={e => setOutInfo(e.target.value)} /></div>
 
-                            <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Images (Optional)</label>
-                                <label htmlFor="out-edit-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
-                                    📷 Upload Images
-                                </label>
-                                <input
-                                    id="out-edit-upload"
-                                    type="file"
-                                    multiple
-                                    accept="image/*"
-                                    onChange={(e) => handleImageUpload(e, setOutImages)}
-                                    style={{ display: 'none' }}
-                                />
-                                <div style={{ display: 'flex', gap: '5px', marginTop: '10px', flexWrap: 'wrap' }}>
-                                    {outImages.map((src, i) => (
-                                        <div key={i} style={{ position: 'relative' }}>
-                                            <img src={src} style={{ height: '60px', borderRadius: '4px', border: '1px solid #444' }} alt="" />
-                                            <button
-                                                type="button"
-                                                onClick={() => setOutImages(prev => prev.filter((_, idx) => idx !== i))}
-                                                style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '18px', height: '18px', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                            >
-                                                ×
-                                            </button>
-                                        </div>
-                                    ))}
+                                <div className="form-group">
+                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>Images (Optional)</label>
+                                    <label htmlFor="out-edit-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                                        📷 Upload Images
+                                    </label>
+                                    <input
+                                        id="out-edit-upload"
+                                        type="file"
+                                        multiple
+                                        accept="image/*"
+                                        onChange={(e) => handleImageUpload(e, setOutImages)}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <div style={{ display: 'flex', gap: '5px', marginTop: '10px', flexWrap: 'wrap' }}>
+                                        {outImages.map((src, i) => (
+                                            <div key={i} style={{ position: 'relative' }}>
+                                                <img src={src} style={{ height: '60px', borderRadius: '4px', border: '1px solid #444' }} alt="" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOutImages(prev => prev.filter((_, idx) => idx !== i))}
+                                                    style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '18px', height: '18px', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
-                                <button type="button" className="login-button btn-secondary" onClick={() => { setShowEditOutingModal(false); setEditingOuting(null); resetOutingForm(); }} style={{ width: 'auto' }}>Cancel</button>
-                                <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Update Outing'}</button>
-                            </div>
-                        </form>
+                                <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
+                                    <button type="button" className="login-button btn-secondary" onClick={() => { setShowEditOutingModal(false); setEditingOuting(null); resetOutingForm(); }} style={{ width: 'auto' }}>Cancel</button>
+                                    <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Update Outing'}</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* FULL SCREEN IMAGE VIEWER */}
-            {expandedImage && (
-                <div onClick={() => setExpandedImage(null)} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img src={expandedImage} alt="" style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain' }} />
-                </div>
-            )}
-        </div>
+            {
+                expandedImage && (
+                    <div onClick={() => setExpandedImage(null)} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <img src={expandedImage} alt="" style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain' }} />
+                    </div>
+                )
+            }
+        </div >
     );
 }
 

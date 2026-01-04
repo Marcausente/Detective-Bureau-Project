@@ -15,6 +15,22 @@ function IncidentCard({ data, onExpand, onDelete, onEdit }) {
                             🏴 {data.gang_names.join(', ')}
                         </div>
                     )}
+                    {data.interrogations && data.interrogations.length > 0 && (
+                        <div style={{ marginTop: '0.3rem', display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                            {data.interrogations.map(int => (
+                                <span key={int.id} style={{
+                                    background: 'rgba(56, 189, 248, 0.15)',
+                                    color: '#38bdf8',
+                                    padding: '2px 8px',
+                                    borderRadius: '12px',
+                                    fontSize: '0.7rem',
+                                    border: '1px solid rgba(56, 189, 248, 0.3)'
+                                }}>
+                                    🗣️ {int.title}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <div style={{ display: 'flex', gap: '5px' }}>
                     {onEdit && <button onClick={() => onEdit(data)} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '1.2rem' }}>✏️</button>}
