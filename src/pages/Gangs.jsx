@@ -324,7 +324,14 @@ function Gangs() {
         setActiveModal('patrol');
         // Set default time to nearest quarter hour
         const now = roundToQuarterHour(new Date());
-        setPatrolTime(now.toISOString().slice(0, 16));
+        // Format as local datetime for datetime-local input (YYYY-MM-DDTHH:MM)
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        setPatrolTime(localDateTime);
         setPatrolPeopleCount(0);
         setPatrolPhoto(null);
         setPatrolNotes('');
@@ -381,6 +388,12 @@ function Gangs() {
 
     // --- HELPER HANDLERS ---
     const openModal = (type, gangId) => {
+        // Special handling for patrol modal
+        if (type === 'patrol') {
+            handleOpenPatrolLog(gangId);
+            return;
+        }
+
         setActiveModal(type);
         setActiveGangId(gangId);
         if (type === 'updateZone') {
@@ -538,6 +551,32 @@ function Gangs() {
             {/* Patrol Log Modal */}
             {activeModal === 'patrol' && (
                 <Modal title="Log Patrol Observation" onClose={closeModal} onSubmit={handleSubmitPatrolLog} submitting={submitting}>
+                    {/* Current Time Display */}
+                    {patrolTime && (
+                        <div style={{
+                            background: 'rgba(212, 175, 55, 0.1)',
+                            border: '1px solid var(--accent-gold)',
+                            borderRadius: '4px',
+                            padding: '0.75rem',
+                            marginBottom: '1rem',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
+                                Fecha y Hora Actual (redondeada)
+                            </div>
+                            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--accent-gold)' }}>
+                                {new Date(patrolTime).toLocaleString('es-ES', {
+                                    weekday: 'long',
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="form-group">
                         <label>Patrol Time (rounded to 15-min intervals)</label>
                         <input
