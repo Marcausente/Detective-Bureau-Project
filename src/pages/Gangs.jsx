@@ -1099,10 +1099,12 @@ function PatrolMatrix({ logs, onSelectLog }) {
     const matrix = {};
     const hours = [];
 
-    // Generate hour slots (00:00 to 23:45 in 15-min intervals)
-    for (let h = 0; h < 24; h++) {
+    // Generate hour slots starting from 18:00 to 17:45 (wrapping around midnight)
+    // This reflects typical gang activity patterns (evening to late afternoon)
+    for (let h = 18; h < 42; h++) { // 18 to 41 (wraps to 0-17)
         for (let m = 0; m < 60; m += 15) {
-            hours.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+            const actualHour = h % 24; // Wrap around after 23
+            hours.push(`${String(actualHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
         }
     }
 
