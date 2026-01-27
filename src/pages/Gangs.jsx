@@ -1123,102 +1123,20 @@ function PatrolMatrix({ logs, onSelectLog }) {
     });
 
     return (
-        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '70vh' }}>
-            <table style={{ borderCollapse: 'collapse', fontSize: '0.75rem', minWidth: '100%' }}>
-                <thead style={{ position: 'sticky', top: 0, background: '#1a1a1a', zIndex: 10 }}>
-                    <tr>
-                        <th style={{
-                            position: 'sticky',
-                            left: 0,
-                            background: '#1a1a1a',
-                            padding: '0.5rem',
-                            borderBottom: '2px solid rgba(255,255,255,0.2)',
-                            borderRight: '2px solid rgba(255,255,255,0.2)',
-                            color: 'var(--accent-gold)',
-                            zIndex: 11,
-                            minWidth: '90px'
-                        }}>
-                            FECHA
-                        </th>
-                        {hours.map(hour => (
-                            <th key={hour} style={{
-                                padding: '0.5rem 0.3rem',
-                                borderBottom: '2px solid rgba(255,255,255,0.2)',
-                                borderLeft: hour.endsWith(':00') ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.05)',
-                                color: 'var(--accent-gold)',
-                                minWidth: '35px',
-                                fontSize: '0.7rem',
-                                writingMode: hour.endsWith(':00') ? 'horizontal-tb' : 'vertical-rl',
-                                textOrientation: 'mixed'
-                            }}>
-                                {hour.endsWith(':00') ? hour.slice(0, 2) : ''}
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {dates.map(date => (
-                        <tr key={date}>
-                            <td style={{
-                                position: 'sticky',
-                                left: 0,
-                                background: '#1a1a1a',
-                                padding: '0.5rem',
-                                borderBottom: '1px solid rgba(255,255,255,0.1)',
-                                borderRight: '2px solid rgba(255,255,255,0.2)',
-                                fontWeight: 'bold',
-                                color: '#e0e0e0',
-                                zIndex: 5
-                            }}>
-                                {date}
-                            </td>
-                            {hours.map(hour => {
-                                const log = matrix[date]?.[hour];
-                                return (
-                                    <td
-                                        key={hour}
-                                        onClick={() => log && onSelectLog(log)}
-                                        style={{
-                                            padding: '0.5rem 0.3rem',
-                                            borderBottom: '1px solid rgba(255,255,255,0.1)',
-                                            borderLeft: hour.endsWith(':00') ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.05)',
-                                            textAlign: 'center',
-                                            background: log ? (
-                                                log.people_count > 10 ? '#dc2626' :
-                                                    log.people_count > 5 ? '#f59e0b' :
-                                                        log.people_count > 2 ? '#3b82f6' :
-                                                            '#10b981'
-                                            ) : 'transparent',
-                                            color: log ? 'white' : '#666',
-                                            fontWeight: log ? 'bold' : 'normal',
-                                            cursor: log ? 'pointer' : 'default',
-                                            transition: 'all 0.2s',
-                                            fontSize: '0.75rem'
-                                        }}
-                                        onMouseEnter={e => {
-                                            if (log) {
-                                                e.currentTarget.style.transform = 'scale(1.1)';
-                                                e.currentTarget.style.zIndex = '3';
-                                            }
-                                        }}
-                                        onMouseLeave={e => {
-                                            if (log) {
-                                                e.currentTarget.style.transform = 'scale(1)';
-                                                e.currentTarget.style.zIndex = '1';
-                                            }
-                                        }}
-                                    >
-                                        {log ? log.people_count : ''}
-                                    </td>
-                                );
-                            })}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-
-            {/* Legend */}
-            <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', fontSize: '0.8rem' }}>
+        <>
+            {/* Legend - Moved to top with more spacing */}
+            <div style={{
+                marginBottom: '1.5rem',
+                display: 'flex',
+                gap: '1rem',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+                fontSize: '0.8rem',
+                padding: '1rem',
+                background: 'rgba(212, 175, 55, 0.05)',
+                borderRadius: '8px',
+                border: '1px solid rgba(212, 175, 55, 0.2)'
+            }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <div style={{ width: '20px', height: '20px', background: '#10b981', borderRadius: '3px' }}></div>
                     <span>1-2 personas</span>
@@ -1236,7 +1154,142 @@ function PatrolMatrix({ logs, onSelectLog }) {
                     <span>11+ personas</span>
                 </div>
             </div>
-        </div>
+
+            {/* Table Container with Custom Scrollbar */}
+            <div style={{
+                overflowX: 'auto',
+                overflowY: 'auto',
+                maxHeight: '65vh',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(0,0,0,0.3)',
+                padding: '0.5rem',
+                // Custom scrollbar styling
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'var(--accent-gold) rgba(255,255,255,0.1)'
+            }}
+                className="patrol-matrix-scroll"
+            >
+                <style>{`
+                    .patrol-matrix-scroll::-webkit-scrollbar {
+                        width: 10px;
+                        height: 10px;
+                    }
+                    .patrol-matrix-scroll::-webkit-scrollbar-track {
+                        background: rgba(255,255,255,0.05);
+                        border-radius: 5px;
+                    }
+                    .patrol-matrix-scroll::-webkit-scrollbar-thumb {
+                        background: var(--accent-gold);
+                        border-radius: 5px;
+                        border: 2px solid rgba(0,0,0,0.3);
+                    }
+                    .patrol-matrix-scroll::-webkit-scrollbar-thumb:hover {
+                        background: #ffd700;
+                    }
+                    .patrol-matrix-scroll::-webkit-scrollbar-corner {
+                        background: rgba(255,255,255,0.05);
+                    }
+                `}</style>
+                <table style={{ borderCollapse: 'collapse', fontSize: '0.75rem', minWidth: '100%' }}>
+                    <thead style={{ position: 'sticky', top: 0, background: '#1a1a1a', zIndex: 10 }}>
+                        <tr>
+                            <th style={{
+                                position: 'sticky',
+                                left: 0,
+                                background: '#1a1a1a',
+                                padding: '0.5rem',
+                                borderBottom: '2px solid rgba(255,255,255,0.2)',
+                                borderRight: '2px solid rgba(255,255,255,0.2)',
+                                color: 'var(--accent-gold)',
+                                zIndex: 11,
+                                minWidth: '90px'
+                            }}>
+                                FECHA
+                            </th>
+                            {hours.map(hour => {
+                                const [h, m] = hour.split(':');
+                                return (
+                                    <th key={hour} style={{
+                                        padding: '0.3rem 0.2rem',
+                                        borderBottom: '2px solid rgba(255,255,255,0.2)',
+                                        borderLeft: hour.endsWith(':00') ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.05)',
+                                        color: 'var(--accent-gold)',
+                                        minWidth: '30px',
+                                        fontSize: '0.65rem',
+                                        textAlign: 'center',
+                                        lineHeight: '1.1',
+                                        fontWeight: hour.endsWith(':00') ? 'bold' : 'normal'
+                                    }}>
+                                        <div>{h}:</div>
+                                        <div>{m}</div>
+                                    </th>
+                                );
+                            })}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {dates.map(date => (
+                            <tr key={date}>
+                                <td style={{
+                                    position: 'sticky',
+                                    left: 0,
+                                    background: '#1a1a1a',
+                                    padding: '0.5rem',
+                                    borderBottom: '1px solid rgba(255,255,255,0.1)',
+                                    borderRight: '2px solid rgba(255,255,255,0.2)',
+                                    fontWeight: 'bold',
+                                    color: '#e0e0e0',
+                                    zIndex: 5
+                                }}>
+                                    {date}
+                                </td>
+                                {hours.map(hour => {
+                                    const log = matrix[date]?.[hour];
+                                    return (
+                                        <td
+                                            key={hour}
+                                            onClick={() => log && onSelectLog(log)}
+                                            style={{
+                                                padding: '0.5rem 0.3rem',
+                                                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                                                borderLeft: hour.endsWith(':00') ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.05)',
+                                                textAlign: 'center',
+                                                background: log ? (
+                                                    log.people_count > 10 ? '#dc2626' :
+                                                        log.people_count > 5 ? '#f59e0b' :
+                                                            log.people_count > 2 ? '#3b82f6' :
+                                                                '#10b981'
+                                                ) : 'transparent',
+                                                color: log ? 'white' : '#666',
+                                                fontWeight: log ? 'bold' : 'normal',
+                                                cursor: log ? 'pointer' : 'default',
+                                                transition: 'all 0.2s',
+                                                fontSize: '0.75rem'
+                                            }}
+                                            onMouseEnter={e => {
+                                                if (log) {
+                                                    e.currentTarget.style.transform = 'scale(1.1)';
+                                                    e.currentTarget.style.zIndex = '3';
+                                                }
+                                            }}
+                                            onMouseLeave={e => {
+                                                if (log) {
+                                                    e.currentTarget.style.transform = 'scale(1)';
+                                                    e.currentTarget.style.zIndex = '1';
+                                                }
+                                            }}
+                                        >
+                                            {log ? log.people_count : ''}
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </>
     );
 }
 
