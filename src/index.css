@@ -348,8 +348,7 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    /* Changed from overflow-y: auto */
+    overflow-y: auto;
     background-image:
         linear-gradient(rgba(11, 17, 32, 0.95), rgba(11, 17, 32, 0.95)),
         url('/public/indeximage.png');
@@ -373,13 +372,22 @@ body {
 
 .content-body {
     padding: 3rem;
-    flex: 1;
+}
+
+/* Gangs page specific - no padding, no scroll */
+#gangs-page {
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Gangs page - hide scroll on layout-content when gangs page is active */
+.layout-content:has(#gangs-page) {
     overflow: hidden;
 }
 
-/* Gangs page specific - no padding */
-#gangs-page {
-    padding: 0 !important;
+.content-body:has(#gangs-page) {
+    padding: 0;
+    overflow: hidden;
 }
 
 /* Placeholder Page */

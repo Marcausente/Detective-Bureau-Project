@@ -864,14 +864,24 @@ function Gangs() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                             <img
                                 src={selectedMember.photo || '/anon.png'}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (selectedMember.photo) {
+                                        setExpandedImage(selectedMember.photo);
+                                    }
+                                }}
                                 style={{
                                     width: '120px',
                                     height: '120px',
                                     borderRadius: '12px',
                                     objectFit: 'cover',
                                     border: `3px solid ${getStatusColor(selectedMember.role)}`,
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                                    cursor: selectedMember.photo ? 'pointer' : 'default',
+                                    transition: 'transform 0.2s'
                                 }}
+                                onMouseEnter={e => selectedMember.photo && (e.currentTarget.style.transform = 'scale(1.05)')}
+                                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                                 alt={selectedMember.name}
                             />
                             <div style={{ flex: 1 }}>
