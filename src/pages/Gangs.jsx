@@ -65,6 +65,10 @@ function Gangs() {
     // --- IMAGE VIEWER STATE ---
     const [expandedImage, setExpandedImage] = useState(null);
 
+    // --- MEMBER PROFILE CARD STATE ---
+    const [selectedMember, setSelectedMember] = useState(null);
+    const [editingMemberNotes, setEditingMemberNotes] = useState('');
+
     // --- DRAG TO SCROLL STATE ---
     const scrollContainerRef = useRef(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -392,6 +396,51 @@ function Gangs() {
         }
     };
 
+    // --- MEMBER PROFILE CARD HANDLERS ---
+    const handleOpenMemberProfile = (member) => {
+        setSelectedMember(member);
+        setEditingMemberNotes(member.notes || '');
+    };
+
+    const handleSaveMemberNotes = async () => {
+        if (!selectedMember) return;
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('update_gang_member_notes', {
+                p_member_id: selectedMember.id,
+                p_notes: editingMemberNotes
+            });
+            if (error) throw error;
+
+            // Update local state
+            setGangs(gangs.map(g => {
+                if (g.gang_id === activeGangId) {
+                    return {
+                        ...g,
+                        members: g.members.map(m =>
+                            m.id === selectedMember.id
+                                ? { ...m, notes: editingMemberNotes }
+                                : m
+                        )
+                    };
+                }
+                return g;
+            }));
+
+            setSelectedMember({ ...selectedMember, notes: editingMemberNotes });
+            alert('Notes saved successfully!');
+        } catch (err) {
+            alert('Error saving notes: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleCloseMemberProfile = () => {
+        setSelectedMember(null);
+        setEditingMemberNotes('');
+    };
+
     // --- HELPER HANDLERS ---
     const openModal = (type, gangId) => {
         // Special handling for patrol modal
@@ -525,6 +574,7 @@ function Gangs() {
                             onEdit={handleEditItem}
                             onDeleteSubItem={handleDeleteItem}
                             onViewActivity={handleViewActivity}
+                            onViewMemberProfile={handleOpenMemberProfile}
                         />
                     ))
                 )}
@@ -796,13 +846,114 @@ function Gangs() {
                 </div>
             )}
 
+            {/* Member Profile Card (Ficha) */}
+            {selectedMember && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={handleCloseMemberProfile}>
+                    <div style={{
+                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
+                        borderRadius: '16px',
+                        padding: '2rem',
+                        maxWidth: '600px',
+                        width: '90%',
+                        maxHeight: '80vh',
+                        overflowY: 'auto',
+                        border: '1px solid rgba(212, 175, 55, 0.3)',
+                        boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+                    }} onClick={e => e.stopPropagation()}>
+                        {/* Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                            <img
+                                src={selectedMember.photo || '/anon.png'}
+                                style={{
+                                    width: '120px',
+                                    height: '120px',
+                                    borderRadius: '12px',
+                                    objectFit: 'cover',
+                                    border: `3px solid ${getStatusColor(selectedMember.role)}`,
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                                }}
+                                alt={selectedMember.name}
+                            />
+                            <div style={{ flex: 1 }}>
+                                <h2 style={{ color: 'var(--accent-gold)', fontSize: '1.8rem', marginBottom: '0.5rem' }}>{selectedMember.name}</h2>
+                                <div style={{
+                                    display: 'inline-block',
+                                    padding: '0.4rem 0.8rem',
+                                    background: getStatusColor(selectedMember.role),
+                                    borderRadius: '6px',
+                                    fontSize: '0.9rem',
+                                    fontWeight: '600',
+                                    color: '#fff'
+                                }}>
+                                    {selectedMember.role}
+                                </div>
+                                {selectedMember.status && (
+                                    <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#94a3b8' }}>
+                                        Status: {selectedMember.status}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Notes Section */}
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{
+                                display: 'block',
+                                marginBottom: '0.5rem',
+                                color: 'var(--accent-gold)',
+                                fontSize: '1.1rem',
+                                fontWeight: '600'
+                            }}>
+                                📋 Intelligence Notes
+                            </label>
+                            <textarea
+                                value={editingMemberNotes}
+                                onChange={e => setEditingMemberNotes(e.target.value)}
+                                placeholder="Add intelligence notes about this affiliate..."
+                                style={{
+                                    width: '100%',
+                                    minHeight: '200px',
+                                    padding: '1rem',
+                                    background: 'rgba(0,0,0,0.3)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '8px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.95rem',
+                                    fontFamily: 'inherit',
+                                    resize: 'vertical'
+                                }}
+                            />
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                            <button
+                                className="login-button btn-secondary"
+                                onClick={handleCloseMemberProfile}
+                                style={{ width: 'auto', padding: '0.7rem 1.5rem' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="login-button"
+                                onClick={handleSaveMemberNotes}
+                                disabled={submitting}
+                                style={{ width: 'auto', padding: '0.7rem 1.5rem' }}
+                            >
+                                {submitting ? 'Saving...' : '💾 Save Notes'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }
 
 // --- SUB-COMPONENTS ---
 
-function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity }) {
+function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile }) {
     // Helper for buttons
     const ActionButtons = ({ type, item }) => (
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px' }}>
@@ -983,18 +1134,30 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                 </div>
                 <div className="gang-member-grid">
                     {gang.members.map(m => (
-                        <div key={m.id} className="gang-member-item">
+                        <div
+                            key={m.id}
+                            className="gang-member-item"
+                            onClick={() => onViewMemberProfile(m)}
+                            style={{ cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }}
+                            onMouseEnter={e => {
+                                e.currentTarget.style.transform = 'scale(1.05)';
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(212, 175, 55, 0.3)';
+                            }}
+                            onMouseLeave={e => {
+                                e.currentTarget.style.transform = 'scale(1)';
+                                e.currentTarget.style.boxShadow = 'none';
+                            }}
+                        >
                             <img
                                 src={m.photo || '/anon.png'}
                                 className="gang-member-photo"
-                                style={{ border: `2px solid ${getStatusColor(m.role)}`, cursor: 'pointer' }}
-                                onClick={() => m.photo && onViewImage(m.photo)}
+                                style={{ border: `2px solid ${getStatusColor(m.role)}` }}
                                 alt=""
                             />
                             <div style={{ fontSize: '0.75rem', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
                             <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{m.role}</div>
-                            {m.notes && <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic', textAlign: 'center' }} title={m.notes}>📋</div>}
-                            <div style={{ marginTop: '5px', display: 'flex', justifyContent: 'center', gap: '5px' }}>
+                            {m.notes && <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic', textAlign: 'center' }} title={m.notes}>📋 Has Notes</div>}
+                            <div style={{ marginTop: '5px', display: 'flex', justifyContent: 'center', gap: '5px' }} onClick={e => e.stopPropagation()}>
                                 <button onClick={() => onEdit('member', gang.gang_id, m)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>✏️</button>
                                 <button onClick={() => onDeleteSubItem('member', m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>🗑️</button>
                             </div>
