@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
@@ -64,6 +64,12 @@ function Gangs() {
 
     // --- IMAGE VIEWER STATE ---
     const [expandedImage, setExpandedImage] = useState(null);
+
+    // --- DRAG TO SCROLL STATE ---
+    const scrollContainerRef = useRef(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
 
 
     useEffect(() => {
@@ -407,15 +413,54 @@ function Gangs() {
         setActiveModal(null);
         setActiveGangId(null);
         setEditingItemId(null);
-        // Reset forms
+        setShowActivity(false);
+        setActivityLog([]);
+        resetFormFields();
+    };
+
+    const resetFormFields = () => {
         setNewName(''); setNewColor('#ffffff'); setZonesImage(null);
         setVehModel(''); setVehPlate(''); setVehOwner(''); setVehNotes(''); setVehImages([]);
         setHomeOwner(''); setHomeNotes(''); setHomeImages([]);
         setMemName(''); setMemRole('Sospechoso'); setMemNotes(''); setMemPhoto(null);
         setInfoType('info'); setInfoContent(''); setInfoImages([]);
-        // Activity
         setShowActivity(false);
         setActivityLog([]);
+    };
+
+    // --- DRAG TO SCROLL HANDLERS ---
+    const handleMouseDown = (e) => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        setIsDragging(true);
+        setStartX(e.pageX - container.offsetLeft);
+        setScrollLeft(container.scrollLeft);
+        container.style.cursor = 'grabbing';
+        container.style.userSelect = 'none';
+    };
+
+    const handleMouseLeave = () => {
+        setIsDragging(false);
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.style.cursor = 'grab';
+        }
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.style.cursor = 'grab';
+        }
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        const x = e.pageX - container.offsetLeft;
+        const walk = (x - startX) * 2; // Scroll speed multiplier
+        container.scrollLeft = scrollLeft - walk;
     };
 
 
@@ -453,7 +498,15 @@ function Gangs() {
             </div>
 
             {/* Horizontal Scroll Container */}
-            <div className="gang-scroll-container">
+            <div
+                className="gang-scroll-container"
+                ref={scrollContainerRef}
+                onMouseDown={handleMouseDown}
+                onMouseLeave={handleMouseLeave}
+                onMouseUp={handleMouseUp}
+                onMouseMove={handleMouseMove}
+                style={{ cursor: 'grab' }}
+            >
                 {filteredGangs.length === 0 ? (
                     <div style={{ margin: 'auto', textAlign: 'center', opacity: 0.6 }}>
                         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📁</div>
