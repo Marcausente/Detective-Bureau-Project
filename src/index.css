@@ -23,8 +23,11 @@ body {
     background-color: var(--primary-bg);
     color: var(--text-primary);
     min-height: 100vh;
+    height: 100vh;
     margin: 0;
     overflow-x: hidden;
+    overflow-y: hidden;
+    /* Prevent vertical scroll on main page */
 }
 
 /* Background Image Handling */
@@ -48,7 +51,9 @@ body {
 .app-container {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
     position: relative;
 }
 
@@ -343,7 +348,8 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
+    overflow: hidden;
+    /* Changed from overflow-y: auto */
     background-image:
         linear-gradient(rgba(11, 17, 32, 0.95), rgba(11, 17, 32, 0.95)),
         url('/public/indeximage.png');
@@ -367,6 +373,13 @@ body {
 
 .content-body {
     padding: 3rem;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Gangs page specific - no padding */
+#gangs-page {
+    padding: 0 !important;
 }
 
 /* Placeholder Page */
