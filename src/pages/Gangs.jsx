@@ -397,8 +397,8 @@ function Gangs() {
     };
 
     // --- MEMBER PROFILE CARD HANDLERS ---
-    const handleOpenMemberProfile = (member) => {
-        setSelectedMember(member);
+    const handleOpenMemberProfile = (member, gangId) => {
+        setSelectedMember({ ...member, gang_id: gangId });
         setEditingMemberNotes(member.notes || '');
     };
 
@@ -414,7 +414,7 @@ function Gangs() {
 
             // Update local state
             setGangs(gangs.map(g => {
-                if (g.gang_id === activeGangId) {
+                if (g.gang_id === selectedMember.gang_id) {
                     return {
                         ...g,
                         members: g.members.map(m =>
@@ -439,6 +439,46 @@ function Gangs() {
     const handleCloseMemberProfile = () => {
         setSelectedMember(null);
         setEditingMemberNotes('');
+    };
+
+    // --- EDIT GANG NAME HANDLER ---
+    const handleEditGangName = (gangId) => {
+        const gang = gangs.find(g => g.gang_id === gangId);
+        if (gang) {
+            setActiveGangId(gangId);
+            setNewName(gang.name);
+            setActiveModal('editGangName');
+        }
+    };
+
+    const handleSaveGangName = async (e) => {
+        e.preventDefault();
+        if (!newName.trim()) {
+            alert('Gang name cannot be empty');
+            return;
+        }
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('update_gang_name', {
+                p_gang_id: activeGangId,
+                p_name: newName.trim()
+            });
+            if (error) throw error;
+
+            // Update local state
+            setGangs(gangs.map(g =>
+                g.gang_id === activeGangId
+                    ? { ...g, name: newName.trim() }
+                    : g
+            ));
+
+            closeModal();
+            alert('Gang name updated successfully!');
+        } catch (err) {
+            alert('Error updating gang name: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     // --- HELPER HANDLERS ---
@@ -575,6 +615,7 @@ function Gangs() {
                             onDeleteSubItem={handleDeleteItem}
                             onViewActivity={handleViewActivity}
                             onViewMemberProfile={handleOpenMemberProfile}
+                            onEditGangName={handleEditGangName}
                         />
                     ))
                 )}
@@ -588,6 +629,13 @@ function Gangs() {
                     <Input label="Syndicate Name" value={newName} onChange={e => setNewName(e.target.value)} required />
                     <ColorPicker label="Color Identifier" value={newColor} onChange={e => setNewColor(e.target.value)} />
                     <ImageUpload label="Controlled Zones (Map)" image={zonesImage} onUpload={e => handleImageUpload(e, setZonesImage, true)} single />
+                </Modal>
+            )}
+
+            {/* Edit Gang Name */}
+            {activeModal === 'editGangName' && (
+                <Modal title="Edit Gang Name" onClose={closeModal} onSubmit={handleSaveGangName} submitting={submitting}>
+                    <Input label="Gang Name" value={newName} onChange={e => setNewName(e.target.value)} required />
                 </Modal>
             )}
 
@@ -963,7 +1011,7 @@ function Gangs() {
 
 // --- SUB-COMPONENTS ---
 
-function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile }) {
+function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName }) {
     // Helper for buttons
     const ActionButtons = ({ type, item }) => (
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px' }}>
@@ -977,7 +1025,19 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
             {/* Header Card */}
             <div className="gang-header-card" style={{ borderTop: `4px solid ${gang.color}` }}>
                 <div className="gang-header-top">
-                    <h3 className="gang-title" style={{ color: gang.color }}>{gang.name}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                        <h3 className="gang-title" style={{ color: gang.color }}>{gang.name}</h3>
+                        {isVIP && (
+                            <button
+                                className="gang-action-btn"
+                                onClick={() => onEditGangName(gang.gang_id)}
+                                title="Edit Gang Name"
+                                style={{ fontSize: '0.9rem', opacity: 0.7 }}
+                            >
+                                ✏️
+                            </button>
+                        )}
+                    </div>
                     {isVIP && (
                         <div className="gang-actions">
                             <button className="gang-action-btn" onClick={onArchive} title={gang.is_archived ? "Re-open" : "Archive"}>
@@ -1147,7 +1207,7 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                         <div
                             key={m.id}
                             className="gang-member-item"
-                            onClick={() => onViewMemberProfile(m)}
+                            onClick={() => onViewMemberProfile(m, gang.gang_id)}
                             style={{ cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }}
                             onMouseEnter={e => {
                                 e.currentTarget.style.transform = 'scale(1.05)';
