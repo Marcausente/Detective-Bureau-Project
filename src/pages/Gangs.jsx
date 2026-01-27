@@ -14,7 +14,7 @@ function Gangs() {
     const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
 
     // --- MODAL CONTROLS ---
-    const [activeModal, setActiveModal] = useState(null); // 'createGang', 'vehicle', 'home', 'member', 'info'
+    const [activeModal, setActiveModal] = useState(null); // 'createGang', 'vehicle', 'home', 'member', 'info', 'patrol', 'patrolTable'
     const [activeGangId, setActiveGangId] = useState(null); // Which gang is being edited
     const [editingItemId, setEditingItemId] = useState(null); // ID of the specific item being edited (vehicle, member, etc.)
     const [submitting, setSubmitting] = useState(false);
@@ -53,6 +53,13 @@ function Gangs() {
     const [infoType, setInfoType] = useState('info'); // info | characteristic
     const [infoContent, setInfoContent] = useState('');
     const [infoImages, setInfoImages] = useState([]);
+
+    // Patrol Log
+    const [patrolTime, setPatrolTime] = useState('');
+    const [patrolPeopleCount, setPatrolPeopleCount] = useState(0);
+    const [patrolPhoto, setPatrolPhoto] = useState(null);
+    const [patrolNotes, setPatrolNotes] = useState('');
+    const [patrolLogs, setPatrolLogs] = useState([]);
 
     // --- IMAGE VIEWER STATE ---
     const [expandedImage, setExpandedImage] = useState(null);
@@ -275,6 +282,12 @@ function Gangs() {
     };
 
     const handleViewActivity = async (type, gangId) => {
+        // Handle patrol table separately
+        if (type === 'patrolTable') {
+            handleViewPatrolLogs(gangId);
+            return;
+        }
+
         setActiveGangId(gangId);
         setActivityType(type);
         setShowActivity(true);
@@ -291,6 +304,77 @@ function Gangs() {
             alert("Could not load activity log.");
         } finally {
             setLoadingActivity(false);
+        }
+    };
+
+    // --- PATROL LOG HANDLERS ---
+    const roundToQuarterHour = (date) => {
+        const minutes = date.getMinutes();
+        const roundedMinutes = Math.round(minutes / 15) * 15;
+        const rounded = new Date(date);
+        rounded.setMinutes(roundedMinutes);
+        rounded.setSeconds(0);
+        rounded.setMilliseconds(0);
+        return rounded;
+    };
+
+    const handleOpenPatrolLog = (gangId) => {
+        setActiveGangId(gangId);
+        setActiveModal('patrol');
+        // Set default time to nearest quarter hour
+        const now = roundToQuarterHour(new Date());
+        setPatrolTime(now.toISOString().slice(0, 16));
+        setPatrolPeopleCount(0);
+        setPatrolPhoto(null);
+        setPatrolNotes('');
+    };
+
+    const handleSubmitPatrolLog = async (e) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('create_patrol_log', {
+                p_gang_id: activeGangId,
+                p_patrol_time: new Date(patrolTime).toISOString(),
+                p_people_count: parseInt(patrolPeopleCount),
+                p_photo: patrolPhoto,
+                p_notes: patrolNotes
+            });
+            if (error) throw error;
+            closeModal();
+            alert('Patrol log created successfully!');
+        } catch (err) {
+            alert('Error creating patrol log: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleViewPatrolLogs = async (gangId) => {
+        setActiveGangId(gangId);
+        setActiveModal('patrolTable');
+        setLoadingActivity(true);
+        try {
+            const { data, error } = await supabase.rpc('get_patrol_logs', { p_gang_id: gangId });
+            if (error) throw error;
+            setPatrolLogs(data || []);
+        } catch (err) {
+            console.error('Error fetching patrol logs:', err);
+            alert('Could not load patrol logs.');
+        } finally {
+            setLoadingActivity(false);
+        }
+    };
+
+    const handleDeletePatrolLog = async (logId) => {
+        if (!confirm('Are you sure you want to delete this patrol log?')) return;
+        try {
+            const { error } = await supabase.rpc('delete_patrol_log', { p_log_id: logId });
+            if (error) throw error;
+            // Refresh the list
+            handleViewPatrolLogs(activeGangId);
+        } catch (err) {
+            alert('Error deleting patrol log: ' + err.message);
         }
     };
 
@@ -450,6 +534,121 @@ function Gangs() {
                 </Modal>
             )}
 
+            {/* Patrol Log Modal */}
+            {activeModal === 'patrol' && (
+                <Modal title="Log Patrol Observation" onClose={closeModal} onSubmit={handleSubmitPatrolLog} submitting={submitting}>
+                    <div className="form-group">
+                        <label>Patrol Time (rounded to 15-min intervals)</label>
+                        <input
+                            type="datetime-local"
+                            className="form-input"
+                            value={patrolTime}
+                            onChange={e => setPatrolTime(e.target.value)}
+                            step="900"
+                            required
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>People Count</label>
+                        <input
+                            type="number"
+                            className="form-input"
+                            value={patrolPeopleCount}
+                            onChange={e => setPatrolPeopleCount(e.target.value)}
+                            min="0"
+                            required
+                        />
+                    </div>
+                    <TextArea label="Notes (Optional)" value={patrolNotes} onChange={e => setPatrolNotes(e.target.value)} />
+                    <ImageUpload label="Photo (Optional)" image={patrolPhoto} onUpload={e => handleImageUpload(e, setPatrolPhoto, true)} single />
+                </Modal>
+            )}
+
+            {/* Patrol Logs Table Modal */}
+            {activeModal === 'patrolTable' && (
+                <div className="cropper-modal-overlay" onClick={closeModal}>
+                    <div className="cropper-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <h3 className="section-title" style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
+                            🕐 Patrol Time Control Logs
+                        </h3>
+
+                        {loadingActivity ? (
+                            <div style={{ textAlign: 'center', padding: '2rem' }}>Loading patrol logs...</div>
+                        ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                                {patrolLogs.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic', opacity: 0.7 }}>No patrol logs found.</div>
+                                ) : (
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                        <thead>
+                                            <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
+                                                <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--accent-gold)' }}>Time</th>
+                                                <th style={{ padding: '0.75rem', textAlign: 'center', color: 'var(--accent-gold)' }}>People</th>
+                                                <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--accent-gold)' }}>Notes</th>
+                                                <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--accent-gold)' }}>Detective</th>
+                                                <th style={{ padding: '0.75rem', textAlign: 'center', color: 'var(--accent-gold)' }}>Photo</th>
+                                                <th style={{ padding: '0.75rem', textAlign: 'center', color: 'var(--accent-gold)' }}>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {patrolLogs.map(log => (
+                                                <tr key={log.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                                                    <td style={{ padding: '0.75rem' }}>
+                                                        {new Date(log.patrol_time).toLocaleString('es-ES', {
+                                                            year: 'numeric',
+                                                            month: '2-digit',
+                                                            day: '2-digit',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--accent-gold)' }}>
+                                                        {log.people_count}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem', fontSize: '0.85rem', color: '#cbd5e1' }}>
+                                                        {log.notes || '-'}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem', fontSize: '0.85rem' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                            <img src={log.detective_avatar || '/anon.png'} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                                            <span>{log.detective_rank} {log.detective_name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                                                        {log.photo ? (
+                                                            <img
+                                                                src={log.photo}
+                                                                onClick={() => setExpandedImage(log.photo)}
+                                                                style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }}
+                                                                alt="Patrol"
+                                                            />
+                                                        ) : '-'}
+                                                    </td>
+                                                    <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                                                        {log.can_delete && (
+                                                            <button
+                                                                onClick={() => handleDeletePatrolLog(log.id)}
+                                                                style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '1.2rem' }}
+                                                                title="Delete"
+                                                            >
+                                                                🗑️
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        )}
+                        <div style={{ marginTop: '2rem', textAlign: 'right' }}>
+                            <button className="login-button btn-secondary" onClick={closeModal} style={{ width: 'auto' }}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Activity View Modal */}
             {showActivity && (
                 <div className="cropper-modal-overlay" onClick={closeModal}>
@@ -592,6 +791,31 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                         </div>
                     ))}
                     {(!gang.info || gang.info.length === 0) && <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>No intel gathered.</div>}
+                </div>
+            </div>
+
+            {/* Patrol Time Control Section */}
+            <div className="gang-section-card">
+                <div className="gang-section-header">
+                    <span className="gang-section-title">🕐 Control Horario</span>
+                </div>
+                <div className="gang-list-content">
+                    <div style={{ display: 'flex', gap: '0.5rem', padding: '0.5rem' }}>
+                        <button
+                            className="login-button"
+                            onClick={() => onAdd('patrol', gang.gang_id)}
+                            style={{ flex: 1, fontSize: '0.85rem', padding: '0.6rem' }}
+                        >
+                            ➕ Log Patrol
+                        </button>
+                        <button
+                            className="login-button btn-secondary"
+                            onClick={() => onViewActivity('patrolTable', gang.gang_id)}
+                            style={{ flex: 1, fontSize: '0.85rem', padding: '0.6rem' }}
+                        >
+                            📊 View All Logs
+                        </button>
+                    </div>
                 </div>
             </div>
 
