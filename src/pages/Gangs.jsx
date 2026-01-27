@@ -60,6 +60,7 @@ function Gangs() {
     const [patrolPhoto, setPatrolPhoto] = useState(null);
     const [patrolNotes, setPatrolNotes] = useState('');
     const [patrolLogs, setPatrolLogs] = useState([]);
+    const [selectedLog, setSelectedLog] = useState(null); // For detail view
 
     // --- IMAGE VIEWER STATE ---
     const [expandedImage, setExpandedImage] = useState(null);
@@ -567,83 +568,86 @@ function Gangs() {
             {/* Patrol Logs Table Modal */}
             {activeModal === 'patrolTable' && (
                 <div className="cropper-modal-overlay" onClick={closeModal}>
-                    <div className="cropper-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto' }}>
+                    <div className="cropper-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto' }}>
                         <h3 className="section-title" style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
-                            🕐 Patrol Time Control Logs
+                            🕐 Patrol Time Control - Activity Matrix
                         </h3>
 
                         {loadingActivity ? (
                             <div style={{ textAlign: 'center', padding: '2rem' }}>Loading patrol logs...</div>
                         ) : (
-                            <div style={{ overflowX: 'auto' }}>
+                            <div>
                                 {patrolLogs.length === 0 ? (
                                     <div style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic', opacity: 0.7 }}>No patrol logs found.</div>
                                 ) : (
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                                        <thead>
-                                            <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
-                                                <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--accent-gold)' }}>Time</th>
-                                                <th style={{ padding: '0.75rem', textAlign: 'center', color: 'var(--accent-gold)' }}>People</th>
-                                                <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--accent-gold)' }}>Notes</th>
-                                                <th style={{ padding: '0.75rem', textAlign: 'left', color: 'var(--accent-gold)' }}>Detective</th>
-                                                <th style={{ padding: '0.75rem', textAlign: 'center', color: 'var(--accent-gold)' }}>Photo</th>
-                                                <th style={{ padding: '0.75rem', textAlign: 'center', color: 'var(--accent-gold)' }}>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {patrolLogs.map(log => (
-                                                <tr key={log.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                                                    <td style={{ padding: '0.75rem' }}>
-                                                        {new Date(log.patrol_time).toLocaleString('es-ES', {
-                                                            year: 'numeric',
-                                                            month: '2-digit',
-                                                            day: '2-digit',
-                                                            hour: '2-digit',
-                                                            minute: '2-digit'
-                                                        })}
-                                                    </td>
-                                                    <td style={{ padding: '0.75rem', textAlign: 'center', fontWeight: 'bold', color: 'var(--accent-gold)' }}>
-                                                        {log.people_count}
-                                                    </td>
-                                                    <td style={{ padding: '0.75rem', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                                                        {log.notes || '-'}
-                                                    </td>
-                                                    <td style={{ padding: '0.75rem', fontSize: '0.85rem' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                            <img src={log.detective_avatar || '/anon.png'} style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                                                            <span>{log.detective_rank} {log.detective_name}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                                                        {log.photo ? (
-                                                            <img
-                                                                src={log.photo}
-                                                                onClick={() => setExpandedImage(log.photo)}
-                                                                style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }}
-                                                                alt="Patrol"
-                                                            />
-                                                        ) : '-'}
-                                                    </td>
-                                                    <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                                                        {log.can_delete && (
-                                                            <button
-                                                                onClick={() => handleDeletePatrolLog(log.id)}
-                                                                style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '1.2rem' }}
-                                                                title="Delete"
-                                                            >
-                                                                🗑️
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                    <PatrolMatrix logs={patrolLogs} onSelectLog={setSelectedLog} onDeleteLog={handleDeletePatrolLog} onViewImage={setExpandedImage} />
                                 )}
                             </div>
                         )}
                         <div style={{ marginTop: '2rem', textAlign: 'right' }}>
                             <button className="login-button btn-secondary" onClick={closeModal} style={{ width: 'auto' }}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Log Detail Modal */}
+            {selectedLog && (
+                <div className="cropper-modal-overlay" onClick={() => setSelectedLog(null)}>
+                    <div className="cropper-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+                        <h3 className="section-title" style={{ marginBottom: '1rem', color: 'var(--accent-gold)' }}>
+                            📋 Patrol Log Details
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div>
+                                <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Time:</strong>
+                                <div>{new Date(selectedLog.patrol_time).toLocaleString('es-ES', {
+                                    year: 'numeric', month: '2-digit', day: '2-digit',
+                                    hour: '2-digit', minute: '2-digit'
+                                })}</div>
+                            </div>
+                            <div>
+                                <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>People Count:</strong>
+                                <div style={{ fontSize: '1.5rem', color: 'var(--accent-gold)', fontWeight: 'bold' }}>{selectedLog.people_count}</div>
+                            </div>
+                            {selectedLog.notes && (
+                                <div>
+                                    <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Notes:</strong>
+                                    <div style={{ marginTop: '0.3rem', padding: '0.5rem', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}>
+                                        {selectedLog.notes}
+                                    </div>
+                                </div>
+                            )}
+                            <div>
+                                <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Logged by:</strong>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.3rem' }}>
+                                    <img src={selectedLog.detective_avatar || '/anon.png'} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                    <span>{selectedLog.detective_rank} {selectedLog.detective_name}</span>
+                                </div>
+                            </div>
+                            {selectedLog.photo && (
+                                <div>
+                                    <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Photo:</strong>
+                                    <img
+                                        src={selectedLog.photo}
+                                        onClick={() => setExpandedImage(selectedLog.photo)}
+                                        style={{ width: '100%', marginTop: '0.5rem', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }}
+                                        alt="Patrol"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                            {selectedLog.can_delete && (
+                                <button
+                                    className="login-button"
+                                    onClick={() => { handleDeletePatrolLog(selectedLog.id); setSelectedLog(null); }}
+                                    style={{ width: 'auto', background: '#ef4444' }}
+                                >
+                                    🗑️ Delete
+                                </button>
+                            )}
+                            <button className="login-button btn-secondary" onClick={() => setSelectedLog(null)} style={{ width: 'auto' }}>Close</button>
                         </div>
                     </div>
                 </div>
@@ -1048,6 +1052,153 @@ function getStatusColor(role) {
     if (role === 'Sublider') return '#f97316';
     if (role === 'Miembro') return '#eab308';
     return '#94a3b8';
+}
+
+// Patrol Matrix Component - Calendar-style view
+function PatrolMatrix({ logs, onSelectLog }) {
+    // Organize logs by date and time
+    const matrix = {};
+    const hours = [];
+
+    // Generate hour slots (00:00 to 23:45 in 15-min intervals)
+    for (let h = 0; h < 24; h++) {
+        for (let m = 0; m < 60; m += 15) {
+            hours.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+        }
+    }
+
+    // Organize logs into matrix structure
+    logs.forEach(log => {
+        const date = new Date(log.patrol_time);
+        const dateKey = date.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        const timeKey = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+        if (!matrix[dateKey]) matrix[dateKey] = {};
+        matrix[dateKey][timeKey] = log;
+    });
+
+    const dates = Object.keys(matrix).sort((a, b) => {
+        const [dayA, monthA, yearA] = a.split('/');
+        const [dayB, monthB, yearB] = b.split('/');
+        return new Date(yearB, monthB - 1, dayB) - new Date(yearA, monthA - 1, dayA);
+    });
+
+    return (
+        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '70vh' }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: '0.75rem', minWidth: '100%' }}>
+                <thead style={{ position: 'sticky', top: 0, background: '#1a1a1a', zIndex: 10 }}>
+                    <tr>
+                        <th style={{
+                            position: 'sticky',
+                            left: 0,
+                            background: '#1a1a1a',
+                            padding: '0.5rem',
+                            borderBottom: '2px solid rgba(255,255,255,0.2)',
+                            borderRight: '2px solid rgba(255,255,255,0.2)',
+                            color: 'var(--accent-gold)',
+                            zIndex: 11,
+                            minWidth: '90px'
+                        }}>
+                            FECHA
+                        </th>
+                        {hours.map(hour => (
+                            <th key={hour} style={{
+                                padding: '0.5rem 0.3rem',
+                                borderBottom: '2px solid rgba(255,255,255,0.2)',
+                                borderLeft: hour.endsWith(':00') ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.05)',
+                                color: 'var(--accent-gold)',
+                                minWidth: '35px',
+                                fontSize: '0.7rem',
+                                writingMode: hour.endsWith(':00') ? 'horizontal-tb' : 'vertical-rl',
+                                textOrientation: 'mixed'
+                            }}>
+                                {hour.endsWith(':00') ? hour.slice(0, 2) : ''}
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {dates.map(date => (
+                        <tr key={date}>
+                            <td style={{
+                                position: 'sticky',
+                                left: 0,
+                                background: '#1a1a1a',
+                                padding: '0.5rem',
+                                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                                borderRight: '2px solid rgba(255,255,255,0.2)',
+                                fontWeight: 'bold',
+                                color: '#e0e0e0',
+                                zIndex: 5
+                            }}>
+                                {date}
+                            </td>
+                            {hours.map(hour => {
+                                const log = matrix[date]?.[hour];
+                                return (
+                                    <td
+                                        key={hour}
+                                        onClick={() => log && onSelectLog(log)}
+                                        style={{
+                                            padding: '0.5rem 0.3rem',
+                                            borderBottom: '1px solid rgba(255,255,255,0.1)',
+                                            borderLeft: hour.endsWith(':00') ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.05)',
+                                            textAlign: 'center',
+                                            background: log ? (
+                                                log.people_count > 10 ? '#dc2626' :
+                                                    log.people_count > 5 ? '#f59e0b' :
+                                                        log.people_count > 2 ? '#3b82f6' :
+                                                            '#10b981'
+                                            ) : 'transparent',
+                                            color: log ? 'white' : '#666',
+                                            fontWeight: log ? 'bold' : 'normal',
+                                            cursor: log ? 'pointer' : 'default',
+                                            transition: 'all 0.2s',
+                                            fontSize: '0.75rem'
+                                        }}
+                                        onMouseEnter={e => {
+                                            if (log) {
+                                                e.currentTarget.style.transform = 'scale(1.1)';
+                                                e.currentTarget.style.zIndex = '3';
+                                            }
+                                        }}
+                                        onMouseLeave={e => {
+                                            if (log) {
+                                                e.currentTarget.style.transform = 'scale(1)';
+                                                e.currentTarget.style.zIndex = '1';
+                                            }
+                                        }}
+                                    >
+                                        {log ? log.people_count : ''}
+                                    </td>
+                                );
+                            })}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+
+            {/* Legend */}
+            <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap', fontSize: '0.8rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: '20px', height: '20px', background: '#10b981', borderRadius: '3px' }}></div>
+                    <span>1-2 personas</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: '20px', height: '20px', background: '#3b82f6', borderRadius: '3px' }}></div>
+                    <span>3-5 personas</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: '20px', height: '20px', background: '#f59e0b', borderRadius: '3px' }}></div>
+                    <span>6-10 personas</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: '20px', height: '20px', background: '#dc2626', borderRadius: '3px' }}></div>
+                    <span>11+ personas</span>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 export default Gangs;
