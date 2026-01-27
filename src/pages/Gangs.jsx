@@ -842,21 +842,21 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                 <div className="gang-section-header">
                     <span className="gang-section-title">🕐 Control Horario</span>
                 </div>
-                <div className="gang-list-content">
-                    <div style={{ display: 'flex', gap: '0.5rem', padding: '0.5rem' }}>
+                <div className="gang-list-content" style={{ padding: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                         <button
                             className="login-button"
                             onClick={() => onAdd('patrol', gang.gang_id)}
-                            style={{ flex: 1, fontSize: '0.85rem', padding: '0.6rem' }}
+                            style={{ fontSize: '0.8rem', padding: '0.5rem', width: '100%' }}
                         >
-                            ➕ Log Patrol
+                            ➕ Registrar Patrulla
                         </button>
                         <button
                             className="login-button btn-secondary"
                             onClick={() => onViewActivity('patrolTable', gang.gang_id)}
-                            style={{ flex: 1, fontSize: '0.85rem', padding: '0.6rem' }}
+                            style={{ fontSize: '0.8rem', padding: '0.5rem', width: '100%' }}
                         >
-                            📊 View All Logs
+                            📊 Ver Matriz
                         </button>
                     </div>
                 </div>
