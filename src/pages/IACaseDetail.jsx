@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import '../index.css';
+import IACaseTodoList from '../components/IACaseTodoList'; // Import component
 
 function IACaseDetail() {
     const { id } = useParams();
@@ -192,79 +193,98 @@ function IACaseDetail() {
             <div className="case-layout" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
                 <div className="case-main-content">
                     <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '1.5rem' }}>
-                        <button style={{
-                            background: 'none', border: 'none',
-                            borderBottom: '2px solid var(--accent-gold)',
-                            color: 'var(--accent-gold)',
-                            padding: '0.5rem 1rem', fontWeight: 'bold'
-                        }}>
+                        <button
+                            onClick={() => setActiveTab('updates')}
+                            style={{
+                                background: 'none', border: 'none',
+                                borderBottom: activeTab === 'updates' ? '2px solid var(--accent-gold)' : '2px solid transparent',
+                                color: activeTab === 'updates' ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                                padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer'
+                            }}>
                             Investigation Log
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('todo')}
+                            style={{
+                                background: 'none', border: 'none',
+                                borderBottom: activeTab === 'todo' ? '2px solid var(--accent-gold)' : '2px solid transparent',
+                                color: activeTab === 'todo' ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                                padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer'
+                            }}>
+                            To-Do List
                         </button>
                     </div>
 
-                    {/* New Update Box */}
-                    {info.status !== 'Archived' && (
-                        <div className="new-update-box" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
-                            <form onSubmit={handlePostUpdate}>
-                                <textarea
-                                    className="eval-textarea" rows="3"
-                                    placeholder="Log a new finding, evidence or statement..."
-                                    value={newUpdateContent} onChange={e => setNewUpdateContent(e.target.value)}
-                                    style={{ marginBottom: '1rem' }}
-                                />
-                                {newUpdateImages.length > 0 && (
-                                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                                        {newUpdateImages.map((imgSrc, idx) => (
-                                            <div key={idx} style={{ position: 'relative' }}>
-                                                <img src={imgSrc} alt="" style={{ height: '80px', borderRadius: '4px', border: '1px solid var(--accent-gold)' }} />
-                                                <button type="button" onClick={() => setNewUpdateImages(prev => prev.filter((_, i) => i !== idx))} style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '20px', height: '20px', border: 'none', cursor: 'pointer' }}>&times;</button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <label className="custom-file-upload" style={{ margin: 0, fontSize: '0.9rem', padding: '0.4rem 1rem', width: 'auto' }}>
-                                        <input type="file" accept="image/*" multiple onChange={handleImageUpload} />
-                                        📸 Add Evidence
-                                    </label>
-                                    <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submittingUpdate}>
-                                        {submittingUpdate ? 'Posting...' : 'Post Update'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    )}
+                    {activeTab === 'updates' ? (
+                        <>
 
-                    <div className="updates-feed">
-                        {updates.length === 0 ? <div className="empty-list">No updates or developments recorded yet.</div> : (
-                            updates.map(update => (
-                                <div key={update.id} className="case-update-card" style={{
-                                    background: 'rgba(30, 41, 59, 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
-                                    borderLeft: '2px solid rgba(255,255,255,0.1)'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center' }}>
-                                            <img src={update.author_avatar || '/anon.png'} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px' }} />
-                                            <div>
-                                                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{update.author_rank} {update.author_name}</div>
-                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(update.created_at).toLocaleString()}</div>
+                            {/* New Update Box */}
+                            {info.status !== 'Archived' && (
+                                <div className="new-update-box" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
+                                    <form onSubmit={handlePostUpdate}>
+                                        <textarea
+                                            className="eval-textarea" rows="3"
+                                            placeholder="Log a new finding, evidence or statement..."
+                                            value={newUpdateContent} onChange={e => setNewUpdateContent(e.target.value)}
+                                            style={{ marginBottom: '1rem' }}
+                                        />
+                                        {newUpdateImages.length > 0 && (
+                                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                                {newUpdateImages.map((imgSrc, idx) => (
+                                                    <div key={idx} style={{ position: 'relative' }}>
+                                                        <img src={imgSrc} alt="" style={{ height: '80px', borderRadius: '4px', border: '1px solid var(--accent-gold)' }} />
+                                                        <button type="button" onClick={() => setNewUpdateImages(prev => prev.filter((_, i) => i !== idx))} style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '20px', height: '20px', border: 'none', cursor: 'pointer' }}>&times;</button>
+                                                    </div>
+                                                ))}
                                             </div>
+                                        )}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <label className="custom-file-upload" style={{ margin: 0, fontSize: '0.9rem', padding: '0.4rem 1rem', width: 'auto' }}>
+                                                <input type="file" accept="image/*" multiple onChange={handleImageUpload} />
+                                                📸 Add Evidence
+                                            </label>
+                                            <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submittingUpdate}>
+                                                {submittingUpdate ? 'Posting...' : 'Post Update'}
+                                            </button>
                                         </div>
-                                    </div>
-                                    <div style={{ whiteSpace: 'pre-line', marginBottom: '1rem', color: 'var(--text-primary)' }}>{update.content}</div>
-                                    {(update.images && update.images.length > 0) && (
-                                        <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                                            {update.images.map((imgSrc, i) => (
-                                                <div key={i} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }} onClick={() => setExpandedImage(imgSrc)}>
-                                                    <img src={imgSrc} alt="Evidence" style={{ display: 'block', maxHeight: '200px', maxWidth: '100%', objectFit: 'cover' }} />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                    </form>
                                 </div>
-                            ))
-                        )}
-                    </div>
+                            )}
+
+                            <div className="updates-feed">
+                                {updates.length === 0 ? <div className="empty-list">No updates or developments recorded yet.</div> : (
+                                    updates.map(update => (
+                                        <div key={update.id} className="case-update-card" style={{
+                                            background: 'rgba(30, 41, 59, 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
+                                            borderLeft: '2px solid rgba(255,255,255,0.1)'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <img src={update.author_avatar || '/anon.png'} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px' }} />
+                                                    <div>
+                                                        <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{update.author_rank} {update.author_name}</div>
+                                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(update.created_at).toLocaleString()}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style={{ whiteSpace: 'pre-line', marginBottom: '1rem', color: 'var(--text-primary)' }}>{update.content}</div>
+                                            {(update.images && update.images.length > 0) && (
+                                                <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                    {update.images.map((imgSrc, i) => (
+                                                        <div key={i} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }} onClick={() => setExpandedImage(imgSrc)}>
+                                                            <img src={imgSrc} alt="Evidence" style={{ display: 'block', maxHeight: '200px', maxWidth: '100%', objectFit: 'cover' }} />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <IACaseTodoList caseId={id} />
+                    )}
                 </div>
 
                 <div className="case-sidebar">
