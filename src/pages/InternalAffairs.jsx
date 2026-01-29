@@ -13,6 +13,10 @@ function InternalAffairs() {
                     <h3>📁 Internal Investigations</h3>
                     <p>Manage confidential case files against department members.</p>
                 </div>
+                <div className="dashboard-card" onClick={() => navigate('/internal-affairs/docs')}>
+                    <h3>🗄️ IA Documentation</h3>
+                    <p>Standard operating procedures and classified protocols.</p>
+                </div>
                 {/* 
                 <div className="dashboard-card" onClick={() => navigate('/internal-affairs/interrogations')}>
                     <h3>📝 Interrogation Registry</h3>

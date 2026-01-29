@@ -17,6 +17,7 @@ import PublicGangMap from './pages/PublicGangMap'; // Import
 import InternalAffairs from './pages/InternalAffairs'; // Import
 import IACases from './pages/IACases';
 import IACaseDetail from './pages/IACaseDetail';
+import IADocumentation from './pages/IADocumentation';
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
 import './index.css';
@@ -49,6 +50,7 @@ function App() {
             <Route path="/internal-affairs" element={<InternalAffairs />} />
             <Route path="/internal-affairs/cases" element={<IACases />} />
             <Route path="/internal-affairs/cases/:id" element={<IACaseDetail />} />
+            <Route path="/internal-affairs/docs" element={<IADocumentation />} />
             <Route path="/profile" element={<Profile />} />
           </Route>
 
