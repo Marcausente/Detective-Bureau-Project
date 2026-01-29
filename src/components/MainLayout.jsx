@@ -73,10 +73,12 @@ function MainLayout() {
     ];
 
     const navItems = allNavItems.filter(item => {
-        if (!profile || !profile.divisions) return false;
+        if (!profile) return false;
+        // Administrator Bypass
+        if (profile.rol === 'Administrador') return true;
+
+        if (!profile.divisions) return false;
         // Check if user has AT LEAST ONE of the required divisions for this item
-        // But for items that require specific ones, we need to match.
-        // Actually, the logic is: Item is visible IF (User.Divisions INTERSECT Item.AllowedDivisions) IS NOT EMPTY.
         return item.divisions.some(div => profile.divisions.includes(div));
     });
 

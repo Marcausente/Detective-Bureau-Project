@@ -38,9 +38,12 @@ function IACases() {
     const fetchIAUsers = async () => {
         // Fetch ALL users then filter client-side for "Internal Affairs" division
         // OR better, create an RPC. For now client-side filter is fine if dataset isn't huge.
-        const { data } = await supabase.from('users').select('id, nombre, apellido, rango, profile_image, divisions').order('rango');
+        const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, profile_image, divisions').order('rango');
         if (data) {
-            const iaUsers = data.filter(u => u.divisions && u.divisions.includes('Internal Affairs'));
+            const iaUsers = data.filter(u =>
+                (u.divisions && u.divisions.includes('Internal Affairs')) ||
+                u.rol === 'Administrador'
+            );
             setUsers(iaUsers);
         }
     };
