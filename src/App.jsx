@@ -18,6 +18,7 @@ import InternalAffairs from './pages/InternalAffairs'; // Import
 import IACases from './pages/IACases';
 import IACaseDetail from './pages/IACaseDetail';
 import IADocumentation from './pages/IADocumentation';
+import IAInterrogations from './pages/IAInterrogations';
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
 import './index.css';
@@ -51,6 +52,7 @@ function App() {
             <Route path="/internal-affairs/cases" element={<IACases />} />
             <Route path="/internal-affairs/cases/:id" element={<IACaseDetail />} />
             <Route path="/internal-affairs/docs" element={<IADocumentation />} />
+            <Route path="/internal-affairs/interrogations" element={<IAInterrogations />} />
             <Route path="/profile" element={<Profile />} />
           </Route>
 

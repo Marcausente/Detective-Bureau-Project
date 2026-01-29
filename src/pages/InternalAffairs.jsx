@@ -154,23 +154,37 @@ function InternalAffairs() {
                     <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>Classified protocols and resources.</p>
                 </div>
 
-                {/* Coming Soon: Interrogations */}
-                <div style={{
-                    background: 'rgba(15, 23, 42, 0.3)',
-                    border: '1px dashed rgba(255,255,255,0.1)',
-                    borderRadius: '12px',
-                    padding: '2rem',
-                    cursor: 'not-allowed',
-                    position: 'relative',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                    opacity: 0.6
-                }}>
-                    <div style={{ position: 'absolute', top: 15, right: 15, background: '#334155', color: '#94a3b8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 'bold' }}>LOCKED</div>
+                {/* Active Module: Interrogations */}
+                <div
+                    className="ia-card"
+                    onClick={() => navigate('/internal-affairs/interrogations')}
+                    style={{
+                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6))',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: '12px',
+                        padding: '2rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        textAlign: 'center'
+                    }}
+                    onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'translateY(-5px)';
+                        e.currentTarget.style.borderColor = '#14b8a6';
+                        e.currentTarget.style.boxShadow = '0 10px 30px -10px rgba(20, 184, 166, 0.3)';
+                    }}
+                    onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
+                        e.currentTarget.style.boxShadow = 'none';
+                    }}
+                >
                     <div style={{
-                        background: 'rgba(255, 255, 255, 0.05)',
+                        background: 'rgba(20, 184, 166, 0.1)',
                         borderRadius: '50%',
                         width: '70px',
                         height: '70px',
@@ -178,13 +192,13 @@ function InternalAffairs() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginBottom: '1.5rem',
-                        filter: 'grayscale(1)',
+                        color: '#14b8a6',
                         fontSize: '2rem'
                     }}>
                         📝
                     </div>
-                    <h3 style={{ color: '#cbd5e1', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Interrogations</h3>
-                    <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Subject interviews registry.</p>
+                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>Interrogations</h3>
+                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>Subject interviews registry.</p>
                 </div>
 
                 {/* Coming Soon: Sanctions */}

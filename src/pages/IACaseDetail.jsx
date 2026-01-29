@@ -26,6 +26,50 @@ function IACaseDetail() {
 
     const [currentUser, setCurrentUser] = useState(null);
 
+    // Interrogations Linking State
+    const [showLinkModal, setShowLinkModal] = useState(false);
+    const [availableInterrogations, setAvailableInterrogations] = useState([]);
+
+    const loadAvailableInterrogations = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_available_ia_interrogations_to_link');
+            if (error) throw error;
+            setAvailableInterrogations(data || []);
+            setShowLinkModal(true);
+        } catch (err) {
+            alert('Error loading interrogations: ' + err.message);
+        }
+    };
+
+    const handleLinkInterrogation = async (interrogationId) => {
+        try {
+            const { error } = await supabase.rpc('manage_ia_interrogation', {
+                p_action: 'link',
+                p_id: interrogationId,
+                p_case_id: id
+            });
+            if (error) throw error;
+            setShowLinkModal(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error linking interrogation: ' + err.message);
+        }
+    };
+
+    const handleUnlinkInterrogation = async (interrogationId) => {
+        if (!window.confirm("Unlink this interrogation? It will remain in the system but attached to no case.")) return;
+        try {
+            const { error } = await supabase.rpc('manage_ia_interrogation', {
+                p_action: 'unlink',
+                p_id: interrogationId
+            });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error unlinking: ' + err.message);
+        }
+    };
+
     useEffect(() => {
         loadCaseDetails();
         loadCurrentUser();
@@ -147,7 +191,7 @@ function IACaseDetail() {
     if (loading) return <div className="loading-screen">Loading Investigation...</div>;
     if (!caseData) return <div className="loading-screen" style={{ color: '#f87171' }}>Investigation Not Found.</div>;
 
-    const { info, assignments, updates } = caseData;
+    const { info, assignments, updates, interrogations } = caseData;
 
     return (
         <div className="documentation-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
@@ -335,6 +379,45 @@ function IACaseDetail() {
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                             <button className="login-button btn-secondary" onClick={() => setShowAssignModal(false)} style={{ width: 'auto' }}>Cancel</button>
                             <button className="login-button" onClick={handleUpdateAssignments} style={{ width: 'auto' }}>Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Link Interrogation Modal */}
+            {showLinkModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content" style={{ maxWidth: '500px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                        <h3 style={{ marginBottom: '1rem', color: '#f87171' }}>Link Interrogation</h3>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>Select a loose interrogation to attach to this case file.</p>
+
+                        <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', border: '1px solid var(--glass-border)', borderRadius: '4px' }}>
+                            {availableInterrogations.length === 0 ? (
+                                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No unlinked interrogations found.</div>
+                            ) : (
+                                availableInterrogations.map(int => (
+                                    <div key={int.id}
+                                        onClick={() => handleLinkInterrogation(int.id)}
+                                        style={{
+                                            padding: '1rem',
+                                            cursor: 'pointer',
+                                            borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                            background: 'rgba(0,0,0,0.2)',
+                                            transition: 'background 0.2s'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.2)'}
+                                    >
+                                        <div style={{ fontWeight: 'bold' }}>{int.title}</div>
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Subject: {int.subjects}</div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Date: {new Date(int.created_at).toLocaleDateString()}</div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button className="login-button btn-secondary" onClick={() => setShowLinkModal(false)} style={{ width: 'auto' }}>Cancel</button>
                         </div>
                     </div>
                 </div>
