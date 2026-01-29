@@ -86,6 +86,7 @@ function Personnel() {
     const rankPriority = {
         'Capitan': 100,
         'Teniente': 90,
+        'Internal Affairs Agent': 85, // High priority sort
         'Detective III': 80,
         'Detective II': 70,
         'Detective I': 60,
@@ -99,7 +100,7 @@ function Personnel() {
 
     const detectives = users.filter(u => ['Detective I', 'Detective II', 'Detective III'].includes(u.rango)).sort(sortUsers);
     const helpers = users.filter(u => ['Oficial II', 'Oficial III', 'Oficial III+'].includes(u.rango)).sort(sortUsers);
-    const command = users.filter(u => ['Capitan', 'Teniente'].includes(u.rango)).sort(sortUsers);
+    const commandAndExternal = users.filter(u => ['Capitan', 'Teniente', 'Internal Affairs Agent'].includes(u.rango)).sort(sortUsers);
 
     // --- Actions ---
 
@@ -156,7 +157,7 @@ function Personnel() {
             no_placa: user.no_placa || '',
             rango: user.rango || 'Oficial II',
             rol: user.rol || 'Ayudante',
-            fecha_ingreso: user.fecha_ingreso || '',
+            fecha_ingreso: user.fecha_ingreso ? user.fecha_ingreso.split('T')[0] : '',
             profile_image: user.profile_image || '',
             divisions: user.divisions || ['Detective Bureau']
         });
@@ -329,7 +330,7 @@ function Personnel() {
 
                 {/* Helpers Column */}
                 <div className="personnel-column">
-                    <h3 className="column-title">Ayudantes</h3>
+                    <h3 className="column-title">Ayudantes DB</h3>
                     <div className="personnel-list">
                         {helpers.length > 0 ? helpers.map(u => <UserCard key={u.id} user={u} />) : <div className="empty-list">No oficiales found</div>}
                     </div>
@@ -337,9 +338,9 @@ function Personnel() {
 
                 {/* Command Column */}
                 <div className="personnel-column">
-                    <h3 className="column-title">Comisionado</h3>
+                    <h3 className="column-title">Comisionado y Externos</h3>
                     <div className="personnel-list">
-                        {command.length > 0 ? command.map(u => <UserCard key={u.id} user={u} />) : <div className="empty-list">No command staff found</div>}
+                        {commandAndExternal.length > 0 ? commandAndExternal.map(u => <UserCard key={u.id} user={u} />) : <div className="empty-list">No command staff found</div>}
                     </div>
                 </div>
             </div>
@@ -412,6 +413,7 @@ function Personnel() {
                                     <option value="Detective I">Detective I</option>
                                     <option value="Detective II">Detective II</option>
                                     <option value="Detective III">Detective III</option>
+                                    <option value="Internal Affairs Agent">Internal Affairs Agent</option>
                                     <option value="Teniente">Teniente</option>
                                     <option value="Capitan">Capitan</option>
                                 </select>
