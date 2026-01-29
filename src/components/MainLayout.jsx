@@ -60,16 +60,25 @@ function MainLayout() {
         navigate('/');
     };
 
-    const navItems = [
-        { name: 'Dashboard', path: '/dashboard' },
-        { name: 'Documentation', path: '/documentation' },
-        { name: 'Criminal Cases', path: '/cases' },
-        { name: 'Gangs', path: '/gangs' },
-        { name: 'Incidents', path: '/incidents' },
-        { name: 'Crime Map', path: '/crimemap' },
-        { name: 'Interrogations', path: '/interrogations' },
-        { name: 'Personnel', path: '/personnel' },
+    const allNavItems = [
+        { name: 'Dashboard', path: '/dashboard', divisions: ['Detective Bureau'] },
+        { name: 'Documentation', path: '/documentation', divisions: ['Detective Bureau'] },
+        { name: 'Criminal Cases', path: '/cases', divisions: ['Detective Bureau'] },
+        { name: 'Gangs', path: '/gangs', divisions: ['Detective Bureau'] },
+        { name: 'Incidents', path: '/incidents', divisions: ['Detective Bureau'] },
+        { name: 'Crime Map', path: '/crimemap', divisions: ['Detective Bureau'] },
+        { name: 'Interrogations', path: '/interrogations', divisions: ['Detective Bureau'] },
+        { name: 'Personnel', path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs'] },
+        { name: 'Internal Affairs', path: '/internal-affairs', divisions: ['Internal Affairs'] },
     ];
+
+    const navItems = allNavItems.filter(item => {
+        if (!profile || !profile.divisions) return false;
+        // Check if user has AT LEAST ONE of the required divisions for this item
+        // But for items that require specific ones, we need to match.
+        // Actually, the logic is: Item is visible IF (User.Divisions INTERSECT Item.AllowedDivisions) IS NOT EMPTY.
+        return item.divisions.some(div => profile.divisions.includes(div));
+    });
 
     return (
         <div className="layout-container">

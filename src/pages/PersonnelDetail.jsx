@@ -259,6 +259,10 @@ function PersonnelDetail() {
                                 <span className="detail-label" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.2rem', color: 'var(--accent-gold)' }}>Email Contact</span>
                                 <span>{user.email}</span>
                             </div>
+                            <div className="detail-item">
+                                <span className="detail-label" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.2rem', color: 'var(--accent-gold)' }}>Divisions</span>
+                                <span>{user.divisions ? user.divisions.join(', ') : 'Detective Bureau'}</span>
+                            </div>
                         </div>
                     </div>
 

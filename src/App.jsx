@@ -14,6 +14,7 @@ import Documentation from './pages/Documentation';
 import Interrogations from './pages/Interrogations';
 import CrimeMap from './pages/CrimeMap'; // Import
 import PublicGangMap from './pages/PublicGangMap'; // Import
+import InternalAffairs from './pages/InternalAffairs'; // Import
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
 import './index.css';
@@ -43,6 +44,7 @@ function App() {
             <Route path="/crimemap" element={<CrimeMap />} />
             <Route path="/personnel" element={<Personnel />} />
             <Route path="/personnel/:id" element={<PersonnelDetail />} />
+            <Route path="/internal-affairs" element={<InternalAffairs />} />
             <Route path="/profile" element={<Profile />} />
           </Route>
 

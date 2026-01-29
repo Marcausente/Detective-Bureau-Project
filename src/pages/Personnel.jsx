@@ -41,7 +41,9 @@ function Personnel() {
         rango: 'Oficial II',
         rol: 'Ayudante',
         fecha_ingreso: '',
-        profile_image: ''
+        fecha_ingreso: '',
+        profile_image: '',
+        divisions: ['Detective Bureau']
     });
 
     const fileInputRef = useRef(null);
@@ -136,7 +138,8 @@ function Personnel() {
         setEditingUserId(null);
         setFormData({
             email: '', password: '', nombre: '', apellido: '', no_placa: '',
-            rango: 'Oficial II', rol: 'Ayudante', fecha_ingreso: '', profile_image: ''
+            rango: 'Oficial II', rol: 'Ayudante', fecha_ingreso: '', profile_image: '',
+            divisions: ['Detective Bureau']
         });
         setMessage(null);
         setShowModal(true);
@@ -154,7 +157,8 @@ function Personnel() {
             rango: user.rango || 'Oficial II',
             rol: user.rol || 'Ayudante',
             fecha_ingreso: user.fecha_ingreso || '',
-            profile_image: user.profile_image || ''
+            profile_image: user.profile_image || '',
+            divisions: user.divisions || ['Detective Bureau']
         });
         setMessage(null);
         setShowModal(true);
@@ -199,7 +203,8 @@ function Personnel() {
                     p_rol: formData.rol,
                     p_fecha_ingreso: formData.fecha_ingreso || null,
                     p_fecha_ultimo_ascenso: null,
-                    p_profile_image: formData.profile_image || null
+                    p_profile_image: formData.profile_image || null,
+                    p_divisions: formData.divisions
                 });
                 if (error) throw error;
                 setMessage({ type: 'success', text: 'Personnel added successfully!' });
@@ -216,7 +221,8 @@ function Personnel() {
                     p_rol: formData.rol,
                     p_fecha_ingreso: formData.fecha_ingreso || null,
                     p_fecha_ultimo_ascenso: null,
-                    p_profile_image: formData.profile_image || null
+                    p_profile_image: formData.profile_image || null,
+                    p_divisions: formData.divisions
                 });
                 if (error) throw error;
                 setMessage({ type: 'success', text: 'Personnel updated successfully!' });
@@ -421,6 +427,38 @@ function Personnel() {
                                     <option value="Comisionado">Comisionado</option>
                                     <option value="Administrador">Administrador</option>
                                 </select>
+                            </div>
+
+                            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                <label className="form-label">Divisions</label>
+                                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.divisions.includes('Detective Bureau')}
+                                            onChange={(e) => {
+                                                const newDivisions = e.target.checked
+                                                    ? [...formData.divisions, 'Detective Bureau']
+                                                    : formData.divisions.filter(d => d !== 'Detective Bureau');
+                                                setFormData({ ...formData, divisions: newDivisions });
+                                            }}
+                                        />
+                                        Detective Bureau
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.divisions.includes('Internal Affairs')}
+                                            onChange={(e) => {
+                                                const newDivisions = e.target.checked
+                                                    ? [...formData.divisions, 'Internal Affairs']
+                                                    : formData.divisions.filter(d => d !== 'Internal Affairs');
+                                                setFormData({ ...formData, divisions: newDivisions });
+                                            }}
+                                        />
+                                        Internal Affairs
+                                    </label>
+                                </div>
                             </div>
 
                             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
