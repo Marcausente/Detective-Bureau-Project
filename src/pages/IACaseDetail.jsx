@@ -353,6 +353,38 @@ function IACaseDetail() {
                             )}
                         </div>
                     </div>
+
+                    <div className="sidebar-section" style={{ marginTop: '2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>Interrogations</h4>
+                            {info.status === 'Open' && (
+                                <button onClick={loadAvailableInterrogations} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>+ Link</button>
+                            )}
+                        </div>
+                        <div className="assigned-list">
+                            {(!interrogations || interrogations.length === 0) ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No interrogations linked.</div> : (
+                                interrogations.map(int => (
+                                    <div key={int.id} style={{ marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '4px', borderLeft: '3px solid #f87171' }}>
+                                        <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>
+                                            <a href={`/internal-affairs/interrogations?id=${int.id}`} onClick={(e) => { e.preventDefault(); navigate(`/internal-affairs/interrogations?search=${encodeURIComponent(int.title)}`); }} style={{ color: 'inherit', textDecoration: 'none' }}>
+                                                {int.title}
+                                            </a>
+                                        </div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                            {new Date(int.created_at).toLocaleDateString()}
+                                        </div>
+                                        {info.status === 'Open' && (
+                                            <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
+                                                <button onClick={() => handleUnlinkInterrogation(int.id)} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer', opacity: 0.8 }}>
+                                                    Unlink
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
