@@ -9,10 +9,11 @@ function IASanctions() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Modal
-    const [showCreateModal, setShowCreateModal] = useState(false);
-    const [newProfile, setNewProfile] = useState({ nombre: '', apellido: '', no_placa: '' });
-    const [creating, setCreating] = useState(false);
+    // Modal & CRUD State
+    const [showModal, setShowModal] = useState(false);
+    const [formData, setFormData] = useState({ nombre: '', apellido: '', no_placa: '' });
+    const [loadingAction, setLoadingAction] = useState(false);
+    const [editingId, setEditingId] = useState(null);
 
     useEffect(() => {
         loadProfiles();
@@ -31,23 +32,60 @@ function IASanctions() {
         }
     };
 
-    const handleCreateProfile = async (e) => {
+    const openForCreate = () => {
+        setEditingId(null);
+        setFormData({ nombre: '', apellido: '', no_placa: '' });
+        setShowModal(true);
+    };
+
+    const openForEdit = (e, profile) => {
+        e.stopPropagation();
+        setEditingId(profile.id);
+        setFormData({ nombre: profile.nombre, apellido: profile.apellido, no_placa: profile.no_placa });
+        setShowModal(true);
+    };
+
+    const handleSave = async (e) => {
         e.preventDefault();
-        setCreating(true);
+        setLoadingAction(true);
         try {
-            const { error } = await supabase.rpc('create_ia_subject_profile', {
-                p_nombre: newProfile.nombre,
-                p_apellido: newProfile.apellido,
-                p_no_placa: newProfile.no_placa
-            });
-            if (error) throw error;
-            setShowCreateModal(false);
-            setNewProfile({ nombre: '', apellido: '', no_placa: '' });
+            if (editingId) {
+                // Update
+                const { error } = await supabase.rpc('update_ia_subject_profile', {
+                    p_id: editingId,
+                    p_nombre: formData.nombre,
+                    p_apellido: formData.apellido,
+                    p_no_placa: formData.no_placa
+                });
+                if (error) throw error;
+            } else {
+                // Create
+                const { error } = await supabase.rpc('create_ia_subject_profile', {
+                    p_nombre: formData.nombre,
+                    p_apellido: formData.apellido,
+                    p_no_placa: formData.no_placa
+                });
+                if (error) throw error;
+            }
+            setShowModal(false);
             loadProfiles();
         } catch (err) {
-            alert('Error creating profile: ' + err.message);
+            alert('Error saving profile: ' + err.message);
         } finally {
-            setCreating(false);
+            setLoadingAction(false);
+        }
+    };
+
+    const handleDelete = async (e, id) => {
+        e.stopPropagation();
+        if (!window.confirm("Are you sure? This will delete the officer profile and ALL their sanction history.")) return;
+
+        try {
+            const { error } = await supabase.rpc('delete_ia_subject_profile', { p_id: id });
+            if (error) throw error;
+            loadProfiles();
+        } catch (err) {
+            alert('Error deleting profile: ' + err.message);
         }
     };
 
@@ -72,7 +110,7 @@ function IASanctions() {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={() => setShowCreateModal(true)}>
+                    <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={openForCreate}>
                         + New Profile
                     </button>
                 </div>
@@ -81,7 +119,7 @@ function IASanctions() {
             {loading ? (
                 <div className="loading-container">Loading Registry...</div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
                     {filteredProfiles.length === 0 ? (
                         <div className="empty-list" style={{ gridColumn: '1/-1' }}>No profiles found.</div>
                     ) : (
@@ -97,7 +135,8 @@ function IASanctions() {
                                     transition: 'transform 0.2s, border-color 0.2s',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '1rem'
+                                    gap: '1rem',
+                                    position: 'relative'
                                 }}
                                 onMouseEnter={e => {
                                     e.currentTarget.style.transform = 'translateY(-3px)';
@@ -124,34 +163,69 @@ function IASanctions() {
                                         {profile.sanction_count} Record{profile.sanction_count !== 1 ? 's' : ''}
                                     </div>
                                 </div>
-                                <div style={{ color: 'var(--text-secondary)' }}>→</div>
+                                <div className="card-actions" style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button
+                                        onClick={(e) => openForEdit(e, profile)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '1.1rem' }}
+                                        title="Edit Profile"
+                                        className="hover-text-white"
+                                    >
+                                        ✏️
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleDelete(e, profile.id)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '1.1rem' }}
+                                        title="Delete Profile"
+                                    >
+                                        🗑️
+                                    </button>
+                                </div>
                             </div>
                         ))
                     )}
                 </div>
             )}
 
-            {/* Create Modal */}
-            {showCreateModal && (
+            {/* Modal */}
+            {showModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '400px' }}>
-                        <h3 style={{ marginBottom: '1rem', color: '#f87171' }}>Register New Officer</h3>
-                        <form onSubmit={handleCreateProfile}>
+                        <h3 style={{ marginBottom: '1rem', color: '#f87171' }}>
+                            {editingId ? 'Edit Officer Profile' : 'Register New Officer'}
+                        </h3>
+                        <form onSubmit={handleSave}>
                             <div style={{ marginBottom: '1rem' }}>
                                 <label className="form-label">Name</label>
-                                <input className="form-input" required value={newProfile.nombre} onChange={e => setNewProfile({ ...newProfile, nombre: e.target.value })} />
+                                <input
+                                    className="form-input"
+                                    required
+                                    value={formData.nombre}
+                                    onChange={e => setFormData({ ...formData, nombre: e.target.value })}
+                                />
                             </div>
                             <div style={{ marginBottom: '1rem' }}>
                                 <label className="form-label">Surname</label>
-                                <input className="form-input" required value={newProfile.apellido} onChange={e => setNewProfile({ ...newProfile, apellido: e.target.value })} />
+                                <input
+                                    className="form-input"
+                                    required
+                                    value={formData.apellido}
+                                    onChange={e => setFormData({ ...formData, apellido: e.target.value })}
+                                />
                             </div>
                             <div style={{ marginBottom: '1rem' }}>
                                 <label className="form-label">Badge Number</label>
-                                <input className="form-input" required value={newProfile.no_placa} onChange={e => setNewProfile({ ...newProfile, no_placa: e.target.value })} />
+                                <input
+                                    className="form-input"
+                                    required
+                                    value={formData.no_placa}
+                                    onChange={e => setFormData({ ...formData, no_placa: e.target.value })}
+                                />
                             </div>
                             <div className="cropper-actions">
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
-                                <button type="submit" className="login-button" disabled={creating}>{creating ? 'Creating...' : 'Create Registry'}</button>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)} disabled={loadingAction}>Cancel</button>
+                                <button type="submit" className="login-button" disabled={loadingAction}>
+                                    {loadingAction ? 'Saving...' : (editingId ? 'Save Changes' : 'Create Registry')}
+                                </button>
                             </div>
                         </form>
                     </div>
