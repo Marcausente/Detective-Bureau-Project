@@ -67,7 +67,7 @@ function MainLayout() {
         { name: 'Gangs', path: '/gangs', divisions: ['Detective Bureau'] },
         { name: 'Incidents', path: '/incidents', divisions: ['Detective Bureau'] },
         { name: 'Crime Map', path: '/crimemap', divisions: ['Detective Bureau'] },
-        { name: 'Archivo de Ordenes', path: '/warrants', divisions: ['Detective Bureau'] },
+        { name: 'Judicial Orders', path: '/warrants', divisions: ['Detective Bureau'] },
         { name: 'Interrogations', path: '/interrogations', divisions: ['Detective Bureau'] },
         { name: 'Personnel', path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs'] },
         { name: 'Internal Affairs', path: '/internal-affairs', divisions: ['Internal Affairs'] },
