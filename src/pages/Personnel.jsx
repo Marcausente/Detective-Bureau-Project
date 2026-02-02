@@ -41,7 +41,6 @@ function Personnel() {
         rango: 'Oficial II',
         rol: 'Ayudante',
         fecha_ingreso: '',
-        fecha_ingreso: '',
         profile_image: '',
         divisions: ['Detective Bureau']
     });
