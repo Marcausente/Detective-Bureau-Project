@@ -21,8 +21,17 @@ function Cases() {
     });
     const [users, setUsers] = useState([]); // For assignment selection
     const [submitting, setSubmitting] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
 
     useEffect(() => {
+        const getCurrentUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase.from('users').select('rol').eq('id', user.id).single();
+                setCurrentUser(data);
+            }
+        };
+        getCurrentUser();
         fetchCases();
         fetchUsers();
     }, [filter]);
@@ -112,9 +121,11 @@ function Cases() {
         <div className="documentation-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
             <div className="doc-header" style={{ marginBottom: '2rem' }}>
                 <h2 className="page-title">MAJOR CRIMES DIVISION</h2>
-                <button className="login-button" style={{ width: 'auto' }} onClick={() => setShowCreateModal(true)}>
-                    + New Case File
-                </button>
+                {currentUser?.rol !== 'Ayudante' && (
+                    <button className="login-button" style={{ width: 'auto' }} onClick={() => setShowCreateModal(true)}>
+                        + New Case File
+                    </button>
+                )}
             </div>
 
             {/* Filter Tabs */}

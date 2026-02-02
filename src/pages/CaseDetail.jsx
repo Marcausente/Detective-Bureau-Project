@@ -298,7 +298,10 @@ function CaseDetail() {
     // Admins/High Command OR the Creator of the case
     const isHighCommand = currentUser && ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol);
     const isCreator = currentUser && info.created_by === currentUser.id;
-    const canEditCase = isHighCommand || isCreator;
+    const isAyudante = currentUser && currentUser.rol === 'Ayudante';
+    
+    // Restrict editing/management to Non-Ayudantes who have permission
+    const canEditCase = (isHighCommand || isCreator) && !isAyudante;
 
     // Initialize edit state when not editing
     const startEditingInfo = () => {
@@ -379,13 +382,13 @@ function CaseDetail() {
                             </div>
 
                             <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                                {info.status === 'Open' && (
+                                {info.status === 'Open' && !isAyudante && (
                                     <>
                                         <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Closed')}>Close Case</button>
                                         <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Archived')}>Archive</button>
                                     </>
                                 )}
-                                {info.status !== 'Open' && (
+                                {info.status !== 'Open' && !isAyudante && (
                                     <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Open')}>Re-Open Case</button>
                                 )}
 
@@ -622,7 +625,7 @@ function CaseDetail() {
                     <div className="sidebar-section" style={{ marginBottom: '2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>Assigned Detectives</h4>
-                            {info.status === 'Open' && (
+                            {info.status === 'Open' && !isAyudante && (
                                 <button onClick={openAssignModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
                                     Manage
                                 </button>
@@ -647,7 +650,7 @@ function CaseDetail() {
                     <div className="sidebar-section">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>Linked Interrogations</h4>
-                            {info.status === 'Open' && (
+                            {info.status === 'Open' && !isAyudante && (
                                 <button onClick={openLinkModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
                                     + Link
                                 </button>
@@ -668,7 +671,7 @@ function CaseDetail() {
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(inv.created_at).toLocaleDateString()}</div>
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Subjects: {inv.subjects}</div>
                                         </div>
-                                        {info.status === 'Open' && (
+                                        {info.status === 'Open' && !isAyudante && (
                                             <button
                                                 onClick={(e) => handleUnlink(e, inv.id)}
                                                 style={{
