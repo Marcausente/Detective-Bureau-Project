@@ -21,6 +21,7 @@ import IADocumentation from './pages/IADocumentation';
 import IAInterrogations from './pages/IAInterrogations';
 import IASanctions from './pages/IASanctions';
 import IASanctionProfile from './pages/IASanctionProfile';
+import OrderArchive from './pages/OrderArchive'; // Import
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
 import './index.css';
@@ -57,6 +58,7 @@ function App() {
             <Route path="/internal-affairs/interrogations" element={<IAInterrogations />} />
             <Route path="/internal-affairs/sanctions" element={<IASanctions />} />
             <Route path="/internal-affairs/sanctions/:id" element={<IASanctionProfile />} />
+            <Route path="/warrants" element={<OrderArchive />} /> {/* Updated Route */}
             <Route path="/profile" element={<Profile />} />
           </Route>
 
