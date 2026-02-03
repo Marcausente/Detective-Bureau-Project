@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS public.judicial_orders (
   )),
   title TEXT NOT NULL, -- e.g. "Arresto - Pepe Garcia"
   content JSONB NOT NULL DEFAULT '{}'::jsonb, -- Stores dynamic fields
+  status TEXT NOT NULL DEFAULT 'Pendiente' CHECK (status IN ('Pendiente', 'Aprobada', 'Rechazada')),
   
   created_by UUID REFERENCES public.users(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -56,8 +57,8 @@ BEGIN
       RAISE EXCEPTION 'Access Denied: Ayudantes cannot create orders.';
   END IF;
 
-  INSERT INTO public.judicial_orders (order_type, title, content, created_by)
-  VALUES (p_type, p_title, p_content, auth.uid())
+  INSERT INTO public.judicial_orders (order_type, title, content, created_by, status)
+  VALUES (p_type, p_title, p_content, auth.uid(), 'Pendiente')
   RETURNING id INTO v_new_id;
 
   RETURN v_new_id;
@@ -66,12 +67,14 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- 6. RPC: Get Orders
+DROP FUNCTION IF EXISTS get_judicial_orders(text);
 CREATE OR REPLACE FUNCTION get_judicial_orders(p_type_filter TEXT DEFAULT NULL)
 RETURNS TABLE (
   id UUID,
   order_type TEXT,
   title TEXT,
   content JSONB,
+  status TEXT,
   created_at TIMESTAMP WITH TIME ZONE,
   author_name TEXT,
   author_rank TEXT,
@@ -84,6 +87,7 @@ BEGIN
     o.order_type,
     o.title,
     o.content,
+    o.status,
     o.created_at,
     (u.nombre || ' ' || u.apellido) as author_name,
     u.rango::text as author_rank,
@@ -92,5 +96,28 @@ BEGIN
   JOIN public.users u ON o.created_by = u.id
   WHERE (p_type_filter IS NULL OR p_type_filter = 'Todas' OR o.order_type = p_type_filter)
   ORDER BY o.created_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 7. RPC: Update Order Status
+CREATE OR REPLACE FUNCTION update_judicial_order_status(
+  p_order_id UUID,
+  p_new_status TEXT
+)
+RETURNS VOID AS $$
+DECLARE
+  v_user_rol TEXT;
+BEGIN
+  -- Check Role
+  SELECT u.rol::text INTO v_user_rol FROM public.users u WHERE u.id = auth.uid();
+  
+  -- Ayudante cannot change status
+  IF v_user_rol = 'Ayudante' THEN
+      RAISE EXCEPTION 'Access Denied: Ayudantes cannot change order status.';
+  END IF;
+
+  UPDATE public.judicial_orders
+  SET status = p_new_status
+  WHERE id = p_order_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

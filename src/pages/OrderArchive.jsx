@@ -150,17 +150,23 @@ const CategoryItem = ({ type, config, active, onClick }) => (
     </button>
 );
 
-const OrderCard = ({ order }) => {
+const OrderCard = ({ order, onPreview }) => {
     const config = ORDER_TYPES[order.order_type];
     const color = config?.color || '#999';
     const icon = config?.icon || '📄';
     
+    // Status Badge Logic
+    const getStatusColor = (s) => {
+        if (s === 'Aprobada') return '#10b981'; // Green
+        if (s === 'Rechazada') return '#ef4444'; // Red
+        return '#f59e0b'; // Amber (Pendiente)
+    };
+    const statusColor = getStatusColor(order.status || 'Pendiente');
+
     const renderContent = () => {
         return Object.entries(order.content).slice(0, 3).map(([key, val]) => {
             if (!val) return null;
             const field = config?.fields.find(f => f.name === key);
-            // Hide IDs if they are select values (optional improvement, for now showing ID or Value is fine, but labels are better)
-            // Ideally we'd map ID to Name, but for simplicity showing value.
             return (
                 <div key={key} style={{ marginBottom: '4px', fontSize: '0.85rem' }}>
                     <span style={{ color: 'var(--text-secondary)', marginRight: '6px' }}>{field?.label || key}:</span>
@@ -195,9 +201,24 @@ const OrderCard = ({ order }) => {
                     }}>
                         {icon}
                     </div>
-                    <span style={{ fontSize: '0.8rem', color: color, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        {order.order_type}
-                    </span>
+                    <div>
+                        <span style={{ fontSize: '0.8rem', color: color, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block' }}>
+                            {order.order_type}
+                        </span>
+                        {/* Status Badge */}
+                        <span style={{ 
+                            fontSize: '0.65rem', 
+                            background: `${statusColor}22`, 
+                            color: statusColor, 
+                            padding: '2px 6px', 
+                            borderRadius: '4px',
+                            border: `1px solid ${statusColor}44`,
+                            marginTop: '2px',
+                            display: 'inline-block'
+                        }}>
+                            {order.status || 'Pendiente'}
+                        </span>
+                    </div>
                 </div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                     {new Date(order.created_at).toLocaleDateString()}
@@ -222,32 +243,152 @@ const OrderCard = ({ order }) => {
                     <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#ddd' }}>{order.author_rank} {order.author_name}</span>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Detective Bureau</span>
                 </div>
-                <button 
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        // Import dynamically to avoid top-level issues if any, or just call imported function
-                        import('../utils/orderPdfGenerator').then(mod => mod.generateOrderPDF(order, config));
-                    }}
-                    style={{ 
-                        marginLeft: 'auto', 
-                        background: 'transparent', 
-                        border: '1px solid rgba(255,255,255,0.2)', 
-                        color: '#fff', 
-                        padding: '4px 8px', 
-                        borderRadius: '4px', 
-                        fontSize: '0.7rem', 
-                        cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: '5px'
-                    }}
-                    title="Descargar PDF Oficial"
-                    className="hover-bright"
-                >
-                    <span>📄</span> PDF
-                </button>
+                
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                     <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onPreview(order);
+                        }}
+                        style={{ 
+                            background: 'transparent', 
+                            border: '1px solid rgba(255,255,255,0.2)', 
+                            color: '#fff', 
+                            padding: '4px 8px', 
+                            borderRadius: '4px', 
+                            fontSize: '0.7rem', 
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '5px'
+                        }}
+                        title="Ver Vista Previa"
+                        className="hover-bright"
+                    >
+                        <span>👁️</span>
+                    </button>
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            import('../utils/orderPdfGenerator').then(mod => mod.generateOrderPDF(order, config));
+                        }}
+                        style={{ 
+                            background: 'transparent', 
+                            border: '1px solid rgba(255,255,255,0.2)', 
+                            color: '#fff', 
+                            padding: '4px 8px', 
+                            borderRadius: '4px', 
+                            fontSize: '0.7rem', 
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '5px'
+                        }}
+                        title="Descargar PDF Oficial"
+                        className="hover-bright"
+                    >
+                        <span>📄</span>
+                    </button>
+                </div>
             </div>
         </div>
     );
 };
+
+// --- PREVIEW MODAL ---
+const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus }) => {
+    if (!isOpen || !order) return null;
+    const config = ORDER_TYPES[order.order_type];
+
+    // Helper to render fields nicely in the preview
+    const fields = Object.entries(order.content).map(([key, val]) => {
+        const fieldConfig = config?.fields?.find(f => f.name === key);
+        return { label: fieldConfig?.label || key, value: val };
+    });
+
+    return (
+        <div className="cropper-modal-overlay" style={{ backdropFilter: 'blur(5px)', background: 'rgba(0,0,0,0.8)', zIndex: 9999 }}>
+            <div className="cropper-modal-content" style={{ 
+                maxWidth: '800px', 
+                height: '90vh',
+                padding: '0', 
+                background: '#fff', // White paper background
+                color: '#000', // Black text
+                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)',
+                display: 'flex', flexDirection: 'column'
+            }}>
+                {/* Scrollable Paper Content */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '3rem' }}>
+                    
+                    {/* Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', borderBottom: '2px solid #000', paddingBottom: '1rem' }}>
+                        <img src="/dblogo.png" alt="DB" style={{ width: '60px', height: '60px' }} />
+                        <div style={{ textAlign: 'center' }}>
+                            <h2 style={{ margin: 0, textTransform: 'uppercase', fontSize: '1.2rem' }}>Los Santos Police Department</h2>
+                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'normal' }}>DETECTIVE BUREAU</h3>
+                        </div>
+                        <img src="/LOGO_SAPD.png" alt="LSPD" style={{ width: '60px', height: '60px' }} />
+                    </div>
+
+                    <h1 style={{ textAlign: 'center', textTransform: 'uppercase', fontSize: '1.8rem', margin: '2rem 0' }}>Solicitud de Orden Judicial</h1>
+                    <h2 style={{ textAlign: 'center', color: '#555', fontSize: '1.2rem', margin: '0 0 3rem 0', textTransform: 'uppercase' }}>{order.order_type}</h2>
+
+                    {/* Meta Info */}
+                    <div style={{ marginBottom: '2rem', fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between' }}>
+                        <div><strong>SOLICITANTE:</strong> {order.author_rank} {order.author_name}</div>
+                        <div><strong>FECHA:</strong> {new Date(order.created_at).toLocaleDateString()}</div>
+                        <div><strong>ESTADO:</strong> {order.status}</div>
+                    </div>
+
+                    {/* Fields */}
+                    <div style={{ display: 'grid', gap: '1.5rem' }}>
+                        {fields.map((f, i) => (
+                            <div key={i}>
+                                <div style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#444', marginBottom: '4px' }}>{f.label}</div>
+                                <div style={{ fontSize: '1rem', lineHeight: '1.5', borderBottom: '1px dashed #ccc', paddingBottom: '4px' }}>{f.value || '-'}</div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Signature Area */}
+                    <div style={{ marginTop: '4rem', textAlign: 'right' }}>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', textTransform: 'uppercase' }}>{order.content.author_agent || order.author_name}</div>
+                        <div style={{ fontSize: '0.9rem' }}>Detective Bureau, LSPD</div>
+                    </div>
+
+                </div>
+
+                {/* Footer Controls (Dark UI for contrast) */}
+                <div style={{ padding: '1rem 2rem', background: '#1a1a1a', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                     <button type="button" className="login-button btn-secondary" onClick={onClose} style={{ width: 'auto', padding: '0.6rem 1.2rem' }}>Cerrar</button>
+                     
+                     {canManage && (
+                         <div style={{ display: 'flex', gap: '1rem' }}>
+                             {order.status !== 'Rechazada' && (
+                                 <button 
+                                     onClick={() => onUpdateStatus(order.id, 'Rechazada')}
+                                     style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                     RECHAZAR
+                                 </button>
+                             )}
+                             {order.status !== 'Pendiente' && (
+                                 <button 
+                                     onClick={() => onUpdateStatus(order.id, 'Pendiente')}
+                                     style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                     PENDIENTE
+                                 </button>
+                             )}
+                             {order.status !== 'Aprobada' && (
+                                 <button 
+                                     onClick={() => onUpdateStatus(order.id, 'Aprobada')}
+                                     style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                     APROBAR
+                                 </button>
+                             )}
+                         </div>
+                     )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 // --- MAIN PAGE ---
 function OrderArchive() {
@@ -256,6 +397,10 @@ function OrderArchive() {
     const [filterCategory, setFilterCategory] = useState('Todas');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
+
+    // Preview State
+    const [previewOrder, setPreviewOrder] = useState(null);
+    const [showPreview, setShowPreview] = useState(false);
 
     // Dynamic Lists
     const [agentsList, setAgentsList] = useState([]);
@@ -358,6 +503,34 @@ function OrderArchive() {
     const handleInputChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
+    
+    // Status Management
+    const handleStatusUpdate = async (orderId, newStatus) => {
+        try {
+            const { error } = await supabase.rpc('update_judicial_order_status', {
+                p_order_id: orderId,
+                p_new_status: newStatus
+            });
+            
+            if (error) throw error;
+            
+            // Refresh data and close preview (or update local state)
+            await loadData();
+            // Optionally update the preview order object so the modal reflects the change immediately
+            if (previewOrder && previewOrder.id === orderId) {
+                setPreviewOrder(prev => ({ ...prev, status: newStatus }));
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error actualizando estado: ' + err.message);
+        }
+    };
+
+    // Open Preview
+    const openPreview = (order) => {
+        setPreviewOrder(order);
+        setShowPreview(true);
+    };
 
     // Helper to get options for a field
     const getOptions = (optionKey) => {
@@ -369,6 +542,7 @@ function OrderArchive() {
     };
 
     const isAyudante = currentUser && currentUser.rol === 'Ayudante';
+    const canManageOrders = currentUser && !isAyudante; // Detectives and up can manage orders
 
     return (
         <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '2rem', minHeight: '100vh', boxSizing: 'border-box' }}>
@@ -452,7 +626,11 @@ function OrderArchive() {
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
                             {orders.map(order => (
-                                <OrderCard key={order.id} order={order} />
+                                <OrderCard 
+                                    key={order.id} 
+                                    order={order} 
+                                    onPreview={openPreview} 
+                                />
                             ))}
                         </div>
                     )}
@@ -460,9 +638,9 @@ function OrderArchive() {
 
             </div>
 
-            {/* --- MODAL --- */}
+            {/* --- CREATE MODAL --- */}
             {showCreateModal && (
-                <div className="cropper-modal-overlay" style={{ backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.7)' }}>
+                <div className="cropper-modal-overlay" style={{ backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.7)', zIndex: 9000 }}>
                     <div className="cropper-modal-content" style={{ 
                         maxWidth: '800px', 
                         padding: '0', 
@@ -581,8 +759,17 @@ function OrderArchive() {
                     </div>
                 </div>
             )}
+            
+            {/* Preview Modal */}
+            <PreviewModal 
+                order={previewOrder} 
+                isOpen={showPreview} 
+                onClose={() => setShowPreview(false)}
+                canManage={canManageOrders}
+                onUpdateStatus={handleStatusUpdate}
+            />
         </div>
     );
-}
+};
 
 export default OrderArchive;
