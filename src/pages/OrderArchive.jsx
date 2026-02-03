@@ -12,8 +12,15 @@ const ORDER_TYPES = {
         icon: '🏠',
         fields: [
             { name: 'request_date', label: 'Fecha Solicitud', type: 'readonly_date' },
-            { name: 'property_owner', label: 'Propietario de la Vivienda', type: 'text' },
-            { name: 'target_address', label: 'Ubicación de la Vivienda', type: 'text', placeholder: '[12 Strawberry Avenue, Los Santos, San Andreas]' },
+            { 
+                name: 'target_properties', 
+                label: 'Propiedades a Registrar', 
+                type: 'property_repeater', 
+                subFields: [
+                    { name: 'owner', label: 'Propietario', placeholder: 'Nombre Apellido' },
+                    { name: 'address', label: 'Dirección', placeholder: '[12 Strawberry Avenue, Los Santos, San Andreas]' }
+                ]
+            },
             { name: 'probable_cause', label: 'Motivo de la Orden', type: 'textarea' },
             { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
             { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
@@ -348,29 +355,57 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                         {fields.map((f, i) => {
                             // Special handling for vehicle arrays
                             if (Array.isArray(f.value) && f.value.length > 0 && f.value[0].owner) {
-                                return (
-                                    <div key={i}>
-                                        <div style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#444', marginBottom: '8px' }}>{f.label}</div>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                                            <thead>
-                                                <tr style={{ borderBottom: '2px solid #ddd' }}>
-                                                    <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Propietario</th>
-                                                    <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Modelo</th>
-                                                    <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Matrícula</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {f.value.map((v, idx) => (
-                                                    <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                                                        <td style={{ padding: '6px' }}>{v.owner}</td>
-                                                        <td style={{ padding: '6px' }}>{v.model}</td>
-                                                        <td style={{ padding: '6px' }}>{v.plate}</td>
+                                // Check if it's a vehicle (has plate and model) or property (has address)
+                                const isVehicle = f.value[0].plate && f.value[0].model;
+                                
+                                if (isVehicle) {
+                                    return (
+                                        <div key={i}>
+                                            <div style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#444', marginBottom: '8px' }}>{f.label}</div>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                                <thead>
+                                                    <tr style={{ borderBottom: '2px solid #ddd' }}>
+                                                        <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Propietario</th>
+                                                        <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Modelo</th>
+                                                        <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Matrícula</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                );
+                                                </thead>
+                                                <tbody>
+                                                    {f.value.map((v, idx) => (
+                                                        <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                                                            <td style={{ padding: '6px' }}>{v.owner}</td>
+                                                            <td style={{ padding: '6px' }}>{v.model}</td>
+                                                            <td style={{ padding: '6px' }}>{v.plate}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    );
+                                } else {
+                                    // Property array
+                                    return (
+                                        <div key={i}>
+                                            <div style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#444', marginBottom: '8px' }}>{f.label}</div>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                                <thead>
+                                                    <tr style={{ borderBottom: '2px solid #ddd' }}>
+                                                        <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Propietario</th>
+                                                        <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Dirección</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {f.value.map((p, idx) => (
+                                                        <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                                                            <td style={{ padding: '6px' }}>{p.owner}</td>
+                                                            <td style={{ padding: '6px' }}>{p.address}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    );
+                                }
                             }
                             
                             return (
@@ -458,6 +493,9 @@ function OrderArchive() {
     
     // Vehicle Repeater State
     const [tempVehicle, setTempVehicle] = useState({});
+    
+    // Property Repeater State
+    const [tempProperty, setTempProperty] = useState({});
 
     useEffect(() => {
         loadData();
@@ -481,6 +519,25 @@ function OrderArchive() {
     };
 
     const handleRemoveVehicle = (fieldName, index) => {
+        const currentList = formData[fieldName] || [];
+        const newList = currentList.filter((_, i) => i !== index);
+        setFormData(prev => ({ ...prev, [fieldName]: newList }));
+    };
+    
+    const handleAddProperty = (field) => {
+        const currentList = formData[field.name] || [];
+        const required = field.subFields.every(sf => tempProperty[sf.name]);
+        if (!required) {
+            alert('Por favor, complete todos los campos de la propiedad.');
+            return;
+        }
+        
+        const newList = [...currentList, { ...tempProperty }];
+        setFormData(prev => ({ ...prev, [field.name]: newList }));
+        setTempProperty({});
+    };
+
+    const handleRemoveProperty = (fieldName, index) => {
         const currentList = formData[fieldName] || [];
         const newList = currentList.filter((_, i) => i !== index);
         setFormData(prev => ({ ...prev, [fieldName]: newList }));
@@ -534,7 +591,12 @@ function OrderArchive() {
         
         let primaryValue = 'Sin Titulo';
         // Priority checks
-        if (formData.target_address) primaryValue = formData.target_address;
+        if (formData.target_properties && formData.target_properties.length > 0) {
+            const p = formData.target_properties[0];
+            primaryValue = p.address;
+            if (formData.target_properties.length > 1) primaryValue += ` +${formData.target_properties.length - 1} más`;
+        }
+        else if (formData.target_address) primaryValue = formData.target_address;
         else if (formData.target_vehicles && formData.target_vehicles.length > 0) {
             const v = formData.target_vehicles[0];
             primaryValue = `${v.plate} (${v.model})`;
@@ -835,6 +897,65 @@ function OrderArchive() {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => handleRemoveVehicle(field.name, idx)}
+                                                                        style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+                                                                    >
+                                                                        🗑️
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        }
+
+                                        // Render Property Repeater
+                                        if (field.type === 'property_repeater') {
+                                            const currentProperties = formData[field.name] || [];
+                                            return (
+                                                <div key={field.name} className="form-group">
+                                                    <label className="form-label">{field.label}</label>
+                                                    
+                                                    {/* Input Row for Adding Property */}
+                                                    <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+                                                        <div style={{ display: 'grid', gap: '0.8rem' }}>
+                                                            {field.subFields.map(sf => (
+                                                                <div key={sf.name}>
+                                                                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>{sf.label}</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        className="form-input"
+                                                                        placeholder={sf.placeholder}
+                                                                        value={tempProperty[sf.name] || ''}
+                                                                        onChange={(e) => setTempProperty(prev => ({ ...prev, [sf.name]: e.target.value }))}
+                                                                        style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleAddProperty(field)}
+                                                            style={{ marginTop: '0.8rem', padding: '0.5rem 1rem', background: 'var(--accent-gold)', color: '#000', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                                                        >
+                                                            + Añadir Propiedad
+                                                        </button>
+                                                    </div>
+
+                                                    {/* List of Added Properties */}
+                                                    {currentProperties.length > 0 && (
+                                                        <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '1rem' }}>
+                                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--accent-gold)' }}>
+                                                                Propiedades Añadidas ({currentProperties.length})
+                                                            </div>
+                                                            {currentProperties.map((p, idx) => (
+                                                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', marginBottom: '0.5rem' }}>
+                                                                    <div style={{ fontSize: '0.85rem' }}>
+                                                                        <strong>{p.address}</strong> <span style={{ color: 'var(--text-secondary)' }}>({p.owner})</span>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveProperty(field.name, idx)}
                                                                         style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
                                                                     >
                                                                         🗑️
