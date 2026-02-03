@@ -11,7 +11,6 @@ const ORDER_TYPES = {
         color: '#3b82f6', // Blue
         icon: '🏠',
         fields: [
-            { name: 'author_agent', label: 'Agente Solicitante', type: 'select', options: '$$agents' },
             { name: 'request_date', label: 'Fecha Solicitud', type: 'readonly_date' },
             { name: 'property_owner', label: 'Propietario de la Vivienda', type: 'text' },
             { name: 'target_address', label: 'Ubicación de la Vivienda', type: 'text', placeholder: '[12 Strawberry Avenue, Los Santos, San Andreas]' },
@@ -348,7 +347,7 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
 
                     {/* Signature Area */}
                     <div style={{ marginTop: '4rem', textAlign: 'right' }}>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', textTransform: 'uppercase' }}>{order.content.author_agent || order.author_name}</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', textTransform: 'uppercase' }}>{order.author_rank} {order.author_name}</div>
                         <div style={{ fontSize: '0.9rem' }}>Detective Bureau, LSPD</div>
                     </div>
 
