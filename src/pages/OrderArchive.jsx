@@ -128,9 +128,17 @@ const ORDER_TYPES = {
         color: '#60a5fa', // Light Blue
         icon: '📞',
         fields: [
-            { name: 'target_number', label: 'Número de Teléfono (a identificar)', type: 'text' },
-            { name: 'suspected_owner', label: 'Posible Propietario', type: 'text' },
-            { name: 'justification', label: 'Motivo de la Identificación', type: 'textarea' }
+            { 
+                name: 'target_phone_numbers', 
+                label: 'Números de Teléfono a Identificar', 
+                type: 'phone_repeater', 
+                subFields: [
+                    { name: 'number', label: 'Número de Teléfono', placeholder: 'ej. 555-1234' }
+                ]
+            },
+            { name: 'warrant_reason', label: 'Motivo de la Orden', type: 'textarea' },
+            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
+            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
         ]
     },
     'Orden de Decomiso': {
@@ -808,6 +816,11 @@ function OrderArchive() {
             const phone = formData.target_phones[0];
             primaryValue = phone.number;
             if (formData.target_phones.length > 1) primaryValue += ` +${formData.target_phones.length - 1} más`;
+        }
+        else if (formData.target_phone_numbers && formData.target_phone_numbers.length > 0) {
+            const phone = formData.target_phone_numbers[0];
+            primaryValue = phone.number;
+            if (formData.target_phone_numbers.length > 1) primaryValue += ` +${formData.target_phone_numbers.length - 1} más`;
         }
         else if (formData.target_number) primaryValue = formData.target_number;
         else if (formData.target_persons && formData.target_persons.length > 0) {
