@@ -109,10 +109,18 @@ const ORDER_TYPES = {
         color: '#8b5cf6', // Violet
         icon: '🌐',
         fields: [
-            { name: 'social_network', label: 'Red Social (ej. Lifeinvader, Bleeter)', type: 'text' },
-            { name: 'username_url', label: 'Nombre de Usuario / URL', type: 'text' },
-            { name: 'target_owner', label: 'Posible Propietario (si se conoce)', type: 'text' },
-            { name: 'justification', label: 'Justificación Investigativa', type: 'textarea' }
+            { 
+                name: 'target_social_accounts', 
+                label: 'Cuentas a Identificar', 
+                type: 'social_media_repeater', 
+                subFields: [
+                    { name: 'username', label: 'Usuario', placeholder: 'ej. @usuario123' },
+                    { name: 'social_network', label: 'Red Social', placeholder: 'ej. Lifeinvader, Bleeter' }
+                ]
+            },
+            { name: 'warrant_reason', label: 'Motivo de la Orden', type: 'textarea' },
+            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
+            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
         ]
     },
     'Orden de Identificacion Telefono Movil': {
@@ -210,12 +218,13 @@ const OrderCard = ({ order, onPreview }) => {
             // Convert value to string for display
             let displayValue = val;
             if (Array.isArray(val)) {
-                // Handle arrays (vehicles, properties, persons, phones)
+                // Handle arrays (vehicles, properties, persons, phones, social media)
                 if (val.length > 0) {
                     if (val[0].plate) displayValue = `${val.length} vehículo${val.length > 1 ? 's' : ''}`;
                     else if (val[0].address) displayValue = `${val.length} propiedad${val.length > 1 ? 'es' : ''}`;
                     else if (val[0].name) displayValue = `${val.length} persona${val.length > 1 ? 's' : ''}`;
                     else if (val[0].number) displayValue = `${val.length} teléfono${val.length > 1 ? 's' : ''}`;
+                    else if (val[0].username) displayValue = `${val.length} cuenta${val.length > 1 ? 's' : ''}`;
                     else displayValue = `${val.length} item${val.length > 1 ? 's' : ''}`;
                 }
             } else if (typeof val === 'object') {
@@ -597,6 +606,9 @@ function OrderArchive() {
     
     // Phone Repeater State
     const [tempPhone, setTempPhone] = useState({});
+    
+    // Social Media Repeater State
+    const [tempSocialMedia, setTempSocialMedia] = useState({});
 
     useEffect(() => {
         loadData();
@@ -643,7 +655,7 @@ function OrderArchive() {
         const newList = currentList.filter((_, i) => i !== index);
         setFormData(prev => ({ ...prev, [fieldName]: newList }));
     };
-    
+    //Error en caso de que no complete todos los campos de la persona
     const handleAddPerson = (field) => {
         const currentList = formData[field.name] || [];
         const required = field.subFields.every(sf => tempPerson[sf.name]);
@@ -677,6 +689,25 @@ function OrderArchive() {
     };
 
     const handleRemovePhone = (fieldName, index) => {
+        const currentList = formData[fieldName] || [];
+        const newList = currentList.filter((_, i) => i !== index);
+        setFormData(prev => ({ ...prev, [fieldName]: newList }));
+    };
+    
+    const handleAddSocialMedia = (field) => {
+        const currentList = formData[field.name] || [];
+        const required = field.subFields.every(sf => tempSocialMedia[sf.name]);
+        if (!required) {
+            alert('Por favor, complete todos los campos de la cuenta.');
+            return;
+        }
+        
+        const newList = [...currentList, { ...tempSocialMedia }];
+        setFormData(prev => ({ ...prev, [field.name]: newList }));
+        setTempSocialMedia({});
+    };
+
+    const handleRemoveSocialMedia = (fieldName, index) => {
         const currentList = formData[fieldName] || [];
         const newList = currentList.filter((_, i) => i !== index);
         setFormData(prev => ({ ...prev, [fieldName]: newList }));
@@ -760,6 +791,12 @@ function OrderArchive() {
             if (formData.target_persons.length > 1) primaryValue += ` +${formData.target_persons.length - 1} más`;
         }
         else if (formData.target_account) primaryValue = formData.target_account;
+        else if (formData.target_social_accounts && formData.target_social_accounts.length > 0) {
+            const acc = formData.target_social_accounts[0];
+            primaryValue = `${acc.username} (${acc.social_network})`;
+            if (formData.target_social_accounts.length > 1) primaryValue += ` +${formData.target_social_accounts.length - 1} más`;
+        }
+        else if (formData.username_to_identify) primaryValue = `${formData.username_to_identify} (${formData.social_network || 'Red Social'})`;
         else if (formData.username_url) primaryValue = `${formData.username_url} (${formData.social_network || ''})`;
         else if (formData.restricted_person) primaryValue = `${formData.restricted_person} (vs ${formData.protected_person})`;
         else if (formData.property_address) primaryValue = formData.property_address;
@@ -1228,6 +1265,65 @@ function OrderArchive() {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => handleRemovePhone(field.name, idx)}
+                                                                        style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+                                                                    >
+                                                                        🗑️
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        }
+
+                                        // Render Social Media Repeater
+                                        if (field.type === 'social_media_repeater') {
+                                            const currentAccounts = formData[field.name] || [];
+                                            return (
+                                                <div key={field.name} className="form-group">
+                                                    <label className="form-label">{field.label}</label>
+                                                    
+                                                    {/* Input Row for Adding Account */}
+                                                    <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+                                                        <div style={{ display: 'grid', gap: '0.8rem' }}>
+                                                            {field.subFields.map(sf => (
+                                                                <div key={sf.name}>
+                                                                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>{sf.label}</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        className="form-input"
+                                                                        placeholder={sf.placeholder}
+                                                                        value={tempSocialMedia[sf.name] || ''}
+                                                                        onChange={(e) => setTempSocialMedia(prev => ({ ...prev, [sf.name]: e.target.value }))}
+                                                                        style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleAddSocialMedia(field)}
+                                                            style={{ marginTop: '0.8rem', padding: '0.5rem 1rem', background: 'var(--accent-gold)', color: '#000', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                                                        >
+                                                            + Añadir Cuenta
+                                                        </button>
+                                                    </div>
+
+                                                    {/* List of Added Accounts */}
+                                                    {currentAccounts.length > 0 && (
+                                                        <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '1rem' }}>
+                                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--accent-gold)' }}>
+                                                                Cuentas Añadidas ({currentAccounts.length})
+                                                            </div>
+                                                            {currentAccounts.map((acc, idx) => (
+                                                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', marginBottom: '0.5rem' }}>
+                                                                    <div style={{ fontSize: '0.85rem' }}>
+                                                                        <strong>{acc.username}</strong> <span style={{ color: 'var(--text-secondary)' }}>({acc.social_network})</span>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveSocialMedia(field.name, idx)}
                                                                         style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
                                                                     >
                                                                         🗑️
