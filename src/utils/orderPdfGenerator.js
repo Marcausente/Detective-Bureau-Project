@@ -69,7 +69,7 @@ export const generateOrderPDF = async (order, config) => {
         const field = config?.fields?.find(f => f.name === key);
         const label = field ? (field.documentLabel || field.label) : key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         
-        // Handle vehicle, property, person, phone, and social media arrays
+        // Handle vehicle, property, person, phone, social media, and seizure vehicle arrays
         if (Array.isArray(val) && val.length > 0) {
             doc.setFont('helvetica', 'bold');
             doc.text(`${label}:`, 20, y);
@@ -82,6 +82,7 @@ export const generateOrderPDF = async (order, config) => {
             const isPerson = firstItem.name && firstItem.id;
             const isPhone = firstItem.number && !firstItem.social_network;
             const isSocialMedia = firstItem.username && firstItem.social_network;
+            const isSeizureVehicle = firstItem.owner_name && firstItem.vehicle && firstItem.plate;
             
             if (isVehicle) {
                 // Vehicle table
@@ -133,6 +134,17 @@ export const generateOrderPDF = async (order, config) => {
                     startY: y,
                     head: [['Usuario', 'Red Social']],
                     body: val.map(a => [a.username, a.social_network]),
+                    theme: 'grid',
+                    styles: { fontSize: 10 },
+                    headStyles: { fillColor: [100, 100, 100] },
+                    margin: { left: 20, right: 20 }
+                });
+            } else if (isSeizureVehicle) {
+                // Seizure Vehicle table
+                autoTable(doc, {
+                    startY: y,
+                    head: [['Propietario', 'ID', 'Vehículo', 'Patente']],
+                    body: val.map(s => [s.owner_name, s.owner_id, s.vehicle, s.plate]),
                     theme: 'grid',
                     styles: { fontSize: 10 },
                     headStyles: { fillColor: [100, 100, 100] },

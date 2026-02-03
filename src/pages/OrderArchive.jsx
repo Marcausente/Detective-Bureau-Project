@@ -147,10 +147,20 @@ const ORDER_TYPES = {
         color: '#f59e0b', // Amber
         icon: '📦',
         fields: [
-            { name: 'target_items', label: 'Objetos a Decomisar', type: 'textarea' },
-            { name: 'owner_name', label: 'Propietario', type: 'text' },
-            { name: 'location', label: 'Ubicación de los Objetos', type: 'text' },
-            { name: 'reason', label: 'Motivo del Decomiso', type: 'textarea' }
+            { 
+                name: 'seizure_vehicles', 
+                label: 'Vehículos a Decomisar', 
+                type: 'vehicle_seizure_repeater', 
+                subFields: [
+                    { name: 'owner_name', label: 'Nombre de la Persona', placeholder: 'Nombre Apellido' },
+                    { name: 'owner_id', label: 'ID de la Persona', placeholder: 'ej. 12345' },
+                    { name: 'vehicle', label: 'Vehículo a Decomisar', placeholder: 'ej. Sultan RS' },
+                    { name: 'plate', label: 'Patente del Vehículo', placeholder: 'ej. ABC123' }
+                ]
+            },
+            { name: 'warrant_reason', label: 'Motivo de la Orden', type: 'textarea' },
+            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
+            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
         ]
     },
     'Orden de Alejamiento': {
@@ -246,11 +256,12 @@ const OrderCard = ({ order, onPreview }) => {
             // Convert value to string for display
             let displayValue = val;
             if (Array.isArray(val)) {
-                // Handle arrays (vehicles, properties, persons, phones, social media)
+                // Handle arrays (vehicles, properties, persons, phones, social media, seizure vehicles)
                 if (val.length > 0) {
-                    if (val[0].plate) displayValue = `${val.length} vehículo${val.length > 1 ? 's' : ''}`;
+                    if (val[0].plate && val[0].model) displayValue = `${val.length} vehículo${val.length > 1 ? 's' : ''}`;
+                    else if (val[0].plate && val[0].vehicle) displayValue = `${val.length} decomiso${val.length > 1 ? 's' : ''}`;
                     else if (val[0].address) displayValue = `${val.length} propiedad${val.length > 1 ? 'es' : ''}`;
-                    else if (val[0].name) displayValue = `${val.length} persona${val.length > 1 ? 's' : ''}`;
+                    else if (val[0].name && val[0].id) displayValue = `${val.length} persona${val.length > 1 ? 's' : ''}`;
                     else if (val[0].number) displayValue = `${val.length} teléfono${val.length > 1 ? 's' : ''}`;
                     else if (val[0].username) displayValue = `${val.length} cuenta${val.length > 1 ? 's' : ''}`;
                     else displayValue = `${val.length} item${val.length > 1 ? 's' : ''}`;
@@ -565,6 +576,35 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                                 );
                             }
                             
+                            // Special handling for seizure vehicle arrays (has owner_name, owner_id, vehicle, plate)
+                            if (Array.isArray(f.value) && f.value.length > 0 && f.value[0].owner_name && f.value[0].vehicle && f.value[0].plate) {
+                                return (
+                                    <div key={i}>
+                                        <div style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#444', marginBottom: '8px' }}>{f.label}</div>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: '2px solid #ddd' }}>
+                                                    <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Propietario</th>
+                                                    <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>ID</th>
+                                                    <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Vehículo</th>
+                                                    <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Patente</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {f.value.map((sz, idx) => (
+                                                    <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                                                        <td style={{ padding: '6px' }}>{sz.owner_name}</td>
+                                                        <td style={{ padding: '6px' }}>{sz.owner_id}</td>
+                                                        <td style={{ padding: '6px' }}>{sz.vehicle}</td>
+                                                        <td style={{ padding: '6px' }}>{sz.plate}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                );
+                            }
+                            
                             return (
                                 <div key={i}>
                                     <div style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#444', marginBottom: '4px' }}>{f.label}</div>
@@ -662,6 +702,9 @@ function OrderArchive() {
     
     // Social Media Repeater State
     const [tempSocialMedia, setTempSocialMedia] = useState({});
+    
+    // Vehicle Seizure Repeater State
+    const [tempSeizureVehicle, setTempSeizureVehicle] = useState({});
 
     useEffect(() => {
         loadData();
@@ -761,6 +804,25 @@ function OrderArchive() {
     };
 
     const handleRemoveSocialMedia = (fieldName, index) => {
+        const currentList = formData[fieldName] || [];
+        const newList = currentList.filter((_, i) => i !== index);
+        setFormData(prev => ({ ...prev, [fieldName]: newList }));
+    };
+    
+    const handleAddSeizureVehicle = (field) => {
+        const currentList = formData[field.name] || [];
+        const required = field.subFields.every(sf => tempSeizureVehicle[sf.name]);
+        if (!required) {
+            alert('Por favor, complete todos los campos del vehículo.');
+            return;
+        }
+        
+        const newList = [...currentList, { ...tempSeizureVehicle }];
+        setFormData(prev => ({ ...prev, [field.name]: newList }));
+        setTempSeizureVehicle({});
+    };
+
+    const handleRemoveSeizureVehicle = (fieldName, index) => {
         const currentList = formData[fieldName] || [];
         const newList = currentList.filter((_, i) => i !== index);
         setFormData(prev => ({ ...prev, [fieldName]: newList }));
@@ -875,6 +937,11 @@ function OrderArchive() {
         }
         else if (formData.restricted_person) primaryValue = `${formData.restricted_person} (vs ${formData.protected_person})`;
         else if (formData.property_address) primaryValue = formData.property_address;
+        else if (formData.seizure_vehicles && formData.seizure_vehicles.length > 0) {
+            const sv = formData.seizure_vehicles[0];
+            primaryValue = `${sv.owner_name} - ${sv.vehicle}`;
+            if (formData.seizure_vehicles.length > 1) primaryValue += ` +${formData.seizure_vehicles.length - 1} más`;
+        }
         else if (formData.owner_name) primaryValue = formData.owner_name;
         else if (formData.suspected_owner) primaryValue = formData.suspected_owner;
         else if (formData.target_items) primaryValue = formData.target_items.slice(0, 30);
@@ -1399,6 +1466,65 @@ function OrderArchive() {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => handleRemoveSocialMedia(field.name, idx)}
+                                                                        style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+                                                                    >
+                                                                        🗑️
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        }
+
+                                        // Render Vehicle Seizure Repeater
+                                        if (field.type === 'vehicle_seizure_repeater') {
+                                            const currentSeizures = formData[field.name] || [];
+                                            return (
+                                                <div key={field.name} className="form-group">
+                                                    <label className="form-label">{field.label}</label>
+                                                    
+                                                    {/* Input Row for Adding Seizure Vehicle */}
+                                                    <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                                                            {field.subFields.map(sf => (
+                                                                <div key={sf.name}>
+                                                                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>{sf.label}</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        className="form-input"
+                                                                        placeholder={sf.placeholder}
+                                                                        value={tempSeizureVehicle[sf.name] || ''}
+                                                                        onChange={(e) => setTempSeizureVehicle(prev => ({ ...prev, [sf.name]: e.target.value }))}
+                                                                        style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleAddSeizureVehicle(field)}
+                                                            style={{ marginTop: '0.8rem', padding: '0.5rem 1rem', background: 'var(--accent-gold)', color: '#000', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                                                        >
+                                                            + Añadir Vehículo
+                                                        </button>
+                                                    </div>
+
+                                                    {/* List of Added Seizures */}
+                                                    {currentSeizures.length > 0 && (
+                                                        <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '1rem' }}>
+                                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--accent-gold)' }}>
+                                                                Vehículos Añadidos ({currentSeizures.length})
+                                                            </div>
+                                                            {currentSeizures.map((sz, idx) => (
+                                                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', marginBottom: '0.5rem' }}>
+                                                                    <div style={{ fontSize: '0.85rem' }}>
+                                                                        <strong>{sz.owner_name}</strong> (ID: {sz.owner_id}) - <span style={{ color: 'var(--text-secondary)' }}>{sz.vehicle} ({sz.plate})</span>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveSeizureVehicle(field.name, idx)}
                                                                         style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
                                                                     >
                                                                         🗑️
