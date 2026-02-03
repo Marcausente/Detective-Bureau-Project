@@ -446,8 +446,12 @@ function OrderArchive() {
         }
 
         const { data: oData, error } = await supabase.rpc('get_judicial_orders', { p_type_filter: filterCategory });
-        if (error) console.error(error);
-        else setOrders(oData || []);
+        if (error) {
+            console.error('Error fetching orders:', error);
+        } else {
+            console.log('Fetched Orders:', oData);
+            setOrders(oData || []);
+        }
         
         setLoading(false);
     };
