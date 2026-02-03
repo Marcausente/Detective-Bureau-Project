@@ -2,6 +2,7 @@
 
 -- 1. Signup/Cleanup of previous attempt if exists
 DROP TABLE IF EXISTS public.warrant_requests CASCADE;
+DROP TABLE IF EXISTS public.judicial_orders CASCADE;
 DROP FUNCTION IF EXISTS create_warrant_request;
 DROP FUNCTION IF EXISTS get_warrant_requests;
 DROP FUNCTION IF EXISTS review_warrant_request;
@@ -11,7 +12,8 @@ DROP FUNCTION IF EXISTS review_warrant_request;
 CREATE TABLE IF NOT EXISTS public.judicial_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_type TEXT NOT NULL CHECK (order_type IN (
-      'Orden de Registro', 
+      'Orden de Registro (Casa)', 
+      'Orden de Registro (Coche)', 
       'Orden de Arresto', 
       'Orden de Revision Telefonica', 
       'Orden de Revision Bancaria', 

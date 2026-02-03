@@ -4,14 +4,26 @@ import '../index.css';
 
 // --- CONFIGURATION ---
 const ORDER_TYPES = {
-    'Orden de Registro': {
-        label: 'Orden de Registro',
+    'Orden de Registro (Casa)': {
+        label: 'Orden de Registro (Casa)',
         color: '#3b82f6', // Blue
         icon: '🏠',
         fields: [
-            { name: 'target_address', label: 'Dirección Objetivo', type: 'text', placeholder: 'ej. Calle Alta, 123' },
+            { name: 'target_address', label: 'Dirección de la Vivienda', type: 'text', placeholder: 'ej. Calle Alta, 123' },
             { name: 'property_owner', label: 'Propietario (si se conoce)', type: 'text' },
             { name: 'expected_evidence', label: 'Evidencia Esperada', type: 'textarea', placeholder: '¿Qué se espera encontrar?' },
+            { name: 'probable_cause', label: 'Causa Probable', type: 'textarea' }
+        ]
+    },
+    'Orden de Registro (Coche)': {
+        label: 'Orden de Registro (Coche)',
+        color: '#0ea5e9', // Sky Blue
+        icon: '🚗',
+        fields: [
+            { name: 'vehicle_model', label: 'Modelo del Vehículo', type: 'text', placeholder: 'ej. Ubermacht Oracle' },
+            { name: 'plate_number', label: 'Matrícula', type: 'text', placeholder: 'ej. 44ASD123' },
+            { name: 'vehicle_owner', label: 'Propietario del Vehículo', type: 'text' },
+            { name: 'expected_evidence', label: 'Evidencia Esperada', type: 'textarea' },
             { name: 'probable_cause', label: 'Causa Probable', type: 'textarea' }
         ]
     },
@@ -200,7 +212,7 @@ function OrderArchive() {
     const [currentUser, setCurrentUser] = useState(null);
 
     // Form State
-    const [selectedType, setSelectedType] = useState('Orden de Registro');
+    const [selectedType, setSelectedType] = useState('Orden de Registro (Casa)');
     const [formData, setFormData] = useState({});
     const [submitting, setSubmitting] = useState(false);
 
@@ -236,6 +248,7 @@ function OrderArchive() {
         // Try to find reasonable display logic
         let primaryValue = 'Sin Titulo';
         if (formData.target_address) primaryValue = formData.target_address;
+        else if (formData.plate_number) primaryValue = `${formData.plate_number} (${formData.vehicle_model || 'Unknown'})`;
         else if (formData.suspect_name) primaryValue = formData.suspect_name;
         else if (formData.target_number) primaryValue = formData.target_number;
         else if (formData.target_account) primaryValue = formData.target_account;
