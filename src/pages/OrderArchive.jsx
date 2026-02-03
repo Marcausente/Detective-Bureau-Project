@@ -3,16 +3,20 @@ import { supabase } from '../supabaseClient';
 import '../index.css';
 
 // --- CONFIGURATION ---
+// Note: 'options' can now be a string key (starting with $$) to reference dynamic data
 const ORDER_TYPES = {
     'Orden de Registro (Casa)': {
         label: 'Orden de Registro (Casa)',
         color: '#3b82f6', // Blue
         icon: '🏠',
         fields: [
-            { name: 'target_address', label: 'Dirección de la Vivienda', type: 'text', placeholder: 'ej. Calle Alta, 123' },
-            { name: 'property_owner', label: 'Propietario (si se conoce)', type: 'text' },
-            { name: 'expected_evidence', label: 'Evidencia Esperada', type: 'textarea', placeholder: '¿Qué se espera encontrar?' },
-            { name: 'probable_cause', label: 'Causa Probable', type: 'textarea' }
+            { name: 'author_agent', label: 'Agente Solicitante', type: 'select', options: '$$agents' },
+            { name: 'request_date', label: 'Fecha Solicitud', type: 'readonly_date' },
+            { name: 'property_owner', label: 'Propietario de la Vivienda', type: 'text' },
+            { name: 'target_address', label: 'Ubicación de la Vivienda', type: 'text', placeholder: '[12 Strawberry Avenue, Los Santos, San Andreas]' },
+            { name: 'probable_cause', label: 'Motivo de la Orden', type: 'textarea' },
+            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', type: 'select', options: '$$cases', optional: true },
+            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', type: 'select', options: '$$gangs', optional: true }
         ]
     },
     'Orden de Registro (Coche)': {
@@ -118,7 +122,6 @@ const ORDER_TYPES = {
 
 // --- COMPONENTS ---
 
-// 1. Sidebar Item
 const CategoryItem = ({ type, config, active, onClick }) => (
     <button
         onClick={onClick}
@@ -146,17 +149,17 @@ const CategoryItem = ({ type, config, active, onClick }) => (
     </button>
 );
 
-// 2. Order Card
 const OrderCard = ({ order }) => {
     const config = ORDER_TYPES[order.order_type];
     const color = config?.color || '#999';
     const icon = config?.icon || '📄';
     
-    // Nice rendering of dynamic content
     const renderContent = () => {
         return Object.entries(order.content).slice(0, 3).map(([key, val]) => {
             if (!val) return null;
             const field = config?.fields.find(f => f.name === key);
+            // Hide IDs if they are select values (optional improvement, for now showing ID or Value is fine, but labels are better)
+            // Ideally we'd map ID to Name, but for simplicity showing value.
             return (
                 <div key={key} style={{ marginBottom: '4px', fontSize: '0.85rem' }}>
                     <span style={{ color: 'var(--text-secondary)', marginRight: '6px' }}>{field?.label || key}:</span>
@@ -177,7 +180,6 @@ const OrderCard = ({ order }) => {
             flexDirection: 'column',
             height: '100%'
         }}>
-            {/* Top Border Accent */}
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: color }}></div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
@@ -219,6 +221,28 @@ const OrderCard = ({ order }) => {
                     <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#ddd' }}>{order.author_rank} {order.author_name}</span>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Detective Bureau</span>
                 </div>
+                <button 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        // Import dynamically to avoid top-level issues if any, or just call imported function
+                        import('../utils/orderPdfGenerator').then(mod => mod.generateOrderPDF(order, config));
+                    }}
+                    style={{ 
+                        marginLeft: 'auto', 
+                        background: 'transparent', 
+                        border: '1px solid rgba(255,255,255,0.2)', 
+                        color: '#fff', 
+                        padding: '4px 8px', 
+                        borderRadius: '4px', 
+                        fontSize: '0.7rem', 
+                        cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '5px'
+                    }}
+                    title="Descargar PDF Oficial"
+                    className="hover-bright"
+                >
+                    <span>📄</span> PDF
+                </button>
             </div>
         </div>
     );
@@ -232,6 +256,11 @@ function OrderArchive() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
 
+    // Dynamic Lists
+    const [agentsList, setAgentsList] = useState([]);
+    const [casesList, setCasesList] = useState([]);
+    const [gangsList, setGangsList] = useState([]);
+
     // Form State
     const [selectedType, setSelectedType] = useState('Orden de Registro (Casa)');
     const [formData, setFormData] = useState({});
@@ -242,16 +271,34 @@ function OrderArchive() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filterCategory]);
 
+    // Initial load of Lists (only once)
+    useEffect(() => {
+        const fetchLists = async () => {
+            // Agents
+            const { data: users } = await supabase.from('users').select('id, nombre, apellido, rango');
+            if (users) {
+                const agents = users.map(u => ({ label: `${u.rango} ${u.nombre} ${u.apellido}`, value: `${u.rango} ${u.nombre} ${u.apellido}` })); 
+                setAgentsList(agents);
+            }
+            // Cases
+            const { data: cases } = await supabase.from('cases').select('id, title');
+            if (cases) setCasesList(cases.map(c => ({ label: c.title, value: c.title }))); // Store title for readability in JSON
+            
+            // Gangs
+            const { data: gangs } = await supabase.from('gangs').select('id, name');
+            if (gangs) setGangsList(gangs.map(g => ({ label: g.name, value: g.name })));
+        };
+        fetchLists();
+    }, []);
+
     const loadData = async () => {
         setLoading(true);
-        // Load User
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
             const { data } = await supabase.from('users').select('*').eq('id', user.id).single();
             setCurrentUser(data);
         }
 
-        // Load Orders
         const { data: oData, error } = await supabase.rpc('get_judicial_orders', { p_type_filter: filterCategory });
         if (error) console.error(error);
         else setOrders(oData || []);
@@ -266,26 +313,33 @@ function OrderArchive() {
         // Auto-Title Logic
         const config = ORDER_TYPES[selectedType];
         
-        // Try to find reasonable display logic
         let primaryValue = 'Sin Titulo';
+        // Priority checks
         if (formData.target_address) primaryValue = formData.target_address;
-        else if (formData.plate_number) primaryValue = `${formData.plate_number} (${formData.vehicle_model || 'Unknown'})`;
+        else if (formData.plate_number) primaryValue = `${formData.plate_number} (${formData.vehicle_model || ''})`;
         else if (formData.suspect_name) primaryValue = formData.suspect_name;
         else if (formData.target_number) primaryValue = formData.target_number;
         else if (formData.target_account) primaryValue = formData.target_account;
-        else if (formData.username_url) primaryValue = `${formData.username_url} (${formData.social_network || 'Red Social'})`;
+        else if (formData.username_url) primaryValue = `${formData.username_url} (${formData.social_network || ''})`;
         else if (formData.restricted_person) primaryValue = `${formData.restricted_person} (vs ${formData.protected_person})`;
         else if (formData.property_address) primaryValue = formData.property_address;
         else if (formData.owner_name) primaryValue = formData.owner_name;
         else if (formData.suspected_owner) primaryValue = formData.suspected_owner;
+        else if (formData.target_items) primaryValue = formData.target_items.slice(0, 30);
 
         const autoTitle = `${selectedType} - ${primaryValue}`;
+        
+        // Prepare Content: Ensure request_date is set if type matches
+        const finalContent = { ...formData };
+        if (selectedType === 'Orden de Registro (Casa)') {
+            finalContent.request_date = new Date().toLocaleDateString();
+        }
 
         try {
             const { error } = await supabase.rpc('create_judicial_order', {
                 p_type: selectedType,
                 p_title: autoTitle,
-                p_content: formData
+                p_content: finalContent
             });
 
             if (error) throw error;
@@ -302,6 +356,15 @@ function OrderArchive() {
 
     const handleInputChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    // Helper to get options for a field
+    const getOptions = (optionKey) => {
+        if (Array.isArray(optionKey)) return optionKey;
+        if (optionKey === '$$agents') return agentsList;
+        if (optionKey === '$$cases') return casesList;
+        if (optionKey === '$$gangs') return gangsList;
+        return [];
     };
 
     const isAyudante = currentUser && currentUser.rol === 'Ayudante';
@@ -441,45 +504,69 @@ function OrderArchive() {
 
                             <form onSubmit={handleCreate}>
                                 <div style={{ display: 'grid', gap: '1.2rem' }}>
-                                    {ORDER_TYPES[selectedType].fields.map(field => (
-                                        <div key={field.name} className="form-group">
-                                            <label className="form-label">{field.label}</label>
-                                            {field.type === 'textarea' ? (
-                                                <textarea 
-                                                    className="eval-textarea" 
-                                                    rows="3" 
-                                                    required 
-                                                    value={formData[field.name] || ''}
-                                                    onChange={e => handleInputChange(field.name, e.target.value)}
-                                                    placeholder={field.placeholder}
-                                                    style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
-                                                />
-                                            ) : field.type === 'select' ? (
-                                                <select
-                                                    className="form-input custom-select"
-                                                    required
-                                                    value={formData[field.name] || ''}
-                                                    onChange={e => handleInputChange(field.name, e.target.value)}
-                                                    style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
-                                                >
-                                                    <option value="">-- Seleccionar --</option>
-                                                    {field.options.map(opt => (
-                                                        <option key={opt} value={opt}>{opt}</option>
-                                                    ))}
-                                                </select>
-                                            ) : (
-                                                <input 
-                                                    type={field.type} 
-                                                    className="form-input" 
-                                                    required 
-                                                    value={formData[field.name] || ''}
-                                                    onChange={e => handleInputChange(field.name, e.target.value)}
-                                                    placeholder={field.placeholder}
-                                                    style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
-                                                />
-                                            )}
-                                        </div>
-                                    ))}
+                                    {ORDER_TYPES[selectedType].fields.map(field => {
+                                        // Handle Date Field as Readonly
+                                        if (field.type === 'readonly_date') {
+                                           return (
+                                               <div key={field.name} className="form-group">
+                                                   <label className="form-label">{field.label}</label>
+                                                   <input type="text" className="form-input" disabled value={new Date().toLocaleDateString()} style={{ opacity: 0.6, cursor: 'not-allowed', background: 'rgba(255,255,255,0.05)' }} />
+                                               </div>
+                                           );
+                                        }
+
+                                        // Render Select Fields
+                                        if (field.type === 'select') {
+                                            const opts = getOptions(field.options);
+                                            return (
+                                                <div key={field.name} className="form-group">
+                                                    <label className="form-label">{field.label}</label>
+                                                    <select
+                                                        className="form-input custom-select"
+                                                        required={!field.optional}
+                                                        value={formData[field.name] || ''}
+                                                        onChange={e => handleInputChange(field.name, e.target.value)}
+                                                        style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                    >
+                                                        <option value="">-- Seleccionar --</option>
+                                                        {opts.map((opt, idx) => (
+                                                             <option key={idx} value={typeof opt === 'string' ? opt : opt.value}>
+                                                                 {typeof opt === 'string' ? opt : opt.label}
+                                                             </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            );
+                                        }
+
+                                        // Default Text/Textarea
+                                        return (
+                                            <div key={field.name} className="form-group">
+                                                <label className="form-label">{field.label}</label>
+                                                {field.type === 'textarea' ? (
+                                                    <textarea 
+                                                        className="eval-textarea" 
+                                                        rows="3" 
+                                                        required={!field.optional}
+                                                        value={formData[field.name] || ''}
+                                                        onChange={e => handleInputChange(field.name, e.target.value)}
+                                                        placeholder={field.placeholder}
+                                                        style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                    />
+                                                ) : (
+                                                    <input 
+                                                        type={field.type} 
+                                                        className="form-input" 
+                                                        required={!field.optional} 
+                                                        value={formData[field.name] || ''}
+                                                        onChange={e => handleInputChange(field.name, e.target.value)}
+                                                        placeholder={field.placeholder}
+                                                        style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                    />
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
 
                                 <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '2.5rem', gap: '1rem' }}>

@@ -86,7 +86,7 @@ BEGIN
     o.content,
     o.created_at,
     (u.nombre || ' ' || u.apellido) as author_name,
-    u.rango as author_rank,
+    u.rango::text as author_rank,
     u.profile_image as author_avatar
   FROM public.judicial_orders o
   JOIN public.users u ON o.created_by = u.id
