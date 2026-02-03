@@ -512,6 +512,31 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                                 );
                             }
                             
+                            // Special handling for social media account arrays (has username and social_network)
+                            if (Array.isArray(f.value) && f.value.length > 0 && f.value[0].username && f.value[0].social_network) {
+                                return (
+                                    <div key={i}>
+                                        <div style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#444', marginBottom: '8px' }}>{f.label}</div>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: '2px solid #ddd' }}>
+                                                    <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Usuario</th>
+                                                    <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Red Social</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {f.value.map((acc, idx) => (
+                                                    <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                                                        <td style={{ padding: '6px' }}>{acc.username}</td>
+                                                        <td style={{ padding: '6px' }}>{acc.social_network}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                );
+                            }
+                            
                             return (
                                 <div key={i}>
                                     <div style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#444', marginBottom: '4px' }}>{f.label}</div>

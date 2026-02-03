@@ -69,7 +69,7 @@ export const generateOrderPDF = async (order, config) => {
         const field = config?.fields?.find(f => f.name === key);
         const label = field ? (field.documentLabel || field.label) : key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         
-        // Handle vehicle, property, person, and phone arrays
+        // Handle vehicle, property, person, phone, and social media arrays
         if (Array.isArray(val) && val.length > 0) {
             doc.setFont('helvetica', 'bold');
             doc.text(`${label}:`, 20, y);
@@ -80,7 +80,8 @@ export const generateOrderPDF = async (order, config) => {
             const isVehicle = firstItem.owner && firstItem.plate && firstItem.model;
             const isProperty = firstItem.owner && firstItem.address;
             const isPerson = firstItem.name && firstItem.id;
-            const isPhone = firstItem.number;
+            const isPhone = firstItem.number && !firstItem.social_network;
+            const isSocialMedia = firstItem.username && firstItem.social_network;
             
             if (isVehicle) {
                 // Vehicle table
@@ -121,6 +122,17 @@ export const generateOrderPDF = async (order, config) => {
                     startY: y,
                     head: [['Número de Teléfono']],
                     body: val.map(p => [p.number]),
+                    theme: 'grid',
+                    styles: { fontSize: 10 },
+                    headStyles: { fillColor: [100, 100, 100] },
+                    margin: { left: 20, right: 20 }
+                });
+            } else if (isSocialMedia) {
+                // Social Media table
+                autoTable(doc, {
+                    startY: y,
+                    head: [['Usuario', 'Red Social']],
+                    body: val.map(a => [a.username, a.social_network]),
                     theme: 'grid',
                     styles: { fontSize: 10 },
                     headStyles: { fillColor: [100, 100, 100] },
