@@ -15,8 +15,8 @@ const ORDER_TYPES = {
             { name: 'property_owner', label: 'Propietario de la Vivienda', type: 'text' },
             { name: 'target_address', label: 'Ubicación de la Vivienda', type: 'text', placeholder: '[12 Strawberry Avenue, Los Santos, San Andreas]' },
             { name: 'probable_cause', label: 'Motivo de la Orden', type: 'textarea' },
-            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', type: 'select', options: '$$cases', optional: true },
-            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', type: 'select', options: '$$gangs', optional: true }
+            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
+            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
         ]
     },
     'Orden de Registro (Coche)': {
@@ -298,7 +298,7 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
     // Helper to render fields nicely in the preview
     const fields = Object.entries(order.content).map(([key, val]) => {
         const fieldConfig = config?.fields?.find(f => f.name === key);
-        return { label: fieldConfig?.label || key, value: val };
+        return { label: fieldConfig?.documentLabel || fieldConfig?.label || key, value: val };
     });
 
     return (

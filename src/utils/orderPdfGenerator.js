@@ -70,7 +70,7 @@ export const generateOrderPDF = async (order, config) => {
         // We skip internal keys if they appear (e.g. if we had IDs)
         // Also skip 'created_by' etc if they snuck in
         
-        const label = field ? field.label : key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const label = field ? (field.documentLabel || field.label) : key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         
         addRow(label, val);
     });
