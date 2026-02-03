@@ -71,6 +71,16 @@ const ORDER_TYPES = {
             { name: 'justification', label: 'Justificación Investigativa', type: 'textarea' }
         ]
     },
+    'Orden de Identificacion Telefono Movil': {
+        label: 'Identificación Teléfono Móvil',
+        color: '#60a5fa', // Light Blue
+        icon: '📞',
+        fields: [
+            { name: 'target_number', label: 'Número de Teléfono (a identificar)', type: 'text' },
+            { name: 'suspected_owner', label: 'Posible Propietario', type: 'text' },
+            { name: 'justification', label: 'Motivo de la Identificación', type: 'textarea' }
+        ]
+    },
     'Orden de Decomiso': {
         label: 'Orden de Decomiso',
         color: '#f59e0b', // Amber
@@ -267,6 +277,7 @@ function OrderArchive() {
         else if (formData.restricted_person) primaryValue = `${formData.restricted_person} (vs ${formData.protected_person})`;
         else if (formData.property_address) primaryValue = formData.property_address;
         else if (formData.owner_name) primaryValue = formData.owner_name;
+        else if (formData.suspected_owner) primaryValue = formData.suspected_owner;
 
         const autoTitle = `${selectedType} - ${primaryValue}`;
 
