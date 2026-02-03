@@ -292,7 +292,7 @@ const OrderCard = ({ order, onPreview }) => {
 };
 
 // --- PREVIEW MODAL ---
-const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus }) => {
+const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDelete }) => {
     if (!isOpen || !order) return null;
     const config = ORDER_TYPES[order.order_type];
 
@@ -356,7 +356,15 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus }) => 
 
                 {/* Footer Controls (Dark UI for contrast) */}
                 <div style={{ padding: '1rem 2rem', background: '#1a1a1a', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <button type="button" className="login-button btn-secondary" onClick={onClose} style={{ width: 'auto', padding: '0.6rem 1.2rem' }}>Cerrar</button>
+                     
+                     <div style={{ display: 'flex', gap: '1rem' }}>
+                        <button type="button" className="login-button btn-secondary" onClick={onClose} style={{ width: 'auto', padding: '0.6rem 1.2rem' }}>Cerrar</button>
+                        {canManage && (
+                             <button type="button" onClick={() => onDelete(order.id)} style={{ width: 'auto', padding: '0.6rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Eliminar Orden">
+                                 🗑️
+                             </button>
+                        )}
+                     </div>
                      
                      {canManage && (
                          <div style={{ display: 'flex', gap: '1rem' }}>
@@ -527,6 +535,22 @@ function OrderArchive() {
         } catch (err) {
             console.error(err);
             alert('Error actualizando estado: ' + err.message);
+        }
+    };
+
+    const handleDelete = async (orderId) => {
+        if (!window.confirm('¿Estás seguro de que quieres eliminar esta orden? Esta acción no se puede deshacer.')) return;
+        
+        try {
+            const { error } = await supabase.rpc('delete_judicial_order', { p_order_id: orderId });
+            if (error) throw error;
+            
+            setShowPreview(false);
+            setPreviewOrder(null);
+            loadData();
+        } catch (err) {
+            console.error(err);
+            alert('Error eliminando orden: ' + err.message);
         }
     };
 
@@ -771,6 +795,7 @@ function OrderArchive() {
                 onClose={() => setShowPreview(false)}
                 canManage={canManageOrders}
                 onUpdateStatus={handleStatusUpdate}
+                onDelete={handleDelete}
             />
         </div>
     );

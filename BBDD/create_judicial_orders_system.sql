@@ -121,3 +121,22 @@ BEGIN
   WHERE id = p_order_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- 8. RPC: Delete Order
+CREATE OR REPLACE FUNCTION delete_judicial_order(p_order_id UUID)
+RETURNS VOID AS $$
+DECLARE
+  v_user_rol TEXT;
+BEGIN
+  -- Check Role
+  SELECT u.rol::text INTO v_user_rol FROM public.users u WHERE u.id = auth.uid();
+  
+  -- Ayudante cannot delete
+  IF v_user_rol = 'Ayudante' THEN
+      RAISE EXCEPTION 'Access Denied: Ayudantes cannot delete orders.';
+  END IF;
+
+  DELETE FROM public.judicial_orders WHERE id = p_order_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
