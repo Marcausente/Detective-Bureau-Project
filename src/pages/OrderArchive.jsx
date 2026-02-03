@@ -232,6 +232,18 @@ const ORDER_TYPES = {
             { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
             { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
         ]
+    },
+    'Revision de Camaras': {
+        label: 'Revisión de Cámaras',
+        color: '#0ea5e9', // Sky Blue
+        icon: '📹',
+        fields: [
+            { name: 'camera_location', label: 'Ubicación de la Cámara', type: 'text', placeholder: 'ej. Calle Principal esquina con Avenida Central' },
+            { name: 'camera_owner', label: 'Propietario de la Cámara', type: 'text', placeholder: 'ej. Propietario del Comercio, del inmueble, ayuntamiento...' },
+            { name: 'warrant_reason', label: 'Motivo de la Orden', type: 'textarea' },
+            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
+            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
+        ]
     }
 };
 
@@ -978,6 +990,7 @@ function OrderArchive() {
             if (formData.seizure_vehicles.length > 1) primaryValue += ` +${formData.seizure_vehicles.length - 1} más`;
         }
         else if (formData.owner_name) primaryValue = formData.owner_name;
+        else if (formData.camera_location) primaryValue = formData.camera_location;
         else if (formData.suspected_owner) primaryValue = formData.suspected_owner;
         else if (formData.target_items) primaryValue = formData.target_items.slice(0, 30);
 
