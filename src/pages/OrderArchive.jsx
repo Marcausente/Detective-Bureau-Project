@@ -203,6 +203,25 @@ const ORDER_TYPES = {
             { name: 'duration', label: 'Duración / Hasta cuándo', type: 'text' },
             { name: 'reason', label: 'Motivo del Precinto', type: 'textarea' }
         ]
+    },
+    'Ley Rico': {
+        label: 'Ley Rico',
+        color: '#dc2626', // Red
+        icon: '⚖️',
+        fields: [
+            { 
+                name: 'target_persons_rico', 
+                label: 'Personas Objetivo', 
+                type: 'person_repeater', 
+                subFields: [
+                    { name: 'name', label: 'Nombre de la Persona', placeholder: 'Nombre Apellido' },
+                    { name: 'id', label: 'ID de la Persona', placeholder: 'ej. 12345' }
+                ]
+            },
+            { name: 'warrant_reason', label: 'Motivo de la Orden', type: 'textarea' },
+            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
+            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
+        ]
     }
 };
 
@@ -919,6 +938,11 @@ function OrderArchive() {
             const p = formData.target_persons[0];
             primaryValue = p.name;
             if (formData.target_persons.length > 1) primaryValue += ` +${formData.target_persons.length - 1} más`;
+        }
+        else if (formData.target_persons_rico && formData.target_persons_rico.length > 0) {
+            const p = formData.target_persons_rico[0];
+            primaryValue = p.name;
+            if (formData.target_persons_rico.length > 1) primaryValue += ` +${formData.target_persons_rico.length - 1} más`;
         }
         else if (formData.target_account) primaryValue = formData.target_account;
         else if (formData.target_social_accounts && formData.target_social_accounts.length > 0) {
