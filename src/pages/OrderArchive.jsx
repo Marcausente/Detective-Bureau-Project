@@ -73,11 +73,12 @@ const ORDER_TYPES = {
         icon: '📱',
         fields: [
             { 
-                name: 'target_phones', 
-                label: 'Números de Teléfono a Revisar', 
-                type: 'phone_repeater', 
+                name: 'target_persons_phone_review', 
+                label: 'Personas a Revisar', 
+                type: 'person_repeater', 
                 subFields: [
-                    { name: 'number', label: 'Número de Teléfono', placeholder: 'ej. 555-1234' }
+                    { name: 'name', label: 'Nombre de la Persona', placeholder: 'Nombre Apellido' },
+                    { name: 'id', label: 'ID de la Persona', placeholder: 'ej. 12345' }
                 ]
             },
             { name: 'warrant_reason', label: 'Motivo de la Orden', type: 'textarea' },
@@ -129,12 +130,11 @@ const ORDER_TYPES = {
         icon: '📞',
         fields: [
             { 
-                name: 'target_persons_phone', 
-                label: 'Personas a Identificar', 
-                type: 'person_repeater', 
+                name: 'target_phone_numbers', 
+                label: 'Números de Teléfono a Identificar', 
+                type: 'phone_repeater', 
                 subFields: [
-                    { name: 'name', label: 'Nombre de la Persona', placeholder: 'Nombre Apellido' },
-                    { name: 'id', label: 'ID de la Persona', placeholder: 'ej. 12345' }
+                    { name: 'number', label: 'Número de Teléfono', placeholder: 'ej. 555-1234' }
                 ]
             },
             { name: 'warrant_reason', label: 'Motivo de la Orden', type: 'textarea' },
@@ -158,10 +158,29 @@ const ORDER_TYPES = {
         color: '#ec4899', // Pink
         icon: '🚫',
         fields: [
-            { name: 'restricted_person', label: 'Persona Restringida', type: 'text' },
-            { name: 'protected_person', label: 'Persona Protegida', type: 'text' },
-            { name: 'distance_meters', label: 'Distancia Mínima (Metros)', type: 'number' },
-            { name: 'details', label: 'Detalles Adicionales', type: 'textarea' }
+            { 
+                name: 'protected_persons', 
+                label: 'Personas Protegidas', 
+                type: 'person_repeater', 
+                subFields: [
+                    { name: 'name', label: 'Nombre de la Persona Protegida', placeholder: 'Nombre Apellido' },
+                    { name: 'id', label: 'ID de la Persona Protegida', placeholder: 'ej. 12345' }
+                ]
+            },
+            { 
+                name: 'restricted_persons', 
+                label: 'Personas Restringidas', 
+                type: 'person_repeater', 
+                subFields: [
+                    { name: 'name', label: 'Nombre de la Persona Restringida', placeholder: 'Nombre Apellido' },
+                    { name: 'id', label: 'ID de la Persona Restringida', placeholder: 'ej. 12345' }
+                ]
+            },
+            { name: 'distance_meters', label: 'Distancia Mínima (Metros)', type: 'number', placeholder: 'ej. 100' },
+            { name: 'additional_details', label: 'Detalles Adicionales', type: 'textarea', optional: true },
+            { name: 'warrant_reason', label: 'Motivo de la Solicitud', type: 'textarea' },
+            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
+            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
         ]
     },
     'Orden de Precinto': {
@@ -818,15 +837,20 @@ function OrderArchive() {
             primaryValue = phone.number;
             if (formData.target_phones.length > 1) primaryValue += ` +${formData.target_phones.length - 1} más`;
         }
-        else if (formData.target_persons_phone && formData.target_persons_phone.length > 0) {
-            const p = formData.target_persons_phone[0];
+        else if (formData.target_persons_phone_review && formData.target_persons_phone_review.length > 0) {
+            const p = formData.target_persons_phone_review[0];
             primaryValue = p.name;
-            if (formData.target_persons_phone.length > 1) primaryValue += ` +${formData.target_persons_phone.length - 1} más`;
+            if (formData.target_persons_phone_review.length > 1) primaryValue += ` +${formData.target_persons_phone_review.length - 1} más`;
         }
         else if (formData.target_phone_numbers && formData.target_phone_numbers.length > 0) {
             const phone = formData.target_phone_numbers[0];
             primaryValue = phone.number;
             if (formData.target_phone_numbers.length > 1) primaryValue += ` +${formData.target_phone_numbers.length - 1} más`;
+        }
+        else if (formData.target_persons_phone && formData.target_persons_phone.length > 0) {
+            const p = formData.target_persons_phone[0];
+            primaryValue = p.name;
+            if (formData.target_persons_phone.length > 1) primaryValue += ` +${formData.target_persons_phone.length - 1} más`;
         }
         else if (formData.target_number) primaryValue = formData.target_number;
         else if (formData.target_persons && formData.target_persons.length > 0) {
@@ -842,6 +866,13 @@ function OrderArchive() {
         }
         else if (formData.username_to_identify) primaryValue = `${formData.username_to_identify} (${formData.social_network || 'Red Social'})`;
         else if (formData.username_url) primaryValue = `${formData.username_url} (${formData.social_network || ''})`;
+        else if (formData.protected_persons && formData.restricted_persons && formData.protected_persons.length > 0 && formData.restricted_persons.length > 0) {
+            const protectedName = formData.protected_persons[0].name;
+            const restrictedName = formData.restricted_persons[0].name;
+            primaryValue = `${protectedName} vs ${restrictedName}`;
+            const totalExtra = (formData.protected_persons.length - 1) + (formData.restricted_persons.length - 1);
+            if (totalExtra > 0) primaryValue += ` +${totalExtra} más`;
+        }
         else if (formData.restricted_person) primaryValue = `${formData.restricted_person} (vs ${formData.protected_person})`;
         else if (formData.property_address) primaryValue = formData.property_address;
         else if (formData.owner_name) primaryValue = formData.owner_name;
