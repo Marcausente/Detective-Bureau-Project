@@ -88,10 +88,18 @@ const ORDER_TYPES = {
         color: '#10b981', // Emerald
         icon: '💳',
         fields: [
-            { name: 'target_account', label: 'Número de Cuenta / Banco', type: 'text' },
-            { name: 'target_owner', label: 'Titular de la Cuenta', type: 'text' },
-            { name: 'timeframe', label: 'Periodo de Tiempo', type: 'text', placeholder: 'ej. Últimos 3 meses' },
-            { name: 'justification', label: 'Justificación Financiera', type: 'textarea' }
+            { 
+                name: 'target_persons', 
+                label: 'Personas a Revisar', 
+                type: 'person_repeater', 
+                subFields: [
+                    { name: 'name', label: 'Nombre de la Persona', placeholder: 'Nombre Apellido' },
+                    { name: 'id', label: 'ID de la Persona', placeholder: 'ej. 12345' }
+                ]
+            },
+            { name: 'warrant_reason', label: 'Motivo de la Orden', type: 'textarea' },
+            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
+            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
         ]
     },
     'Orden de Identificacion Red Social': {
@@ -740,6 +748,11 @@ function OrderArchive() {
             if (formData.target_phones.length > 1) primaryValue += ` +${formData.target_phones.length - 1} más`;
         }
         else if (formData.target_number) primaryValue = formData.target_number;
+        else if (formData.target_persons && formData.target_persons.length > 0) {
+            const p = formData.target_persons[0];
+            primaryValue = p.name;
+            if (formData.target_persons.length > 1) primaryValue += ` +${formData.target_persons.length - 1} más`;
+        }
         else if (formData.target_account) primaryValue = formData.target_account;
         else if (formData.username_url) primaryValue = `${formData.username_url} (${formData.social_network || ''})`;
         else if (formData.restricted_person) primaryValue = `${formData.restricted_person} (vs ${formData.protected_person})`;
