@@ -18,6 +18,7 @@ const ORDER_TYPES = {
                 type: 'property_repeater', 
                 subFields: [
                     { name: 'owner', label: 'Propietario', placeholder: 'Nombre Apellido' },
+                    { name: 'id', label: 'ID de la Persona', placeholder: 'ej. 12345' },
                     { name: 'address', label: 'Dirección', placeholder: '[12 Strawberry Avenue, Los Santos, San Andreas]' }
                 ]
             },
@@ -37,6 +38,7 @@ const ORDER_TYPES = {
                 type: 'vehicle_repeater', 
                 subFields: [
                     { name: 'owner', label: 'Propietario', placeholder: 'Nombre Apellido' },
+                    { name: 'id', label: 'ID de la Persona', placeholder: 'ej. 12345' },
                     { name: 'model', label: 'Modelo', placeholder: 'ej. Oracle' },
                     { name: 'plate', label: 'Matrícula', placeholder: 'ej. 44ASD123' }
                 ]
@@ -407,6 +409,7 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                                                 <thead>
                                                     <tr style={{ borderBottom: '2px solid #ddd' }}>
                                                         <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Propietario</th>
+                                                        <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>ID</th>
                                                         <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Modelo</th>
                                                         <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Matrícula</th>
                                                     </tr>
@@ -415,6 +418,7 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                                                     {f.value.map((v, idx) => (
                                                         <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
                                                             <td style={{ padding: '6px' }}>{v.owner}</td>
+                                                            <td style={{ padding: '6px' }}>{v.id || '-'}</td>
                                                             <td style={{ padding: '6px' }}>{v.model}</td>
                                                             <td style={{ padding: '6px' }}>{v.plate}</td>
                                                         </tr>
@@ -432,6 +436,7 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                                                 <thead>
                                                     <tr style={{ borderBottom: '2px solid #ddd' }}>
                                                         <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Propietario</th>
+                                                        <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>ID</th>
                                                         <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Dirección</th>
                                                     </tr>
                                                 </thead>
@@ -439,6 +444,7 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                                                     {f.value.map((p, idx) => (
                                                         <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
                                                             <td style={{ padding: '6px' }}>{p.owner}</td>
+                                                            <td style={{ padding: '6px' }}>{p.id || '-'}</td>
                                                             <td style={{ padding: '6px' }}>{p.address}</td>
                                                         </tr>
                                                     ))}

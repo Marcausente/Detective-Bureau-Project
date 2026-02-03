@@ -86,8 +86,8 @@ export const generateOrderPDF = async (order, config) => {
                 // Vehicle table
                 autoTable(doc, {
                     startY: y,
-                    head: [['Propietario', 'Modelo', 'Matrícula']],
-                    body: val.map(v => [v.owner, v.model, v.plate]),
+                    head: [['Propietario', 'ID', 'Modelo', 'Matrícula']],
+                    body: val.map(v => [v.owner, v.id || '-', v.model, v.plate]),
                     theme: 'grid',
                     styles: { fontSize: 10 },
                     headStyles: { fillColor: [100, 100, 100] },
@@ -97,8 +97,8 @@ export const generateOrderPDF = async (order, config) => {
                 // Property table
                 autoTable(doc, {
                     startY: y,
-                    head: [['Propietario', 'Dirección']],
-                    body: val.map(p => [p.owner, p.address]),
+                    head: [['Propietario', 'ID', 'Dirección']],
+                    body: val.map(p => [p.owner, p.id || '-', p.address]),
                     theme: 'grid',
                     styles: { fontSize: 10 },
                     headStyles: { fillColor: [100, 100, 100] },
