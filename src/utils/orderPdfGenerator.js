@@ -66,13 +66,30 @@ export const generateOrderPDF = async (order, config) => {
     Object.entries(order.content).forEach(([key, val]) => {
         // Find field config to get nice label
         const field = config?.fields?.find(f => f.name === key);
-        // Only show if we have a config label or if we decide to show raw keys
-        // We skip internal keys if they appear (e.g. if we had IDs)
-        // Also skip 'created_by' etc if they snuck in
-        
         const label = field ? (field.documentLabel || field.label) : key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         
-        addRow(label, val);
+        // Handle vehicle arrays
+        if (Array.isArray(val) && val.length > 0 && val[0].owner) {
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${label}:`, 20, y);
+            y += 8;
+            
+            // Use autoTable for vehicle list
+            doc.autoTable({
+                startY: y,
+                head: [['Propietario', 'Modelo', 'Matrícula']],
+                body: val.map(v => [v.owner, v.model, v.plate]),
+                theme: 'grid',
+                styles: { fontSize: 10 },
+                headStyles: { fillColor: [100, 100, 100] },
+                margin: { left: 20, right: 20 }
+            });
+            
+            y = doc.lastAutoTable.finalY + 10;
+        } else {
+            // Regular field
+            addRow(label, val);
+        }
     });
 
     // --- FOOTER / SIGNATURE ---
