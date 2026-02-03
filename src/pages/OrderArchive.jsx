@@ -198,10 +198,20 @@ const ORDER_TYPES = {
         color: '#6366f1', // Indigo
         icon: '🔒',
         fields: [
-            { name: 'property_address', label: 'Propiedad/Negocio a Precintar', type: 'text' },
-            { name: 'owner_name', label: 'Propietario', type: 'text' },
-            { name: 'duration', label: 'Duración / Hasta cuándo', type: 'text' },
-            { name: 'reason', label: 'Motivo del Precinto', type: 'textarea' }
+            { 
+                name: 'property_owners', 
+                label: 'Propietarios', 
+                type: 'person_repeater', 
+                subFields: [
+                    { name: 'name', label: 'Nombre del Propietario', placeholder: 'Nombre Apellido' },
+                    { name: 'id', label: 'ID del Propietario', placeholder: 'ej. 12345' }
+                ]
+            },
+            { name: 'business_name', label: 'Nombre del Local', type: 'text', placeholder: 'ej. Tienda XYZ' },
+            { name: 'business_location', label: 'Ubicación del Local', type: 'text', placeholder: 'ej. Calle Principal 123' },
+            { name: 'warrant_reason', label: 'Motivo de la Solicitud', type: 'textarea' },
+            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
+            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
         ]
     },
     'Ley Rico': {
@@ -961,6 +971,7 @@ function OrderArchive() {
         }
         else if (formData.restricted_person) primaryValue = `${formData.restricted_person} (vs ${formData.protected_person})`;
         else if (formData.property_address) primaryValue = formData.property_address;
+        else if (formData.business_name) primaryValue = formData.business_name;
         else if (formData.seizure_vehicles && formData.seizure_vehicles.length > 0) {
             const sv = formData.seizure_vehicles[0];
             primaryValue = `${sv.owner_name} - ${sv.vehicle}`;
