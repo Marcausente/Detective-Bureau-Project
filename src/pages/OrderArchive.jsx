@@ -60,6 +60,17 @@ const ORDER_TYPES = {
             { name: 'justification', label: 'Justificación Financiera', type: 'textarea' }
         ]
     },
+    'Orden de Identificacion Red Social': {
+        label: 'Identificación Red Social',
+        color: '#8b5cf6', // Violet
+        icon: '🌐',
+        fields: [
+            { name: 'social_network', label: 'Red Social (ej. Lifeinvader, Bleeter)', type: 'text' },
+            { name: 'username_url', label: 'Nombre de Usuario / URL', type: 'text' },
+            { name: 'target_owner', label: 'Posible Propietario (si se conoce)', type: 'text' },
+            { name: 'justification', label: 'Justificación Investigativa', type: 'textarea' }
+        ]
+    },
     'Orden de Decomiso': {
         label: 'Orden de Decomiso',
         color: '#f59e0b', // Amber
@@ -252,6 +263,7 @@ function OrderArchive() {
         else if (formData.suspect_name) primaryValue = formData.suspect_name;
         else if (formData.target_number) primaryValue = formData.target_number;
         else if (formData.target_account) primaryValue = formData.target_account;
+        else if (formData.username_url) primaryValue = `${formData.username_url} (${formData.social_network || 'Red Social'})`;
         else if (formData.restricted_person) primaryValue = `${formData.restricted_person} (vs ${formData.protected_person})`;
         else if (formData.property_address) primaryValue = formData.property_address;
         else if (formData.owner_name) primaryValue = formData.owner_name;

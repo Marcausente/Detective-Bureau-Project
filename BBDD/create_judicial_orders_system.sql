@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS public.judicial_orders (
       'Orden de Arresto', 
       'Orden de Revision Telefonica', 
       'Orden de Revision Bancaria', 
+      'Orden de Identificacion Red Social',
       'Orden de Decomiso', 
       'Orden de Alejamiento', 
       'Orden de Precinto'
