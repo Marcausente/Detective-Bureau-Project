@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+// eslint-disable-next-line no-unused-vars
+import autoTable from 'jspdf-autotable'; // Extends jsPDF with autoTable method
 
 export const generateOrderPDF = async (order, config) => {
     const doc = new jsPDF();
@@ -75,7 +76,7 @@ export const generateOrderPDF = async (order, config) => {
             y += 8;
             
             // Use autoTable for vehicle list
-            doc.autoTable({
+            autoTable(doc, {
                 startY: y,
                 head: [['Propietario', 'Modelo', 'Matrícula']],
                 body: val.map(v => [v.owner, v.model, v.plate]),
