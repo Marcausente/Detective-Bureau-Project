@@ -51,10 +51,18 @@ const ORDER_TYPES = {
         color: '#ef4444', // Red
         icon: '👮',
         fields: [
-            { name: 'suspect_name', label: 'Nombre del Sospechoso', type: 'text' },
-            { name: 'charges', label: 'Cargos / Delitos', type: 'textarea' },
-            { name: 'risk_level', label: 'Nivel de Riesgo', type: 'select', options: ['Bajo', 'Medio', 'Alto', 'Extremo'] },
-            { name: 'last_known_location', label: 'Última Ubicación Conocida', type: 'text' }
+            { 
+                name: 'target_suspects', 
+                label: 'Personas a Arrestar', 
+                type: 'person_repeater', 
+                subFields: [
+                    { name: 'name', label: 'Nombre de la Persona', placeholder: 'Nombre Apellido' },
+                    { name: 'id', label: 'ID de la Persona', placeholder: 'ej. 12345' }
+                ]
+            },
+            { name: 'warrant_reason', label: 'Motivo de la Orden', type: 'textarea' },
+            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
+            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
         ]
     },
     'Orden de Revision Telefonica': {
@@ -181,10 +189,27 @@ const OrderCard = ({ order, onPreview }) => {
         return Object.entries(order.content).slice(0, 3).map(([key, val]) => {
             if (!val) return null;
             const field = config?.fields.find(f => f.name === key);
+            
+            // Convert value to string for display
+            let displayValue = val;
+            if (Array.isArray(val)) {
+                // Handle arrays (vehicles, properties, persons)
+                if (val.length > 0) {
+                    if (val[0].plate) displayValue = `${val.length} vehículo${val.length > 1 ? 's' : ''}`;
+                    else if (val[0].address) displayValue = `${val.length} propiedad${val.length > 1 ? 'es' : ''}`;
+                    else if (val[0].name) displayValue = `${val.length} persona${val.length > 1 ? 's' : ''}`;
+                    else displayValue = `${val.length} item${val.length > 1 ? 's' : ''}`;
+                }
+            } else if (typeof val === 'object') {
+                displayValue = JSON.stringify(val);
+            } else {
+                displayValue = String(val);
+            }
+            
             return (
                 <div key={key} style={{ marginBottom: '4px', fontSize: '0.85rem' }}>
                     <span style={{ color: 'var(--text-secondary)', marginRight: '6px' }}>{field?.label || key}:</span>
-                    <span style={{ color: '#eee' }}>{val.length > 50 ? val.substring(0, 50) + '...' : val}</span>
+                    <span style={{ color: '#eee' }}>{displayValue.length > 50 ? displayValue.substring(0, 50) + '...' : displayValue}</span>
                 </div>
             );
         });
@@ -353,7 +378,7 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                     {/* Fields */}
                     <div style={{ display: 'grid', gap: '1.5rem' }}>
                         {fields.map((f, i) => {
-                            // Special handling for vehicle arrays
+                            // Special handling for arrays with owner field
                             if (Array.isArray(f.value) && f.value.length > 0 && f.value[0].owner) {
                                 // Check if it's a vehicle (has plate and model) or property (has address)
                                 const isVehicle = f.value[0].plate && f.value[0].model;
@@ -406,6 +431,31 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                                         </div>
                                     );
                                 }
+                            }
+                            
+                            // Special handling for person arrays (has name and id)
+                            if (Array.isArray(f.value) && f.value.length > 0 && f.value[0].name && f.value[0].id) {
+                                return (
+                                    <div key={i}>
+                                        <div style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#444', marginBottom: '8px' }}>{f.label}</div>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: '2px solid #ddd' }}>
+                                                    <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>Nombre</th>
+                                                    <th style={{ textAlign: 'left', padding: '6px', fontWeight: 'bold' }}>ID</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {f.value.map((person, idx) => (
+                                                    <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                                                        <td style={{ padding: '6px' }}>{person.name}</td>
+                                                        <td style={{ padding: '6px' }}>{person.id}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                );
                             }
                             
                             return (
@@ -496,6 +546,9 @@ function OrderArchive() {
     
     // Property Repeater State
     const [tempProperty, setTempProperty] = useState({});
+    
+    // Person Repeater State
+    const [tempPerson, setTempPerson] = useState({});
 
     useEffect(() => {
         loadData();
@@ -538,6 +591,25 @@ function OrderArchive() {
     };
 
     const handleRemoveProperty = (fieldName, index) => {
+        const currentList = formData[fieldName] || [];
+        const newList = currentList.filter((_, i) => i !== index);
+        setFormData(prev => ({ ...prev, [fieldName]: newList }));
+    };
+    
+    const handleAddPerson = (field) => {
+        const currentList = formData[field.name] || [];
+        const required = field.subFields.every(sf => tempPerson[sf.name]);
+        if (!required) {
+            alert('Por favor, complete todos los campos de la persona.');
+            return;
+        }
+        
+        const newList = [...currentList, { ...tempPerson }];
+        setFormData(prev => ({ ...prev, [field.name]: newList }));
+        setTempPerson({});
+    };
+
+    const handleRemovePerson = (fieldName, index) => {
         const currentList = formData[fieldName] || [];
         const newList = currentList.filter((_, i) => i !== index);
         setFormData(prev => ({ ...prev, [fieldName]: newList }));
@@ -603,6 +675,11 @@ function OrderArchive() {
             if (formData.target_vehicles.length > 1) primaryValue += ` +${formData.target_vehicles.length - 1} más`;
         }
         else if (formData.plate_number) primaryValue = `${formData.plate_number} (${formData.vehicle_model || ''})`;
+        else if (formData.target_suspects && formData.target_suspects.length > 0) {
+            const s = formData.target_suspects[0];
+            primaryValue = s.name;
+            if (formData.target_suspects.length > 1) primaryValue += ` +${formData.target_suspects.length - 1} más`;
+        }
         else if (formData.suspect_name) primaryValue = formData.suspect_name;
         else if (formData.target_number) primaryValue = formData.target_number;
         else if (formData.target_account) primaryValue = formData.target_account;
@@ -956,6 +1033,65 @@ function OrderArchive() {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => handleRemoveProperty(field.name, idx)}
+                                                                        style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+                                                                    >
+                                                                        🗑️
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        }
+
+                                        // Render Person Repeater
+                                        if (field.type === 'person_repeater') {
+                                            const currentPeople = formData[field.name] || [];
+                                            return (
+                                                <div key={field.name} className="form-group">
+                                                    <label className="form-label">{field.label}</label>
+                                                    
+                                                    {/* Input Row for Adding Person */}
+                                                    <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+                                                        <div style={{ display: 'grid', gap: '0.8rem' }}>
+                                                            {field.subFields.map(sf => (
+                                                                <div key={sf.name}>
+                                                                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>{sf.label}</label>
+                                                                    <input
+                                                                        type="text"
+                                                                        className="form-input"
+                                                                        placeholder={sf.placeholder}
+                                                                        value={tempPerson[sf.name] || ''}
+                                                                        onChange={(e) => setTempPerson(prev => ({ ...prev, [sf.name]: e.target.value }))}
+                                                                        style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleAddPerson(field)}
+                                                            style={{ marginTop: '0.8rem', padding: '0.5rem 1rem', background: 'var(--accent-gold)', color: '#000', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                                                        >
+                                                            + Añadir Persona
+                                                        </button>
+                                                    </div>
+
+                                                    {/* List of Added People */}
+                                                    {currentPeople.length > 0 && (
+                                                        <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '1rem' }}>
+                                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.5rem', color: 'var(--accent-gold)' }}>
+                                                                Personas Añadidas ({currentPeople.length})
+                                                            </div>
+                                                            {currentPeople.map((p, idx) => (
+                                                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', marginBottom: '0.5rem' }}>
+                                                                    <div style={{ fontSize: '0.85rem' }}>
+                                                                        <strong>{p.name}</strong> <span style={{ color: 'var(--text-secondary)' }}>(ID: {p.id})</span>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemovePerson(field.name, idx)}
                                                                         style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
                                                                     >
                                                                         🗑️

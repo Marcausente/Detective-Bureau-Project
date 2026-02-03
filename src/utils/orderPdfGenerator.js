@@ -69,14 +69,17 @@ export const generateOrderPDF = async (order, config) => {
         const field = config?.fields?.find(f => f.name === key);
         const label = field ? (field.documentLabel || field.label) : key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         
-        // Handle vehicle and property arrays
-        if (Array.isArray(val) && val.length > 0 && val[0].owner) {
+        // Handle vehicle, property, and person arrays
+        if (Array.isArray(val) && val.length > 0) {
             doc.setFont('helvetica', 'bold');
             doc.text(`${label}:`, 20, y);
             y += 8;
             
-            // Detect if it's a vehicle (has plate/model) or property (has address)
-            const isVehicle = val[0].plate && val[0].model;
+            // Detect type based on fields
+            const firstItem = val[0];
+            const isVehicle = firstItem.owner && firstItem.plate && firstItem.model;
+            const isProperty = firstItem.owner && firstItem.address;
+            const isPerson = firstItem.name && firstItem.id;
             
             if (isVehicle) {
                 // Vehicle table
@@ -89,12 +92,23 @@ export const generateOrderPDF = async (order, config) => {
                     headStyles: { fillColor: [100, 100, 100] },
                     margin: { left: 20, right: 20 }
                 });
-            } else {
+            } else if (isProperty) {
                 // Property table
                 autoTable(doc, {
                     startY: y,
                     head: [['Propietario', 'Dirección']],
                     body: val.map(p => [p.owner, p.address]),
+                    theme: 'grid',
+                    styles: { fontSize: 10 },
+                    headStyles: { fillColor: [100, 100, 100] },
+                    margin: { left: 20, right: 20 }
+                });
+            } else if (isPerson) {
+                // Person table
+                autoTable(doc, {
+                    startY: y,
+                    head: [['Nombre', 'ID']],
+                    body: val.map(p => [p.name, p.id]),
                     theme: 'grid',
                     styles: { fontSize: 10 },
                     headStyles: { fillColor: [100, 100, 100] },
