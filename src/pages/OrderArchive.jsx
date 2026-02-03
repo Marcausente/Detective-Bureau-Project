@@ -129,11 +129,12 @@ const ORDER_TYPES = {
         icon: '📞',
         fields: [
             { 
-                name: 'target_phone_numbers', 
-                label: 'Números de Teléfono a Identificar', 
-                type: 'phone_repeater', 
+                name: 'target_persons_phone', 
+                label: 'Personas a Identificar', 
+                type: 'person_repeater', 
                 subFields: [
-                    { name: 'number', label: 'Número de Teléfono', placeholder: 'ej. 555-1234' }
+                    { name: 'name', label: 'Nombre de la Persona', placeholder: 'Nombre Apellido' },
+                    { name: 'id', label: 'ID de la Persona', placeholder: 'ej. 12345' }
                 ]
             },
             { name: 'warrant_reason', label: 'Motivo de la Orden', type: 'textarea' },
@@ -816,6 +817,11 @@ function OrderArchive() {
             const phone = formData.target_phones[0];
             primaryValue = phone.number;
             if (formData.target_phones.length > 1) primaryValue += ` +${formData.target_phones.length - 1} más`;
+        }
+        else if (formData.target_persons_phone && formData.target_persons_phone.length > 0) {
+            const p = formData.target_persons_phone[0];
+            primaryValue = p.name;
+            if (formData.target_persons_phone.length > 1) primaryValue += ` +${formData.target_persons_phone.length - 1} más`;
         }
         else if (formData.target_phone_numbers && formData.target_phone_numbers.length > 0) {
             const phone = formData.target_phone_numbers[0];
