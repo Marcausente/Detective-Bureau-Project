@@ -75,20 +75,22 @@ export const generateOrderPDF = async (order, config) => {
         addRow(label, val);
     });
 
-    // --- FOOTER / SIGNATURES ---
-    y += 30;
-    if (y > 250) {
+    // --- FOOTER / SIGNATURE ---
+    y += 40;
+    if (y > 270) {
         doc.addPage();
         y = 40;
     }
 
-    doc.setLineWidth(0.5);
-    doc.line(20, y, 90, y); // Signature Line 1
-    doc.line(pageWidth - 90, y, pageWidth - 20, y); // Signature Line 2
+    const signatureName = order.content.author_agent || order.author_name;
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(signatureName.toUpperCase(), pageWidth - 20, y, { align: 'right' });
 
     doc.setFontSize(10);
-    doc.text('Firma del Solicitante', 55, y + 5, { align: 'center' });
-    doc.text('Firma / Sello del Juez', pageWidth - 55, y + 5, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.text('Detective Bureau, LSPD', pageWidth - 20, y + 6, { align: 'right' });
 
     doc.save(`Orden_${order.order_type.replace(/ /g, '_')}_${new Date().getTime()}.pdf`);
 };

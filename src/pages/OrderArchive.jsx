@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import '../index.css';
+import { generateOrderPDF } from '../utils/orderPdfGenerator';
 
 // --- CONFIGURATION ---
 // Note: 'options' can now be a string key (starting with $$) to reference dynamic data

@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
+    "jspdf": "^4.1.0",
+    "jspdf-autotable": "^5.0.7",
     "leaflet": "^1.9.4",
     "react": "^18.2.0",
     "react-avatar-editor": "^14.0.0",
