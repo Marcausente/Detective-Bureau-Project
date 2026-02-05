@@ -39,6 +39,15 @@ function DOJLicenseProfile() {
     const editorRef = useRef(null);
     const fileInputRef = useRef(null);
 
+    // Equipment State
+    const [equipment, setEquipment] = useState([]);
+    const [equipmentTypes, setEquipmentTypes] = useState([]);
+    const [showEquipmentTypesModal, setShowEquipmentTypesModal] = useState(false);
+    const [showAssignEquipmentModal, setShowAssignEquipmentModal] = useState(false);
+    const [equipmentTypeForm, setEquipmentTypeForm] = useState({ name: '', description: '' });
+    const [editingEquipmentTypeId, setEditingEquipmentTypeId] = useState(null);
+    const [assignEquipmentForm, setAssignEquipmentForm] = useState({ equipment_type_id: '', issued_date: '', serial_number: '' });
+
     useEffect(() => {
         loadData();
     }, [id]);
@@ -46,7 +55,7 @@ function DOJLicenseProfile() {
     const loadData = async () => {
         try {
             setLoading(true);
-            await Promise.all([loadProfile(), loadLicenseTypes()]);
+            await Promise.all([loadProfile(), loadLicenseTypes(), loadEquipmentTypes(), loadEquipment()]);
         } catch (err) {
             console.error('Error loading data:', err);
         } finally {
@@ -68,6 +77,99 @@ function DOJLicenseProfile() {
         const { data, error } = await supabase.rpc('get_doj_license_types');
         if (error) throw error;
         setLicenseTypes(data || []);
+    };
+
+    const loadEquipmentTypes = async () => {
+        const { data, error } = await supabase.rpc('get_equipment_types');
+        if (error) throw error;
+        setEquipmentTypes(data || []);
+    };
+
+    const loadEquipment = async () => {
+        const { data, error } = await supabase.rpc('get_civilian_equipment', { p_civilian_id: id });
+        if (error) throw error;
+        setEquipment(data || []);
+    };
+
+    // ===== EQUIPMENT HANDLERS =====
+    const handleSaveEquipmentType = async (e) => {
+        e.preventDefault();
+        try {
+            await supabase.rpc('manage_equipment_type', {
+                p_action: editingEquipmentTypeId ? 'update' : 'create',
+                p_id: editingEquipmentTypeId,
+                p_name: equipmentTypeForm.name,
+                p_description: equipmentTypeForm.description
+            });
+            setEquipmentTypeForm({ name: '', description: '' });
+            setEditingEquipmentTypeId(null);
+            await loadEquipmentTypes();
+        } catch (err) {
+            alert('Error saving equipment type: ' + err.message);
+        }
+    };
+
+    const handleDeleteEquipmentType = async (typeId) => {
+        if (!window.confirm('Delete this equipment type? All assignments will be removed.')) return;
+        try {
+            await supabase.rpc('manage_equipment_type', { p_action: 'delete', p_id: typeId });
+            await loadEquipmentTypes();
+        } catch (err) {
+            alert('Error deleting equipment type: ' + err.message);
+        }
+    };
+
+    const handleAssignEquipment = async (e) => {
+        e.preventDefault();
+        try {
+            await supabase.rpc('assign_equipment', {
+                p_civilian_id: id,
+                p_equipment_type_id: assignEquipmentForm.equipment_type_id,
+                p_issued_date: assignEquipmentForm.issued_date,
+                p_serial_number: assignEquipmentForm.serial_number || null
+            });
+            setShowAssignEquipmentModal(false);
+            setAssignEquipmentForm({ equipment_type_id: '', issued_date: '', serial_number: '' });
+            await loadEquipment();
+        } catch (err) {
+            alert('Error assigning equipment: ' + err.message);
+        }
+    };
+
+    const handleUpdateEquipmentStatus = async (equipId, newStatus) => {
+        try {
+            await supabase.rpc('update_equipment_status', {
+                p_equipment_id: equipId,
+                p_status: newStatus,
+                p_return_date: null
+            });
+            await loadEquipment();
+        } catch (err) {
+            alert('Error updating equipment status: ' + err.message);
+        }
+    };
+
+    const handleRemoveEquipment = async (equipId) => {
+        if (!window.confirm('Remove this equipment assignment?')) return;
+        try {
+            await supabase.rpc('remove_equipment', { p_equipment_id: equipId });
+            await loadEquipment();
+        } catch (err) {
+            alert('Error removing equipment: ' + err.message);
+        }
+    };
+
+    const getEquipmentStatusColor = (status) => {
+        switch (status) {
+            case 'Active': return '#4ade80';
+            case 'Missing': return '#ef4444';
+            case 'Retired': return '#94a3b8';
+            default: return '#94a3b8';
+        }
+    };
+
+    const getEquipmentStatusOptions = (currentStatus) => {
+        return ['Active', 'Missing', 'Retired'].filter(s => s !== currentStatus);
     };
 
     const openEditModal = () => {
@@ -368,8 +470,261 @@ function DOJLicenseProfile() {
                             </div>
                         )}
                     </div>
+
+                    {/* Equipment Section */}
+                    <div className="detail-section" style={{ marginTop: '2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h3>Equipment Assigned</h3>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button 
+                                    className="login-button btn-secondary" 
+                                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
+                                    onClick={() => setShowEquipmentTypesModal(true)}
+                                >
+                                    Manage Types
+                                </button>
+                                <button 
+                                    className="login-button" 
+                                    style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: 'auto' }}
+                                    onClick={() => setShowAssignEquipmentModal(true)}
+                                >
+                                    + Assign Equipment
+                                </button>
+                            </div>
+                        </div>
+
+                        {equipment.length === 0 ? (
+                            <div className="empty-list">No equipment assigned</div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {equipment.map(eq => (
+                                    <div key={eq.id} style={{
+                                        padding: '1.5rem',
+                                        background: 'rgba(0,0,0,0.2)',
+                                        border: `2px solid ${getEquipmentStatusColor(eq.status)}`,
+                                        borderRadius: '8px'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <h4 style={{ color: '#3b82f6', marginBottom: '0.5rem', fontSize: '1.1rem' }}>
+                                                    {eq.equipment_name}
+                                                </h4>
+                                                {eq.equipment_description && (
+                                                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                                                        {eq.equipment_description}
+                                                    </p>
+                                                )}
+                                                
+                                                <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem', color: '#94a3b8', flexWrap: 'wrap' }}>
+                                                    {eq.serial_number && (
+                                                        <div><strong>Serial:</strong> {eq.serial_number}</div>
+                                                    )}
+                                                    <div><strong>Issued:</strong> {new Date(eq.issued_date).toLocaleDateString()}</div>
+                                                    {eq.return_date && (
+                                                        <div>
+                                                            <strong>{eq.status === 'Missing' ? 'Missing since:' : 'Returned:'}</strong> {new Date(eq.return_date).toLocaleDateString()}
+                                                        </div>
+                                                    )}
+                                                    <div><strong>By:</strong> {eq.issued_by_name}</div>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                                <span style={{
+                                                    padding: '0.3rem 0.8rem',
+                                                    borderRadius: '12px',
+                                                    background: getEquipmentStatusColor(eq.status) + '20',
+                                                    color: getEquipmentStatusColor(eq.status),
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    {eq.status}
+                                                </span>
+
+                                                <select
+                                                    className="form-input custom-select"
+                                                    style={{ width: 'auto', padding: '0.3rem', fontSize: '0.85rem' }}
+                                                    value=""
+                                                    onChange={(e) => handleUpdateEquipmentStatus(eq.id, e.target.value)}
+                                                >
+                                                    <option value="">Change Status</option>
+                                                    {getEquipmentStatusOptions(eq.status).map(status => (
+                                                        <option key={status} value={status}>{status}</option>
+                                                    ))}
+                                                </select>
+
+                                                <button
+                                                    className="card-action-btn delete-btn"
+                                                    onClick={() => handleRemoveEquipment(eq.id)}
+                                                    title="Remove Equipment"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
+
+            {/* Equipment Types Modal */}
+            {showEquipmentTypesModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content" style={{ maxWidth: '600px' }}>
+                        <h3 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>Manage Equipment Types</h3>
+                        
+                        <form onSubmit={handleSaveEquipmentType} style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                            <div className="form-group">
+                                <label className="form-label">Equipment Name *</label>
+                                <input 
+                                    required 
+                                    className="form-input" 
+                                    value={equipmentTypeForm.name} 
+                                    onChange={(e) => setEquipmentTypeForm({ ...equipmentTypeForm, name: e.target.value })} 
+                                    placeholder="e.g., Porra, Taser, Radio"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Description</label>
+                                <textarea 
+                                    className="form-input" 
+                                    rows="2" 
+                                    value={equipmentTypeForm.description} 
+                                    onChange={(e) => setEquipmentTypeForm({ ...equipmentTypeForm, description: e.target.value })} 
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button type="submit" className="login-button">
+                                    {editingEquipmentTypeId ? 'Update' : 'Create'} Type
+                                </button>
+                                {editingEquipmentTypeId && (
+                                    <button 
+                                        type="button" 
+                                        className="login-button btn-secondary" 
+                                        onClick={() => {
+                                            setEditingEquipmentTypeId(null);
+                                            setEquipmentTypeForm({ name: '', description: '' });
+                                        }}
+                                    >
+                                        Cancel Edit
+                                    </button>
+                                )}
+                            </div>
+                        </form>
+
+                        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            {equipmentTypes.length === 0 ? (
+                                <div className="empty-list">No equipment types created yet</div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {equipmentTypes.map(type => (
+                                        <div key={type.id} style={{
+                                            padding: '1rem',
+                                            background: 'rgba(0,0,0,0.2)',
+                                            borderRadius: '6px',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}>
+                                            <div>
+                                                <div style={{ fontWeight: 'bold' }}>{type.name}</div>
+                                                {type.description && (
+                                                    <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                                                        {type.description}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                <button 
+                                                    className="card-action-btn edit-btn"
+                                                    onClick={() => {
+                                                        setEditingEquipmentTypeId(type.id);
+                                                        setEquipmentTypeForm({ name: type.name, description: type.description || '' });
+                                                    }}
+                                                    title="Edit"
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button 
+                                                    className="card-action-btn delete-btn"
+                                                    onClick={() => handleDeleteEquipmentType(type.id)}
+                                                    title="Delete"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                            <button 
+                                className="login-button btn-secondary" 
+                                onClick={() => {
+                                    setShowEquipmentTypesModal(false);
+                                    setEditingEquipmentTypeId(null);
+                                    setEquipmentTypeForm({ name: '', description: '' });
+                                }}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Assign Equipment Modal */}
+            {showAssignEquipmentModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content" style={{ maxWidth: '500px' }}>
+                        <h3 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>Assign Equipment</h3>
+                        <form onSubmit={handleAssignEquipment} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div className="form-group">
+                                <label className="form-label">Equipment Type *</label>
+                                <select 
+                                    required 
+                                    className="form-input custom-select" 
+                                    value={assignEquipmentForm.equipment_type_id} 
+                                    onChange={(e) => setAssignEquipmentForm({ ...assignEquipmentForm, equipment_type_id: e.target.value })}
+                                >
+                                    <option value="">Select equipment...</option>
+                                    {equipmentTypes.map(type => (
+                                        <option key={type.id} value={type.id}>{type.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Issue Date *</label>
+                                <input 
+                                    type="date" 
+                                    required 
+                                    className="form-input" 
+                                    value={assignEquipmentForm.issued_date} 
+                                    onChange={(e) => setAssignEquipmentForm({ ...assignEquipmentForm, issued_date: e.target.value })} 
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Serial Number (Optional)</label>
+                                <input 
+                                    className="form-input" 
+                                    value={assignEquipmentForm.serial_number} 
+                                    onChange={(e) => setAssignEquipmentForm({ ...assignEquipmentForm, serial_number: e.target.value })} 
+                                    placeholder="e.g., SN-12345"
+                                />
+                            </div>
+                            <div className="cropper-actions">
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowAssignEquipmentModal(false)}>Cancel</button>
+                                <button type="submit" className="login-button">Assign</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Assign License Modal */}
             {showAssignModal && (

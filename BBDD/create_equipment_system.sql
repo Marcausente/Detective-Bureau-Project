@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.equipment_types (
 -- 2. Personnel Equipment Assignments Table
 CREATE TABLE IF NOT EXISTS public.personnel_equipment (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+  civilian_id UUID REFERENCES public.doj_civilian_profiles(id) ON DELETE CASCADE,
   equipment_type_id UUID REFERENCES public.equipment_types(id) ON DELETE CASCADE,
   serial_number TEXT,
   issued_date DATE NOT NULL,
@@ -96,8 +96,13 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- PERSONNEL EQUIPMENT RPCs
 -- =============================================
 
--- Get equipment for a specific user
-CREATE OR REPLACE FUNCTION get_user_equipment(p_user_id UUID)
+-- Drop existing functions if they exist (to allow parameter name changes)
+DROP FUNCTION IF EXISTS get_user_equipment(UUID);
+DROP FUNCTION IF EXISTS get_civilian_equipment(UUID);
+DROP FUNCTION IF EXISTS assign_equipment(UUID, UUID, DATE, TEXT);
+
+-- Get equipment for a specific civilian
+CREATE OR REPLACE FUNCTION get_civilian_equipment(p_civilian_id UUID)
 RETURNS JSON AS $$
 BEGIN
   RETURN COALESCE(
@@ -115,15 +120,15 @@ BEGIN
     FROM public.personnel_equipment pe
     JOIN public.equipment_types et ON pe.equipment_type_id = et.id
     LEFT JOIN public.users u ON pe.issued_by = u.id
-    WHERE pe.user_id = p_user_id),
+    WHERE pe.civilian_id = p_civilian_id),
     '[]'::json
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Assign equipment to user
+-- Assign equipment to civilian
 CREATE OR REPLACE FUNCTION assign_equipment(
-  p_user_id UUID,
+  p_civilian_id UUID,
   p_equipment_type_id UUID,
   p_issued_date DATE,
   p_serial_number TEXT DEFAULT NULL
@@ -132,8 +137,8 @@ RETURNS UUID AS $$
 DECLARE
   v_id UUID;
 BEGIN
-  INSERT INTO public.personnel_equipment (user_id, equipment_type_id, issued_date, serial_number, issued_by)
-  VALUES (p_user_id, p_equipment_type_id, p_issued_date, p_serial_number, auth.uid())
+  INSERT INTO public.personnel_equipment (civilian_id, equipment_type_id, issued_date, serial_number, issued_by)
+  VALUES (p_civilian_id, p_equipment_type_id, p_issued_date, p_serial_number, auth.uid())
   RETURNING id INTO v_id;
   RETURN v_id;
 END;
