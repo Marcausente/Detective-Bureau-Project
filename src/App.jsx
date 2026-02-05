@@ -28,6 +28,8 @@ import DOJDocumentation from './pages/DOJDocumentation';
 import DOJInterrogations from './pages/DOJInterrogations';
 import DOJSanctions from './pages/DOJSanctions';
 import DOJSanctionProfile from './pages/DOJSanctionProfile';
+import DOJLicenses from './pages/DOJLicenses';
+import DOJLicenseProfile from './pages/DOJLicenseProfile';
 import OrderArchive from './pages/OrderArchive'; // Import
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
@@ -70,8 +72,8 @@ function App() {
             <Route path="/doj/cases/:id" element={<DOJCaseDetail />} />
             <Route path="/doj/docs" element={<DOJDocumentation />} />
             <Route path="/doj/interrogations" element={<DOJInterrogations />} />
-            <Route path="/doj/licenses" element={<DOJSanctions />} /> {/* Temporarily using DOJSanctions component */}
-            <Route path="/doj/licenses/:id" element={<DOJSanctionProfile />} /> {/* Temporarily using DOJSanctionProfile component */}
+            <Route path="/doj/licenses" element={<DOJLicenses />} />
+            <Route path="/doj/licenses/:id" element={<DOJLicenseProfile />} />
             <Route path="/warrants" element={<OrderArchive />} /> {/* Updated Route */}
             <Route path="/profile" element={<Profile />} />
           </Route>
