@@ -201,10 +201,10 @@ function DOJ() {
                     <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>Subject interviews registry.</p>
                 </div>
 
-                {/* Active Module: Sanctions */}
+                {/* Active Module: Licenses */}
                 <div
                     className="ia-card"
-                    onClick={() => navigate('/doj/sanctions')}
+                    onClick={() => navigate('/doj/licenses')}
                     style={{
                         background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6))',
                         border: '1px solid rgba(255,255,255,0.05)',
@@ -242,10 +242,10 @@ function DOJ() {
                         color: '#8b5cf6',
                         fontSize: '2rem'
                     }}>
-                        ⚖️
+                        📜
                     </div>
-                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>Sanctions</h3>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>Legal actions log.</p>
+                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>Licenses</h3>
+                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>License management and registry.</p>
                 </div>
 
             </div>
