@@ -1,8 +1,12 @@
 -- PERSONNEL EQUIPMENT MANAGEMENT SYSTEM
 -- Manages equipment types and assignments to personnel
 
+-- Drop existing tables to ensure clean schema
+DROP TABLE IF EXISTS public.personnel_equipment CASCADE;
+DROP TABLE IF EXISTS public.equipment_types CASCADE;
+
 -- 1. Equipment Types Table
-CREATE TABLE IF NOT EXISTS public.equipment_types (
+CREATE TABLE public.equipment_types (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   description TEXT,
@@ -11,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.equipment_types (
 );
 
 -- 2. Personnel Equipment Assignments Table
-CREATE TABLE IF NOT EXISTS public.personnel_equipment (
+CREATE TABLE public.personnel_equipment (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   civilian_id UUID REFERENCES public.doj_civilian_profiles(id) ON DELETE CASCADE,
   equipment_type_id UUID REFERENCES public.equipment_types(id) ON DELETE CASCADE,
