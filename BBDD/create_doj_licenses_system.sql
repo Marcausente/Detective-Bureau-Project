@@ -229,14 +229,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION assign_doj_license(
   p_civilian_id UUID,
   p_license_type_id UUID,
+  p_issued_date DATE,
   p_expires_date DATE DEFAULT NULL
 )
 RETURNS UUID AS $$
 DECLARE
   v_id UUID;
 BEGIN
-  INSERT INTO public.doj_civilian_licenses (civilian_id, license_type_id, expires_date, issued_by)
-  VALUES (p_civilian_id, p_license_type_id, p_expires_date, auth.uid())
+  INSERT INTO public.doj_civilian_licenses (civilian_id, license_type_id, issued_date, expires_date, issued_by)
+  VALUES (p_civilian_id, p_license_type_id, p_issued_date, p_expires_date, auth.uid())
   ON CONFLICT (civilian_id, license_type_id) DO NOTHING
   RETURNING id INTO v_id;
   RETURN v_id;

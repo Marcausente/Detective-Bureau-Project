@@ -22,7 +22,7 @@ function DOJLicenseProfile() {
     const [showEditModal, setShowEditModal] = useState(false);
 
     // Forms
-    const [assignForm, setAssignForm] = useState({ license_type_id: '', expires_date: '' });
+    const [assignForm, setAssignForm] = useState({ license_type_id: '', issued_date: '', expires_date: '' });
     const [editForm, setEditForm] = useState({
         nombre: '',
         apellido: '',
@@ -112,10 +112,11 @@ function DOJLicenseProfile() {
             await supabase.rpc('assign_doj_license', {
                 p_civilian_id: id,
                 p_license_type_id: assignForm.license_type_id,
+                p_issued_date: assignForm.issued_date,
                 p_expires_date: assignForm.expires_date || null
             });
             setShowAssignModal(false);
-            setAssignForm({ license_type_id: '', expires_date: '' });
+            setAssignForm({ license_type_id: '', issued_date: '', expires_date: '' });
             loadProfile();
         } catch (err) {
             alert('Error assigning license: ' + err.message);
@@ -384,6 +385,16 @@ function DOJLicenseProfile() {
                                         <option key={lt.id} value={lt.id}>{lt.name}</option>
                                     ))}
                                 </select>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Issued Date *</label>
+                                <input 
+                                    type="date" 
+                                    required 
+                                    className="form-input" 
+                                    value={assignForm.issued_date} 
+                                    onChange={(e) => setAssignForm({ ...assignForm, issued_date: e.target.value })} 
+                                />
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Expiration Date (Optional)</label>
