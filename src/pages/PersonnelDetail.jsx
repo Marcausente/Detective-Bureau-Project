@@ -142,6 +142,23 @@ function PersonnelDetail() {
     };
 
     const checkAndFetchEvaluations = async (viewerProfile, targetProfile) => {
+        // Exclude IA and DOJ Agents from evaluations system entirely
+        const excludedRanks = ['Internal Affairs Agent', 'Department of Justice Agent'];
+        
+        // If viewer is IA/DOJ agent, they cannot view anyone's evaluations
+        if (excludedRanks.includes(viewerProfile.rango)) {
+            setCanViewEvaluations(false);
+            setEvaluations([]);
+            return;
+        }
+        
+        // If target is IA/DOJ agent, no one can view their evaluations
+        if (excludedRanks.includes(targetProfile.rango)) {
+            setCanViewEvaluations(false);
+            setEvaluations([]);
+            return;
+        }
+
         const viewerLevel = getRankLevel(viewerProfile.rango);
         const targetLevel = getRankLevel(targetProfile.rango);
 
