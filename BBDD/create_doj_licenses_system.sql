@@ -42,13 +42,22 @@ ALTER TABLE public.doj_civilian_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.doj_civilian_licenses ENABLE ROW LEVEL SECURITY;
 
 -- Policies (Allow authenticated users - frontend filters by division)
+DROP POLICY IF EXISTS "Auth Read License Types" ON public.doj_license_types;
 CREATE POLICY "Auth Read License Types" ON public.doj_license_types FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Auth Write License Types" ON public.doj_license_types;
 CREATE POLICY "Auth Write License Types" ON public.doj_license_types FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Auth Read Civilian Profiles" ON public.doj_civilian_profiles;
 CREATE POLICY "Auth Read Civilian Profiles" ON public.doj_civilian_profiles FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Auth Write Civilian Profiles" ON public.doj_civilian_profiles;
 CREATE POLICY "Auth Write Civilian Profiles" ON public.doj_civilian_profiles FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Auth Read Civilian Licenses" ON public.doj_civilian_licenses;
 CREATE POLICY "Auth Read Civilian Licenses" ON public.doj_civilian_licenses FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Auth Write Civilian Licenses" ON public.doj_civilian_licenses;
 CREATE POLICY "Auth Write Civilian Licenses" ON public.doj_civilian_licenses FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- =============================================
