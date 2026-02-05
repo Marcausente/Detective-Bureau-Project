@@ -86,6 +86,7 @@ function Personnel() {
         'Capitan': 100,
         'Teniente': 90,
         'Internal Affairs Agent': 85, // High priority sort
+        'Department of Justice Agent': 85, // Same level as IA Agent
         'Detective III': 80,
         'Detective II': 70,
         'Detective I': 60,
@@ -99,7 +100,7 @@ function Personnel() {
 
     const detectives = users.filter(u => ['Detective I', 'Detective II', 'Detective III'].includes(u.rango)).sort(sortUsers);
     const helpers = users.filter(u => ['Oficial II', 'Oficial III', 'Oficial III+'].includes(u.rango)).sort(sortUsers);
-    const commandAndExternal = users.filter(u => ['Capitan', 'Teniente', 'Internal Affairs Agent'].includes(u.rango)).sort(sortUsers);
+    const commandAndExternal = users.filter(u => ['Capitan', 'Teniente', 'Internal Affairs Agent', 'Department of Justice Agent'].includes(u.rango)).sort(sortUsers);
 
     // --- Actions ---
 
@@ -413,6 +414,7 @@ function Personnel() {
                                     <option value="Detective II">Detective II</option>
                                     <option value="Detective III">Detective III</option>
                                     <option value="Internal Affairs Agent">Internal Affairs Agent</option>
+                                    <option value="Department of Justice Agent">Department of Justice Agent</option>
                                     <option value="Teniente">Teniente</option>
                                     <option value="Capitan">Capitan</option>
                                 </select>

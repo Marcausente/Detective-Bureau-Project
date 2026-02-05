@@ -17,6 +17,7 @@ const getRankLevel = (rank) => {
         case 'Detective III':
             return 4;
         case 'Internal Affairs Agent':
+        case 'Department of Justice Agent':
             return 4.5; // Higher than D3, lower than Lt? Or equal? Assuming 4.5 or 5.
         case 'Teniente':
         case 'Capitan':
