@@ -13,6 +13,10 @@ function DOJLicenseProfile() {
     const [licenseTypes, setLicenseTypes] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // Inline notes editing
+    const [editingNotes, setEditingNotes] = useState(false);
+    const [notesText, setNotesText] = useState('');
+
     // Modals
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -56,6 +60,7 @@ function DOJLicenseProfile() {
         if (data) {
             setProfile(data.profile);
             setLicenses(data.licenses || []);
+            setNotesText(data.profile.notes || '');
         }
     };
 
@@ -139,6 +144,30 @@ function DOJLicenseProfile() {
         }
     };
 
+    // Notes handlers
+    const handleSaveNotes = async () => {
+        try {
+            await supabase.rpc('update_doj_civilian', {
+                p_id: id,
+                p_nombre: profile.nombre,
+                p_apellido: profile.apellido,
+                p_id_number: profile.id_number,
+                p_phone_number: profile.phone_number || '',
+                p_profile_image: profile.profile_image || '',
+                p_notes: notesText
+            });
+            setEditingNotes(false);
+            loadProfile();
+        } catch (err) {
+            alert('Error saving notes: ' + err.message);
+        }
+    };
+
+    const handleCancelNotes = () => {
+        setNotesText(profile.notes || '');
+        setEditingNotes(false);
+    };
+
     // Image cropper
     const handleFileChange = (e) => {
         const file = e.target.files[0];
@@ -206,10 +235,32 @@ function DOJLicenseProfile() {
                 <div className="detail-body">
                     {/* Notes Section */}
                     <div className="detail-section">
-                        <h3>Notes</h3>
-                        <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', minHeight: '80px', whiteSpace: 'pre-wrap', color: profile.notes ? '#f8fafc' : '#64748b' }}>
-                            {profile.notes || 'No notes recorded'}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <h3>Notes</h3>
+                            {!editingNotes ? (
+                                <button className="login-button btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.9rem' }} onClick={() => setEditingNotes(true)}>✏️ Edit</button>
+                            ) : (
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button className="login-button btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.9rem' }} onClick={handleCancelNotes}>Cancel</button>
+                                    <button className="login-button" style={{ padding: '0.4rem 1rem', fontSize: '0.9rem' }} onClick={handleSaveNotes}>💾 Save</button>
+                                </div>
+                            )}
                         </div>
+                        {editingNotes ? (
+                            <textarea
+                                className="form-input"
+                                rows="6"
+                                value={notesText}
+                                onChange={(e) => setNotesText(e.target.value)}
+                                placeholder="Add notes about this civilian..."
+                                autoFocus
+                                style={{ marginTop: '0.5rem' }}
+                            />
+                        ) : (
+                            <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', minHeight: '80px', whiteSpace: 'pre-wrap', color: profile.notes ? '#f8fafc' : '#64748b' }}>
+                                {profile.notes || 'No notes recorded'}
+                            </div>
+                        )}
                     </div>
 
                     {/* Licenses Section */}
