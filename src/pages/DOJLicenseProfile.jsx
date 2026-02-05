@@ -238,11 +238,29 @@ function DOJLicenseProfile() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                             <h3>Notes</h3>
                             {!editingNotes ? (
-                                <button className="login-button btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.9rem' }} onClick={() => setEditingNotes(true)}>✏️ Edit</button>
+                                <button 
+                                    className="login-button btn-secondary" 
+                                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', width: 'auto' }} 
+                                    onClick={() => setEditingNotes(true)}
+                                >
+                                    ✏️ Edit
+                                </button>
                             ) : (
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <button className="login-button btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.9rem' }} onClick={handleCancelNotes}>Cancel</button>
-                                    <button className="login-button" style={{ padding: '0.4rem 1rem', fontSize: '0.9rem' }} onClick={handleSaveNotes}>💾 Save</button>
+                                    <button 
+                                        className="login-button btn-secondary" 
+                                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} 
+                                        onClick={handleCancelNotes}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        className="login-button" 
+                                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} 
+                                        onClick={handleSaveNotes}
+                                    >
+                                        💾 Save
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -267,7 +285,13 @@ function DOJLicenseProfile() {
                     <div className="detail-section" style={{ marginTop: '2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h3>Issued Licenses</h3>
-                            <button className="login-button" onClick={() => setShowAssignModal(true)}>+ Assign License</button>
+                            <button 
+                                className="login-button" 
+                                style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', width: 'auto' }} 
+                                onClick={() => setShowAssignModal(true)}
+                            >
+                                + Assign License
+                            </button>
                         </div>
 
                         {licenses.length === 0 ? (
