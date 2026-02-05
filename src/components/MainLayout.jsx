@@ -69,7 +69,7 @@ function MainLayout() {
         { name: 'Crime Map', path: '/crimemap', divisions: ['Detective Bureau'] },
         { name: 'Judicial Orders', path: '/warrants', divisions: ['Detective Bureau'] },
         { name: 'Interrogations', path: '/interrogations', divisions: ['Detective Bureau'] },
-        { name: 'Personnel', path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs'] },
+        { name: 'Personnel', path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ'] },
         { name: 'Internal Affairs', path: '/internal-affairs', divisions: ['Internal Affairs'] },
         { name: 'Department of Justice', path: '/doj', divisions: ['DOJ'] },
     ];
