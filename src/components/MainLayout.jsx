@@ -71,6 +71,7 @@ function MainLayout() {
         { name: 'Interrogations', path: '/interrogations', divisions: ['Detective Bureau'] },
         { name: 'Personnel', path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs'] },
         { name: 'Internal Affairs', path: '/internal-affairs', divisions: ['Internal Affairs'] },
+        { name: 'Department of Justice', path: '/doj', divisions: ['DOJ'] },
     ];
 
     const navItems = allNavItems.filter(item => {

@@ -21,6 +21,13 @@ import IADocumentation from './pages/IADocumentation';
 import IAInterrogations from './pages/IAInterrogations';
 import IASanctions from './pages/IASanctions';
 import IASanctionProfile from './pages/IASanctionProfile';
+import DOJ from './pages/DOJ'; // Import
+import DOJCases from './pages/DOJCases';
+import DOJCaseDetail from './pages/DOJCaseDetail';
+import DOJDocumentation from './pages/DOJDocumentation';
+import DOJInterrogations from './pages/DOJInterrogations';
+import DOJSanctions from './pages/DOJSanctions';
+import DOJSanctionProfile from './pages/DOJSanctionProfile';
 import OrderArchive from './pages/OrderArchive'; // Import
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
@@ -58,6 +65,13 @@ function App() {
             <Route path="/internal-affairs/interrogations" element={<IAInterrogations />} />
             <Route path="/internal-affairs/sanctions" element={<IASanctions />} />
             <Route path="/internal-affairs/sanctions/:id" element={<IASanctionProfile />} />
+            <Route path="/doj" element={<DOJ />} />
+            <Route path="/doj/cases" element={<DOJCases />} />
+            <Route path="/doj/cases/:id" element={<DOJCaseDetail />} />
+            <Route path="/doj/docs" element={<DOJDocumentation />} />
+            <Route path="/doj/interrogations" element={<DOJInterrogations />} />
+            <Route path="/doj/sanctions" element={<DOJSanctions />} />
+            <Route path="/doj/sanctions/:id" element={<DOJSanctionProfile />} />
             <Route path="/warrants" element={<OrderArchive />} /> {/* Updated Route */}
             <Route path="/profile" element={<Profile />} />
           </Route>
