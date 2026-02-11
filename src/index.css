@@ -373,7 +373,7 @@ body {
   overflow-y: auto;
   background-image:
     linear-gradient(rgba(11, 17, 32, 0.95), rgba(11, 17, 32, 0.95)),
-    url("/public/indeximage.png");
+    url("/indeximage.png");
   /* Subtle texture if needed */
   background-size: cover;
 }
@@ -1976,4 +1976,19 @@ body {
   border-radius: 20px;
   border: 2px solid transparent;
   background-clip: content-box;
+}
+
+/* Missing class for list items */
+.gang-list-item {
+  display: flex !important;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 60px; /* Ensure clickable area */
+}
+
+.gang-list-item:last-child {
+  border-bottom: none;
 }
