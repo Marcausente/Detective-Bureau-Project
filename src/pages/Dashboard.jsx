@@ -21,6 +21,11 @@ function Dashboard() {
     const [newEvent, setNewEvent] = useState({ title: '', description: '', event_date: '' });
     const [submittingEvent, setSubmittingEvent] = useState(false);
 
+    // Full Calendar State
+    const [showCalendarModal, setShowCalendarModal] = useState(false);
+    const [allEvents, setAllEvents] = useState([]);
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+
     useEffect(() => {
         loadDashboardData();
     }, []);
@@ -76,6 +81,58 @@ function Dashboard() {
             console.log("Fetched Events:", data);
             setEvents(data || []);
         }
+    };
+
+    const fetchAllMonthEvents = async () => {
+        try {
+            // Using Supabase JS to get all events, avoiding the need for a new SQL RPC
+            const { data, error } = await supabase
+                .from('events')
+                .select(`
+                    id, title, description, event_date, created_by, created_at,
+                    users!events_created_by_fkey ( nombre, apellido, rango, profile_image ),
+                    event_participants ( user_id )
+                `)
+                .order('event_date', { ascending: true });
+
+            if (error) throw error;
+            
+            // Format to match the RPC structure
+            const formattedEvents = data.map(e => ({
+                id: e.id,
+                title: e.title,
+                description: e.description,
+                event_date: e.event_date,
+                created_by: e.created_by,
+                created_at: e.created_at,
+                participant_count: e.event_participants?.length || 0,
+                is_participating: e.event_participants?.some(ep => ep.user_id === user?.id) || false,
+                author_name: e.users ? `${e.users.nombre} ${e.users.apellido}` : 'Unknown',
+                author_rank: e.users?.rango || '',
+                author_image: e.users?.profile_image || ''
+            }));
+            
+            setAllEvents(formattedEvents);
+        } catch (error) {
+            console.error('Error fetching all events:', error);
+        }
+    };
+
+    const handleOpenCalendar = () => {
+        fetchAllMonthEvents();
+        setShowCalendarModal(true);
+    };
+
+    const handleCloseCalendar = () => {
+        setShowCalendarModal(false);
+    };
+
+    const nextMonth = () => {
+        setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+    };
+
+    const prevMonth = () => {
+        setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
     };
 
     const handleSaveAnnouncement = async (e) => {
@@ -193,7 +250,10 @@ function Dashboard() {
                 p_user_id: user.id 
             });
             if (error) throw error;
-            fetchEvents(); // Refresh to update count and status
+            fetchEvents(); // Refresh upcoming list
+            if (showCalendarModal) {
+                fetchAllMonthEvents(); // Refresh full calendar list if open
+            }
         } catch (err) {
             alert('Error toggling registration: ' + err.message);
         }
@@ -294,7 +354,12 @@ function Dashboard() {
 
                 {/* Events Section */}
                 <section className="events-section">
-                    <h3 className="section-title">📅 Upcoming Events</h3>
+                    <div className="section-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '2px solid rgba(255, 255, 255, 0.1)', paddingBottom: '0.5rem' }}>
+                        <h3 className="section-title" style={{ borderBottom: 'none', margin: 0, padding: 0 }}>📅 Upcoming Events</h3>
+                        <button className="action-btn" style={{ width: 'auto', padding: '0.4rem 0.8rem' }} onClick={handleOpenCalendar}>
+                            🗓️ Full Calendar
+                        </button>
+                    </div>
 
                     <div className="events-list">
                         {events.length === 0 ? (
@@ -432,6 +497,73 @@ function Dashboard() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Full Calendar Modal */}
+            {showCalendarModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content calendar-modal">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h3 style={{ color: 'var(--text-primary)', margin: 0 }}>Calendar Explorer</h3>
+                            <button className="icon-btn delete" onClick={handleCloseCalendar} style={{ fontSize: '1.2rem' }}>✖</button>
+                        </div>
+                        
+                        <div className="calendar-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <button className="action-btn" style={{ width: 'auto' }} onClick={prevMonth}>◀ Prev</button>
+                            <h4 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--accent-gold)' }}>
+                                {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                            </h4>
+                            <button className="action-btn" style={{ width: 'auto' }} onClick={nextMonth}>Next ▶</button>
+                        </div>
+
+                        <div className="calendar-grid">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                <div key={day} className="calendar-day-header">{day}</div>
+                            ))}
+                            
+                            {/* Generation of days */}
+                            {(() => {
+                                const year = currentMonth.getFullYear();
+                                const month = currentMonth.getMonth();
+                                const firstDay = new Date(year, month, 1).getDay();
+                                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                                
+                                const days = [];
+                                // Empty slots before the first day
+                                for (let i = 0; i < firstDay; i++) {
+                                    days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+                                }
+                                
+                                // Actual days
+                                for (let i = 1; i <= daysInMonth; i++) {
+                                    const currentDate = new Date(year, month, i);
+                                    
+                                    // Filter events for this day
+                                    const dayEvents = allEvents.filter(ev => {
+                                        const evDate = new Date(ev.event_date);
+                                        return evDate.getDate() === i && evDate.getMonth() === month && evDate.getFullYear() === year;
+                                    });
+
+                                    const isToday = new Date().toDateString() === currentDate.toDateString();
+
+                                    days.push(
+                                        <div key={i} className={`calendar-day ${isToday ? 'today' : ''} ${dayEvents.length > 0 ? 'has-events' : ''}`}>
+                                            <div className="day-number">{i}</div>
+                                            <div className="day-events">
+                                                {dayEvents.map(ev => (
+                                                    <div key={ev.id} className="day-event-chip" title={ev.title} onClick={() => alert(`Title: ${ev.title}\nDescription: ${ev.description}\nParticipants: ${ev.participant_count}\nParticipating: ${ev.is_participating ? 'Yes' : 'No'}`)}>
+                                                        {ev.title}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return days;
+                            })()}
+                        </div>
                     </div>
                 </div>
             )}
