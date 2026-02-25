@@ -85,34 +85,17 @@ function Dashboard() {
 
     const fetchAllMonthEvents = async () => {
         try {
-            // Using Supabase JS to get all events, avoiding the need for a new SQL RPC
-            const { data, error } = await supabase
-                .from('events')
-                .select(`
-                    id, title, description, event_date, created_by, created_at,
-                    users!events_created_by_fkey ( nombre, apellido, rango, profile_image ),
-                    event_participants ( user_id )
-                `)
-                .order('event_date', { ascending: true });
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth() + 1; // JS months are 0-11, postgres EXTRACT usually 1-12
+
+            const { data, error } = await supabase.rpc('get_all_month_events', {
+                p_user_id: user?.id,
+                p_year: year,
+                p_month: month
+            });
 
             if (error) throw error;
-            
-            // Format to match the RPC structure
-            const formattedEvents = data.map(e => ({
-                id: e.id,
-                title: e.title,
-                description: e.description,
-                event_date: e.event_date,
-                created_by: e.created_by,
-                created_at: e.created_at,
-                participant_count: e.event_participants?.length || 0,
-                is_participating: e.event_participants?.some(ep => ep.user_id === user?.id) || false,
-                author_name: e.users ? `${e.users.nombre} ${e.users.apellido}` : 'Unknown',
-                author_rank: e.users?.rango || '',
-                author_image: e.users?.profile_image || ''
-            }));
-            
-            setAllEvents(formattedEvents);
+            setAllEvents(data || []);
         } catch (error) {
             console.error('Error fetching all events:', error);
         }
