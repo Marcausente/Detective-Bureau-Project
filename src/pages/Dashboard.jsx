@@ -352,7 +352,7 @@ function Dashboard() {
                             <div className="empty-list">No upcoming events scheduled.</div>
                         ) : (
                             events.map(ev => (
-                                <div key={ev.id} className="event-card">
+                                <div key={ev.id} className="event-card" onClick={() => setSelectedEvent(ev)} style={{ cursor: 'pointer' }}>
                                     <div className="event-header">
                                         <h4 className="event-title">{ev.title}</h4>
                                         <div className="event-date">
@@ -367,13 +367,19 @@ function Dashboard() {
                                         <div className="event-actions">
                                             <button 
                                                 className={`action-btn ${ev.is_participating ? 'danger' : ''}`}
-                                                onClick={() => toggleEventRegistration(ev.id)}
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); // Prevent opening modal when clicking join/leave
+                                                    toggleEventRegistration(ev.id);
+                                                }}
                                             >
                                                 {ev.is_participating ? 'Leave Event' : 'Join Event'}
                                             </button>
              
                                             {canDeleteEvent && (
-                                                <button onClick={() => handleDeleteEvent(ev.id)} className="icon-btn delete" title="Delete Event">
+                                                <button onClick={(e) => {
+                                                    e.stopPropagation(); // Prevent opening modal when deleting
+                                                    handleDeleteEvent(ev.id);
+                                                }} className="icon-btn delete" title="Delete Event">
                                                     🗑️
                                                 </button>
                                             )}
