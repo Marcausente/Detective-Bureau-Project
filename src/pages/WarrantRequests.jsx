@@ -123,7 +123,7 @@ function WarrantRequests() {
             ) : requests.length === 0 ? (
                 <div className="empty-list">No requests found.</div>
             ) : (
-                <div className="dashboard-grid" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '2rem' }}>
                     {requests.map(req => (
                         <div key={req.id} className="announcement-card" style={{
                             borderLeft: `4px solid ${req.status === 'Pendiente' ? '#fbbf24' : req.status === 'Aprobada' ? '#4ade80' : '#f87171'}`,

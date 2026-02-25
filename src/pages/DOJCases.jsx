@@ -153,7 +153,7 @@ function DOJCases() {
             ) : cases.length === 0 ? (
                 <div className="empty-list">No {filter.toLowerCase()} investigations found.</div>
             ) : (
-                <div className="dashboard-grid" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', marginTop: '2rem' }}>
                     {cases.map(c => (
                         <div
                             key={c.id}
