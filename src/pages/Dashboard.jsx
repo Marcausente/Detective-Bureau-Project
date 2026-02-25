@@ -7,6 +7,7 @@ function Dashboard() {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [announcements, setAnnouncements] = useState([]);
+    const [events, setEvents] = useState([]); // New state for events
     const [loading, setLoading] = useState(true);
 
     // Create/Edit Modal State
@@ -14,6 +15,11 @@ function Dashboard() {
     const [newPost, setNewPost] = useState({ title: '', content: '', pinned: false });
     const [editingId, setEditingId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+
+    // Event Modal State
+    const [showEventModal, setShowEventModal] = useState(false);
+    const [newEvent, setNewEvent] = useState({ title: '', description: '', event_date: '' });
+    const [submittingEvent, setSubmittingEvent] = useState(false);
 
     useEffect(() => {
         loadDashboardData();
@@ -42,6 +48,9 @@ function Dashboard() {
             // Get Announcements
             await fetchAnnouncements();
 
+            // Get Events
+            await fetchEvents(authUser.id);
+
         } catch (error) {
             console.error('Error loading dashboard:', error);
         } finally {
@@ -56,6 +65,16 @@ function Dashboard() {
         } else {
             console.log("Fetched Announcements:", data);
             setAnnouncements(data || []);
+        }
+    };
+
+    const fetchEvents = async (userId) => {
+        const { data, error } = await supabase.rpc('get_upcoming_events', { p_user_id: userId || user?.id });
+        if (error) {
+            console.error('Error fetching events:', error);
+        } else {
+            console.log("Fetched Events:", data);
+            setEvents(data || []);
         }
     };
 
@@ -127,6 +146,59 @@ function Dashboard() {
         }
     };
 
+    // --- EVENT HANDLERS ---
+    const handleSaveEvent = async (e) => {
+        e.preventDefault();
+        if (!newEvent.title.trim() || !newEvent.description.trim() || !newEvent.event_date) return;
+
+        try {
+            setSubmittingEvent(true);
+
+            const { error } = await supabase.rpc('create_event', {
+                p_title: newEvent.title,
+                p_description: newEvent.description,
+                p_event_date: newEvent.event_date
+            });
+            if (error) throw error;
+
+            closeEventModal();
+            fetchEvents();
+        } catch (err) {
+            alert('Error saving event: ' + err.message);
+        } finally {
+            setSubmittingEvent(false);
+        }
+    };
+
+    const handleDeleteEvent = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this event?")) return;
+        try {
+            const { error } = await supabase.rpc('delete_event', { p_id: id });
+            if (error) throw error;
+            fetchEvents();
+        } catch (err) {
+            alert(err.message);
+        }
+    };
+
+    const closeEventModal = () => {
+        setShowEventModal(false);
+        setNewEvent({ title: '', description: '', event_date: '' });
+    };
+
+    const toggleEventRegistration = async (eventId) => {
+        try {
+            const { error } = await supabase.rpc('toggle_event_registration', { 
+                p_event_id: eventId, 
+                p_user_id: user.id 
+            });
+            if (error) throw error;
+            fetchEvents(); // Refresh to update count and status
+        } catch (err) {
+            alert('Error toggling registration: ' + err.message);
+        }
+    };
+
     const handleLogout = async () => {
         await supabase.auth.signOut();
         navigate('/');
@@ -134,6 +206,8 @@ function Dashboard() {
 
     const canPost = user && ['Detective', 'Coordinador', 'Comisionado', 'Administrador'].includes(user.rol);
     const canPin = user && ['Coordinador', 'Comisionado', 'Administrador'].includes(user.rol);
+    const canCreateEvent = user && ['Detective', 'Coordinador', 'Comisionado', 'Administrador', 'DOJ General', 'Fiscal General', 'Juez', 'Juez Supremo'].includes(user.rol);
+    const canDeleteEvent = user && ['Coordinador', 'Comisionado', 'Administrador', 'Juez Supremo'].includes(user.rol);
 
     if (loading) return <div className="loading-container">Loading Dashboard...</div>;
 
@@ -153,6 +227,11 @@ function Dashboard() {
                     {canPost && (
                         <button className="login-button" style={{ width: 'auto' }} onClick={() => { setEditingId(null); setNewPost({ title: '', content: '', pinned: false }); setShowModal(true); }}>
                             + New Announcement
+                        </button>
+                    )}
+                    {canCreateEvent && (
+                        <button className="login-button" style={{ width: 'auto', backgroundColor: 'var(--accent-purple)' }} onClick={() => setShowEventModal(true)}>
+                            + New Event
                         </button>
                     )}
                 </div>
@@ -212,6 +291,48 @@ function Dashboard() {
                         )}
                     </div>
                 </section>
+
+                {/* Events Section */}
+                <section className="events-section">
+                    <h3 className="section-title">📅 Upcoming Events</h3>
+
+                    <div className="events-list">
+                        {events.length === 0 ? (
+                            <div className="empty-list">No upcoming events scheduled.</div>
+                        ) : (
+                            events.map(ev => (
+                                <div key={ev.id} className="event-card">
+                                    <div className="event-header">
+                                        <h4 className="event-title">{ev.title}</h4>
+                                        <div className="event-date">
+                                            {new Date(ev.event_date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                        </div>
+                                    </div>
+                                    <div className="event-content">{ev.description}</div>
+                                    <div className="event-footer">
+                                        <div className="event-stats">
+                                            👥 {ev.participant_count} participants
+                                        </div>
+                                        <div className="event-actions">
+                                            <button 
+                                                className={`action-btn ${ev.is_participating ? 'danger' : ''}`}
+                                                onClick={() => toggleEventRegistration(ev.id)}
+                                            >
+                                                {ev.is_participating ? 'Leave Event' : 'Join Event'}
+                                            </button>
+             
+                                            {canDeleteEvent && (
+                                                <button onClick={() => handleDeleteEvent(ev.id)} className="icon-btn delete" title="Delete Event">
+                                                    🗑️
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </section>
             </div>
 
             {/* Create/Edit Modal */}
@@ -259,6 +380,55 @@ function Dashboard() {
                                 </button>
                                 <button type="submit" className="login-button" disabled={submitting} style={{ width: 'auto' }}>
                                     {submitting ? 'Saving...' : (editingId ? 'Update Post' : 'Post Announcement')}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Event Create Modal */}
+            {showEventModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content" style={{ maxWidth: '600px', textAlign: 'left' }}>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Schedule New Event</h3>
+                        <form onSubmit={handleSaveEvent}>
+                            <div className="form-group">
+                                <label className="form-label">Event Title</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={newEvent.title}
+                                    onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Description</label>
+                                <textarea
+                                    className="eval-textarea"
+                                    rows="5"
+                                    value={newEvent.description}
+                                    onChange={e => setNewEvent({ ...newEvent, description: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Date and Time</label>
+                                <input
+                                    type="datetime-local"
+                                    className="form-input"
+                                    value={newEvent.event_date}
+                                    onChange={e => setNewEvent({ ...newEvent, event_date: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                                <button type="button" className="login-button btn-secondary" onClick={closeEventModal} style={{ width: 'auto' }}>
+                                    Cancel
+                                </button>
+                                <button type="submit" className="login-button" disabled={submittingEvent} style={{ width: 'auto' }}>
+                                    {submittingEvent ? 'Saving...' : 'Create Event'}
                                 </button>
                             </div>
                         </form>
