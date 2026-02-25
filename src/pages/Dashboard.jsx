@@ -26,6 +26,9 @@ function Dashboard() {
     const [allEvents, setAllEvents] = useState([]);
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
+    // Event Viewer Modal State
+    const [selectedEvent, setSelectedEvent] = useState(null);
+
     useEffect(() => {
         loadDashboardData();
     }, []);
@@ -542,7 +545,7 @@ function Dashboard() {
                                             <div className="day-number">{i}</div>
                                             <div className="day-events">
                                                 {dayEvents.map(ev => (
-                                                    <div key={ev.id} className="day-event-chip" title={ev.title} onClick={() => alert(`Title: ${ev.title}\nDescription: ${ev.description}\nParticipants: ${ev.participant_count}\nParticipating: ${ev.is_participating ? 'Yes' : 'No'}`)}>
+                                                    <div key={ev.id} className="day-event-chip" title={ev.title} onClick={() => setSelectedEvent(ev)}>
                                                         {ev.title}
                                                     </div>
                                                 ))}
@@ -552,6 +555,76 @@ function Dashboard() {
                                 }
                                 return days;
                             })()}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Event Details Viewer Modal */}
+            {selectedEvent && (
+                <div className="cropper-modal-overlay" style={{ zIndex: 3000 }}>
+                    <div className="cropper-modal-content">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '1rem' }}>
+                            <div>
+                                <h3 style={{ color: 'var(--text-primary)', margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>{selectedEvent.title}</h3>
+                                <div style={{ color: 'var(--accent-gold)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    📅 {new Date(selectedEvent.event_date).toLocaleString([], { dateStyle: 'full', timeStyle: 'short' })}
+                                </div>
+                            </div>
+                            <button className="icon-btn delete" onClick={() => setSelectedEvent(null)} style={{ fontSize: '1.2rem' }}>✖</button>
+                        </div>
+                        
+                        <div style={{ textAlign: 'left', marginBottom: '2rem' }}>
+                            <h4 style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Description</h4>
+                            <p style={{ color: 'var(--text-primary)', lineHeight: '1.6', background: 'rgba(0, 0, 0, 0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                {selectedEvent.description}
+                            </p>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.5)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <div className="user-avatar-small" style={{ margin: 0, width: '45px', height: '45px' }}>
+                                    {selectedEvent.author_image ? (
+                                        <img src={selectedEvent.author_image} alt={selectedEvent.author_name} />
+                                    ) : (
+                                        <div className="mini-avatar-placeholder">{selectedEvent.author_name?.charAt(0)}</div>
+                                    )}
+                                </div>
+                                <div style={{ textAlign: 'left' }}>
+                                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Organized by</div>
+                                    <div style={{ color: 'var(--text-primary)', fontWeight: '600' }}>
+                                        {selectedEvent.author_rank} {selectedEvent.author_name}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Participation Status</div>
+                                <div style={{ fontWeight: '600', color: selectedEvent.is_participating ? '#10b981' : 'var(--text-secondary)' }}>
+                                    {selectedEvent.is_participating ? '✓ You are attending' : 'Not attending'}
+                                </div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--accent-gold)', marginTop: '0.25rem' }}>
+                                    👥 {selectedEvent.participant_count} Total Participants
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="cropper-actions" style={{ justifyContent: 'center', marginTop: '2rem' }}>
+                            <button 
+                                className={`login-button ${selectedEvent.is_participating ? 'btn-secondary' : ''}`}
+                                style={{ width: '100%', borderColor: selectedEvent.is_participating ? '#ef4444' : 'var(--accent-gold)', color: selectedEvent.is_participating ? '#ef4444' : 'var(--accent-gold)' }}
+                                onClick={async () => {
+                                    await toggleEventRegistration(selectedEvent.id);
+                                    // Update visual representation immediately
+                                    setSelectedEvent({
+                                        ...selectedEvent, 
+                                        is_participating: !selectedEvent.is_participating,
+                                        participant_count: selectedEvent.is_participating ? parseInt(selectedEvent.participant_count) - 1 : parseInt(selectedEvent.participant_count) + 1
+                                    });
+                                }}
+                            >
+                                {selectedEvent.is_participating ? 'LEAVE EVENT' : 'JOIN THIS EVENT'}
+                            </button>
                         </div>
                     </div>
                 </div>
