@@ -354,10 +354,10 @@ function Dashboard() {
 
                 {/* Events Section */}
                 <section className="events-section">
-                    <div className="section-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '2px solid rgba(255, 255, 255, 0.1)', paddingBottom: '0.5rem' }}>
+                    <div className="section-header-row">
                         <h3 className="section-title" style={{ borderBottom: 'none', margin: 0, padding: 0 }}>📅 Upcoming Events</h3>
-                        <button className="action-btn" style={{ width: 'auto', padding: '0.4rem 0.8rem' }} onClick={handleOpenCalendar}>
-                            🗓️ Full Calendar
+                        <button className="view-calendar-btn" onClick={handleOpenCalendar}>
+                            <span className="calendar-icon">🗓️</span> Full Calendar
                         </button>
                     </div>
 
@@ -519,7 +519,7 @@ function Dashboard() {
                         </div>
 
                         <div className="calendar-grid">
-                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
                                 <div key={day} className="calendar-day-header">{day}</div>
                             ))}
                             
@@ -527,7 +527,13 @@ function Dashboard() {
                             {(() => {
                                 const year = currentMonth.getFullYear();
                                 const month = currentMonth.getMonth();
-                                const firstDay = new Date(year, month, 1).getDay();
+                                
+                                // Get first day of month (0 = Sunday, 1 = Monday ...)
+                                let firstDay = new Date(year, month, 1).getDay();
+                                
+                                // Convert to European formatting (0 = Monday, ..., 6 = Sunday)
+                                firstDay = firstDay === 0 ? 6 : firstDay - 1;
+                                
                                 const daysInMonth = new Date(year, month + 1, 0).getDate();
                                 
                                 const days = [];
