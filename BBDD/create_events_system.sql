@@ -87,7 +87,7 @@ BEGIN
         (SELECT COUNT(*) FROM event_participants ep WHERE ep.event_id = e.id) AS participant_count,
         EXISTS (SELECT 1 FROM event_participants ep WHERE ep.event_id = e.id AND ep.user_id = p_user_id) AS is_participating,
         u.nombre || ' ' || u.apellido AS author_name,
-        u.rango AS author_rank,
+        u.rango::text AS author_rank,
         u.profile_image AS author_image
     FROM events e
     LEFT JOIN users u ON e.created_by = u.id
