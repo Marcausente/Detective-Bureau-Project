@@ -125,11 +125,11 @@ export const dtpService = {
     return data;
   },
 
-  // Register a user for an event
-  async registerAttendee(eventId, userId) {
+  // Register a user for an event (either as attendee or organizer)
+  async registerAttendee(eventId, userId, isOrganizer = false) {
     const { data, error } = await supabase
       .from('dtp_event_attendees')
-      .insert([{ event_id: eventId, user_id: userId, status: 'REGISTERED' }])
+      .insert([{ event_id: eventId, user_id: userId, status: 'REGISTERED', is_organizer: isOrganizer }])
       .select()
       .single();
     

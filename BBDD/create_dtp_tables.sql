@@ -16,6 +16,7 @@ CREATE TABLE dtp_events (
     organizer_id UUID REFERENCES users(id) ON DELETE SET NULL,
     status TEXT DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED', 'COMPLETED', 'CANCELLED')),
     notes TEXT,
+    extra_personnel TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -25,6 +26,7 @@ CREATE TABLE dtp_event_attendees (
     event_id UUID REFERENCES dtp_events(id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     status TEXT DEFAULT 'REGISTERED' CHECK (status IN ('REGISTERED', 'ATTENDED', 'ABSENT')),
+    is_organizer BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(event_id, user_id) -- Un agente solo puede registrarse una vez por evento
 );

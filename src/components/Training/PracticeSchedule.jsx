@@ -21,7 +21,10 @@ function PracticeSchedule() {
         event_date: '',
         event_time: '',
         organizer_id: '',
-        notes: ''
+        notes: '',
+        extra_personnel: '',
+        selectedInstructors: [],
+        selectedAspirants: []
     });
 
     useEffect(() => {
@@ -113,7 +116,7 @@ function PracticeSchedule() {
         setError(null);
         
         if (!formData.practice_id || !formData.event_date || !formData.event_time || !formData.organizer_id) {
-            setError('Por favor, rellena todos los campos obligatorios.');
+            setError('Por favor, rellena los campos obligatorios (*).');
             return;
         }
 
@@ -124,11 +127,25 @@ function PracticeSchedule() {
                 event_date: new Date(combinedDateTime).toISOString(),
                 organizer_id: formData.organizer_id,
                 status: 'SCHEDULED',
-                notes: formData.notes
+                notes: formData.notes,
+                extra_personnel: formData.extra_personnel
             };
             
-            await dtpService.createEvent(newEvent);
-            setSuccessMessage('Práctica programada con éxito.');
+            const createdEvent = await dtpService.createEvent(newEvent);
+            
+            // Register selected instructors as organizers
+            const instructorPromises = formData.selectedInstructors.map(id => 
+                dtpService.registerAttendee(createdEvent.id, id, true)
+            );
+            
+            // Register selected aspirants
+            const aspirantPromises = formData.selectedAspirants.map(id => 
+                dtpService.registerAttendee(createdEvent.id, id, false)
+            );
+            
+            await Promise.all([...instructorPromises, ...aspirantPromises]);
+            
+            setSuccessMessage('Práctica e inscripciones programadas con éxito.');
             
             setTimeout(() => {
                 setSuccessMessage(null);
@@ -146,7 +163,12 @@ function PracticeSchedule() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleRegisterToggle = async (eventId, isRegistered) => {
+    const handleMultiSelectChange = (e, field) => {
+        const value = Array.from(e.target.selectedOptions, option => option.value);
+        setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleRegisterToggle = async (eventId, isRegistered, asOrganizer = false) => {
         if (!currentUser) return;
         
         setLoading(true);
@@ -155,8 +177,8 @@ function PracticeSchedule() {
                 await dtpService.removeAttendee(eventId, currentUser.id);
                 setSuccessMessage('Te has dado de baja de la práctica.');
             } else {
-                await dtpService.registerAttendee(eventId, currentUser.id);
-                setSuccessMessage('Te has apuntado a la práctica.');
+                await dtpService.registerAttendee(eventId, currentUser.id, asOrganizer);
+                setSuccessMessage(asOrganizer ? 'Te has apuntado como Instructor/Organizador.' : 'Te has apuntado como Praticante.');
             }
             
             setTimeout(() => setSuccessMessage(null), 2000);
@@ -208,6 +230,9 @@ function PracticeSchedule() {
     const isUserOrganizer = (userId) => {
       return currentUser && currentUser.id === userId;
     };
+
+    const detectives = users.filter(u => ['detective', 'admin', 'superadmin'].includes(u.rol?.toLowerCase()) || (u.rango && u.rango.toLowerCase().includes('detective')));
+    const ayudantes = users.filter(u => u.rol?.toLowerCase() === 'ayudante' || (u.rango && u.rango.toLowerCase().includes('ayudante')) || (u.rango && u.rango.toLowerCase().includes('aspirante')));
 
     return (
         <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
@@ -359,11 +384,57 @@ function PracticeSchedule() {
                                 onChange={handleFormChange}
                                 required
                             >
-                                <option value="" disabled style={{ color: '#718096' }}>-- Selecciona el Agente a Cargo --</option>
-                                {users.map(u => (
+                                <option value="" disabled style={{ color: '#718096' }}>-- Selecciona un Detective --</option>
+                                {detectives.map(u => (
                                     <option key={u.id} value={u.id} style={{ background: '#1a1d24', color: 'white' }}>{u.rango} {u.nombre} {u.apellido} - Placa {u.no_placa}</option>
                                 ))}
                             </select>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                            <div className="dtp-input-group" style={{ marginBottom: 0 }}>
+                                <label className="dtp-label">Instructores Asistentes (Detectives)</label>
+                                <div style={{ fontSize: '0.8rem', color: '#a0aec0', marginBottom: '0.5rem' }}>Mantén Ctrl/Cmd para seleccionar varios</div>
+                                <select
+                                    multiple
+                                    className="dtp-input"
+                                    style={{ height: '120px', padding: '0.5rem' }}
+                                    value={formData.selectedInstructors}
+                                    onChange={(e) => handleMultiSelectChange(e, 'selectedInstructors')}
+                                >
+                                    {detectives.map(u => (
+                                        <option key={u.id} value={u.id} style={{ background: '#1a1d24', color: 'white', padding: '0.3rem' }}>{u.rango} {u.nombre} {u.apellido}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="dtp-input-group" style={{ marginBottom: 0 }}>
+                                <label className="dtp-label">Aspirantes Asistentes (Ayudantes)</label>
+                                <div style={{ fontSize: '0.8rem', color: '#a0aec0', marginBottom: '0.5rem' }}>Mantén Ctrl/Cmd para seleccionar varios</div>
+                                <select
+                                    multiple
+                                    className="dtp-input"
+                                    style={{ height: '120px', padding: '0.5rem' }}
+                                    value={formData.selectedAspirants}
+                                    onChange={(e) => handleMultiSelectChange(e, 'selectedAspirants')}
+                                >
+                                    {ayudantes.map(u => (
+                                        <option key={u.id} value={u.id} style={{ background: '#1a1d24', color: 'white', padding: '0.3rem' }}>{u.rango} {u.nombre} {u.apellido}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="dtp-input-group">
+                            <label className="dtp-label">Personal Extra Asistente (Opcional)</label>
+                            <input
+                                type="text"
+                                className="dtp-input"
+                                name="extra_personnel"
+                                value={formData.extra_personnel}
+                                onChange={handleFormChange}
+                                placeholder="Ej: John Doe, Jane Doe"
+                            />
                         </div>
                         
                         <div className="dtp-input-group">
@@ -374,7 +445,7 @@ function PracticeSchedule() {
                                 name="notes"
                                 value={formData.notes}
                                 onChange={handleFormChange}
-                                placeholder="Ej: Cantera, Requisito tener Radio TS, Equipamiento completo..."
+                                placeholder="Ej: Comisaría de Mission Row, Uniforme ordinario..."
                             />
                         </div>
 
@@ -436,6 +507,13 @@ function PracticeSchedule() {
                                         <span style={{ color: '#e2e8f0', lineHeight: '1.6' }}>{selectedEvent.notes}</span>
                                     </div>
                                 )}
+                                
+                                {selectedEvent.extra_personnel && (
+                                    <div style={{ marginTop: '1.5rem', padding: '1.2rem', backgroundColor: 'rgba(237, 137, 54, 0.1)', borderRadius: '12px', borderLeft: '4px solid #ed8936' }}>
+                                        <strong style={{ color: '#ffffff', display: 'block', marginBottom: '0.5rem' }}>Personal Extra Asistente:</strong>
+                                        <span style={{ color: '#fbd38d', lineHeight: '1.6' }}>{selectedEvent.extra_personnel}</span>
+                                    </div>
+                                )}
                             </div>
                             
                             <div style={{ marginBottom: '2.5rem' }}>
@@ -482,7 +560,7 @@ function PracticeSchedule() {
 
                         {/* Attendees Column */}
                         <div style={{ background: 'rgba(0,0,0,0.3)', padding: '2rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
                                 <div>
                                     <h4 style={{ margin: 0, color: '#ffffff', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                         <svg width="22" height="22" fill="none" stroke="#48bb78" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
@@ -492,13 +570,36 @@ function PracticeSchedule() {
                                 </div>
                                 
                                 {isUpcoming(selectedEvent.event_date) && (
-                                    <button 
-                                        className={isUserRegistered(selectedEvent) ? 'dtp-btn-danger' : 'dtp-btn-primary'}
-                                        onClick={() => handleRegisterToggle(selectedEvent.id, isUserRegistered(selectedEvent))}
-                                        style={{ padding: '0.6rem 1.2rem' }}
-                                    >
-                                        {isUserRegistered(selectedEvent) ? 'Retirarme' : 'Registrar Mi Asistencia'}
-                                    </button>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
+                                        {isUserRegistered(selectedEvent) ? (
+                                            <button 
+                                                className="dtp-btn-danger"
+                                                onClick={() => handleRegisterToggle(selectedEvent.id, true)}
+                                                style={{ padding: '0.6rem 1.2rem' }}
+                                            >
+                                                Retirarme
+                                            </button>
+                                        ) : (
+                                            <>
+                                                <button 
+                                                    className="dtp-btn-primary"
+                                                    onClick={() => handleRegisterToggle(selectedEvent.id, false, false)}
+                                                    style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+                                                >
+                                                    Asistir como Agente
+                                                </button>
+                                                {(currentUser?.rol === 'detective' || currentUser?.rol === 'admin' || currentUser?.rol === 'superadmin') && (
+                                                    <button 
+                                                        className="dtp-btn-secondary"
+                                                        onClick={() => handleRegisterToggle(selectedEvent.id, false, true)}
+                                                        style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', borderColor: '#ed8936', color: '#fbd38d' }}
+                                                    >
+                                                        Gestionar Práctica
+                                                    </button>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
                                 )}
                             </div>
 
@@ -510,47 +611,109 @@ function PracticeSchedule() {
                                     <p>Aún no hay agentes apuntados a esta práctica.</p>
                                 </div>
                             ) : (
-                                <div style={{ overflowX: 'auto', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <table className="dtp-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Agente</th>
-                                                <th>Estado</th>
-                                                {isUserOrganizer(selectedEvent.organizer_id) && <th style={{ textAlign: 'right' }}>Acción</th>}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {attendees.map(a => (
-                                                <tr key={a.id}>
-                                                    <td style={{ fontWeight: 500 }}>
-                                                        {a.user ? `${a.user.rango} ${a.user.apellido}` : 'Agente Autorizado'}
-                                                    </td>
-                                                    <td>
-                                                        <span className={`dtp-status-badge ${
-                                                            a.status === 'ATTENDED' ? 'dtp-status-attended' : 
-                                                            a.status === 'ABSENT' ? 'dtp-status-absent' : 'dtp-status-registered'
-                                                        }`}>
-                                                            {a.status === 'REGISTERED' ? 'Apuntado' : a.status === 'ATTENDED' ? 'Asistió' : 'Faltó'}
-                                                        </span>
-                                                    </td>
-                                                    {isUserOrganizer(selectedEvent.organizer_id) && (
-                                                        <td style={{ textAlign: 'right' }}>
-                                                            <select
-                                                                value={a.status}
-                                                                onChange={(e) => handleUpdateAttendeeStatus(a.id, e.target.value)}
-                                                                className="dtp-input"
-                                                                style={{ padding: '0.4rem 0.8rem', width: 'auto', display: 'inline-block' }}
-                                                            >
-                                                                <option value="REGISTERED">Apuntado</option>
-                                                                <option value="ATTENDED">Asistió</option>
-                                                                <option value="ABSENT">Faltó</option>
-                                                            </select>
-                                                        </td>
-                                                    )}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                    
+                                    {/* Tabla de Instructores / Organizadores Secundarios */}
+                                    {attendees.filter(a => a.is_organizer).length > 0 && (
+                                        <div>
+                                            <h5 style={{ color: '#ed8936', margin: '0 0 0.8rem 0', fontSize: '1rem', borderBottom: '1px solid rgba(237, 137, 54, 0.3)', paddingBottom: '0.3rem' }}>
+                                                Instructores y Gestión
+                                            </h5>
+                                            <div style={{ overflowX: 'auto', background: 'rgba(237, 137, 54, 0.05)', borderRadius: '8px', border: '1px solid rgba(237, 137, 54, 0.2)' }}>
+                                                <table className="dtp-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Instructor</th>
+                                                            <th>Estado</th>
+                                                            {isUserOrganizer(selectedEvent.organizer_id) && <th style={{ textAlign: 'right' }}>Acción</th>}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {attendees.filter(a => a.is_organizer).map(a => (
+                                                            <tr key={a.id}>
+                                                                <td style={{ fontWeight: 500, color: '#fbd38d' }}>
+                                                                    {a.user ? `${a.user.rango} ${a.user.apellido}` : 'Instructor Desconocido'}
+                                                                </td>
+                                                                <td>
+                                                                    <span className={`dtp-status-badge ${
+                                                                        a.status === 'ATTENDED' ? 'dtp-status-attended' : 
+                                                                        a.status === 'ABSENT' ? 'dtp-status-absent' : 'dtp-status-registered'
+                                                                    }`}>
+                                                                        {a.status === 'REGISTERED' ? 'Apuntado' : a.status === 'ATTENDED' ? 'Asistió' : 'Faltó'}
+                                                                    </span>
+                                                                </td>
+                                                                {isUserOrganizer(selectedEvent.organizer_id) && (
+                                                                    <td style={{ textAlign: 'right' }}>
+                                                                        <select
+                                                                            value={a.status}
+                                                                            onChange={(e) => handleUpdateAttendeeStatus(a.id, e.target.value)}
+                                                                            className="dtp-input"
+                                                                            style={{ padding: '0.3rem 0.6rem', width: 'auto', display: 'inline-block', fontSize: '0.85rem' }}
+                                                                        >
+                                                                            <option value="REGISTERED">Apuntado</option>
+                                                                            <option value="ATTENDED">Asistió</option>
+                                                                            <option value="ABSENT">Faltó</option>
+                                                                        </select>
+                                                                    </td>
+                                                                )}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Tabla de Agentes Registrados */}
+                                    {attendees.filter(a => !a.is_organizer).length > 0 && (
+                                        <div>
+                                            <h5 style={{ color: '#63b3ed', margin: '0 0 0.8rem 0', fontSize: '1rem', borderBottom: '1px solid rgba(99, 179, 237, 0.3)', paddingBottom: '0.3rem' }}>
+                                                Agentes Participantes
+                                            </h5>
+                                            <div style={{ overflowX: 'auto', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <table className="dtp-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Agente</th>
+                                                            <th>Estado</th>
+                                                            {(isUserOrganizer(selectedEvent.organizer_id) || currentUser?.rol === 'detective') && <th style={{ textAlign: 'right' }}>Acción</th>}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {attendees.filter(a => !a.is_organizer).map(a => (
+                                                            <tr key={a.id}>
+                                                                <td style={{ fontWeight: 500 }}>
+                                                                    {a.user ? `${a.user.rango} ${a.user.apellido}` : 'Agente Autorizado'}
+                                                                </td>
+                                                                <td>
+                                                                    <span className={`dtp-status-badge ${
+                                                                        a.status === 'ATTENDED' ? 'dtp-status-attended' : 
+                                                                        a.status === 'ABSENT' ? 'dtp-status-absent' : 'dtp-status-registered'
+                                                                    }`}>
+                                                                        {a.status === 'REGISTERED' ? 'Apuntado' : a.status === 'ATTENDED' ? 'Asistió' : 'Faltó'}
+                                                                    </span>
+                                                                </td>
+                                                                {(isUserOrganizer(selectedEvent.organizer_id) || currentUser?.rol === 'detective') && (
+                                                                    <td style={{ textAlign: 'right' }}>
+                                                                        <select
+                                                                            value={a.status}
+                                                                            onChange={(e) => handleUpdateAttendeeStatus(a.id, e.target.value)}
+                                                                            className="dtp-input"
+                                                                            style={{ padding: '0.3rem 0.6rem', width: 'auto', display: 'inline-block', fontSize: '0.85rem' }}
+                                                                        >
+                                                                            <option value="REGISTERED">Apuntado</option>
+                                                                            <option value="ATTENDED">Asistió</option>
+                                                                            <option value="ABSENT">Faltó</option>
+                                                                        </select>
+                                                                    </td>
+                                                                )}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
