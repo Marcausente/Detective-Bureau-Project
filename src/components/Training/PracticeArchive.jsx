@@ -90,12 +90,19 @@ function PracticeArchive() {
             return;
         }
 
+        // Si el usuario escribió un enlace pero olvidó darle a "+ Añadir Link", lo añadimos automáticamente
+        let finalUrls = [...documentUrls];
+        if (formData.documentUrl && formData.documentUrl.trim() !== '') {
+            finalUrls.push(formData.documentUrl.trim());
+        }
+
         try {
             const practiceData = {
                 title: formData.title,
                 description: formData.description,
-                documents_urls: documentUrls
+                documents_urls: finalUrls
             };
+
             
             if (viewMode === 'create') {
                 await dtpService.createPractice(practiceData);
@@ -240,6 +247,12 @@ function PracticeArchive() {
                                     name="documentUrl"
                                     value={formData.documentUrl}
                                     onChange={handleInputChange}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleAddUrl();
+                                        }
+                                    }}
                                     placeholder="https://docs.google.com/..."
                                 />
                                 <button type="button" onClick={handleAddUrl} className="dtp-btn-secondary" style={{ whiteSpace: 'nowrap' }}>
