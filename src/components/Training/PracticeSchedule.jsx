@@ -31,6 +31,14 @@ function PracticeSchedule() {
         extra_personnel: ''
     });
 
+    const [isEditingEvent, setIsEditingEvent] = useState(false);
+    const [editEventData, setEditEventData] = useState({
+        event_date: '',
+        event_time: '',
+        organizer_id: '',
+        notes: ''
+    });
+
     useEffect(() => {
         const fetchInitialData = async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -103,18 +111,30 @@ function PracticeSchedule() {
                 selectedAspirants: [],
                 extra_personnel: event.extra_personnel || ''
             });
+
+            // Prepare edit data just in case they click Edit
+            const eventDateObj = new Date(event.event_date);
+            setEditEventData({
+                event_date: eventDateObj.toISOString().split('T')[0],
+                event_time: eventDateObj.toTimeString().substring(0, 5),
+                organizer_id: event.organizer_id,
+                notes: event.notes || ''
+            });
+            setIsEditingEvent(false);
+
             await loadAttendees(eventId);
             setViewMode('details');
         } else if (action === 'delete') {
-            if (window.confirm('¿Seguro que deseas cancelar/eliminar este evento?')) {
+            if (window.confirm('¿Seguro que deseas cancelar este evento? Se moverá al historial como CANCELADO.')) {
                 try {
-                    await dtpService.deleteEvent(eventId);
-                    setSuccessMessage('Evento eliminado con éxito.');
+                    await dtpService.updateEvent(eventId, { status: 'CANCELLED' });
+                    setSuccessMessage('Evento cancelado con éxito.');
                     setTimeout(() => setSuccessMessage(null), 3000);
+                    if (viewMode === 'details') setViewMode('list');
                     loadEvents();
                 } catch (err) {
-                    console.error('Error deleting event:', err);
-                    setError('Error al eliminar evento.');
+                    console.error('Error cancelling event:', err);
+                    setError('Error al cancelar evento.');
                 }
             }
         }
@@ -164,6 +184,45 @@ function PracticeSchedule() {
     const handleFormChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleEditEventChange = (e) => {
+        const { name, value } = e.target;
+        setEditEventData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSaveEventEdit = async () => {
+        if (!editEventData.event_date || !editEventData.event_time || !editEventData.organizer_id) {
+            setError('Faltan campos obligatorios.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const combinedDateTime = `${editEventData.event_date}T${editEventData.event_time}:00`;
+            const updates = {
+                event_date: new Date(combinedDateTime).toISOString(),
+                organizer_id: editEventData.organizer_id,
+                notes: editEventData.notes
+            };
+
+            await dtpService.updateEvent(selectedEvent.id, updates);
+            setSuccessMessage('Práctica actualizada con éxito.');
+            setTimeout(() => setSuccessMessage(null), 2000);
+            
+            setIsEditingEvent(false);
+            const refreshData = await dtpService.getEvents();
+            setEvents(refreshData);
+            
+            const updated = refreshData.find(e => e.id === selectedEvent.id);
+            if(updated) setSelectedEvent(updated);
+
+        } catch (err) {
+            console.error(err);
+            setError('Error al actualizar la práctica.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleCreateToggleInstructor = (id) => {
@@ -279,12 +338,13 @@ function PracticeSchedule() {
         return d.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     };
 
-    const isUpcoming = (dateString) => {
+    const isUpcoming = (dateString, status) => {
+        if (status === 'CANCELLED') return false; // Canceladas siempre van al historial
         return new Date(dateString) > new Date();
     };
 
-    const upcomingEvents = events.filter(e => isUpcoming(e.event_date));
-    const pastEvents = events.filter(e => !isUpcoming(e.event_date));
+    const upcomingEvents = events.filter(e => isUpcoming(e.event_date, e.status));
+    const pastEvents = events.filter(e => !isUpcoming(e.event_date, e.status));
 
     const isUserRegistered = (event) => {
         return attendees.some(a => a.user_id === currentUser?.id && a.event_id === event.id);
@@ -369,7 +429,7 @@ function PracticeSchedule() {
                                                 <h4 style={{ margin: '0 0 0.5rem 0', color: '#e2e8f0', fontSize: '1.1rem' }}>{event.practice?.title || 'Práctica Desconocida'}</h4>
                                                 <div style={{ color: '#a0aec0', fontSize: '0.9rem', marginBottom: '0.8rem' }}>
                                                     <div style={{ marginBottom: '0.2rem' }}>{formatDate(event.event_date, 'short')}</div>
-                                                    <div>Status: <span style={{ color: event.status === 'COMPLETED' ? '#48bb78' : '#e2e8f0' }}>{event.status}</span></div>
+                                                    <div>Status: <span style={{ color: event.status === 'COMPLETED' ? '#48bb78' : event.status === 'CANCELLED' ? '#fc8181' : '#e2e8f0', fontWeight: event.status === 'CANCELLED' ? 'bold' : 'normal' }}>{event.status}</span></div>
                                                     <div style={{ marginTop: '0.2rem' }}>Instructor: {event.organizer?.apellido || 'N/A'}</div>
                                                 </div>
                                                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -509,7 +569,11 @@ function PracticeSchedule() {
                         <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.8rem' }}>
                                 <h2 style={{ margin: 0, color: '#e2e8f0', fontSize: '2rem', fontWeight: 700 }}>{selectedEvent.practice?.title}</h2>
-                                {!isUpcoming(selectedEvent.event_date) && (
+                                {selectedEvent.status === 'CANCELLED' ? (
+                                    <span className="dtp-status-badge" style={{ background: 'rgba(229, 62, 62, 0.1)', color: '#fc8181', border: '1px solid rgba(229, 62, 62, 0.3)' }}>
+                                        CANCELADO
+                                    </span>
+                                ) : !isUpcoming(selectedEvent.event_date, selectedEvent.status) && (
                                     <span className="dtp-status-badge" style={{ background: 'rgba(255,255,255,0.1)', color: '#a0aec0', border: '1px solid rgba(255,255,255,0.2)' }}>
                                         FINALIZADO
                                     </span>
@@ -521,10 +585,21 @@ function PracticeSchedule() {
                             </p>
                         </div>
                         <div style={{ display: 'flex', gap: '0.8rem' }}>
-                            {isUserOrganizer(selectedEvent.organizer_id) && isUpcoming(selectedEvent.event_date) && (
-                                <button className="dtp-btn-danger" onClick={() => handleActionClick('delete', selectedEvent.id)}>
-                                    Cancelar Evento
-                                </button>
+                            {isUserOrganizer(selectedEvent.organizer_id) && isUpcoming(selectedEvent.event_date, selectedEvent.status) && (
+                                <>
+                                    {!isEditingEvent ? (
+                                        <button className="dtp-btn-secondary" onClick={() => setIsEditingEvent(true)} style={{ borderColor: '#63b3ed', color: '#90cdf4' }}>
+                                            Editar Datos
+                                        </button>
+                                    ) : (
+                                        <button className="dtp-btn-secondary" onClick={() => setIsEditingEvent(false)}>
+                                            Cancelar Edición
+                                        </button>
+                                    )}
+                                    <button className="dtp-btn-danger" onClick={() => handleActionClick('delete', selectedEvent.id)}>
+                                        Cancelar Evento
+                                    </button>
+                                </>
                             )}
                             <button className="dtp-btn-secondary" onClick={() => setViewMode('list')}>
                                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{marginRight: '6px'}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -536,51 +611,88 @@ function PracticeSchedule() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
                         {/* Info Column */}
                         <div>
-                            <div style={{ marginBottom: '2.5rem' }}>
-                                <h4 style={{ color: '#ffffff', marginBottom: '1rem', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <svg width="22" height="22" fill="none" stroke="#63b3ed" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                    Información de la Práctica
-                                </h4>
-                                <p style={{ color: '#a0aec0', fontSize: '1rem', lineHeight: '1.7', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                    {selectedEvent.practice?.description || 'Esta práctica no posee descripción detallada en su plantilla original.'}
-                                </p>
-                                
-                                {selectedEvent.notes && (
-                                    <div style={{ marginTop: '1.5rem', padding: '1.2rem', backgroundColor: 'rgba(99, 179, 237, 0.1)', borderRadius: '12px', borderLeft: '4px solid #63b3ed' }}>
-                                        <strong style={{ color: '#ffffff', display: 'block', marginBottom: '0.5rem' }}>Notas del Instructor:</strong>
-                                        <span style={{ color: '#e2e8f0', lineHeight: '1.6' }}>{selectedEvent.notes}</span>
-                                    </div>
-                                )}
-                                
-                                {selectedEvent.extra_personnel && (
-                                    <div style={{ marginTop: '1.5rem', padding: '1.2rem', backgroundColor: 'rgba(237, 137, 54, 0.1)', borderRadius: '12px', borderLeft: '4px solid #ed8936' }}>
-                                        <strong style={{ color: '#ffffff', display: 'block', marginBottom: '0.5rem' }}>Personal Extra Asistente:</strong>
-                                        <span style={{ color: '#fbd38d', lineHeight: '1.6' }}>{selectedEvent.extra_personnel}</span>
-                                    </div>
-                                )}
-                            </div>
-                            
-                            <div style={{ marginBottom: '2.5rem' }}>
-                                <h4 style={{ color: '#ffffff', marginBottom: '1rem', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <svg width="22" height="22" fill="none" stroke="#ed8936" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                                    Instructor a Cargo
-                                </h4>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', background: 'linear-gradient(145deg, rgba(26,32,44,0.8) 0%, rgba(20,24,34,0.8) 100%)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-                                    <div style={{ fontSize: '2.5rem', background: 'rgba(255,255,255,0.1)', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
-                                        👮
-                                    </div>
-                                    <div>
-                                        <div style={{ fontWeight: '700', color: '#ffffff', fontSize: '1.2rem', marginBottom: '0.2rem' }}>
-                                            {selectedEvent.organizer ? `${selectedEvent.organizer.rango} ${selectedEvent.organizer.nombre} ${selectedEvent.organizer.apellido}` : 'Instructor Desconocido'}
+                            {isEditingEvent ? (
+                                <div style={{ marginBottom: '2.5rem', background: 'rgba(0,0,0,0.3)', padding: '1.5rem', borderRadius: '12px', border: '1px solid #63b3ed' }}>
+                                    <h4 style={{ color: '#90cdf4', marginBottom: '1.5rem', fontSize: '1.1rem' }}>Editando Detalles del Evento</h4>
+                                    
+                                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                                        <div className="dtp-input-group" style={{ flex: 1, marginBottom: 0 }}>
+                                            <label className="dtp-label">Fecha</label>
+                                            <input type="date" className="dtp-input" name="event_date" value={editEventData.event_date} onChange={handleEditEventChange} required />
                                         </div>
-                                        <div style={{ fontSize: '0.9rem', color: '#a0aec0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <span style={{ background: 'rgba(237, 137, 54, 0.2)', color: '#fbd38d', padding: '0.1rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
-                                                PLACA {selectedEvent.organizer?.no_placa || 'N/A'}
-                                            </span>
+                                        <div className="dtp-input-group" style={{ flex: 1, marginBottom: 0 }}>
+                                            <label className="dtp-label">Hora</label>
+                                            <input type="time" className="dtp-input" name="event_time" value={editEventData.event_time} onChange={handleEditEventChange} required />
                                         </div>
                                     </div>
+                                    
+                                    <div className="dtp-input-group" style={{ marginBottom: '1rem' }}>
+                                        <label className="dtp-label">Instructor a Cargo</label>
+                                        <select className="dtp-input" name="organizer_id" value={editEventData.organizer_id} onChange={handleEditEventChange} required>
+                                            {detectives.map(u => (
+                                                <option key={u.id} value={u.id} style={{ background: '#1a1d24' }}>{u.rango} {u.apellido}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="dtp-input-group" style={{ marginBottom: '1.5rem' }}>
+                                        <label className="dtp-label">Notas / Lugar de Reunión</label>
+                                        <input type="text" className="dtp-input" name="notes" value={editEventData.notes} onChange={handleEditEventChange} />
+                                    </div>
+
+                                    <button className="dtp-btn-primary" onClick={handleSaveEventEdit} disabled={loading} style={{ width: '100%' }}>
+                                        Guardar Cambios
+                                    </button>
                                 </div>
-                            </div>
+                            ) : (
+                                <>
+                                    <div style={{ marginBottom: '2.5rem' }}>
+                                        <h4 style={{ color: '#ffffff', marginBottom: '1rem', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <svg width="22" height="22" fill="none" stroke="#63b3ed" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            Información de la Práctica
+                                        </h4>
+                                        <p style={{ color: '#a0aec0', fontSize: '1rem', lineHeight: '1.7', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                            {selectedEvent.practice?.description || 'Esta práctica no posee descripción detallada en su plantilla original.'}
+                                        </p>
+                                        
+                                        {selectedEvent.notes && (
+                                            <div style={{ marginTop: '1.5rem', padding: '1.2rem', backgroundColor: 'rgba(99, 179, 237, 0.1)', borderRadius: '12px', borderLeft: '4px solid #63b3ed' }}>
+                                                <strong style={{ color: '#ffffff', display: 'block', marginBottom: '0.5rem' }}>Notas del Instructor:</strong>
+                                                <span style={{ color: '#e2e8f0', lineHeight: '1.6' }}>{selectedEvent.notes}</span>
+                                            </div>
+                                        )}
+                                        
+                                        {selectedEvent.extra_personnel && (
+                                            <div style={{ marginTop: '1.5rem', padding: '1.2rem', backgroundColor: 'rgba(237, 137, 54, 0.1)', borderRadius: '12px', borderLeft: '4px solid #ed8936' }}>
+                                                <strong style={{ color: '#ffffff', display: 'block', marginBottom: '0.5rem' }}>Personal Extra Asistente:</strong>
+                                                <span style={{ color: '#fbd38d', lineHeight: '1.6' }}>{selectedEvent.extra_personnel}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    <div style={{ marginBottom: '2.5rem' }}>
+                                        <h4 style={{ color: '#ffffff', marginBottom: '1rem', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <svg width="22" height="22" fill="none" stroke="#ed8936" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                                            Instructor a Cargo
+                                        </h4>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', background: 'linear-gradient(145deg, rgba(26,32,44,0.8) 0%, rgba(20,24,34,0.8) 100%)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+                                            <div style={{ fontSize: '2.5rem', background: 'rgba(255,255,255,0.1)', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                                                👮
+                                            </div>
+                                            <div>
+                                                <div style={{ fontWeight: '700', color: '#ffffff', fontSize: '1.2rem', marginBottom: '0.2rem' }}>
+                                                    {selectedEvent.organizer ? `${selectedEvent.organizer.rango} ${selectedEvent.organizer.nombre} ${selectedEvent.organizer.apellido}` : 'Instructor Desconocido'}
+                                                </div>
+                                                <div style={{ fontSize: '0.9rem', color: '#a0aec0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <span style={{ background: 'rgba(237, 137, 54, 0.2)', color: '#fbd38d', padding: '0.1rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
+                                                        PLACA {selectedEvent.organizer?.no_placa || 'N/A'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                             
                             {selectedEvent.practice?.documents_urls && selectedEvent.practice.documents_urls.length > 0 && (
                                 <div>
@@ -613,7 +725,7 @@ function PracticeSchedule() {
                                     <p style={{ margin: '0.5rem 0 0 0', color: '#a0aec0', fontSize: '0.9rem' }}>{attendees.length} agentes confirmados</p>
                                 </div>
                                 
-                                {isUpcoming(selectedEvent.event_date) && (
+                                {isUpcoming(selectedEvent.event_date, selectedEvent.status) && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
                                         {isUserRegistered(selectedEvent) ? (
                                             <button 
