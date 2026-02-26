@@ -69,7 +69,7 @@ function MainLayout() {
         { name: 'Crime Map', path: '/crimemap', divisions: ['Detective Bureau'] },
         { name: 'Judicial Orders', path: '/warrants', divisions: ['Detective Bureau'] },
         { name: 'Interrogations', path: '/interrogations', divisions: ['Detective Bureau'] },
-        { name: 'Detective Training Program', path: '/training', divisions: ['Detective Bureau'] },
+        { name: 'Detective Training Program', path: '/training', divisions: ['Detective Bureau'], roles: ['detective', 'coordinador'] },
         { name: 'Personnel', path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ'] },
         { name: 'Internal Affairs', path: '/internal-affairs', divisions: ['Internal Affairs'] },
         { name: 'Department of Justice', path: '/doj', divisions: ['DOJ'] },
@@ -78,9 +78,17 @@ function MainLayout() {
     const navItems = allNavItems.filter(item => {
         if (!profile) return false;
         // Administrator Bypass
-        if (profile.rol === 'Administrador') return true;
+        if (profile.rol === 'Administrador' || profile.rol === 'superadmin') return true;
 
         if (!profile.divisions) return false;
+        
+        // Filter by role if the item specifies exact roles
+        if (item.roles) {
+            const userRole = profile.rol ? profile.rol.toLowerCase() : '';
+            const hasRole = item.roles.some(r => r.toLowerCase() === userRole);
+            if (!hasRole) return false;
+        }
+
         // Check if user has AT LEAST ONE of the required divisions for this item
         return item.divisions.some(div => profile.divisions.includes(div));
     });
