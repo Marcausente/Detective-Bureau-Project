@@ -119,10 +119,13 @@ function Cases() {
 
     return (
         <div className="documentation-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
-            <div className="doc-header" style={{ marginBottom: '2rem' }}>
-                <h2 className="page-title">MAJOR CRIMES DIVISION</h2>
+            <div className="doc-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                    <img src="/mcd.png" alt="MCD Logo" style={{ height: '70px', width: 'auto', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }} />
+                    <h2 className="page-title" style={{ margin: 0 }}>MAJOR CRIMES DIVISION</h2>
+                </div>
                 {currentUser?.rol !== 'Ayudante' && (
-                    <button className="login-button" style={{ width: 'auto' }} onClick={() => setShowCreateModal(true)}>
+                    <button className="login-button" style={{ width: 'auto', margin: 0 }} onClick={() => setShowCreateModal(true)}>
                         + New Case File
                     </button>
                 )}
