@@ -161,19 +161,26 @@ function PracticeSchedule() {
         }
     };
 
-    const handleFormChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+    const handleCreateToggleInstructor = (id) => {
+        setFormData(prev => {
+            const current = prev.selectedInstructors;
+            if (current.includes(id)) {
+                return { ...prev, selectedInstructors: current.filter(itemId => itemId !== id) };
+            } else {
+                return { ...prev, selectedInstructors: [...current, id] };
+            }
+        });
     };
 
-    const handleCreateMultiSelectChange = (e, field) => {
-        const value = Array.from(e.target.selectedOptions, option => option.value);
-        setFormData(prev => ({ ...prev, [field]: value }));
-    };
-
-    const handleEditAttendeesMultiSelectChange = (e, field) => {
-        const value = Array.from(e.target.selectedOptions, option => option.value);
-        setEditAttendees(prev => ({ ...prev, [field]: value }));
+    const handleEditToggleAttendee = (field, id) => {
+        setEditAttendees(prev => {
+            const current = prev[field];
+            if (current.includes(id)) {
+                return { ...prev, [field]: current.filter(itemId => itemId !== id) };
+            } else {
+                return { ...prev, [field]: [...current, id] };
+            }
+        });
     };
 
     const handleEditAttendeesChange = (e) => {
@@ -443,19 +450,30 @@ function PracticeSchedule() {
                         </div>
 
                         <div className="dtp-input-group">
-                            <label className="dtp-label">Instructores Asistentes (Detectives)</label>
-                            <div style={{ fontSize: '0.8rem', color: '#a0aec0', marginBottom: '0.5rem' }}>Mantén Ctrl/Cmd para seleccionar varios (Opcional)</div>
-                            <select
-                                multiple
-                                className="dtp-input"
-                                style={{ height: '120px', padding: '0.5rem' }}
-                                value={formData.selectedInstructors}
-                                onChange={(e) => handleCreateMultiSelectChange(e, 'selectedInstructors')}
-                            >
-                                {detectives.map(u => (
-                                    <option key={u.id} value={u.id} style={{ background: '#1a1d24', color: 'white', padding: '0.3rem' }}>{u.rango} {u.nombre} {u.apellido}</option>
-                                ))}
-                            </select>
+                            <label className="dtp-label">Instructores Asistentes (Detectives) - Opcional</label>
+                            <div style={{ display: 'flex', gap: '1rem', height: '200px' }}>
+                                {/* Disponibles */}
+                                <div style={{ flex: 1, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', overflowY: 'auto', padding: '0.5rem' }}>
+                                    <div style={{ fontSize: '0.8rem', color: '#a0aec0', marginBottom: '0.5rem', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>Disponibles</div>
+                                    {detectives.filter(u => u.id !== formData.organizer_id && !formData.selectedInstructors.includes(u.id)).map(u => (
+                                        <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1d24', padding: '0.5rem', marginBottom: '0.3rem', borderRadius: '4px' }}>
+                                            <span style={{ color: 'white', fontSize: '0.9rem' }}>{u.rango} {u.apellido}</span>
+                                            <button type="button" onClick={() => handleCreateToggleInstructor(u.id)} style={{ background: 'rgba(72, 187, 120, 0.2)', border: '1px solid #48bb78', color: '#48bb78', width: '24px', height: '24px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>+</button>
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* Seleccionados */}
+                                <div style={{ flex: 1, background: 'rgba(237, 137, 54, 0.05)', border: '1px solid rgba(237, 137, 54, 0.2)', borderRadius: '8px', overflowY: 'auto', padding: '0.5rem' }}>
+                                    <div style={{ fontSize: '0.8rem', color: '#ed8936', marginBottom: '0.5rem', textAlign: 'center', borderBottom: '1px solid rgba(237, 137, 54, 0.2)', paddingBottom: '0.5rem' }}>Seleccionados ({formData.selectedInstructors.length})</div>
+                                    {formData.selectedInstructors.length === 0 && <div style={{ textAlign: 'center', color: '#718096', fontSize: '0.85rem', marginTop: '1rem' }}>Ninguno</div>}
+                                    {detectives.filter(u => formData.selectedInstructors.includes(u.id)).map(u => (
+                                        <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(237, 137, 54, 0.1)', padding: '0.5rem', marginBottom: '0.3rem', borderRadius: '4px' }}>
+                                            <span style={{ color: '#fbd38d', fontSize: '0.9rem' }}>{u.rango} {u.apellido}</span>
+                                            <button type="button" onClick={() => handleCreateToggleInstructor(u.id)} style={{ background: 'rgba(229, 62, 62, 0.2)', border: '1px solid #e53e3e', color: '#fc8181', width: '24px', height: '24px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>-</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                         
                         <div className="dtp-input-group">
@@ -747,33 +765,55 @@ function PracticeSchedule() {
                                     
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
                                         <div className="dtp-input-group" style={{ marginBottom: 0 }}>
-                                            <label className="dtp-label">Añadir Instructores (Detectives)</label>
-                                            <select
-                                                multiple
-                                                className="dtp-input"
-                                                style={{ height: '100px', padding: '0.5rem' }}
-                                                value={editAttendees.selectedInstructors}
-                                                onChange={(e) => handleEditAttendeesMultiSelectChange(e, 'selectedInstructors')}
-                                            >
-                                                {detectives.filter(u => !attendees.some(a => a.user_id === u.id)).map(u => (
-                                                    <option key={u.id} value={u.id} style={{ background: '#1a1d24', color: 'white', padding: '0.3rem' }}>{u.rango} {u.nombre} {u.apellido}</option>
-                                                ))}
-                                            </select>
+                                            <label className="dtp-label" style={{ color: '#fbd38d' }}>Añadir Instructores</label>
+                                            <div style={{ display: 'flex', gap: '0.5rem', height: '180px' }}>
+                                                {/* Disponibles */}
+                                                <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', overflowY: 'auto', padding: '0.4rem' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: '#a0aec0', marginBottom: '0.4rem', textAlign: 'center' }}>Disponibles</div>
+                                                    {detectives.filter(u => !attendees.some(a => a.user_id === u.id) && !editAttendees.selectedInstructors.includes(u.id)).map(u => (
+                                                        <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1d24', padding: '0.4rem', marginBottom: '0.2rem', borderRadius: '4px' }}>
+                                                            <span style={{ color: 'white', fontSize: '0.8rem' }}>{u.apellido}</span>
+                                                            <button onClick={() => handleEditToggleAttendee('selectedInstructors', u.id)} style={{ background: 'transparent', border: '1px solid #48bb78', color: '#48bb78', width: '20px', height: '20px', borderRadius: '3px', cursor: 'pointer', padding: 0 }}>+</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {/* Seleccionados */}
+                                                <div style={{ flex: 1, background: 'rgba(237, 137, 54, 0.1)', border: '1px solid rgba(237, 137, 54, 0.3)', borderRadius: '6px', overflowY: 'auto', padding: '0.4rem' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: '#ed8936', marginBottom: '0.4rem', textAlign: 'center' }}>Por Añadir ({editAttendees.selectedInstructors.length})</div>
+                                                    {detectives.filter(u => editAttendees.selectedInstructors.includes(u.id)).map(u => (
+                                                        <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(237, 137, 54, 0.2)', padding: '0.4rem', marginBottom: '0.2rem', borderRadius: '4px' }}>
+                                                            <span style={{ color: '#fbd38d', fontSize: '0.8rem' }}>{u.apellido}</span>
+                                                            <button onClick={() => handleEditToggleAttendee('selectedInstructors', u.id)} style={{ background: 'transparent', border: '1px solid #e53e3e', color: '#fc8181', width: '20px', height: '20px', borderRadius: '3px', cursor: 'pointer', padding: 0 }}>-</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <div className="dtp-input-group" style={{ marginBottom: 0 }}>
-                                            <label className="dtp-label">Añadir Aspirantes (Ayudantes)</label>
-                                            <select
-                                                multiple
-                                                className="dtp-input"
-                                                style={{ height: '100px', padding: '0.5rem' }}
-                                                value={editAttendees.selectedAspirants}
-                                                onChange={(e) => handleEditAttendeesMultiSelectChange(e, 'selectedAspirants')}
-                                            >
-                                                {ayudantes.filter(u => !attendees.some(a => a.user_id === u.id)).map(u => (
-                                                    <option key={u.id} value={u.id} style={{ background: '#1a1d24', color: 'white', padding: '0.3rem' }}>{u.rango} {u.nombre} {u.apellido}</option>
-                                                ))}
-                                            </select>
+                                            <label className="dtp-label" style={{ color: '#90cdf4' }}>Añadir Aspirantes</label>
+                                            <div style={{ display: 'flex', gap: '0.5rem', height: '180px' }}>
+                                                {/* Disponibles */}
+                                                <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', overflowY: 'auto', padding: '0.4rem' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: '#a0aec0', marginBottom: '0.4rem', textAlign: 'center' }}>Disponibles</div>
+                                                    {ayudantes.filter(u => !attendees.some(a => a.user_id === u.id) && !editAttendees.selectedAspirants.includes(u.id)).map(u => (
+                                                        <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1d24', padding: '0.4rem', marginBottom: '0.2rem', borderRadius: '4px' }}>
+                                                            <span style={{ color: 'white', fontSize: '0.8rem' }}>{u.apellido}</span>
+                                                            <button onClick={() => handleEditToggleAttendee('selectedAspirants', u.id)} style={{ background: 'transparent', border: '1px solid #48bb78', color: '#48bb78', width: '20px', height: '20px', borderRadius: '3px', cursor: 'pointer', padding: 0 }}>+</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {/* Seleccionados */}
+                                                <div style={{ flex: 1, background: 'rgba(66, 153, 225, 0.1)', border: '1px solid rgba(66, 153, 225, 0.3)', borderRadius: '6px', overflowY: 'auto', padding: '0.4rem' }}>
+                                                    <div style={{ fontSize: '0.75rem', color: '#63b3ed', marginBottom: '0.4rem', textAlign: 'center' }}>Por Añadir ({editAttendees.selectedAspirants.length})</div>
+                                                    {ayudantes.filter(u => editAttendees.selectedAspirants.includes(u.id)).map(u => (
+                                                        <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(66, 153, 225, 0.2)', padding: '0.4rem', marginBottom: '0.2rem', borderRadius: '4px' }}>
+                                                            <span style={{ color: '#90cdf4', fontSize: '0.8rem' }}>{u.apellido}</span>
+                                                            <button onClick={() => handleEditToggleAttendee('selectedAspirants', u.id)} style={{ background: 'transparent', border: '1px solid #e53e3e', color: '#fc8181', width: '20px', height: '20px', borderRadius: '3px', cursor: 'pointer', padding: 0 }}>-</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
