@@ -41,6 +41,10 @@ function PersonnelDetail() {
 
     // Evaluations State
     const [evaluations, setEvaluations] = useState([]);
+
+    // Practice History (DTP)
+    const [practiceHistory, setPracticeHistory] = useState([]);
+    const [practLoading, setPractLoading] = useState(false);
     const [newEvaluation, setNewEvaluation] = useState('');
     const [evalLoading, setEvalLoading] = useState(false);
     const [evalError, setEvalError] = useState(null);
@@ -93,7 +97,10 @@ function PersonnelDetail() {
             // 4. Fetch Interrogations where this agent was present
             fetchAgentInterrogations(targetData);
 
-            // 5. Fetch Assigned Cases (SECURE RPC, filters by viewer permissions)
+            // 5. Fetch DTP Practice History
+            fetchPracticeHistory(targetData.id);
+
+            // 6. Fetch Assigned Cases (SECURE RPC, filters by viewer permissions)
             const { data: casesData, error: casesError } = await supabase.rpc('get_personnel_visible_cases', {
                 p_target_user_id: id
             });
@@ -138,6 +145,22 @@ function PersonnelDetail() {
             console.error("Error loading agent interrogations:", err);
         } finally {
             setIntLoading(false);
+        }
+    };
+
+    const fetchPracticeHistory = async (targetUserId) => {
+        try {
+            setPractLoading(true);
+            const { data, error } = await supabase.rpc('get_user_practice_history', {
+                p_user_id: targetUserId
+            });
+
+            if (error) throw error;
+            setPracticeHistory(data || []);
+        } catch (err) {
+            console.error("Error loading practice history:", err);
+        } finally {
+            setPractLoading(false);
         }
     };
 
@@ -335,6 +358,47 @@ function PersonnelDetail() {
                                             </div>
                                             <div className="eval-content" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
                                                 Subjects: {int.subjects}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* DTP Practice History Section */}
+                    <div className="detail-section" style={{ marginTop: '2rem' }}>
+                        <h3>Detective Training Program - Historial</h3>
+                        {practLoading ? (
+                            <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>Cargando expediente formativo...</div>
+                        ) : (
+                            <div className="interrogations-list">
+                                {practiceHistory.length === 0 ? (
+                                    <div className="empty-evals">Sin registro de prácticas completadas.</div>
+                                ) : (
+                                    practiceHistory.map((pract, idx) => (
+                                        <div key={idx} className="evaluation-card" style={{ borderLeft: pract.user_role === 'organizer' ? '3px solid #f6e05e' : '3px solid #63b3ed' }}>
+                                            <div className="eval-header" style={{ marginBottom: '0.5rem' }}>
+                                                <span className="eval-author" style={{ fontSize: '1rem', color: '#e2e8f0' }}>{pract.practice_title}</span>
+                                                <span className="eval-date">
+                                                    {new Date(pract.event_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
+                                                <span style={{ 
+                                                    padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', 
+                                                    background: pract.user_role === 'organizer' ? 'rgba(246, 224, 94, 0.15)' : 'rgba(99, 179, 237, 0.15)', 
+                                                    color: pract.user_role === 'organizer' ? '#f6e05e' : '#63b3ed' 
+                                                }}>
+                                                    {pract.user_role === 'organizer' ? '👮 Instructor / Organ.' : '🎓 Participante / Aspirante'}
+                                                </span>
+                                                <span style={{ 
+                                                    color: pract.event_status === 'CANCELLED' ? '#fc8181' : (pract.attendance_status === 'PRESENT' ? '#68d391' : '#a0aec0'),
+                                                    textDecoration: pract.event_status === 'CANCELLED' ? 'line-through' : 'none'
+                                                }}>
+                                                    {pract.event_status === 'CANCELLED' ? 'Práctica Cancelada' : 
+                                                        (pract.attendance_status === 'PRESENT' ? 'Asistencia Confirmada' : (pract.attendance_status === 'ABSENT' ? 'Ausente / Falta' : 'Pendiente o Finalizado')) }
+                                                </span>
                                             </div>
                                         </div>
                                     ))
