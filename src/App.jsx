@@ -58,6 +58,7 @@ function App() {
             <Route path="/incidents" element={<Incidents />} />
             <Route path="/interrogations" element={<Interrogations />} />
             <Route path="/crimemap" element={<CrimeMap />} />
+            <Route path="/training" element={<PlaceholderPage title="Detective Training Program" />} />
             <Route path="/personnel" element={<Personnel />} />
             <Route path="/personnel/:id" element={<PersonnelDetail />} />
             <Route path="/internal-affairs" element={<InternalAffairs />} />
