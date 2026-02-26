@@ -14,6 +14,7 @@ import Documentation from './pages/Documentation';
 import Interrogations from './pages/Interrogations';
 import CrimeMap from './pages/CrimeMap'; // Import
 import PublicGangMap from './pages/PublicGangMap'; // Import
+import TrainingBase from './pages/Training/TrainingBase'; // New Import
 import InternalAffairs from './pages/InternalAffairs'; // Import
 import IACases from './pages/IACases';
 import IACaseDetail from './pages/IACaseDetail';
@@ -58,7 +59,7 @@ function App() {
             <Route path="/incidents" element={<Incidents />} />
             <Route path="/interrogations" element={<Interrogations />} />
             <Route path="/crimemap" element={<CrimeMap />} />
-            <Route path="/training" element={<PlaceholderPage title="Detective Training Program" />} />
+            <Route path="/training" element={<TrainingBase />} />
             <Route path="/personnel" element={<Personnel />} />
             <Route path="/personnel/:id" element={<PersonnelDetail />} />
             <Route path="/internal-affairs" element={<InternalAffairs />} />
