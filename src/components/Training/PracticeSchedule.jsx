@@ -148,6 +148,19 @@ function PracticeSchedule() {
                     setError('Error al cancelar evento.');
                 }
             }
+        } else if (action === 'hard_delete') {
+            if (window.confirm('🚨 ¿ESTÁS SEGURO? Esta acción borrará la práctica PI absolutamene de la base de datos y desaparecerá del calendario general permanentemente.')) {
+                try {
+                    await dtpService.deleteEvent(eventId);
+                    setSuccessMessage('Práctica eliminada definitivamente.');
+                    setTimeout(() => setSuccessMessage(null), 3000);
+                    if (viewMode === 'details') setViewMode('list');
+                    loadEvents();
+                } catch (err) {
+                    console.error('Error hard deleting event:', err);
+                    setError('Error al eliminar la práctica.');
+                }
+            }
         }
     };
 
@@ -609,6 +622,9 @@ function PracticeSchedule() {
                                     )}
                                     <button className="dtp-btn-danger" onClick={() => handleActionClick('delete', selectedEvent.id)}>
                                         Cancelar Evento
+                                    </button>
+                                    <button className="dtp-btn-danger" onClick={() => handleActionClick('hard_delete', selectedEvent.id)} style={{ background: '#9b2c2c', borderColor: '#742a2a' }}>
+                                        Borrar Definitivamente
                                     </button>
                                 </>
                             )}
