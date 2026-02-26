@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../../supabaseClient';
 import { dtpService } from '../../services/dtpService';
 import '../../pages/Training/Training.css'; // Use shared styles
 
@@ -11,6 +12,7 @@ function PracticeArchive() {
     // View state
     const [viewMode, setViewMode] = useState('list'); // 'list', 'create', 'details', 'edit'
     const [selectedPractice, setSelectedPractice] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null);
     
     // Form state
     const [formData, setFormData] = useState({
@@ -19,6 +21,16 @@ function PracticeArchive() {
         documentUrl: '' 
     });
     const [documentUrls, setDocumentUrls] = useState([]);
+
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                setCurrentUser(session.user);
+            }
+        };
+        fetchInitialData();
+    }, []);
 
     useEffect(() => {
         if (viewMode === 'list') {
@@ -105,6 +117,7 @@ function PracticeArchive() {
 
             
             if (viewMode === 'create') {
+                if (currentUser) practiceData.author_id = currentUser.id;
                 await dtpService.createPractice(practiceData);
                 setSuccessMessage('Práctica creada con éxito.');
             } else if (viewMode === 'edit') {
@@ -179,6 +192,10 @@ function PracticeArchive() {
                                     <p className="dtp-card-desc" style={{ flex: 1 }}>
                                         {practice.description ? (practice.description.length > 100 ? practice.description.substring(0, 100) + '...' : practice.description) : 'Sin descripción especificada.'}
                                     </p>
+                                    
+                                    <div style={{ color: '#718096', fontSize: '0.85rem', marginBottom: '0.4rem' }}>
+                                        <span>Subido por: <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{practice.author ? `${practice.author.rango} ${practice.author.apellido}` : 'Desconocido'}</span></span>
+                                    </div>
                                     
                                     <div style={{ color: '#718096', fontSize: '0.85rem', marginBottom: '1rem' }}>
                                         {practice.documents_urls && practice.documents_urls.length > 0 ? (
@@ -297,7 +314,7 @@ function PracticeArchive() {
                                 <span style={{ color: '#4299e1' }}>📄</span> {selectedPractice.title}
                             </h2>
                             <p style={{ margin: 0, color: '#718096', fontSize: '0.95rem' }}>
-                                Creado el: {new Date(selectedPractice.created_at).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                Subido por: <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{selectedPractice.author ? `${selectedPractice.author.rango} ${selectedPractice.author.nombre} ${selectedPractice.author.apellido}` : 'Agente Desconocido'}</span> • Creado el: {new Date(selectedPractice.created_at).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}
                             </p>
                         </div>
                         <div style={{ display: 'flex', gap: '0.8rem' }}>

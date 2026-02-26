@@ -9,7 +9,7 @@ export const dtpService = {
   async getPractices() {
     const { data, error } = await supabase
       .from('dtp_practices')
-      .select('*')
+      .select('*, author:author_id (id, nombre, apellido, rango, no_placa)')
       .order('created_at', { ascending: false });
     
     if (error) throw error;

@@ -4,6 +4,7 @@ CREATE TABLE dtp_practices (
     title TEXT NOT NULL,
     description TEXT,
     documents_urls TEXT[] DEFAULT '{}',
+    author_id UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
