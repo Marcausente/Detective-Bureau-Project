@@ -161,9 +161,14 @@ function PracticeSchedule() {
         }
     };
 
+    const handleFormChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
     const handleCreateToggleInstructor = (id) => {
         setFormData(prev => {
-            const current = prev.selectedInstructors;
+            const current = prev.selectedInstructors || [];
             if (current.includes(id)) {
                 return { ...prev, selectedInstructors: current.filter(itemId => itemId !== id) };
             } else {
@@ -174,7 +179,7 @@ function PracticeSchedule() {
 
     const handleEditToggleAttendee = (field, id) => {
         setEditAttendees(prev => {
-            const current = prev[field];
+            const current = prev[field] || [];
             if (current.includes(id)) {
                 return { ...prev, [field]: current.filter(itemId => itemId !== id) };
             } else {
@@ -455,7 +460,7 @@ function PracticeSchedule() {
                                 {/* Disponibles */}
                                 <div style={{ flex: 1, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', overflowY: 'auto', padding: '0.5rem' }}>
                                     <div style={{ fontSize: '0.8rem', color: '#a0aec0', marginBottom: '0.5rem', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>Disponibles</div>
-                                    {detectives.filter(u => u.id !== formData.organizer_id && !formData.selectedInstructors.includes(u.id)).map(u => (
+                                    {detectives.filter(u => u.id !== formData.organizer_id && !(formData.selectedInstructors || []).includes(u.id)).map(u => (
                                         <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1d24', padding: '0.5rem', marginBottom: '0.3rem', borderRadius: '4px' }}>
                                             <span style={{ color: 'white', fontSize: '0.9rem' }}>{u.rango} {u.apellido}</span>
                                             <button type="button" onClick={() => handleCreateToggleInstructor(u.id)} style={{ background: 'rgba(72, 187, 120, 0.2)', border: '1px solid #48bb78', color: '#48bb78', width: '24px', height: '24px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>+</button>
@@ -464,9 +469,9 @@ function PracticeSchedule() {
                                 </div>
                                 {/* Seleccionados */}
                                 <div style={{ flex: 1, background: 'rgba(237, 137, 54, 0.05)', border: '1px solid rgba(237, 137, 54, 0.2)', borderRadius: '8px', overflowY: 'auto', padding: '0.5rem' }}>
-                                    <div style={{ fontSize: '0.8rem', color: '#ed8936', marginBottom: '0.5rem', textAlign: 'center', borderBottom: '1px solid rgba(237, 137, 54, 0.2)', paddingBottom: '0.5rem' }}>Seleccionados ({formData.selectedInstructors.length})</div>
-                                    {formData.selectedInstructors.length === 0 && <div style={{ textAlign: 'center', color: '#718096', fontSize: '0.85rem', marginTop: '1rem' }}>Ninguno</div>}
-                                    {detectives.filter(u => formData.selectedInstructors.includes(u.id)).map(u => (
+                                    <div style={{ fontSize: '0.8rem', color: '#ed8936', marginBottom: '0.5rem', textAlign: 'center', borderBottom: '1px solid rgba(237, 137, 54, 0.2)', paddingBottom: '0.5rem' }}>Seleccionados ({(formData.selectedInstructors || []).length})</div>
+                                    {(!formData.selectedInstructors || formData.selectedInstructors.length === 0) && <div style={{ textAlign: 'center', color: '#718096', fontSize: '0.85rem', marginTop: '1rem' }}>Ninguno</div>}
+                                    {detectives.filter(u => (formData.selectedInstructors || []).includes(u.id)).map(u => (
                                         <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(237, 137, 54, 0.1)', padding: '0.5rem', marginBottom: '0.3rem', borderRadius: '4px' }}>
                                             <span style={{ color: '#fbd38d', fontSize: '0.9rem' }}>{u.rango} {u.apellido}</span>
                                             <button type="button" onClick={() => handleCreateToggleInstructor(u.id)} style={{ background: 'rgba(229, 62, 62, 0.2)', border: '1px solid #e53e3e', color: '#fc8181', width: '24px', height: '24px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>-</button>
@@ -770,7 +775,7 @@ function PracticeSchedule() {
                                                 {/* Disponibles */}
                                                 <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', overflowY: 'auto', padding: '0.4rem' }}>
                                                     <div style={{ fontSize: '0.75rem', color: '#a0aec0', marginBottom: '0.4rem', textAlign: 'center' }}>Disponibles</div>
-                                                    {detectives.filter(u => !attendees.some(a => a.user_id === u.id) && !editAttendees.selectedInstructors.includes(u.id)).map(u => (
+                                                    {detectives.filter(u => !attendees.some(a => a.user_id === u.id) && !(editAttendees.selectedInstructors || []).includes(u.id)).map(u => (
                                                         <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1d24', padding: '0.4rem', marginBottom: '0.2rem', borderRadius: '4px' }}>
                                                             <span style={{ color: 'white', fontSize: '0.8rem' }}>{u.apellido}</span>
                                                             <button onClick={() => handleEditToggleAttendee('selectedInstructors', u.id)} style={{ background: 'transparent', border: '1px solid #48bb78', color: '#48bb78', width: '20px', height: '20px', borderRadius: '3px', cursor: 'pointer', padding: 0 }}>+</button>
@@ -779,8 +784,8 @@ function PracticeSchedule() {
                                                 </div>
                                                 {/* Seleccionados */}
                                                 <div style={{ flex: 1, background: 'rgba(237, 137, 54, 0.1)', border: '1px solid rgba(237, 137, 54, 0.3)', borderRadius: '6px', overflowY: 'auto', padding: '0.4rem' }}>
-                                                    <div style={{ fontSize: '0.75rem', color: '#ed8936', marginBottom: '0.4rem', textAlign: 'center' }}>Por Añadir ({editAttendees.selectedInstructors.length})</div>
-                                                    {detectives.filter(u => editAttendees.selectedInstructors.includes(u.id)).map(u => (
+                                                    <div style={{ fontSize: '0.75rem', color: '#ed8936', marginBottom: '0.4rem', textAlign: 'center' }}>Por Añadir ({(editAttendees.selectedInstructors || []).length})</div>
+                                                    {detectives.filter(u => (editAttendees.selectedInstructors || []).includes(u.id)).map(u => (
                                                         <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(237, 137, 54, 0.2)', padding: '0.4rem', marginBottom: '0.2rem', borderRadius: '4px' }}>
                                                             <span style={{ color: '#fbd38d', fontSize: '0.8rem' }}>{u.apellido}</span>
                                                             <button onClick={() => handleEditToggleAttendee('selectedInstructors', u.id)} style={{ background: 'transparent', border: '1px solid #e53e3e', color: '#fc8181', width: '20px', height: '20px', borderRadius: '3px', cursor: 'pointer', padding: 0 }}>-</button>
@@ -796,7 +801,7 @@ function PracticeSchedule() {
                                                 {/* Disponibles */}
                                                 <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', overflowY: 'auto', padding: '0.4rem' }}>
                                                     <div style={{ fontSize: '0.75rem', color: '#a0aec0', marginBottom: '0.4rem', textAlign: 'center' }}>Disponibles</div>
-                                                    {ayudantes.filter(u => !attendees.some(a => a.user_id === u.id) && !editAttendees.selectedAspirants.includes(u.id)).map(u => (
+                                                    {ayudantes.filter(u => !attendees.some(a => a.user_id === u.id) && !(editAttendees.selectedAspirants || []).includes(u.id)).map(u => (
                                                         <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1d24', padding: '0.4rem', marginBottom: '0.2rem', borderRadius: '4px' }}>
                                                             <span style={{ color: 'white', fontSize: '0.8rem' }}>{u.apellido}</span>
                                                             <button onClick={() => handleEditToggleAttendee('selectedAspirants', u.id)} style={{ background: 'transparent', border: '1px solid #48bb78', color: '#48bb78', width: '20px', height: '20px', borderRadius: '3px', cursor: 'pointer', padding: 0 }}>+</button>
@@ -805,8 +810,8 @@ function PracticeSchedule() {
                                                 </div>
                                                 {/* Seleccionados */}
                                                 <div style={{ flex: 1, background: 'rgba(66, 153, 225, 0.1)', border: '1px solid rgba(66, 153, 225, 0.3)', borderRadius: '6px', overflowY: 'auto', padding: '0.4rem' }}>
-                                                    <div style={{ fontSize: '0.75rem', color: '#63b3ed', marginBottom: '0.4rem', textAlign: 'center' }}>Por Añadir ({editAttendees.selectedAspirants.length})</div>
-                                                    {ayudantes.filter(u => editAttendees.selectedAspirants.includes(u.id)).map(u => (
+                                                    <div style={{ fontSize: '0.75rem', color: '#63b3ed', marginBottom: '0.4rem', textAlign: 'center' }}>Por Añadir ({(editAttendees.selectedAspirants || []).length})</div>
+                                                    {ayudantes.filter(u => (editAttendees.selectedAspirants || []).includes(u.id)).map(u => (
                                                         <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(66, 153, 225, 0.2)', padding: '0.4rem', marginBottom: '0.2rem', borderRadius: '4px' }}>
                                                             <span style={{ color: '#90cdf4', fontSize: '0.8rem' }}>{u.apellido}</span>
                                                             <button onClick={() => handleEditToggleAttendee('selectedAspirants', u.id)} style={{ background: 'transparent', border: '1px solid #e53e3e', color: '#fc8181', width: '20px', height: '20px', borderRadius: '3px', cursor: 'pointer', padding: 0 }}>-</button>
