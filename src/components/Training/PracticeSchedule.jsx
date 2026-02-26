@@ -22,9 +22,13 @@ function PracticeSchedule() {
         event_time: '',
         organizer_id: '',
         notes: '',
-        extra_personnel: '',
+        selectedInstructors: []
+    });
+
+    const [editAttendees, setEditAttendees] = useState({
         selectedInstructors: [],
-        selectedAspirants: []
+        selectedAspirants: [],
+        extra_personnel: ''
     });
 
     useEffect(() => {
@@ -94,6 +98,11 @@ function PracticeSchedule() {
         if (action === 'view') {
             const event = events.find(e => e.id === eventId);
             setSelectedEvent(event);
+            setEditAttendees({
+                selectedInstructors: [],
+                selectedAspirants: [],
+                extra_personnel: event.extra_personnel || ''
+            });
             await loadAttendees(eventId);
             setViewMode('details');
         } else if (action === 'delete') {
@@ -127,25 +136,19 @@ function PracticeSchedule() {
                 event_date: new Date(combinedDateTime).toISOString(),
                 organizer_id: formData.organizer_id,
                 status: 'SCHEDULED',
-                notes: formData.notes,
-                extra_personnel: formData.extra_personnel
+                notes: formData.notes
             };
             
             const createdEvent = await dtpService.createEvent(newEvent);
             
-            // Register selected instructors as organizers
-            const instructorPromises = formData.selectedInstructors.map(id => 
-                dtpService.registerAttendee(createdEvent.id, id, true)
-            );
+            if (formData.selectedInstructors && formData.selectedInstructors.length > 0) {
+                const instructorPromises = formData.selectedInstructors.map(id => 
+                    dtpService.registerAttendee(createdEvent.id, id, true)
+                );
+                await Promise.all(instructorPromises);
+            }
             
-            // Register selected aspirants
-            const aspirantPromises = formData.selectedAspirants.map(id => 
-                dtpService.registerAttendee(createdEvent.id, id, false)
-            );
-            
-            await Promise.all([...instructorPromises, ...aspirantPromises]);
-            
-            setSuccessMessage('Práctica e inscripciones programadas con éxito.');
+            setSuccessMessage('Práctica programada con éxito.');
             
             setTimeout(() => {
                 setSuccessMessage(null);
@@ -163,9 +166,57 @@ function PracticeSchedule() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleMultiSelectChange = (e, field) => {
+    const handleCreateMultiSelectChange = (e, field) => {
         const value = Array.from(e.target.selectedOptions, option => option.value);
         setFormData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleEditAttendeesMultiSelectChange = (e, field) => {
+        const value = Array.from(e.target.selectedOptions, option => option.value);
+        setEditAttendees(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleEditAttendeesChange = (e) => {
+        const { name, value } = e.target;
+        setEditAttendees(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleAddAttendees = async () => {
+        setLoading(true);
+        try {
+            if (editAttendees.extra_personnel !== selectedEvent.extra_personnel) {
+                await dtpService.updateEvent(selectedEvent.id, { extra_personnel: editAttendees.extra_personnel });
+            }
+
+            const instructorPromises = editAttendees.selectedInstructors.map(id => {
+                if (!attendees.some(a => a.user_id === id)) {
+                    return dtpService.registerAttendee(selectedEvent.id, id, true);
+                }
+                return Promise.resolve();
+            });
+            
+            const aspirantPromises = editAttendees.selectedAspirants.map(id => {
+                if (!attendees.some(a => a.user_id === id)) {
+                    return dtpService.registerAttendee(selectedEvent.id, id, false);
+                }
+                return Promise.resolve();
+            });
+            
+            await Promise.all([...instructorPromises, ...aspirantPromises]);
+            
+            setSuccessMessage('Asistentes añadidos/actualizados correctamente.');
+            setTimeout(() => setSuccessMessage(null), 2000);
+            
+            const updatedEvent = { ...selectedEvent, extra_personnel: editAttendees.extra_personnel };
+            setSelectedEvent(updatedEvent);
+            await loadAttendees(selectedEvent.id);
+            setEditAttendees(prev => ({ ...prev, selectedInstructors: [], selectedAspirants: [] }));
+        } catch (error) {
+            console.error(error);
+            setError('Error al actualizar asistentes.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleRegisterToggle = async (eventId, isRegistered, asOrganizer = false) => {
@@ -391,50 +442,20 @@ function PracticeSchedule() {
                             </select>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
-                            <div className="dtp-input-group" style={{ marginBottom: 0 }}>
-                                <label className="dtp-label">Instructores Asistentes (Detectives)</label>
-                                <div style={{ fontSize: '0.8rem', color: '#a0aec0', marginBottom: '0.5rem' }}>Mantén Ctrl/Cmd para seleccionar varios</div>
-                                <select
-                                    multiple
-                                    className="dtp-input"
-                                    style={{ height: '120px', padding: '0.5rem' }}
-                                    value={formData.selectedInstructors}
-                                    onChange={(e) => handleMultiSelectChange(e, 'selectedInstructors')}
-                                >
-                                    {detectives.map(u => (
-                                        <option key={u.id} value={u.id} style={{ background: '#1a1d24', color: 'white', padding: '0.3rem' }}>{u.rango} {u.nombre} {u.apellido}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="dtp-input-group" style={{ marginBottom: 0 }}>
-                                <label className="dtp-label">Aspirantes Asistentes (Ayudantes)</label>
-                                <div style={{ fontSize: '0.8rem', color: '#a0aec0', marginBottom: '0.5rem' }}>Mantén Ctrl/Cmd para seleccionar varios</div>
-                                <select
-                                    multiple
-                                    className="dtp-input"
-                                    style={{ height: '120px', padding: '0.5rem' }}
-                                    value={formData.selectedAspirants}
-                                    onChange={(e) => handleMultiSelectChange(e, 'selectedAspirants')}
-                                >
-                                    {ayudantes.map(u => (
-                                        <option key={u.id} value={u.id} style={{ background: '#1a1d24', color: 'white', padding: '0.3rem' }}>{u.rango} {u.nombre} {u.apellido}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
                         <div className="dtp-input-group">
-                            <label className="dtp-label">Personal Extra Asistente (Opcional)</label>
-                            <input
-                                type="text"
+                            <label className="dtp-label">Instructores Asistentes (Detectives)</label>
+                            <div style={{ fontSize: '0.8rem', color: '#a0aec0', marginBottom: '0.5rem' }}>Mantén Ctrl/Cmd para seleccionar varios (Opcional)</div>
+                            <select
+                                multiple
                                 className="dtp-input"
-                                name="extra_personnel"
-                                value={formData.extra_personnel}
-                                onChange={handleFormChange}
-                                placeholder="Ej: John Doe, Jane Doe"
-                            />
+                                style={{ height: '120px', padding: '0.5rem' }}
+                                value={formData.selectedInstructors}
+                                onChange={(e) => handleCreateMultiSelectChange(e, 'selectedInstructors')}
+                            >
+                                {detectives.map(u => (
+                                    <option key={u.id} value={u.id} style={{ background: '#1a1d24', color: 'white', padding: '0.3rem' }}>{u.rango} {u.nombre} {u.apellido}</option>
+                                ))}
+                            </select>
                         </div>
                         
                         <div className="dtp-input-group">
@@ -714,6 +735,71 @@ function PracticeSchedule() {
                                             </div>
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {(isUserOrganizer(selectedEvent.organizer_id) || currentUser?.rol === 'detective' || currentUser?.rol === 'admin' || currentUser?.rol === 'superadmin') && (
+                                <div style={{ marginTop: '2.5rem', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <h5 style={{ color: '#ffffff', fontSize: '1.1rem', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <svg width="20" height="20" fill="none" stroke="#ed8936" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                        Añadir Asistentes / Pasar Lista
+                                    </h5>
+                                    
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                                        <div className="dtp-input-group" style={{ marginBottom: 0 }}>
+                                            <label className="dtp-label">Añadir Instructores (Detectives)</label>
+                                            <select
+                                                multiple
+                                                className="dtp-input"
+                                                style={{ height: '100px', padding: '0.5rem' }}
+                                                value={editAttendees.selectedInstructors}
+                                                onChange={(e) => handleEditAttendeesMultiSelectChange(e, 'selectedInstructors')}
+                                            >
+                                                {detectives.filter(u => !attendees.some(a => a.user_id === u.id)).map(u => (
+                                                    <option key={u.id} value={u.id} style={{ background: '#1a1d24', color: 'white', padding: '0.3rem' }}>{u.rango} {u.nombre} {u.apellido}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="dtp-input-group" style={{ marginBottom: 0 }}>
+                                            <label className="dtp-label">Añadir Aspirantes (Ayudantes)</label>
+                                            <select
+                                                multiple
+                                                className="dtp-input"
+                                                style={{ height: '100px', padding: '0.5rem' }}
+                                                value={editAttendees.selectedAspirants}
+                                                onChange={(e) => handleEditAttendeesMultiSelectChange(e, 'selectedAspirants')}
+                                            >
+                                                {ayudantes.filter(u => !attendees.some(a => a.user_id === u.id)).map(u => (
+                                                    <option key={u.id} value={u.id} style={{ background: '#1a1d24', color: 'white', padding: '0.3rem' }}>{u.rango} {u.nombre} {u.apellido}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="dtp-input-group" style={{ marginBottom: '1.5rem' }}>
+                                        <label className="dtp-label">Personal Extra Asistente (Opcional)</label>
+                                        <input
+                                            type="text"
+                                            className="dtp-input"
+                                            name="extra_personnel"
+                                            value={editAttendees.extra_personnel}
+                                            onChange={handleEditAttendeesChange}
+                                            placeholder="Ej: John Doe, Jane Doe"
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                        <button 
+                                            className="dtp-btn-secondary" 
+                                            onClick={handleAddAttendees}
+                                            disabled={loading}
+                                            style={{ borderColor: '#48bb78', color: '#68d391' }}
+                                        >
+                                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{marginRight: '6px'}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                                            Actualizar Lista
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
