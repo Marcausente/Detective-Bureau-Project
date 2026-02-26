@@ -609,7 +609,7 @@ function PracticeSchedule() {
                             </p>
                         </div>
                         <div style={{ display: 'flex', gap: '0.8rem' }}>
-                            {isUserOrganizer(selectedEvent.organizer_id) && isUpcoming(selectedEvent.event_date, selectedEvent.status) && (
+                            {isUserOrganizer(selectedEvent.organizer_id) && (
                                 <>
                                     {!isEditingEvent ? (
                                         <button className="dtp-btn-secondary" onClick={() => setIsEditingEvent(true)} style={{ borderColor: '#63b3ed', color: '#90cdf4' }}>
@@ -620,9 +620,11 @@ function PracticeSchedule() {
                                             Cancelar Edición
                                         </button>
                                     )}
-                                    <button className="dtp-btn-danger" onClick={() => handleActionClick('delete', selectedEvent.id)}>
-                                        Cancelar Evento
-                                    </button>
+                                    {selectedEvent.status !== 'CANCELLED' && (
+                                        <button className="dtp-btn-danger" onClick={() => handleActionClick('delete', selectedEvent.id)}>
+                                            Cancelar Evento
+                                        </button>
+                                    )}
                                     <button className="dtp-btn-danger" onClick={() => handleActionClick('hard_delete', selectedEvent.id)} style={{ background: '#9b2c2c', borderColor: '#742a2a' }}>
                                         Borrar Definitivamente
                                     </button>
