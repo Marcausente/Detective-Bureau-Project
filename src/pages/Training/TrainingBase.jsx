@@ -1,33 +1,37 @@
 import React, { useState } from 'react';
 import PracticeArchive from '../../components/Training/PracticeArchive';
 import PracticeSchedule from '../../components/Training/PracticeSchedule';
-import '../../index.css';
+import './Training.css'; // Import the new CSS file
 
 function TrainingBase() {
     const [activeTab, setActiveTab] = useState('archive');
 
     return (
-        <div className="section-container training-base">
-            <header className="section-header">
-                <h2>Detective Training Program</h2>
+        <div className="dtp-container">
+            <header className="dtp-header">
+                <img src="/DTP%20logo.png" alt="DTP Logo" className="dtp-logo" />
+                <div className="dtp-title-wrapper">
+                    <h1>Detective Training Program</h1>
+                    <p>Departamento de Instrucción y Capacitación Continua</p>
+                </div>
             </header>
             
-            <div className="custom-tabs">
+            <div className="dtp-tabs">
                 <button 
-                    className={`custom-tab-btn ${activeTab === 'archive' ? 'active' : ''}`}
+                    className={`dtp-tab-btn ${activeTab === 'archive' ? 'active' : ''}`}
                     onClick={() => setActiveTab('archive')}
                 >
-                    Archivo de Prácticas
+                    <i className="fas fa-folder-open" style={{marginRight: '8px'}}></i> Archive
                 </button>
                 <button 
-                    className={`custom-tab-btn ${activeTab === 'schedule' ? 'active' : ''}`}
+                    className={`dtp-tab-btn ${activeTab === 'schedule' ? 'active' : ''}`}
                     onClick={() => setActiveTab('schedule')}
                 >
-                    Programación de Prácticas
+                    <i className="fas fa-calendar-alt" style={{marginRight: '8px'}}></i> Schedule
                 </button>
             </div>
 
-            <div className="tab-content">
+            <div className="tab-content" style={{ animation: 'fadeIn 0.3s ease-out' }}>
                 {activeTab === 'archive' && <PracticeArchive />}
                 {activeTab === 'schedule' && <PracticeSchedule />}
             </div>

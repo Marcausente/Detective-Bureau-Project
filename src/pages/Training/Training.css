@@ -1,0 +1,333 @@
+/* ==========================================================================
+   Detective Training Program (DTP) Premium Styles
+   ========================================================================== */
+
+.dtp-container {
+    padding: 2rem;
+    color: #e2e8f0;
+    font-family: 'Inter', 'Roboto', sans-serif;
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Header & Logo */
+.dtp-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dtp-logo {
+    height: 80px;
+    width: auto;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+    transition: transform 0.3s ease;
+}
+
+.dtp-logo:hover {
+    transform: scale(1.05);
+}
+
+.dtp-title-wrapper h1 {
+    font-size: 2.5rem;
+    margin: 0;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ffffff 0%, #a0aec0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+}
+
+.dtp-title-wrapper p {
+    margin: 0.5rem 0 0 0;
+    color: #a0aec0;
+    font-size: 1.1rem;
+    font-weight: 300;
+}
+
+/* Premium Tabs */
+.dtp-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+    background: rgba(15, 17, 21, 0.6);
+    padding: 0.5rem;
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    width: fit-content;
+}
+
+.dtp-tab-btn {
+    background: transparent;
+    border: none;
+    color: #a0aec0;
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.dtp-tab-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.dtp-tab-btn.active {
+    color: #ffffff;
+    background: rgba(66, 153, 225, 0.15);
+    box-shadow: inset 0 0 0 1px rgba(66, 153, 225, 0.3);
+}
+
+/* Glassmorphism Cards */
+.dtp-glass-card {
+    background: rgba(26, 29, 36, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.dtp-glass-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(66, 153, 225, 0.3);
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 15px rgba(66, 153, 225, 0.1);
+}
+
+/* Practice Archive Grid */
+.dtp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.dtp-card-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin: 0 0 0.8rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dtp-card-desc {
+    color: #a0aec0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+/* Docs List */
+.dtp-docs-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.dtp-doc-item {
+    margin-bottom: 0.5rem;
+}
+
+.dtp-doc-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #63b3ed;
+    text-decoration: none;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+    background: rgba(99, 179, 237, 0.1);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.dtp-doc-link:hover {
+    background: rgba(99, 179, 237, 0.2);
+    color: #90cdf4;
+    transform: translateX(4px);
+}
+
+/* Buttons */
+.dtp-btn-primary {
+    background: linear-gradient(135deg, #3182ce 0%, #2b6cb0 100%);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(49, 130, 206, 0.3);
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.dtp-btn-primary:hover {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(49, 130, 206, 0.4);
+}
+
+.dtp-btn-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: #e2e8f0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.dtp-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.dtp-btn-danger {
+    background: rgba(229, 62, 62, 0.1);
+    color: #fc8181;
+    border: 1px solid rgba(229, 62, 62, 0.2);
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.dtp-btn-danger:hover {
+    background: rgba(229, 62, 62, 0.2);
+    color: #feb2b2;
+}
+
+/* Forms */
+.dtp-form-container {
+    background: rgba(15, 17, 21, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 2.5rem;
+    max-width: 800px;
+    margin: 0 auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.3s ease-out;
+}
+
+.dtp-input-group {
+    margin-bottom: 1.5rem;
+}
+
+.dtp-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #cbd5e0;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.dtp-input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.dtp-input:focus {
+    outline: none;
+    border-color: #4299e1;
+    box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+    background: rgba(0, 0, 0, 0.4);
+}
+
+/* Schedule specific */
+.dtp-event-card {
+    border-left: 4px solid #4a5568;
+}
+.dtp-event-card.upcoming {
+    border-left-color: #48bb78;
+}
+.dtp-event-card.past {
+    border-left-color: #718096;
+    opacity: 0.7;
+}
+.dtp-event-card.past:hover {
+    opacity: 1;
+}
+
+.dtp-status-badge {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.dtp-status-registered {
+    background: rgba(66, 153, 225, 0.15);
+    color: #90cdf4;
+    border: 1px solid rgba(66, 153, 225, 0.3);
+}
+
+.dtp-status-attended {
+    background: rgba(72, 187, 120, 0.15);
+    color: #9ae6b4;
+    border: 1px solid rgba(72, 187, 120, 0.3);
+}
+
+.dtp-status-absent {
+    background: rgba(245, 101, 101, 0.15);
+    color: #feb2b2;
+    border: 1px solid rgba(245, 101, 101, 0.3);
+}
+
+/* Attendees Table */
+.dtp-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 1rem;
+}
+
+.dtp-table th {
+    background: rgba(255, 255, 255, 0.05);
+    color: #cbd5e0;
+    font-weight: 600;
+    text-align: left;
+    padding: 1rem;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.dtp-table td {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: #e2e8f0;
+}
+
+.dtp-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.dtp-table tr:last-child td {
+    border-bottom: none;
+}

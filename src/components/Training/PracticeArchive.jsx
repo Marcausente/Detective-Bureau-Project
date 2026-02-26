@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { dtpService } from '../../services/dtpService';
-import '../../index.css';
+import '../../pages/Training/Training.css'; // Use shared styles
 
 function PracticeArchive() {
     const [practices, setPractices] = useState([]);
@@ -15,7 +15,7 @@ function PracticeArchive() {
     const [formData, setFormData] = useState({
         title: '',
         description: '',
-        documentUrl: '' // Temporary string for one url, will be added to array
+        documentUrl: '' 
     });
     const [documentUrls, setDocumentUrls] = useState([]);
 
@@ -33,7 +33,7 @@ function PracticeArchive() {
             setPractices(data);
         } catch (err) {
             console.error('Error loading practices:', err);
-            setError('Error al cargar las prácticas. Asegúrate de haber ejecutado el SQL de creación de tablas.');
+            setError('Error al cargar las prácticas.');
         } finally {
             setLoading(false);
         }
@@ -75,11 +75,9 @@ function PracticeArchive() {
             await dtpService.createPractice(newPractice);
             setSuccessMessage('Práctica creada con éxito.');
             
-            // Reset form
             setFormData({ title: '', description: '', documentUrl: '' });
             setDocumentUrls([]);
             
-            // Go back to list after a short delay
             setTimeout(() => {
                 setSuccessMessage(null);
                 setViewMode('list');
@@ -87,7 +85,7 @@ function PracticeArchive() {
             
         } catch (err) {
             console.error('Error creating practice:', err);
-            setError('Error al crear la práctica. Revisa la consola para más detalles.');
+            setError('Error al crear la práctica.');
         }
     };
 
@@ -108,41 +106,47 @@ function PracticeArchive() {
     };
 
     return (
-        <div className="practice-archive-container">
-            {error && <div className="error-message">{error}</div>}
-            {successMessage && <div className="success-message">{successMessage}</div>}
+        <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+            {error && <div className="error-message" style={{ marginBottom: '1rem', borderRadius: '8px' }}>{error}</div>}
+            {successMessage && <div className="success-message" style={{ marginBottom: '1rem', borderRadius: '8px' }}>{successMessage}</div>}
 
             {viewMode === 'list' && (
                 <>
-                    <div className="archive-header" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-                        <button className="primary-btn" onClick={() => setViewMode('create')}>
-                            + Nueva Práctica
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem' }}>
+                        <button className="dtp-btn-primary" onClick={() => setViewMode('create')}>
+                            <span>+</span> Nueva Práctica
                         </button>
                     </div>
 
                     {loading ? (
-                        <div className="loading-spinner">Cargando...</div>
+                        <div style={{ textAlign: 'center', padding: '3rem', color: '#a0aec0' }}>Cargando archivo...</div>
                     ) : practices.length === 0 ? (
-                        <div className="empty-state">
-                            <p>No hay prácticas registradas en el archivo.</p>
+                        <div className="dtp-glass-card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+                            <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.5 }}>📁</div>
+                            <p style={{ color: '#a0aec0', fontSize: '1.1rem' }}>No hay prácticas registradas en el archivo.</p>
+                            <p style={{ color: '#718096', fontSize: '0.9rem' }}>Crea plantillas para usarlas en futuras programaciones.</p>
                         </div>
                     ) : (
-                        <div className="practice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+                        <div className="dtp-grid">
                             {practices.map(practice => (
-                                <div key={practice.id} className="practice-card" style={{ backgroundColor: '#1a1d24', padding: '1.5rem', borderRadius: '8px', border: '1px solid #2d3748' }}>
-                                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#e2e8f0' }}>{practice.title}</h3>
-                                    <p style={{ color: '#a0aec0', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                                        {practice.description || 'Sin descripción'}
+                                <div key={practice.id} className="dtp-glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <h3 className="dtp-card-title">
+                                        <span style={{ color: '#cbd5e0' }}>📄</span> {practice.title}
+                                    </h3>
+                                    
+                                    <p className="dtp-card-desc" style={{ flex: 1 }}>
+                                        {practice.description || 'Sin descripción especificada.'}
                                     </p>
                                     
                                     {practice.documents_urls && practice.documents_urls.length > 0 && (
-                                        <div className="practice-docs" style={{ marginBottom: '1rem' }}>
-                                            <h4 style={{ color: '#cbd5e0', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Documentos Adjuntos:</h4>
-                                            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                        <div style={{ margin: '1rem 0' }}>
+                                            <h4 style={{ color: '#e2e8f0', fontSize: '0.9rem', marginBottom: '0.8rem', fontWeight: 600 }}>Material de Estudio:</h4>
+                                            <ul className="dtp-docs-list">
                                                 {practice.documents_urls.map((url, idx) => (
-                                                    <li key={idx} style={{ marginBottom: '0.25rem' }}>
-                                                        <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: '#4299e1', textDecoration: 'none', fontSize: '0.85rem' }}>
-                                                            📄 Documento {idx + 1}
+                                                    <li key={idx} className="dtp-doc-item">
+                                                        <a href={url} target="_blank" rel="noopener noreferrer" className="dtp-doc-link">
+                                                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                                            Documento de Apoyo {idx + 1}
                                                         </a>
                                                     </li>
                                                 ))}
@@ -150,8 +154,8 @@ function PracticeArchive() {
                                         </div>
                                     )}
                                     
-                                    <div className="practice-actions" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                                        <button className="danger-btn" onClick={() => handleDelete(practice.id)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <button className="dtp-btn-danger" onClick={() => handleDelete(practice.id)}>
                                             Eliminar
                                         </button>
                                     </div>
@@ -163,74 +167,79 @@ function PracticeArchive() {
             )}
 
             {viewMode === 'create' && (
-                <div className="create-practice-form" style={{ backgroundColor: '#1a1d24', padding: '2rem', borderRadius: '8px', border: '1px solid #2d3748', maxWidth: '600px', margin: '0 auto' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <h3 style={{ margin: 0, color: '#e2e8f0' }}>Crear Nueva Práctica</h3>
-                        <button className="secondary-btn" onClick={() => setViewMode('list')} style={{ padding: '0.4rem 0.8rem' }}>
-                            Volver al Archivo
+                <div className="dtp-form-container">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
+                        <h3 style={{ margin: 0, color: '#e2e8f0', fontSize: '1.5rem', fontWeight: 600 }}>Cargar Nueva Práctica al Archivo</h3>
+                        <button className="dtp-btn-secondary" onClick={() => setViewMode('list')}>
+                            Cancelar
                         </button>
                     </div>
                     
                     <form onSubmit={handleSubmit}>
-                        <div className="form-group" style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#cbd5e0' }}>Título de la Práctica *</label>
+                        <div className="dtp-input-group">
+                            <label className="dtp-label">Título de la Práctica *</label>
                             <input
                                 type="text"
+                                className="dtp-input"
                                 name="title"
                                 value={formData.title}
                                 onChange={handleInputChange}
                                 required
-                                style={{ width: '100%', padding: '0.8rem', backgroundColor: '#0f1115', border: '1px solid #2d3748', color: 'white', borderRadius: '4px' }}
-                                placeholder="Ej: Negociación de Rehenes"
+                                placeholder="Ej: Operativo Anti-Pandillas Nivel 1"
                             />
                         </div>
                         
-                        <div className="form-group" style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#cbd5e0' }}>Descripción</label>
+                        <div className="dtp-input-group">
+                            <label className="dtp-label">Descripción Detallada</label>
                             <textarea
+                                className="dtp-input"
                                 name="description"
                                 value={formData.description}
                                 onChange={handleInputChange}
-                                rows="4"
-                                style={{ width: '100%', padding: '0.8rem', backgroundColor: '#0f1115', border: '1px solid #2d3748', color: 'white', borderRadius: '4px', resize: 'vertical' }}
-                                placeholder="Objetivos y metodología de la práctica..."
+                                rows="5"
+                                style={{ resize: 'vertical' }}
+                                placeholder="Objetivos, alcance y metodología..."
                             />
                         </div>
 
-                        <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#cbd5e0' }}>Documentos (URLs)</label>
-                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <div className="dtp-input-group">
+                            <label className="dtp-label">Añadir Documentos (GDocs, PDFs, etc.)</label>
+                            <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem' }}>
                                 <input
                                     type="url"
+                                    className="dtp-input"
                                     name="documentUrl"
                                     value={formData.documentUrl}
                                     onChange={handleInputChange}
-                                    style={{ flex: 1, padding: '0.8rem', backgroundColor: '#0f1115', border: '1px solid #2d3748', color: 'white', borderRadius: '4px' }}
                                     placeholder="https://docs.google.com/..."
                                 />
-                                <button type="button" onClick={handleAddUrl} className="secondary-btn" style={{ padding: '0 1rem' }}>
-                                    Añadir URL
+                                <button type="button" onClick={handleAddUrl} className="dtp-btn-secondary" style={{ whiteSpace: 'nowrap' }}>
+                                    + Añadir Link
                                 </button>
                             </div>
                             
                             {documentUrls.length > 0 && (
-                                <ul style={{ listStyle: 'none', padding: 0, margin: 0, backgroundColor: '#2d3748', borderRadius: '4px' }}>
-                                    {documentUrls.map((url, idx) => (
-                                        <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 1rem', borderBottom: idx < documentUrls.length - 1 ? '1px solid #4a5568' : 'none' }}>
-                                            <span style={{ color: '#4299e1', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>
-                                                {url}
-                                            </span>
-                                            <button type="button" onClick={() => handleRemoveUrl(idx)} style={{ background: 'none', border: 'none', color: '#fc8181', cursor: 'pointer', fontSize: '1.2rem' }}>
-                                                &times;
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
+                                <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <h5 style={{ margin: '0 0 0.8rem 0', color: '#a0aec0', fontSize: '0.9rem' }}>Enlaces Adjuntos:</h5>
+                                    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                        {documentUrls.map((url, idx) => (
+                                            <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: idx < documentUrls.length - 1 ? '1px dashed rgba(255,255,255,0.1)' : 'none' }}>
+                                                <span style={{ color: '#63b3ed', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '85%' }}>
+                                                    {url}
+                                                </span>
+                                                <button type="button" onClick={() => handleRemoveUrl(idx)} style={{ background: 'none', border: 'none', color: '#fc8181', cursor: 'pointer', fontSize: '1.2rem', padding: '0 0.5rem' }}>
+                                                    &times;
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
                             )}
                         </div>
 
-                        <div className="form-actions" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem' }}>
-                            <button type="submit" className="primary-btn" disabled={loading}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                            <button type="submit" className="dtp-btn-primary" disabled={loading}>
+                                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{marginRight: '8px'}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
                                 Guardar Práctica
                             </button>
                         </div>
