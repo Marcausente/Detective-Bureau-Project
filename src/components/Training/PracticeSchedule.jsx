@@ -123,6 +123,17 @@ function PracticeSchedule() {
             setIsEditingEvent(false);
 
             await loadAttendees(eventId);
+            
+            // Asegurarnos de tener los usuarios y prácticas cargados para los Selects de edición y pasar lista
+            if (users.length === 0 || practices.length === 0) {
+                const [practicesData, { data: usersData }] = await Promise.all([
+                    dtpService.getPractices(),
+                    supabase.from('users').select('id, nombre, apellido, rango, no_placa, rol').order('rango', { ascending: true })
+                ]);
+                if (practicesData) setPractices(practicesData);
+                if (usersData) setUsers(usersData);
+            }
+
             setViewMode('details');
         } else if (action === 'delete') {
             if (window.confirm('¿Seguro que deseas cancelar este evento? Se moverá al historial como CANCELADO.')) {
