@@ -11,6 +11,16 @@ Pagina WEB dedicada a la gestión y control de la Detective Bureau de la LSPD, d
 - Archivo de interrogatorios
 - Archivo de incidentes y salidas
 - Archivo de documentación interna y recursos
+- Sistema de programacion de practicas y calendario, asi como control de asistencias
+- Sistema de casos para Asuntos Intenros
+- Sistema de interrogatorios para Asuntos Intenros
+- Sistema de Faltas para Asuntos Intermos
+- Sitema de documentacion para Asuntos Internos
+- Sistema de casos para DOJ
+- Sistema de interrogatorios para DOJ
+- Sistema de documentacion para DOJ
+- Sistema de licencias para DOJ
+- Apartado para la solicitud y generación de todo tipo de ordenes juridicas
 
 Todas estas caracteristicas estan controladas por una base de datos y ligadas entre ellas, con la posibilidad de atar una cosa con otra sin ningun tipo de restricción, creando así el sistema de gestión de detectives mas complejo y completo existente hasta la fecha, permitiendonos hacer cualquier cosa, seguir cualquier caso sin interrupciones. 
 
