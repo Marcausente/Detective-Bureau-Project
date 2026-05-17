@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
 
 function MainLayout() {
     const [profile, setProfile] = useState(null);
     const navigate = useNavigate();
     const location = useLocation();
+    const { isLSSD } = useTheme();
 
     useEffect(() => {
         let mounted = true;
@@ -99,8 +101,8 @@ function MainLayout() {
             {/* Sidebar */}
             <aside className="sidebar">
                 <div className="sidebar-header">
-                    <img src="/LOGO_SAPD.png" alt="SAPD" className="sidebar-logo" />
-                    <div className="sidebar-title">DETECTIVE BUREAU</div>
+                    <img src={isLSSD ? "/lssd/LSSDlogo.png" : "/LOGO_SAPD.png"} alt={isLSSD ? "LSSD" : "SAPD"} className="sidebar-logo" />
+                    <div className="sidebar-title">{isLSSD ? "SCUB" : "DETECTIVE BUREAU"}</div>
                 </div>
 
                 <nav className="sidebar-nav">
@@ -142,7 +144,7 @@ function MainLayout() {
             <main className="layout-content">
                 <header className="content-header">
                     {/* Breadcrumbs or Page Title could go here */}
-                    <h2 className="page-title">{navItems.find(i => i.path === location.pathname)?.name || 'Detective Bureau'}</h2>
+                    <h2 className="page-title">{navItems.find(i => i.path === location.pathname)?.name || (isLSSD ? 'SCUB' : 'Detective Bureau')}</h2>
                 </header>
                 <div className="content-body">
                     <Outlet />

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
 import { generateOrderPDF } from '../utils/orderPdfGenerator';
 
@@ -439,6 +440,8 @@ const OrderCard = ({ order, onPreview }) => {
 
 // --- PREVIEW MODAL ---
 const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDelete }) => {
+    const { isLSSD } = useTheme();
+
     if (!isOpen || !order) return null;
     const config = ORDER_TYPES[order.order_type];
 
@@ -464,12 +467,12 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                     
                     {/* Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', borderBottom: '2px solid #000', paddingBottom: '1rem' }}>
-                        <img src="/dblogo.png" alt="DB" style={{ width: '60px', height: '60px' }} />
+                        <img src={isLSSD ? "/lssd/SCUB.png" : "/dblogo.png"} alt="DB" style={{ width: '60px', height: '60px' }} />
                         <div style={{ textAlign: 'center' }}>
-                            <h2 style={{ margin: 0, textTransform: 'uppercase', fontSize: '1.2rem' }}>Los Santos Police Department</h2>
-                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'normal' }}>DETECTIVE BUREAU</h3>
+                            <h2 style={{ margin: 0, textTransform: 'uppercase', fontSize: '1.2rem' }}>{isLSSD ? "Los Santos Sheriff's Department" : "Los Santos Police Department"}</h2>
+                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'normal' }}>{isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU" : "DETECTIVE BUREAU"}</h3>
                         </div>
-                        <img src="/LOGO_SAPD.png" alt="LSPD" style={{ width: '60px', height: '60px' }} />
+                        <img src={isLSSD ? "/lssd/LSSDlogo.png" : "/LOGO_SAPD.png"} alt="LSPD" style={{ width: '60px', height: '60px' }} />
                     </div>
 
                     <h1 style={{ textAlign: 'center', textTransform: 'uppercase', fontSize: '1.8rem', margin: '2rem 0' }}>Solicitud de Orden Judicial</h1>
@@ -658,7 +661,7 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                     {/* Signature Area */}
                     <div style={{ marginTop: '4rem', textAlign: 'right' }}>
                         <div style={{ fontSize: '1.1rem', fontWeight: 'bold', textTransform: 'uppercase' }}>{order.author_rank} {order.author_name}</div>
-                        <div style={{ fontSize: '0.9rem' }}>Detective Bureau, LSPD</div>
+                        <div style={{ fontSize: '0.9rem' }}>{isLSSD ? "SCUB, LSSD" : "Detective Bureau, LSPD"}</div>
                     </div>
 
                 </div>
@@ -714,6 +717,7 @@ function OrderArchive() {
     const [filterCategory, setFilterCategory] = useState('Todas');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
+    const { isLSSD } = useTheme();
 
     // Preview State
     const [previewOrder, setPreviewOrder] = useState(null);
@@ -1091,7 +1095,7 @@ function OrderArchive() {
                         JUDICIAL ORDERS
                     </h1>
                     <div style={{ color: 'var(--text-secondary)', fontSize: '1rem', letterSpacing: '0.5px' }}>
-                        DETECTIVE BUREAU • ARCHIVO Y GESTIÓN
+                        {isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU • ARCHIVO Y GESTIÓN" : "DETECTIVE BUREAU • ARCHIVO Y GESTIÓN"}
                     </div>
                 </div>
                 

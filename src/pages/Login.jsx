@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
 
 function Login() {
@@ -9,6 +10,7 @@ function Login() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
+    const { isLSSD } = useTheme();
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -38,12 +40,12 @@ function Login() {
 
             {/* Header */}
             <header className="header">
-                <img src="/LOGO_SAPD.png" alt="SAPD Logo" className="header-logo" />
+                <img src={isLSSD ? "/lssd/LSSDlogo.png" : "/LOGO_SAPD.png"} alt="Department Logo" className="header-logo" />
                 <div className="header-title-container">
-                    <h1 className="header-title">Los Santos Police Department</h1>
-                    <div className="header-subtitle">Detective Bureau</div>
+                    <h1 className="header-title">{isLSSD ? "Los Santos Sheriff's Department" : "Los Santos Police Department"}</h1>
+                    <div className="header-subtitle">{isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau"}</div>
                 </div>
-                <img src="/dblogo.png" alt="Detective Bureau Logo" className="header-logo" />
+                <img src={isLSSD ? "/lssd/SCUB.png" : "/dblogo.png"} alt="Bureau Logo" className="header-logo" />
             </header>
 
             {/* Main Content */}

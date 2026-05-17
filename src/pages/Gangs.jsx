@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
+import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
 
 function Gangs() {
@@ -9,6 +10,7 @@ function Gangs() {
     const [loading, setLoading] = useState(true);
     const [accessDenied, setAccessDenied] = useState(false);
     const [userRole, setUserRole] = useState(null);
+    const { isLSSD } = useTheme();
 
     // --- VIEW STATE ---
     const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
@@ -614,8 +616,8 @@ function Gangs() {
             <div className="doc-header" style={{ padding: '1rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(15,23,42,0.8)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '3rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                        <img src="/gnd.png" alt="GND Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 0 8px rgba(0,0,0,0.5))' }} />
-                        <h2 className="header-title" style={{ margin: 0, fontSize: '1.5rem', color: '#fff' }}>Gang Intelligence Unit</h2>
+                        <img src={isLSSD ? "/lssd/GND.png" : "/gnd.png"} alt="GND Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 0 8px rgba(0,0,0,0.5))' }} />
+                        <h2 className="header-title" style={{ margin: 0, fontSize: '1.5rem', color: '#fff' }}>{isLSSD ? "Gangs & Narcotics Division" : "Gang Intelligence Unit"}</h2>
                     </div>
                     <div className="gangs-tabs">
                         <button className={`gang-tab-btn ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')}>Active Operation</button>

@@ -12,6 +12,14 @@
   --font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
 
+/* LSSD Theme Overrides */
+body.theme-lssd {
+  --primary-bg: #064e3b; /* Deep Sheriff Green */
+  --secondary-bg: #065f46; /* Slightly lighter green for sidebars/cards */
+  --accent-gold: #d4af37; /* Sheriff Gold */
+  --glass-bg: rgba(6, 95, 70, 0.7);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
