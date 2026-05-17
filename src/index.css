@@ -7,8 +7,9 @@
   /* Police Badge Gold */
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
-  --glass-bg: rgba(15, 23, 42, 0.7);
+  --glass-bg: rgba(var(--secondary-rgb), 0.7);
   --glass-border: rgba(255, 255, 255, 0.1);
+  --content-overlay: rgba(var(--primary-rgb), 0.95);
   --font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
 
@@ -18,6 +19,7 @@ body.theme-lssd {
   --secondary-bg: #065f46; /* Slightly lighter green for sidebars/cards */
   --accent-gold: #d4af37; /* Sheriff Gold */
   --glass-bg: rgba(6, 95, 70, 0.7);
+  --content-overlay: rgba(4, 50, 36, 0.95);
 }
 
 * {
@@ -394,7 +396,7 @@ body {
   flex-direction: column;
   overflow-y: auto;
   background-image:
-    linear-gradient(rgba(11, 17, 32, 0.95), rgba(11, 17, 32, 0.95)),
+    linear-gradient(var(--content-overlay), var(--content-overlay)),
     url("/indeximage.png");
   /* Subtle texture if needed */
   background-size: cover;
@@ -402,7 +404,7 @@ body {
 
 .content-header {
   padding: 1.5rem 3rem;
-  background-color: rgba(11, 17, 32, 0.5);
+  background-color: rgba(var(--primary-rgb), 0.5);
   backdrop-filter: blur(5px);
   border-bottom: 1px solid var(--glass-border);
 }
@@ -749,7 +751,7 @@ body {
 }
 
 .personnel-column {
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(var(--secondary-rgb), 0.4);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
   padding: 1.5rem;
@@ -902,7 +904,7 @@ body {
 }
 
 .custom-select option {
-  background-color: #1e293b;
+  background-color: var(--secondary-bg);
   color: var(--text-primary);
   padding: 10px;
 }
@@ -985,7 +987,7 @@ body {
 }
 
 .detail-card {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(var(--secondary-rgb), 0.6);
   backdrop-filter: blur(10px);
   border-radius: 12px;
   overflow: hidden;
@@ -1191,7 +1193,7 @@ body {
 }
 
 .doc-card {
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(var(--secondary-rgb), 0.4);
   /* slightly transparent dark blue */
   backdrop-filter: blur(10px);
   border: 1px solid var(--glass-border);
@@ -1233,7 +1235,7 @@ body {
   box-shadow:
     0 20px 25px -5px rgba(0, 0, 0, 0.2),
     0 10px 10px -5px rgba(0, 0, 0, 0.1);
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(var(--secondary-rgb), 0.6);
 }
 
 .doc-card:hover::before {
@@ -1372,7 +1374,7 @@ body {
 }
 
 .interrogation-card {
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(var(--secondary-rgb), 0.5);
   backdrop-filter: blur(8px);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
@@ -1383,7 +1385,7 @@ body {
 }
 
 .interrogation-card:hover {
-  background: rgba(15, 23, 42, 0.7);
+  background: rgba(var(--secondary-rgb), 0.7);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   border-color: rgba(207, 181, 59, 0.2);
 }
@@ -1533,7 +1535,7 @@ body {
 }
 
 .events-section {
-    background: rgba(15, 23, 42, 0.4);
+    background: rgba(var(--secondary-rgb), 0.4);
     border: 1px solid var(--glass-border);
     border-radius: 12px;
     padding: 1.5rem;
@@ -1658,7 +1660,7 @@ body {
 
 /* Announcement styles */
 .announcement-card {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(var(--secondary-rgb), 0.6);
   border: 1px solid var(--glass-border);
   border-radius: 8px;
   padding: 1.5rem;
@@ -1864,7 +1866,7 @@ body {
   background: linear-gradient(
     180deg,
     rgba(30, 41, 59, 0.7) 0%,
-    rgba(15, 23, 42, 0.9) 100%
+    rgba(var(--secondary-rgb), 0.9) 100%
   );
   border-radius: 12px;
   overflow: hidden;
@@ -1928,7 +1930,7 @@ body {
 .gang-image-container {
   height: 220px;
   width: 100%;
-  background: #0f172a;
+  background: var(--primary-bg);
   position: relative;
   overflow: hidden;
 }
@@ -1965,7 +1967,7 @@ body {
 }
 
 .gang-section-card {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(var(--secondary-rgb), 0.6);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
   padding: 0;
@@ -2090,7 +2092,7 @@ body {
 /* --- Leaflet Custom Dark Popups --- */
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
-  background: rgba(15, 23, 42, 0.95) !important;
+  background: rgba(var(--secondary-rgb), 0.95) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   color: #f8fafc !important;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
@@ -2163,7 +2165,7 @@ body {
 }
 
 .calendar-day-header {
-    background: rgba(15, 23, 42, 0.9);
+    background: rgba(var(--secondary-rgb), 0.9);
     color: var(--accent-gold);
     text-align: center;
     padding: 0.5rem;
