@@ -32,6 +32,7 @@ import DOJSanctionProfile from './pages/DOJSanctionProfile';
 import DOJLicenses from './pages/DOJLicenses';
 import DOJLicenseProfile from './pages/DOJLicenseProfile';
 import OrderArchive from './pages/OrderArchive'; // Import
+import Admin from './pages/Admin'; // New Admin page
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
 import './index.css';
@@ -78,6 +79,7 @@ function App() {
             <Route path="/doj/licenses/:id" element={<DOJLicenseProfile />} />
             <Route path="/warrants" element={<OrderArchive />} /> {/* Updated Route */}
             <Route path="/profile" element={<Profile />} />
+            <Route path="/admin" element={<Admin />} /> {/* Admin Route */}
           </Route>
 
           {/* Fallback */}

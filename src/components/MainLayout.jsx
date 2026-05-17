@@ -73,6 +73,7 @@ function MainLayout() {
         { name: 'Personnel', path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ'] },
         { name: 'Internal Affairs', path: '/internal-affairs', divisions: ['Internal Affairs'] },
         { name: 'Department of Justice', path: '/doj', divisions: ['DOJ'] },
+        { name: 'ADMIN PANEL', path: '/admin', divisions: ['SysAdmin'] }, // Only accessible via Administrator bypass
     ];
 
     const navItems = allNavItems.filter(item => {
