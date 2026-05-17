@@ -15,11 +15,13 @@
 
 /* LSSD Theme Overrides */
 body.theme-lssd {
-  --primary-bg: #064e3b; /* Deep Sheriff Green */
-  --secondary-bg: #065f46; /* Slightly lighter green for sidebars/cards */
+  --primary-bg: #121e15; /* Dark Military Green */
+  --primary-rgb: 18, 30, 21;
+  --secondary-bg: #1e3022;
+  --secondary-rgb: 30, 48, 34;
   --accent-gold: #d4af37; /* Sheriff Gold */
-  --glass-bg: rgba(6, 95, 70, 0.7);
-  --content-overlay: rgba(4, 50, 36, 0.95);
+  --glass-bg: rgba(var(--secondary-rgb), 0.7);
+  --content-overlay: rgba(var(--primary-rgb), 0.95);
 }
 
 * {
@@ -180,7 +182,7 @@ body {
 .login-button {
   width: 100%;
   padding: 0.9rem;
-  background: linear-gradient(45deg, #1e293b, #0f172a);
+  background: linear-gradient(45deg, var(--secondary-bg), var(--primary-bg));
   border: 1px solid var(--glass-border);
   color: var(--accent-gold);
   font-size: 1rem;
@@ -193,7 +195,7 @@ body {
 }
 
 .login-button:hover {
-  background: linear-gradient(45deg, #0f172a, #1e293b);
+  background: linear-gradient(45deg, var(--primary-bg), var(--secondary-bg));
   box-shadow: 0 0 15px rgba(207, 181, 59, 0.3);
   border-color: var(--accent-gold);
 }
