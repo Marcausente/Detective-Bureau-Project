@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function Login() {
@@ -11,6 +12,7 @@ function Login() {
     const [error, setError] = useState(null);
     const navigate = useNavigate();
     const { isLSSD } = useTheme();
+    const { t } = useLanguage();
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -52,13 +54,13 @@ function Login() {
             <main className="main-content">
                 <div className="login-card">
                     <div className="login-header">
-                        <h2>Authorized Access</h2>
-                        <p>Please identify yourself, Detective.</p>
+                        <h2>{t('authAccess')}</h2>
+                        <p>{t('identifyYourself')}</p>
                     </div>
 
                     <form onSubmit={handleLogin}>
                         <div className="form-group">
-                            <label className="form-label">Email:</label>
+                            <label className="form-label">{t('email')}</label>
                             <input
                                 type="email"
                                 className="form-input"
@@ -70,7 +72,7 @@ function Login() {
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Password</label>
+                            <label className="form-label">{t('password')}</label>
                             <input
                                 type="password"
                                 className="form-input"
@@ -84,7 +86,7 @@ function Login() {
                         {error && <div style={{ color: 'red', marginBottom: '1rem', textAlign: 'center' }}>{error}</div>}
 
                         <button type="submit" className="login-button" disabled={loading}>
-                            {loading ? 'Authenticating...' : 'Access System'}
+                            {loading ? t('authenticating') : t('accessSystem')}
                         </button>
                     </form>
                 </div>

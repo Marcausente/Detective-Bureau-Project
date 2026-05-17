@@ -1,0 +1,78 @@
+export const translations = {
+    en: {
+        // Layout / Sidebar
+        dashboard: "Dashboard",
+        documentation: "Documentation",
+        criminalCases: "Criminal Cases",
+        gangs: "Gangs",
+        incidents: "Incidents",
+        crimeMap: "Crime Map",
+        judicialOrders: "Judicial Orders",
+        interrogations: "Interrogations",
+        trainingProgram: "Detective Training Program",
+        personnel: "Personnel",
+        internalAffairs: "Internal Affairs",
+        doj: "Department of Justice",
+        adminPanel: "ADMIN PANEL",
+        detectiveBureau: "Detective Bureau",
+        scub: "SCUB",
+        badge: "Badge #",
+        editProfile: "Edit Profile",
+        logout: "Logout",
+        
+        // Login
+        authAccess: "Authorized Access",
+        identifyYourself: "Please identify yourself, Detective.",
+        email: "Email:",
+        password: "Password",
+        authenticating: "Authenticating...",
+        accessSystem: "Access System",
+
+        // Admin Panel
+        adminControls: "Administrator Controls",
+        verifyingAccess: "Verifying Access...",
+        globalSettings: "Global Settings",
+        departmentTheme: "Department Theme",
+        themeDesc: "Switch the entire application between LSPD (Blue) and LSSD (Green). This applies to all users instantly.",
+        languageTheme: "Application Language",
+        languageDesc: "Switch the entire application between English and Spanish. This applies to all users instantly.",
+    },
+    es: {
+        // Layout / Sidebar
+        dashboard: "Panel Principal",
+        documentation: "Documentación",
+        criminalCases: "Casos Criminales",
+        gangs: "Pandillas",
+        incidents: "Incidentes",
+        crimeMap: "Mapa de Crímenes",
+        judicialOrders: "Órdenes Judiciales",
+        interrogations: "Interrogatorios",
+        trainingProgram: "Programa de Entrenamiento de Detectives",
+        personnel: "Personal",
+        internalAffairs: "Asuntos Internos",
+        doj: "Departamento de Justicia",
+        adminPanel: "PANEL DE ADMINISTRACIÓN",
+        detectiveBureau: "Buró de Detectives",
+        scub: "SCUB",
+        badge: "Placa #",
+        editProfile: "Editar Perfil",
+        logout: "Cerrar Sesión",
+        
+        // Login
+        authAccess: "Acceso Autorizado",
+        identifyYourself: "Por favor identifíquese, Detective.",
+        email: "Correo Electrónico:",
+        password: "Contraseña",
+        authenticating: "Autenticando...",
+        accessSystem: "Acceder al Sistema",
+
+        // Admin Panel
+        adminControls: "Controles de Administrador",
+        verifyingAccess: "Verificando Acceso...",
+        globalSettings: "Ajustes Globales",
+        departmentTheme: "Tema del Departamento",
+        themeDesc: "Cambia la aplicación entera entre LSPD (Azul) y LSSD (Verde). Esto se aplica a todos los usuarios al instante.",
+        languageTheme: "Idioma de la Aplicación",
+        languageDesc: "Cambia la aplicación entera entre Inglés y Español. Esto se aplica a todos los usuarios al instante.",
+    }
+};

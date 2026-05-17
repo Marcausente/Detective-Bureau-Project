@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function MainLayout() {
@@ -9,6 +10,7 @@ function MainLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const { isLSSD } = useTheme();
+    const { t } = useLanguage();
 
     useEffect(() => {
         let mounted = true;
@@ -63,19 +65,19 @@ function MainLayout() {
     };
 
     const allNavItems = [
-        { name: 'Dashboard', path: '/dashboard', divisions: ['Detective Bureau'] },
-        { name: 'Documentation', path: '/documentation', divisions: ['Detective Bureau'] },
-        { name: 'Criminal Cases', path: '/cases', divisions: ['Detective Bureau'] },
-        { name: 'Gangs', path: '/gangs', divisions: ['Detective Bureau'] },
-        { name: 'Incidents', path: '/incidents', divisions: ['Detective Bureau'] },
-        { name: 'Crime Map', path: '/crimemap', divisions: ['Detective Bureau'] },
-        { name: 'Judicial Orders', path: '/warrants', divisions: ['Detective Bureau'] },
-        { name: 'Interrogations', path: '/interrogations', divisions: ['Detective Bureau'] },
-        { name: 'Detective Training Program', path: '/training', divisions: ['Detective Bureau'], roles: ['detective', 'coordinador'] },
-        { name: 'Personnel', path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ'] },
-        { name: 'Internal Affairs', path: '/internal-affairs', divisions: ['Internal Affairs'] },
-        { name: 'Department of Justice', path: '/doj', divisions: ['DOJ'] },
-        { name: 'ADMIN PANEL', path: '/admin', divisions: ['SysAdmin'] }, // Only accessible via Administrator bypass
+        { name: t('dashboard'), path: '/dashboard', divisions: ['Detective Bureau'] },
+        { name: t('documentation'), path: '/documentation', divisions: ['Detective Bureau'] },
+        { name: t('criminalCases'), path: '/cases', divisions: ['Detective Bureau'] },
+        { name: t('gangs'), path: '/gangs', divisions: ['Detective Bureau'] },
+        { name: t('incidents'), path: '/incidents', divisions: ['Detective Bureau'] },
+        { name: t('crimeMap'), path: '/crimemap', divisions: ['Detective Bureau'] },
+        { name: t('judicialOrders'), path: '/warrants', divisions: ['Detective Bureau'] },
+        { name: t('interrogations'), path: '/interrogations', divisions: ['Detective Bureau'] },
+        { name: t('trainingProgram'), path: '/training', divisions: ['Detective Bureau'], roles: ['detective', 'coordinador'] },
+        { name: t('personnel'), path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ'] },
+        { name: t('internalAffairs'), path: '/internal-affairs', divisions: ['Internal Affairs'] },
+        { name: t('doj'), path: '/doj', divisions: ['DOJ'] },
+        { name: t('adminPanel'), path: '/admin', divisions: ['SysAdmin'] }, // Only accessible via Administrator bypass
     ];
 
     const navItems = allNavItems.filter(item => {
@@ -102,7 +104,7 @@ function MainLayout() {
             <aside className="sidebar">
                 <div className="sidebar-header">
                     <img src={isLSSD ? "/lssd/LSSDlogo.png" : "/LOGO_SAPD.png"} alt={isLSSD ? "LSSD" : "SAPD"} className="sidebar-logo" />
-                    <div className="sidebar-title">{isLSSD ? "SCUB" : "DETECTIVE BUREAU"}</div>
+                    <div className="sidebar-title">{isLSSD ? t('scub') : t('detectiveBureau')}</div>
                 </div>
 
                 <nav className="sidebar-nav">
@@ -129,13 +131,13 @@ function MainLayout() {
                             </div>
                             <div className="user-info">
                                 <div className="user-name">{profile.rango} {profile.nombre} {profile.apellido}</div>
-                                <div className="user-badge">Badge #{profile.no_placa}</div>
+                                <div className="user-badge">{t('badge')}{profile.no_placa}</div>
                             </div>
                         </div>
                     )}
                     <div className="sidebar-actions">
-                        <button onClick={() => navigate('/profile')} className="action-btn">Edit Profile</button>
-                        <button onClick={handleLogout} className="action-btn logout">Logout</button>
+                        <button onClick={() => navigate('/profile')} className="action-btn">{t('editProfile')}</button>
+                        <button onClick={handleLogout} className="action-btn logout">{t('logout')}</button>
                     </div>
                 </div>
             </aside>
@@ -144,7 +146,7 @@ function MainLayout() {
             <main className="layout-content">
                 <header className="content-header">
                     {/* Breadcrumbs or Page Title could go here */}
-                    <h2 className="page-title">{navItems.find(i => i.path === location.pathname)?.name || (isLSSD ? 'SCUB' : 'Detective Bureau')}</h2>
+                    <h2 className="page-title">{navItems.find(i => i.path === location.pathname)?.name || (isLSSD ? t('scub') : t('detectiveBureau'))}</h2>
                 </header>
                 <div className="content-body">
                     <Outlet />

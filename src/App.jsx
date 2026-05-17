@@ -36,15 +36,17 @@ import Admin from './pages/Admin'; // New Admin page
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
 import { ThemeProvider } from './contexts/ThemeContext'; // Import ThemeProvider
+import { LanguageProvider } from './contexts/LanguageContext'; // Import LanguageProvider
 import './index.css';
 
 function App() {
   // Main Entry Point
   return (
     <ThemeProvider>
-      <PresenceProvider>
-        <Router>
-        <Routes>
+      <LanguageProvider>
+        <PresenceProvider>
+          <Router>
+          <Routes>
           {/* Public Route */}
           <Route path="/" element={<Login />} />
           <Route path="/public-map" element={<PublicGangMap />} />
@@ -87,8 +89,9 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </Router>
-      </PresenceProvider>
+        </Router>
+        </PresenceProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }
