@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.ia_cases (
   description TEXT,
   initial_image_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_by UUID REFERENCES public.users(id),
+  created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
   division TEXT DEFAULT 'Internal Affairs' -- For future consistency
 );
 
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS public.ia_case_assignments (
 CREATE TABLE IF NOT EXISTS public.ia_case_updates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   case_id UUID REFERENCES public.ia_cases(id) ON DELETE CASCADE,
-  author_id UUID REFERENCES public.users(id),
+  author_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
   content TEXT,
   image_url TEXT, -- Or array? Using basic text for now to match main cases
   images TEXT[], -- Supporting multiple images
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS public.ia_case_updates (
 CREATE TABLE IF NOT EXISTS public.ia_sanctions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   target_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
-  author_user_id UUID REFERENCES public.users(id),
+  author_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
   sanction_type TEXT CHECK (sanction_type IN ('Warning', 'Suspension', 'Demotion', 'Termination', 'Fine')),
   amount INT DEFAULT 0, -- For fines
   reason TEXT,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS public.ia_interrogations (
   title TEXT,
   summary TEXT,
   subjects TEXT,
-  created_by UUID REFERENCES public.users(id),
+  created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

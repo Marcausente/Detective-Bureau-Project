@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS public.ia_documentation (
   description TEXT,
   url TEXT, -- Link or Base64 image
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_by UUID REFERENCES public.users(id)
+  created_by UUID REFERENCES public.users(id) ON DELETE SET NULL
 );
 
 -- RLS

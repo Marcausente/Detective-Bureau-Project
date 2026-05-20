@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
 import { usePresence } from '../contexts/PresenceContext';
+import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
 
 function Personnel() {
     const navigate = useNavigate();
+    const { isLSSD } = useTheme();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -339,7 +341,7 @@ function Personnel() {
 
                 {/* Helpers Column */}
                 <div className="personnel-column">
-                    <h3 className="column-title">Ayudantes DB</h3>
+                    <h3 className="column-title">{isLSSD ? "Ayudantes SCUB" : "Ayudantes DB"}</h3>
                     <div className="personnel-list">
                         {helpers.length > 0 ? helpers.map(u => <UserCard key={u.id} user={u} />) : <div className="empty-list">No oficiales found</div>}
                     </div>

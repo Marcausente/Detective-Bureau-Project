@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.doj_license_types (
   name TEXT NOT NULL,
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_by UUID REFERENCES public.users(id)
+  created_by UUID REFERENCES public.users(id) ON DELETE SET NULL
 );
 
 -- 2. Civilian Profiles Table
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.doj_civilian_profiles (
   profile_image TEXT, -- Base64 or URL
   notes TEXT, -- General notes about the civilian
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_by UUID REFERENCES public.users(id)
+  created_by UUID REFERENCES public.users(id) ON DELETE SET NULL
 );
 
 -- 3. Civilian Licenses Junction Table
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS public.doj_civilian_licenses (
   issued_date DATE DEFAULT CURRENT_DATE,
   expires_date DATE,
   status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Expired', 'Suspended', 'Revoked')),
-  issued_by UUID REFERENCES public.users(id),
+  issued_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(civilian_id, license_type_id) -- One license type per civilian
 );

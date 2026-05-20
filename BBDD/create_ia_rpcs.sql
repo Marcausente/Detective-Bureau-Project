@@ -89,12 +89,12 @@ BEGIN
     'content', cu.content,
     'images', cu.images,
     'created_at', cu.created_at,
-    'author_name', u.nombre || ' ' || u.apellido,
+    'author_name', COALESCE(u.nombre || ' ' || u.apellido, 'Usuario Eliminado'),
     'author_rank', u.rango,
     'author_avatar', u.profile_image
   ) ORDER BY cu.created_at DESC) INTO v_updates
   FROM public.ia_case_updates cu
-  JOIN public.users u ON cu.author_id = u.id
+  LEFT JOIN public.users u ON cu.author_id = u.id
   WHERE cu.case_id = p_case_id;
 
   SELECT json_agg(json_build_object(

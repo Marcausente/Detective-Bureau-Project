@@ -88,13 +88,13 @@ BEGIN
     'images', cu.images,       -- <--- NEW FIELD
     'image', cu.image_url,     -- Keep for backward compatibility if needed, but UI should prefer 'images'
     'created_at', cu.created_at,
-    'author_name', u.nombre || ' ' || u.apellido,
+    'author_name', COALESCE(u.nombre || ' ' || u.apellido, 'Usuario Eliminado'),
     'author_rank', u.rango,
     'author_avatar', u.profile_image,
     'user_id', u.id
   ) ORDER BY cu.created_at DESC) INTO v_updates
   FROM public.case_updates cu
-  JOIN public.users u ON cu.author_id = u.id
+  LEFT JOIN public.users u ON cu.author_id = u.id
   WHERE cu.case_id = p_case_id;
 
   -- Get Linked Interrogations

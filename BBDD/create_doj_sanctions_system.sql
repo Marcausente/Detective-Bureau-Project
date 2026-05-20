@@ -8,9 +8,9 @@ CREATE TABLE IF NOT EXISTS public.doj_subject_profiles (
   apellido TEXT NOT NULL,
   no_placa TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_by UUID REFERENCES public.users(id),
+  created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
   -- Optional linking if they become a user later, but primary ID is this table's ID
-  linked_user_id UUID REFERENCES public.users(id)
+  linked_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL
 );
 
 -- 2. Sanctions Table (Updated from previous schema to link to Profile)
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS public.doj_sanctions (
   description TEXT,
   sanction_date DATE DEFAULT CURRENT_DATE,
   case_id UUID REFERENCES public.doj_cases(id) ON DELETE SET NULL, -- Optional link to DOJ Case
-  created_by UUID REFERENCES public.users(id),
+  created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

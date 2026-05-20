@@ -11,7 +11,7 @@ CREATE TABLE public.equipment_types (
   name TEXT NOT NULL UNIQUE,
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_by UUID REFERENCES public.users(id)
+  created_by UUID REFERENCES public.users(id) ON DELETE SET NULL
 );
 
 -- 2. Personnel Equipment Assignments Table
@@ -23,7 +23,7 @@ CREATE TABLE public.personnel_equipment (
   issued_date DATE NOT NULL,
   return_date DATE,
   status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Missing', 'Retired')),
-  issued_by UUID REFERENCES public.users(id),
+  issued_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

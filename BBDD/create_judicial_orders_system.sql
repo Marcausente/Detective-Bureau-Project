@@ -91,11 +91,11 @@ BEGIN
     o.content,
     o.status,
     o.created_at,
-    (u.nombre || ' ' || u.apellido) as author_name,
+    COALESCE(u.nombre || ' ' || u.apellido, 'Usuario Eliminado') as author_name,
     u.rango::text as author_rank,
     u.profile_image as author_avatar
   FROM public.judicial_orders o
-  JOIN public.users u ON o.created_by = u.id
+  LEFT JOIN public.users u ON o.created_by = u.id
   WHERE (p_type_filter IS NULL OR p_type_filter = 'Todas' OR o.order_type = p_type_filter)
   ORDER BY o.created_at DESC;
 END;
