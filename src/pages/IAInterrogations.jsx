@@ -65,14 +65,25 @@ function IAInterrogations() {
 
                 // Rank Priorities
                 const rankPriority = {
+                    'Sheriff': 150,
+                    'Undersheriff': 140,
+                    'Assistant Sheriff': 130,
+                    'Division Chief': 120,
+                    'Comandante': 110,
                     'Capitan': 100,
                     'Teniente': 90,
+                    'Internal Affairs Agent': 85,
+                    'Department of Justice Agent': 85,
                     'Detective III': 80,
                     'Detective II': 70,
                     'Detective I': 60,
                     'Oficial III+': 50,
                     'Oficial III': 40,
-                    'Oficial II': 30
+                    'Deputy Sheriff Bonus II': 35,
+                    'Oficial II': 30,
+                    'Deputy Sheriff Bonus I': 20,
+                    'Oficial I': 15,
+                    'Deputy Sheriff': 10
                 };
                 const getRankPriority = (rank) => rankPriority[rank] || 0;
 

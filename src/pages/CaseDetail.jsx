@@ -522,7 +522,7 @@ function CaseDetail() {
                                         // Check permissions based on ROLE and RANK
                                         const isHighCommand = currentUser && (
                                             ['Coordinador', 'Administrador', 'Comisionado', 'Director', 'Fundador'].includes(currentUser.rol) ||
-                                            ['Capitan', 'Teniente'].includes(currentUser.rango)
+                                            ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente'].includes(currentUser.rango)
                                         );
 
                                         const canEdit = isAuthor;

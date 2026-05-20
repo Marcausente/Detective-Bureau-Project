@@ -83,24 +83,33 @@ function Personnel() {
 
     // Rank Priorities
     const rankPriority = {
+        'Sheriff': 150,
+        'Undersheriff': 140,
+        'Assistant Sheriff': 130,
+        'Division Chief': 120,
+        'Comandante': 110,
         'Capitan': 100,
         'Teniente': 90,
-        'Internal Affairs Agent': 85, // High priority sort
-        'Department of Justice Agent': 85, // Same level as IA Agent
+        'Internal Affairs Agent': 85,
+        'Department of Justice Agent': 85,
         'Detective III': 80,
         'Detective II': 70,
         'Detective I': 60,
         'Oficial III+': 50,
         'Oficial III': 40,
-        'Oficial II': 30
+        'Deputy Sheriff Bonus II': 35,
+        'Oficial II': 30,
+        'Deputy Sheriff Bonus I': 20,
+        'Oficial I': 15,
+        'Deputy Sheriff': 10
     };
 
     const getRankPriority = (rank) => rankPriority[rank] || 0;
     const sortUsers = (a, b) => getRankPriority(b.rango) - getRankPriority(a.rango);
 
     const detectives = users.filter(u => ['Detective I', 'Detective II', 'Detective III'].includes(u.rango)).sort(sortUsers);
-    const helpers = users.filter(u => ['Oficial II', 'Oficial III', 'Oficial III+'].includes(u.rango)).sort(sortUsers);
-    const commandAndExternal = users.filter(u => ['Capitan', 'Teniente', 'Internal Affairs Agent', 'Department of Justice Agent'].includes(u.rango)).sort(sortUsers);
+    const helpers = users.filter(u => ['Deputy Sheriff', 'Oficial I', 'Deputy Sheriff Bonus I', 'Oficial II', 'Deputy Sheriff Bonus II', 'Oficial III', 'Oficial III+'].includes(u.rango)).sort(sortUsers);
+    const commandAndExternal = users.filter(u => ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente', 'Internal Affairs Agent', 'Department of Justice Agent'].includes(u.rango)).sort(sortUsers);
 
     // --- Actions ---
 
@@ -407,9 +416,12 @@ function Personnel() {
                             <div className="form-group">
                                 <label className="form-label">Rank</label>
                                 <select name="rango" className="form-input custom-select" value={formData.rango} onChange={handleInputChange}>
+                                    <option value="Deputy Sheriff">Deputy Sheriff</option>
+                                    <option value="Oficial I">Oficial I</option>
+                                    <option value="Deputy Sheriff Bonus I">Deputy Sheriff Bonus I</option>
                                     <option value="Oficial II">Oficial II</option>
+                                    <option value="Deputy Sheriff Bonus II">Deputy Sheriff Bonus II</option>
                                     <option value="Oficial III">Oficial III</option>
-                                    <option value="Oficial III+">Oficial III+</option>
                                     <option value="Detective I">Detective I</option>
                                     <option value="Detective II">Detective II</option>
                                     <option value="Detective III">Detective III</option>
@@ -417,6 +429,11 @@ function Personnel() {
                                     <option value="Department of Justice Agent">Department of Justice Agent</option>
                                     <option value="Teniente">Teniente</option>
                                     <option value="Capitan">Capitan</option>
+                                    <option value="Comandante">Comandante</option>
+                                    <option value="Division Chief">Division Chief</option>
+                                    <option value="Assistant Sheriff">Assistant Sheriff</option>
+                                    <option value="Undersheriff">Undersheriff</option>
+                                    <option value="Sheriff">Sheriff</option>
                                 </select>
                             </div>
 

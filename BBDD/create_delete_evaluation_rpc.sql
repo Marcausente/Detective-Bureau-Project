@@ -25,41 +25,7 @@ BEGIN
   END IF;
 
   -- Perform the same check as the frontend (Viewer > Target in rank hierarchy)
-  -- Since SQL enums are ordered, we can usually compare them, but our custom order might differ.
-  -- To be safe and reuse logic, let's just assume if they're calling this they likely have the right, but let's implement a quick check.
-  -- Simplified check: If you are Captain or Lieutenant you can delete. Or if you are the author?
-  -- User requested: "Delete evaluations they are able to see".
-  -- Frontend logic is: Viewer Rank > Target Rank.
-  -- We'll implement a helper function for Rank Level or just hardcode the hierarchy check here.
-  
-  -- Re-implementing simplified rank check for security context
-  -- (Ideally we'd have a function `get_rank_level` in SQL but let's do a quick CASE here)
-  
-  IF (
-     CASE v_viewer_rank
-       WHEN 'Capitan' THEN 100
-       WHEN 'Teniente' THEN 90
-       WHEN 'Detective III' THEN 80
-       WHEN 'Detective II' THEN 70
-       WHEN 'Detective I' THEN 60
-       WHEN 'Oficial III+' THEN 50
-       WHEN 'Oficial III' THEN 40
-       WHEN 'Oficial II' THEN 30
-       ELSE 0
-     END
-     >
-     CASE v_target_user_rank
-       WHEN 'Capitan' THEN 100
-       WHEN 'Teniente' THEN 90
-       WHEN 'Detective III' THEN 80
-       WHEN 'Detective II' THEN 70
-       WHEN 'Detective I' THEN 60
-       WHEN 'Oficial III+' THEN 50
-       WHEN 'Oficial III' THEN 40
-       WHEN 'Oficial II' THEN 30
-       ELSE 0
-     END
-  ) THEN
+  IF public.check_evaluation_access(v_viewer_id, v_target_user_id) THEN
      DELETE FROM public.evaluations WHERE id = p_evaluation_id;
   ELSE
      RAISE EXCEPTION 'Access Denied: You do not have sufficient rank to delete this evaluation.';

@@ -6,7 +6,11 @@ import '../index.css';
 // Rank Hierarchy Helper
 const getRankLevel = (rank) => {
     switch (rank) {
+        case 'Deputy Sheriff':
+        case 'Oficial I':
+        case 'Deputy Sheriff Bonus I':
         case 'Oficial II':
+        case 'Deputy Sheriff Bonus II':
         case 'Oficial III':
         case 'Oficial III+':
             return 1;
@@ -18,10 +22,21 @@ const getRankLevel = (rank) => {
             return 4;
         case 'Internal Affairs Agent':
         case 'Department of Justice Agent':
-            return 4.5; // Higher than D3, lower than Lt? Or equal? Assuming 4.5 or 5.
+            return 4.5;
         case 'Teniente':
-        case 'Capitan':
             return 5;
+        case 'Capitan':
+            return 6;
+        case 'Comandante':
+            return 7;
+        case 'Division Chief':
+            return 8;
+        case 'Assistant Sheriff':
+            return 9;
+        case 'Undersheriff':
+            return 10;
+        case 'Sheriff':
+            return 11;
         default:
             return 0;
     }
@@ -463,7 +478,7 @@ function PersonnelDetail() {
                     ) : (
                         /* Optional: Message explaining why they can't see it? Or just hidden.
                            Given the rules, keeping it hidden is cleaner, but debug text helps. */
-                        user.rango !== 'Capitan' && user.rango !== 'Teniente' && (
+                        !['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente'].includes(user.rango) && (
                             <div className="detail-section" style={{ marginTop: '2rem', opacity: 0.5 }}>
                                 <p style={{ fontStyle: 'italic', fontSize: '0.9rem' }}>Evaluations are restricted to superior ranks.</p>
                             </div>

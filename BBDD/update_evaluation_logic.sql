@@ -1,23 +1,47 @@
 
 -- 1. Helper Function: Get Numeric Rank Level
 -- Levels:
--- 1: Oficial II, Oficial III, Oficial III+
--- 2: Detective I
--- 3: Detective II
--- 4: Detective III
--- 5: Teniente, Capitan
+-- 10: Deputy Sheriff
+-- 15: Oficial I
+-- 20: Deputy Sheriff Bonus I
+-- 30: Oficial II
+-- 35: Deputy Sheriff Bonus II
+-- 40: Oficial III
+-- 50: Oficial III+
+-- 60: Detective I
+-- 70: Detective II
+-- 80: Detective III
+-- 85: Internal Affairs Agent, Department of Justice Agent
+-- 90: Teniente
+-- 100: Capitan
+-- 110: Comandante
+-- 120: Division Chief
+-- 130: Assistant Sheriff
+-- 140: Undersheriff
+-- 150: Sheriff
 
 CREATE OR REPLACE FUNCTION public.get_rank_level(r app_rank) RETURNS INTEGER AS $$
 BEGIN
     RETURN CASE r
-        WHEN 'Oficial II' THEN 1
-        WHEN 'Oficial III' THEN 1
-        WHEN 'Oficial III+' THEN 1
-        WHEN 'Detective I' THEN 2
-        WHEN 'Detective II' THEN 3
-        WHEN 'Detective III' THEN 4
-        WHEN 'Teniente' THEN 5
-        WHEN 'Capitan' THEN 5
+        WHEN 'Deputy Sheriff' THEN 10
+        WHEN 'Oficial I' THEN 15
+        WHEN 'Deputy Sheriff Bonus I' THEN 20
+        WHEN 'Oficial II' THEN 30
+        WHEN 'Deputy Sheriff Bonus II' THEN 35
+        WHEN 'Oficial III' THEN 40
+        WHEN 'Oficial III+' THEN 50
+        WHEN 'Detective I' THEN 60
+        WHEN 'Detective II' THEN 70
+        WHEN 'Detective III' THEN 80
+        WHEN 'Internal Affairs Agent' THEN 85
+        WHEN 'Department of Justice Agent' THEN 85
+        WHEN 'Teniente' THEN 90
+        WHEN 'Capitan' THEN 100
+        WHEN 'Comandante' THEN 110
+        WHEN 'Division Chief' THEN 120
+        WHEN 'Assistant Sheriff' THEN 130
+        WHEN 'Undersheriff' THEN 140
+        WHEN 'Sheriff' THEN 150
         ELSE 0
     END;
 END;

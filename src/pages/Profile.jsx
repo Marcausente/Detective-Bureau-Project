@@ -265,12 +265,24 @@ function Profile() {
                                 onChange={handleChange}
                             >
                                 <option value="">Select Rank</option>
+                                <option value="Deputy Sheriff">Deputy Sheriff</option>
+                                <option value="Oficial I">Oficial I</option>
+                                <option value="Deputy Sheriff Bonus I">Deputy Sheriff Bonus I</option>
                                 <option value="Oficial II">Oficial II</option>
+                                <option value="Deputy Sheriff Bonus II">Deputy Sheriff Bonus II</option>
                                 <option value="Oficial III">Oficial III</option>
-                                <option value="Oficial III+">Oficial III+</option>
                                 <option value="Detective I">Detective I</option>
                                 <option value="Detective II">Detective II</option>
                                 <option value="Detective III">Detective III</option>
+                                <option value="Internal Affairs Agent">Internal Affairs Agent</option>
+                                <option value="Department of Justice Agent">Department of Justice Agent</option>
+                                <option value="Teniente">Teniente</option>
+                                <option value="Capitan">Capitan</option>
+                                <option value="Comandante">Comandante</option>
+                                <option value="Division Chief">Division Chief</option>
+                                <option value="Assistant Sheriff">Assistant Sheriff</option>
+                                <option value="Undersheriff">Undersheriff</option>
+                                <option value="Sheriff">Sheriff</option>
                             </select>
                         ) : (
                             <input
