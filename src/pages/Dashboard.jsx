@@ -255,13 +255,15 @@ function Dashboard() {
     const canCreateEvent = user && ['Detective', 'Coordinador', 'Comisionado', 'Administrador', 'DOJ General', 'Fiscal General', 'Juez', 'Juez Supremo'].includes(user.rol);
     const canDeleteEvent = user && ['Coordinador', 'Comisionado', 'Administrador', 'Juez Supremo'].includes(user.rol);
 
+    const isLSSD = document.body.classList.contains('theme-lssd');
+
     if (loading) return <div className="loading-container">Loading Dashboard...</div>;
 
     return (
         <div className="documentation-container" style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
             <div className="doc-header">
                 <div>
-                    <h2 className="page-title">DETECTIVE BUREAU DASHBOARD</h2>
+                    <h2 className="page-title">{isLSSD ? 'SHERIFF CRIMINAL UNIT DASHBOARD' : 'DETECTIVE BUREAU DASHBOARD'}</h2>
                     <h4 style={{ color: 'var(--accent-gold)', textTransform: 'uppercase', letterSpacing: '1px' }}>
                         Welcome back, {user?.rango} {user?.apellido}
                     </h4>
