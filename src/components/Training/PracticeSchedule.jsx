@@ -588,7 +588,7 @@ function PracticeSchedule() {
             )}
 
             {viewMode === 'details' && selectedEvent && (
-                <div className="dtp-glass-card" style={{ padding: '2.5rem', maxWidth: '1000px', margin: '0 auto' }}>
+                <div className="dtp-glass-card" style={{ padding: '2.5rem', maxWidth: '1200px', margin: '0 auto' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1.5rem' }}>
                         <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.8rem' }}>
@@ -637,7 +637,7 @@ function PracticeSchedule() {
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
                         {/* Info Column */}
                         <div>
                             {isEditingEvent ? (
@@ -744,7 +744,7 @@ function PracticeSchedule() {
                         </div>
 
                         {/* Attendees Column */}
-                        <div style={{ background: 'rgba(0,0,0,0.3)', padding: '2rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ background: 'rgba(0,0,0,0.3)', padding: '2.5rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
                                 <div>
                                     <h4 style={{ margin: 0, color: '#ffffff', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -796,7 +796,7 @@ function PracticeSchedule() {
                                     <p>Aún no hay agentes apuntados a esta práctica.</p>
                                 </div>
                             ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2.5rem' }}>
                                     
                                     {/* Tabla de Instructores / Organizadores Secundarios */}
                                     {attendees.filter(a => a.is_organizer).length > 0 && (
@@ -909,10 +909,10 @@ function PracticeSchedule() {
                                         Añadir Asistentes / Pasar Lista
                                     </h5>
                                     
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2.5rem', marginBottom: '2rem' }}>
                                         <div className="dtp-input-group" style={{ marginBottom: 0 }}>
                                             <label className="dtp-label" style={{ color: '#fbd38d' }}>Añadir Instructores</label>
-                                            <div style={{ display: 'flex', gap: '0.5rem', height: '180px' }}>
+                                            <div style={{ display: 'flex', gap: '0.8rem', height: '220px' }}>
                                                 {/* Disponibles */}
                                                 <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', overflowY: 'auto', padding: '0.4rem' }}>
                                                     <div style={{ fontSize: '0.75rem', color: '#a0aec0', marginBottom: '0.4rem', textAlign: 'center' }}>Disponibles</div>
@@ -938,7 +938,7 @@ function PracticeSchedule() {
 
                                         <div className="dtp-input-group" style={{ marginBottom: 0 }}>
                                             <label className="dtp-label" style={{ color: '#90cdf4' }}>Añadir Aspirantes</label>
-                                            <div style={{ display: 'flex', gap: '0.5rem', height: '180px' }}>
+                                            <div style={{ display: 'flex', gap: '0.8rem', height: '220px' }}>
                                                 {/* Disponibles */}
                                                 <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', overflowY: 'auto', padding: '0.4rem' }}>
                                                     <div style={{ fontSize: '0.75rem', color: '#a0aec0', marginBottom: '0.4rem', textAlign: 'center' }}>Disponibles</div>
