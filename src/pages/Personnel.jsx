@@ -256,7 +256,7 @@ function Personnel() {
     const canManagePersonnel = ['Comisionado', 'Coordinador', 'Administrador'].includes(currentUserRole);
 
     const UserCard = ({ user }) => {
-        const isOnline = onlineUsers.has(user.id);
+        const isOnline = onlineUsers.includes(user.id);
 
         return (
             <div className="personnel-card" onClick={() => navigate(`/personnel/${user.id}`)} style={{ cursor: 'pointer', position: 'relative' }}>

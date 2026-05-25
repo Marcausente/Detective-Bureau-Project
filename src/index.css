@@ -23,11 +23,25 @@ body.theme-lssd {
   --glass-bg: rgba(var(--secondary-rgb), 0.7);
   --content-overlay: rgba(var(--primary-rgb), 0.95);
 }
-
 body.theme-lssd .layout-content {
   background-image:
     linear-gradient(var(--content-overlay), var(--content-overlay)),
     url("/lssd/fondolssd.png");
+}
+
+/* LSSD specific cards */
+body.theme-lssd .doc-card,
+body.theme-lssd .announcement-card,
+body.theme-lssd .case-card,
+body.theme-lssd [style*="background: 'rgba(30, 41, 59"] {
+  background: rgba(22, 54, 30, 0.7) !important;
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+body.theme-lssd .doc-card:hover,
+body.theme-lssd .announcement-card:hover,
+body.theme-lssd .case-card:hover {
+  background: rgba(30, 68, 40, 0.85) !important;
 }
 
 * {

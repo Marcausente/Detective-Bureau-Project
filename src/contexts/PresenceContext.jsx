@@ -4,22 +4,26 @@ import { supabase } from '../supabaseClient';
 const PresenceContext = createContext();
 
 export const PresenceProvider = ({ children }) => {
-    const [onlineUsers, setOnlineUsers] = useState(new Set());
+    const [onlineUsers, setOnlineUsers] = useState([]);
 
     useEffect(() => {
-        // Only track if user is authenticated (optional, but cleaner)
-        // Or we can just track everyone. Let's ensure user is logged in to identify them.
-        let room;
+        let isMounted = true;
+        let room = null;
 
         const setupPresence = async () => {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return; // Retrieve user session first
+            if (!isMounted || !user) return;
 
-            // Join the global presence channel
+            // Remove any existing channel with the same name before creating a new one
+            if (room) {
+                await supabase.removeChannel(room);
+            }
+
             room = supabase.channel('online-users');
 
             room
                 .on('presence', { event: 'sync' }, () => {
+                    if (!isMounted) return;
                     const newState = room.presenceState();
                     const ids = new Set();
                     for (const id in newState) {
@@ -27,36 +31,40 @@ export const PresenceProvider = ({ children }) => {
                             if (p.user_id) ids.add(p.user_id);
                         });
                     }
-                    setOnlineUsers(ids);
+                    setOnlineUsers(Array.from(ids));
                 })
                 .subscribe(async (status) => {
-                    if (status === 'SUBSCRIBED') {
-                        await room.track({
-                            user_id: user.id,
-                            online_at: new Date().toISOString()
-                        });
+                    if (status === 'SUBSCRIBED' && isMounted) {
+                        try {
+                            await room.track({
+                                user_id: user.id,
+                                online_at: new Date().toISOString()
+                            });
+                        } catch (err) {
+                            console.error("Presence track error:", err);
+                        }
                     }
                 });
         };
 
         setupPresence();
 
-        // Listen for auth changes to re-connect if user logs in/out
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' && !room) {
+            if (event === 'SIGNED_IN') {
                 setupPresence();
             } else if (event === 'SIGNED_OUT') {
                 if (room) {
                     supabase.removeChannel(room);
                     room = null;
                 }
-                setOnlineUsers(new Set());
+                if (isMounted) setOnlineUsers([]);
             }
         });
 
         return () => {
+            isMounted = false;
             if (room) supabase.removeChannel(room);
-            authListener.subscription.unsubscribe();
+            authListener?.subscription?.unsubscribe();
         };
     }, []);
 
