@@ -3,6 +3,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../supabaseClient';
 import GTAVMap from '../assets/GTAV-HD-MAP-satellite.jpg';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import '../doc_styles.css';
 
 // Fix icons
@@ -18,6 +20,8 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 export default function PublicGangMap() {
+    const { t } = useLanguage();
+    const { isLSSD } = useTheme();
     const mapContainerRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const layerGroupRef = useRef(null);
@@ -88,7 +92,7 @@ export default function PublicGangMap() {
                 const popupHTML = `
                     <h3 style="margin: 0 0 5px 0; color: #cfb53b; text-transform: uppercase;">${zone.name}</h3>
                     <p style="margin: 0 0 10px 0; color: #ccc; font-size: 0.9em;">${zone.description || ''}</p>
-                    <div style="font-size: 0.8em; margin-top: 5px; color: #ef4444; font-weight: bold; border: 1px solid #ef4444; padding: 2px 5px; border-radius: 4px; display: inline-block;">DANGER ZONE</div>
+                    <div style="font-size: 0.8em; margin-top: 5px; color: #ef4444; font-weight: bold; border: 1px solid #ef4444; padding: 2px 5px; border-radius: 4px; display: inline-block;">${t('dangerZone')}</div>
                 `;
 
                 poly.bindPopup(popupHTML, {
@@ -127,10 +131,10 @@ export default function PublicGangMap() {
             <div style={toolbarStyle}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
                     <div style={{ width: '10px', height: '10px', background: '#ef4444', borderRadius: '50%', boxShadow: '0 0 10px #ef4444' }}></div>
-                    <h3 style={{ margin: 0, color: 'white', fontSize: '1.2rem', letterSpacing: '1px', textTransform: 'uppercase' }}>Public Danger Map</h3>
+                    <h3 style={{ margin: 0, color: 'white', fontSize: '1.2rem', letterSpacing: '1px', textTransform: 'uppercase' }}>{t('publicDangerMap')}</h3>
                 </div>
                 <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                    Visualizing known high-risk and gang activity zones. Proceed with caution.
+                    {t('publicMapDesc')}
                 </div>
             </div>
             <div style={{
@@ -142,7 +146,7 @@ export default function PublicGangMap() {
                 fontSize: '0.8rem',
                 pointerEvents: 'none'
             }}>
-                Detective Bureau Public Service
+                {isLSSD ? "Sheriff Criminal Unit Bureau Public Service" : "Detective Bureau Public Service"}
             </div>
         </div>
     );

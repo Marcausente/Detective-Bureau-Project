@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../supabaseClient';
 import GTAVMap from '../assets/GTAV-HD-MAP-satellite.jpg';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../doc_styles.css';
 
 // Fix icons
@@ -18,6 +19,7 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 export default function CrimeMap() {
+    const { t } = useLanguage();
     const mapContainerRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const layerGroupRef = useRef(null);
@@ -184,10 +186,10 @@ export default function CrimeMap() {
                 let popupHTML = `
                     <h3 style="margin: 0 0 5px 0; color: #cfb53b; text-transform: uppercase;">${zone.name}</h3>
                     <p style="margin: 0 0 10px 0; color: #ccc; font-size: 0.9em;">${zone.description || ''}</p>
-                    ${zone.gang_name ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">Gang:</strong> ${zone.gang_name}</div>` : ''}
-                    ${zone.case_title ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">Case:</strong> ${authorized ? zone.case_title : '<span style="color: #ef4444; font-weight: bold;">SIN ACCESO</span>'}</div>` : ''}
-                    ${zone.incident_title ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">Incident:</strong> ${zone.incident_title}</div>` : ''}
-                    ${zone.is_gang_zone ? `<div style="font-size: 0.8em; margin-top: 5px; color: #ef4444; font-weight: bold; border: 1px solid #ef4444; padding: 2px 5px; border-radius: 4px; display: inline-block;">GANG / DROGA ZONE</div>` : ''}
+                    ${zone.gang_name ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">${t('gangLabel')}</strong> ${zone.gang_name}</div>` : ''}
+                    ${zone.case_title ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">${t('caseLabel')}</strong> ${authorized ? zone.case_title : `<span style="color: #ef4444; font-weight: bold;">${t('noAccessMap')}</span>`}</div>` : ''}
+                    ${zone.incident_title ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">${t('incidentLabel')}</strong> ${zone.incident_title}</div>` : ''}
+                    ${zone.is_gang_zone ? `<div style="font-size: 0.8em; margin-top: 5px; color: #ef4444; font-weight: bold; border: 1px solid #ef4444; padding: 2px 5px; border-radius: 4px; display: inline-block;">${t('gangDrogaZone')}</div>` : ''}
                 `;
 
                 if (authorized) {
@@ -204,7 +206,7 @@ export default function CrimeMap() {
                                 font-size: 0.75rem;
                                 font-weight: 600;
                                 text-transform: uppercase;
-                            ">EDIT</button>
+                            ">${t('editMapBtn')}</button>
                             <button class="delete-zone-btn" data-id="${zone.id}" style="
                                 flex: 1;
                                 background: #ef4444; 
@@ -216,7 +218,7 @@ export default function CrimeMap() {
                                 font-size: 0.75rem;
                                 font-weight: 600;
                                 text-transform: uppercase;
-                            ">DELETE</button>
+                            ">${t('deleteMapBtn')}</button>
                         </div>
                     `;
                 }
@@ -382,7 +384,7 @@ export default function CrimeMap() {
             <div style={toolbarStyle}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
                     <div style={{ width: '10px', height: '10px', background: '#cfb53b', borderRadius: '50%', boxShadow: '0 0 10px #cfb53b' }}></div>
-                    <h3 style={{ margin: 0, color: 'white', fontSize: '1.1rem', letterSpacing: '1px' }}>CRIME MAP</h3>
+                    <h3 style={{ margin: 0, color: 'white', fontSize: '1.1rem', letterSpacing: '1px' }}>{t('crimeMap')}</h3>
                 </div>
 
                 {authorized ? (
@@ -393,31 +395,31 @@ export default function CrimeMap() {
                             onMouseOver={(e) => { e.currentTarget.style.boxShadow = '0 0 15px rgba(207, 181, 59, 0.3)'; }}
                             onMouseOut={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
                         >
-                            + New Restricted Zone
+                            {t('newRestrictedZone')}
                         </button>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>
-                                Click map to place points.<br />Right-click to undo.
+                                {t('clickMapToPlacePoints')}
                             </div>
                             <button
                                 onClick={handleFinishDraw}
                                 style={{ ...floatingActionStyle, background: '#cfb53b', color: '#000', borderColor: '#cfb53b' }}
                                 disabled={drawingPoints.length < 3}
                             >
-                                Finish & Save
+                                {t('finishAndSave')}
                             </button>
                             <button
                                 onClick={() => { setMode('view'); setDrawingPoints([]); }}
                                 style={{ ...floatingActionStyle, borderColor: '#ef4444', color: '#ef4444' }}
                             >
-                                Cancel
+                                {t('cancelBtn')}
                             </button>
                         </div>
                     )
                 ) : (
                     <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                        View Access Only
+                        {t('viewAccessOnly')}
                     </div>
                 )}
             </div>
@@ -432,16 +434,16 @@ export default function CrimeMap() {
                 }}>
                     <div className="login-card" style={{ maxWidth: '450px', animation: 'zoomIn 0.3s ease' }}>
                         <h2 style={{ textAlign: 'center', color: '#cfb53b', marginBottom: '1.5rem', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                            {editingZoneId ? 'Edit Zone' : 'Define New Zone'}
+                            {editingZoneId ? t('editZone') : t('defineNewZone')}
                         </h2>
 
                         <div className="form-group">
-                            <label className="form-label">Zone Name</label>
+                            <label className="form-label">{t('zoneName')}</label>
                             <input
                                 className="form-input"
                                 value={tempZoneData.name}
                                 onChange={e => setTempZoneData({ ...tempZoneData, name: e.target.value })}
-                                placeholder="Designation..."
+                                placeholder={t('designationPlaceholder')}
                             />
                         </div>
 
@@ -454,12 +456,12 @@ export default function CrimeMap() {
                                 style={{ width: '22px', height: '22px', cursor: 'pointer', accentColor: '#cfb53b' }}
                             />
                             <label htmlFor="isGangZone" style={{ color: '#fff', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>
-                                Mostrar público <span style={{ fontSize: '0.8em', color: '#94a3b8', marginLeft: '5px', fontWeight: 'normal' }}>(Visible sin login)</span>
+                                {t('showPublicLabel')} <span style={{ fontSize: '0.8em', color: '#94a3b8', marginLeft: '5px', fontWeight: 'normal' }}>{t('visibleWithoutLogin')}</span>
                             </label>
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Description / Intel</label>
+                            <label className="form-label">{t('descriptionIntel')}</label>
                             <textarea
                                 className="form-input"
                                 rows="3"
@@ -470,7 +472,7 @@ export default function CrimeMap() {
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                             <div className="form-group">
-                                <label className="form-label">Zone Color</label>
+                                <label className="form-label">{t('zoneColor')}</label>
                                 <input
                                     type="color"
                                     className="form-input"
@@ -481,38 +483,38 @@ export default function CrimeMap() {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Linked Gang</label>
+                                <label className="form-label">{t('linkedGang')}</label>
                                 <select
                                     className="form-input"
                                     value={selectedGang}
                                     onChange={e => setSelectedGang(e.target.value)}
                                 >
-                                    <option value="">-- None --</option>
+                                    <option value="">{t('noneOption')}</option>
                                     {gangs.map(g => <option key={g.gang_id} value={g.gang_id}>{g.name}</option>)}
                                 </select>
                             </div>
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Linked Case</label>
+                            <label className="form-label">{t('linkedCase')}</label>
                             <select
                                 className="form-input"
                                 value={selectedCase}
                                 onChange={e => setSelectedCase(e.target.value)}
                             >
-                                <option value="">-- None --</option>
+                                <option value="">{t('noneOption')}</option>
                                 {cases.map(c => <option key={c.id} value={c.id}>#{c.case_number} - {c.title}</option>)}
                             </select>
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Linked Incident</label>
+                            <label className="form-label">{t('linkedIncident')}</label>
                             <select
                                 className="form-input"
                                 value={selectedIncident}
                                 onChange={e => setSelectedIncident(e.target.value)}
                             >
-                                <option value="">-- None --</option>
+                                <option value="">{t('noneOption')}</option>
                                 {incidents.map(i => <option key={i.record_id} value={i.record_id}>{i.tablet_incident_number ? `[${i.tablet_incident_number}] ` : ''}{i.title}</option>)}
                             </select>
                         </div>
@@ -523,14 +525,14 @@ export default function CrimeMap() {
                                 className="login-button"
                                 style={{ flex: 1, color: '#000', background: '#cfb53b' }}
                             >
-                                {editingZoneId ? 'Update' : 'Save'}
+                                {editingZoneId ? t('updateBtn') : t('saveBtn')}
                             </button>
                             <button
                                 onClick={() => setShowModal(false)}
                                 className="login-button"
                                 style={{ flex: 1, background: 'transparent', color: '#94a3b8' }}
                             >
-                                Cancel
+                                {t('cancelBtn')}
                             </button>
                         </div>
 
