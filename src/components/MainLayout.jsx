@@ -103,7 +103,7 @@ function MainLayout() {
             {/* Sidebar */}
             <aside className="sidebar">
                 <div className="sidebar-header">
-                    <img src={isLSSD ? "/lssd/LSSDlogo.png" : "/LOGO_SAPD.png"} alt={isLSSD ? "LSSD" : "SAPD"} className="sidebar-logo" />
+                    <img src={isLSSD ? "/lssd/SCUB.png" : "/LOGO_SAPD.png"} alt={isLSSD ? "SCUB" : "SAPD"} className="sidebar-logo" />
                     <div className="sidebar-title">{isLSSD ? t('scub') : t('detectiveBureau')}</div>
                 </div>
 

@@ -50,12 +50,15 @@ export function ThemeProvider({ children }) {
         };
     }, []);
 
-    // Apply CSS class to body when theme changes
+    // Apply CSS class to body and update favicon when theme changes
     useEffect(() => {
+        const favicon = document.querySelector("link[rel~='icon']");
         if (theme === 'LSSD') {
             document.body.classList.add('theme-lssd');
+            if (favicon) favicon.href = '/lssd/SCUB.png';
         } else {
             document.body.classList.remove('theme-lssd');
+            if (favicon) favicon.href = '/dblogo.png';
         }
     }, [theme]);
 
