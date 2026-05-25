@@ -155,20 +155,25 @@ function Documentation() {
 
     const canManage = ['Coordinador', 'Comisionado', 'Administrador'].includes(userRole);
 
-    // Image Modal State
+    // Modals State
     const [viewImage, setViewImage] = useState(null);
+    const [viewText, setViewText] = useState(null);
 
     // Filter Posts
     const docs = posts.filter(p => !p.category || p.category === 'documentation');
     const resources = posts.filter(p => p.category === 'resource');
+    const information = posts.filter(p => p.category === 'information');
 
     const handleCardClick = (e, post) => {
         const isImage = post.url && post.url.startsWith('data:image');
         if (isImage) {
             e.preventDefault();
             setViewImage(post.url);
+        } else if (post.category === 'information') {
+            e.preventDefault();
+            setViewText(post);
         }
-        // If not image, let default anchor behavior happen (open in new tab)
+        // If not image/info, let default anchor behavior happen (open in new tab)
     };
 
     const renderGrid = (items, emptyMsg) => (
@@ -187,22 +192,31 @@ function Documentation() {
                                 </div>
                             )}
                             <a
-                                href={post.url}
-                                target={isImage ? undefined : "_blank"}
-                                rel={isImage ? undefined : "noopener noreferrer"}
+                                href={post.category === 'information' ? undefined : post.url}
+                                target={isImage || post.category === 'information' ? undefined : "_blank"}
+                                rel={isImage || post.category === 'information' ? undefined : "noopener noreferrer"}
                                 className="doc-link-wrapper"
-                                onClick={(e) => isImage && e.preventDefault()} // Prevent default anchor if image
+                                onClick={(e) => (isImage || post.category === 'information') && e.preventDefault()}
                             >
                                 <div className="doc-icon" style={isImage ? { padding: 0, overflow: 'hidden', background: 'transparent', border: 'none' } : {}}>
                                     {isImage ? (
                                         <img src={post.url} alt="Resource" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '12px' }} />
                                     ) : (
-                                        post.category === 'resource' ? '🔗' : '📄'
+                                        post.category === 'resource' ? '🔗' : post.category === 'information' ? '📝' : '📄'
                                     )}
                                 </div>
                                 <h3 className="doc-title">{post.title}</h3>
-                                {post.description && <p className="doc-desc">{post.description}</p>}
-                                <span className="doc-click-hint">{isImage ? 'Click to view image' : 'Click to open'}</span>
+                                {post.description && (
+                                    <p className="doc-desc" style={{
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: post.category === 'information' ? 3 : 'unset',
+                                        WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden'
+                                    }}>
+                                        {post.description}
+                                    </p>
+                                )}
+                                <span className="doc-click-hint">{isImage ? 'Click to view image' : post.category === 'information' ? 'Click to read' : 'Click to open'}</span>
                             </a>
                         </div>
                     );
@@ -241,6 +255,18 @@ function Documentation() {
                             )}
                         </div>
                         {renderGrid(resources, "No resources found.")}
+                    </div>
+                    {/* Information Section */}
+                    <div className="doc-section" style={{ marginTop: '5rem' }}>
+                        <div className="doc-header">
+                            <h2 className="page-title">Information</h2>
+                            {canManage && (
+                                <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={() => openCreate('information')}>
+                                    + Add Information
+                                </button>
+                            )}
+                        </div>
+                        {renderGrid(information, "No information templates found.")}
                     </div>
                 </>
             )}
@@ -286,10 +312,37 @@ function Documentation() {
                 </div>
             )}
 
+            {/* Text Viewer Modal */}
+            {viewText && (
+                <div className="cropper-modal-overlay" onClick={() => setViewText(null)} style={{ zIndex: 3000 }}>
+                    <div className="cropper-modal-content" style={{ maxWidth: '800px', textAlign: 'left', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
+                            <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.5rem' }}>{viewText.title}</h3>
+                            <button className="login-button btn-secondary" style={{ width: 'auto', padding: '0.3rem 0.8rem' }} onClick={() => setViewText(null)}>Close</button>
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', overflowWrap: 'anywhere', color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: '1.6', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px' }}>
+                            {viewText.description}
+                        </div>
+                        <div style={{ marginTop: '1rem', textAlign: 'right' }}>
+                            <button
+                                className="login-button"
+                                style={{ width: 'auto' }}
+                                onClick={() => {
+                                    navigator.clipboard.writeText(viewText.description);
+                                    alert('Copied to clipboard!');
+                                }}
+                            >
+                                Copy to Clipboard
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '500px' }}>
-                        <h3>{modalMode === 'create' ? `New ${targetCategory === 'resource' ? 'Resource' : 'Document'}` : 'Edit Item'}</h3>
+                        <h3>{modalMode === 'create' ? `New ${targetCategory === 'resource' ? 'Resource' : targetCategory === 'information' ? 'Information' : 'Document'}` : 'Edit Item'}</h3>
                         <form onSubmit={handleAction} style={{ textAlign: 'left', marginTop: '1rem' }}>
 
                             {/* Toggle for Resources Only */}
@@ -319,35 +372,37 @@ function Documentation() {
                                 <input className="form-input" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
                             </div>
                             <div className="form-group">
-                                <label className="form-label">Description (Optional)</label>
-                                <textarea className="form-input" rows="3" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+                                <label className="form-label">Description {targetCategory === 'information' ? '(Required)' : '(Optional)'}</label>
+                                <textarea className="form-input" rows={targetCategory === 'information' ? "10" : "3"} required={targetCategory === 'information'} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                             </div>
 
-                            <div className="form-group">
-                                <label className="form-label">{inputType === 'file' ? 'Image File' : 'External URL'}</label>
-                                {inputType === 'file' ? (
-                                    <>
-                                        <label className="custom-file-upload">
-                                            <input type="file" accept="image/*" onChange={handleFileChange} />
-                                            {formData.url && formData.url.startsWith('data:') ? 'Change Image' : 'Select Image'}
-                                        </label>
-                                        {formData.url && formData.url.startsWith('data:') && (
-                                            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#4ade80' }}>
-                                                ✓ Image Selected
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <input
-                                        className="form-input"
-                                        required={inputType === 'url'}
-                                        type="url"
-                                        placeholder="https://..."
-                                        value={formData.url.startsWith('data:') ? '' : formData.url}
-                                        onChange={e => setFormData({ ...formData, url: e.target.value })}
-                                    />
-                                )}
-                            </div>
+                            {targetCategory !== 'information' && (
+                                <div className="form-group">
+                                    <label className="form-label">{inputType === 'file' ? 'Image File' : 'External URL'}</label>
+                                    {inputType === 'file' ? (
+                                        <>
+                                            <label className="custom-file-upload">
+                                                <input type="file" accept="image/*" onChange={handleFileChange} />
+                                                {formData.url && formData.url.startsWith('data:') ? 'Change Image' : 'Select Image'}
+                                            </label>
+                                            {formData.url && formData.url.startsWith('data:') && (
+                                                <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#4ade80' }}>
+                                                    ✓ Image Selected
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <input
+                                            className="form-input"
+                                            required={inputType === 'url'}
+                                            type="url"
+                                            placeholder="https://..."
+                                            value={formData.url.startsWith('data:') ? '' : formData.url}
+                                            onChange={e => setFormData({ ...formData, url: e.target.value })}
+                                        />
+                                    )}
+                                </div>
+                            )}
 
                             <div className="cropper-actions">
                                 <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
