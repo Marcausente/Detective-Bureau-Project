@@ -30,8 +30,17 @@ function Interrogations() {
     const [selectedAgents, setSelectedAgents] = useState([]);
 
     const [submitLoading, setSubmitLoading] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
 
     useEffect(() => {
+        const getCurrentUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase.from('users').select('rol').eq('id', user.id).single();
+                setCurrentUser(data);
+            }
+        };
+        getCurrentUser();
         loadData();
         fetchPersonnel();
     }, []);
@@ -219,9 +228,11 @@ function Interrogations() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                         disabled={!!searchParams.get('id')}
                     />
-                    <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={openCreate}>
-                        {t('newEntryBtn')}
-                    </button>
+                    {currentUser && !['Ayudante', 'Invitado', 'Externo'].includes(currentUser.rol) && (
+                        <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={openCreate}>
+                            {t('newEntryBtn')}
+                        </button>
+                    )}
                 </div>
             </div>
 

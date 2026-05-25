@@ -61,7 +61,7 @@ function MainLayout() {
 
     useEffect(() => {
         if (profile && profile.rol === 'Externo') {
-            const allowedPaths = ['/cases', '/profile'];
+            const allowedPaths = ['/cases', '/interrogations', '/profile'];
             const isAllowed = allowedPaths.includes(location.pathname) || location.pathname.startsWith('/cases/');
             
             if (!isAllowed) {
@@ -98,7 +98,7 @@ function MainLayout() {
 
         // Invitado restriction (mapped to Externo in DB)
         if (profile.rol === 'Externo') {
-            return item.path === '/cases';
+            return item.path === '/cases' || item.path === '/interrogations';
         }
 
         if (!profile.divisions) return false;
