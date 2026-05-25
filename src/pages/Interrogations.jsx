@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function Interrogations() {
     const [searchParams, setSearchParams] = useSearchParams();
+    const { t } = useLanguage();
     const [interrogations, setInterrogations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -201,16 +203,16 @@ function Interrogations() {
     return (
         <div className="documentation-container">
             <div className="doc-header">
-                <h2 className="page-title">Interrogations Log</h2>
+                <h2 className="page-title">{t('interrogationsLogTitle')}</h2>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     {searchParams.get('id') && (
                         <button className="login-button btn-secondary" style={{ width: 'auto', padding: '0.5rem 1rem', marginRight: '0.5rem' }} onClick={clearIdFilter}>
-                            ← Show All
+                            {t('showAllBtn')}
                         </button>
                     )}
                     <input
                         type="text"
-                        placeholder="Search logs..."
+                        placeholder={t('searchLogsPlaceholder')}
                         className="form-input"
                         style={{ width: '250px' }}
                         value={searchTerm}
@@ -218,17 +220,17 @@ function Interrogations() {
                         disabled={!!searchParams.get('id')}
                     />
                     <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={openCreate}>
-                        + New Entry
+                        {t('newEntryBtn')}
                     </button>
                 </div>
             </div>
 
             {loading ? (
-                <div className="loading-container">Loading Logs...</div>
+                <div className="loading-container">{t('loadingLogs')}</div>
             ) : (
                 <div className="interrogations-list">
                     {filteredItems.length === 0 ? (
-                        <div className="empty-list">No interrogations found.</div>
+                        <div className="empty-list">{t('noInterrogationsFound')}</div>
                     ) : (
                         filteredItems.map(item => (
                             <div key={item.id} className="interrogation-card">
@@ -244,24 +246,24 @@ function Interrogations() {
                                 <h3 className="int-title">{item.title}</h3>
                                 <div className="int-details-grid">
                                     <div className="int-detail">
-                                        <label>Agents:</label>
+                                        <label>{t('agentsLabel')}</label>
                                         <span>{item.agents_present || 'N/A'}</span>
                                     </div>
                                     <div className="int-detail">
-                                        <label>Subjects:</label>
+                                        <label>{t('subjectsLabel')}</label>
                                         <span>{item.subjects || 'N/A'}</span>
                                     </div>
                                 </div>
                                 <div className="int-transcription-preview">
-                                    <label>Transcription / Notes:</label>
+                                    <label>{t('transcriptionNotesLabel')}</label>
                                     <p>{item.transcription}</p>
                                 </div>
                                 {item.media_url && (
                                     <a href={item.media_url} target="_blank" rel="noopener noreferrer" className="int-link-btn">
-                                        ▶ View Recording / Evidence
+                                        {t('viewRecordingBtn')}
                                     </a>
                                 )}
-                                <div className="int-author-footer">Filed by: {item.author_name}</div>
+                                <div className="int-author-footer">{t('filedByLabel')} {item.author_name}</div>
                             </div>
                         ))
                     )}
@@ -272,23 +274,23 @@ function Interrogations() {
             {showModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3>{modalMode === 'create' ? 'New Interrogation Log' : 'Edit Log'}</h3>
+                        <h3>{modalMode === 'create' ? t('newInterrogationLogTitle') : t('editLogTitle')}</h3>
                         <form onSubmit={handleAction} style={{ textAlign: 'left', marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
                             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                                 <div className="form-group" style={{ flex: '1 1 200px' }}>
-                                    <label className="form-label">Date</label>
+                                    <label className="form-label">{t('dateLabel')}</label>
                                     <input type="date" className="form-input" required value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
                                 </div>
                                 <div className="form-group" style={{ flex: '2 1 300px' }}>
-                                    <label className="form-label">Title (Template: DD/MM/YYYY - Name)</label>
+                                    <label className="form-label">{t('titleTemplateLabel')}</label>
                                     <input className="form-input" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
                                 </div>
                             </div>
 
                             {/* Custom Agent Selector */}
                             <div className="form-group">
-                                <label className="form-label">Agents Present (Select multiple)</label>
+                                <label className="form-label">{t('agentsPresentLabel')}</label>
                                 <div className="agent-selector-container" style={{
                                     border: '1px solid var(--glass-border)',
                                     borderRadius: '8px',
@@ -335,34 +337,34 @@ function Interrogations() {
                                     })}
                                 </div>
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-                                    Selected: {selectedAgents.length > 0 ? selectedAgents.join(', ') : 'None'}
+                                    {t('selectedLabel')} {selectedAgents.length > 0 ? selectedAgents.join(', ') : t('noneSelected')}
                                 </div>
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Subject(s) Interrogated</label>
+                                <label className="form-label">{t('subjectsInterrogatedLabel')}</label>
                                 <input className="form-input" placeholder="e.g. John Doe" value={formData.subjects} onChange={e => setFormData({ ...formData, subjects: e.target.value })} />
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Relevant Information / Transcription</label>
+                                <label className="form-label">{t('relevantInfoLabel')}</label>
                                 <textarea
                                     className="form-input"
                                     rows="10"
-                                    placeholder="Enter detailed notes here..."
+                                    placeholder={t('enterNotesPlaceholder')}
                                     value={formData.transcription}
                                     onChange={e => setFormData({ ...formData, transcription: e.target.value })}
                                 />
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Recording / Evidence Link (YouTube/Drive)</label>
+                                <label className="form-label">{t('recordingLinkLabel')}</label>
                                 <input type="url" className="form-input" placeholder="https://..." value={formData.url} onChange={e => setFormData({ ...formData, url: e.target.value })} />
                             </div>
 
                             <div className="cropper-actions">
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                                <button type="submit" className="login-button" disabled={submitLoading}>{submitLoading ? 'Saving...' : 'Save Log'}</button>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)}>{t('cancelBtnLog')}</button>
+                                <button type="submit" className="login-button" disabled={submitLoading}>{submitLoading ? 'Saving...' : t('saveLogBtn')}</button>
                             </div>
                         </form>
                     </div>
