@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function Gangs() {
@@ -11,6 +12,7 @@ function Gangs() {
     const [accessDenied, setAccessDenied] = useState(false);
     const [userRole, setUserRole] = useState(null);
     const { isLSSD } = useTheme();
+    const { t } = useLanguage();
 
     // --- VIEW STATE ---
     const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
@@ -596,13 +598,13 @@ function Gangs() {
     };
 
 
-    if (loading) return <div className="loading-container">Loading Intel...</div>;
+    if (loading) return <div className="loading-container">{t('loadingIntel')}</div>;
 
     if (accessDenied) {
         return (
             <div className="documentation-container" style={{ textAlign: 'center', marginTop: '4rem' }}>
-                <h1 style={{ color: 'red', fontSize: '3rem' }}>ACCESS DENIED</h1>
-                <p>This intelligence database is restricted to Detectives and above.</p>
+                <h1 style={{ color: 'red', fontSize: '3rem' }}>{t('accessDenied')}</h1>
+                <p>{t('accessDeniedDesc')}</p>
             </div>
         );
     }
@@ -617,18 +619,18 @@ function Gangs() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '3rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                         <img src={isLSSD ? "/lssd/GND.png" : "/gnd.png"} alt="GND Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 0 8px rgba(0,0,0,0.5))' }} />
-                        <h2 className="header-title" style={{ margin: 0, fontSize: '1.5rem', color: '#fff' }}>{isLSSD ? "Gangs & Narcotics Division" : "Gang Intelligence Unit"}</h2>
+                        <h2 className="header-title" style={{ margin: 0, fontSize: '1.5rem', color: '#fff' }}>{isLSSD ? t('gndTitle') : t('giuTitle')}</h2>
                     </div>
                     <div className="gangs-tabs">
-                        <button className={`gang-tab-btn ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')}>Active Operation</button>
-                        <button className={`gang-tab-btn ${viewMode === 'archived' ? 'active' : ''}`} onClick={() => setViewMode('archived')}>Archive</button>
+                        <button className={`gang-tab-btn ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')}>{t('activeOperationTab')}</button>
+                        <button className={`gang-tab-btn ${viewMode === 'archived' ? 'active' : ''}`} onClick={() => setViewMode('archived')}>{t('archiveTab')}</button>
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     {/* DEBUG ROLE */}
-                    <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 5px', borderRadius: '4px' }}>Role: {userRole || 'Loading...'}</span>
+                    <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 5px', borderRadius: '4px' }}>{t('roleLabel')} {userRole || 'Loading...'}</span>
 
-                    {viewMode === 'active' && <button className="login-button" style={{ width: 'auto', padding: '0.6rem 1.2rem', fontSize: '0.9rem' }} onClick={() => openModal('createGang', null)}>+ Track New Syndicate</button>}
+                    {viewMode === 'active' && <button className="login-button" style={{ width: 'auto', padding: '0.6rem 1.2rem', fontSize: '0.9rem' }} onClick={() => openModal('createGang', null)}>{t('trackNewSyndicateBtn')}</button>}
                 </div>
             </div>
 
@@ -645,7 +647,7 @@ function Gangs() {
                 {filteredGangs.length === 0 ? (
                     <div style={{ margin: 'auto', textAlign: 'center', opacity: 0.6 }}>
                         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📁</div>
-                        <div>No {viewMode} syndicates files found.</div>
+                        <div>{t('noSyndicateFilesFound').replace('{mode}', viewMode === 'active' ? t('activeOperationTab') : t('archiveTab'))}</div>
                     </div>
                 ) : (
                     filteredGangs.map(gang => (
@@ -671,53 +673,53 @@ function Gangs() {
 
             {/* Create Gang */}
             {activeModal === 'createGang' && (
-                <Modal title="Track New Syndicate" onClose={closeModal} onSubmit={handleCreateGang} submitting={submitting}>
-                    <Input label="Syndicate Name" value={newName} onChange={e => setNewName(e.target.value)} required />
-                    <ColorPicker label="Color Identifier" value={newColor} onChange={e => setNewColor(e.target.value)} />
-                    <ImageUpload label="Controlled Zones (Map)" image={zonesImage} onUpload={e => handleImageUpload(e, setZonesImage, true)} single />
+                <Modal title={t('trackNewSyndicateModal')} onClose={closeModal} onSubmit={handleCreateGang} submitting={submitting}>
+                    <Input label={t('syndicateNameLabel')} value={newName} onChange={e => setNewName(e.target.value)} required />
+                    <ColorPicker label={t('colorIdLabel')} value={newColor} onChange={e => setNewColor(e.target.value)} />
+                    <ImageUpload label={t('controlledZonesLabel')} image={zonesImage} onUpload={e => handleImageUpload(e, setZonesImage, true)} single />
                 </Modal>
             )}
 
             {/* Edit Gang Name */}
             {activeModal === 'editGangName' && (
-                <Modal title="Edit Gang Name" onClose={closeModal} onSubmit={handleSaveGangName} submitting={submitting}>
-                    <Input label="Gang Name" value={newName} onChange={e => setNewName(e.target.value)} required />
+                <Modal title={t('editGangNameTitle')} onClose={closeModal} onSubmit={handleSaveGangName} submitting={submitting}>
+                    <Input label={t('syndicateNameLabel')} value={newName} onChange={e => setNewName(e.target.value)} required />
                 </Modal>
             )}
 
             {/* Update Zone Map */}
             {activeModal === 'updateZone' && (
-                <Modal title="Update Controlled Zones" onClose={closeModal} onSubmit={handleUpdateZone} submitting={submitting}>
-                    <ImageUpload label="New Map Image" image={zonesImage} onUpload={e => handleImageUpload(e, setZonesImage, true)} single />
+                <Modal title={t('updateZonesTitle')} onClose={closeModal} onSubmit={handleUpdateZone} submitting={submitting}>
+                    <ImageUpload label={t('newMapImageLabel')} image={zonesImage} onUpload={e => handleImageUpload(e, setZonesImage, true)} single />
                 </Modal>
             )}
 
             {/* Add/Edit Vehicle */}
             {activeModal === 'vehicle' && (
-                <Modal title={editingItemId ? "Edit Vehicle" : "Add Vehicle Intelligence"} onClose={closeModal} onSubmit={handleAddVehicle} submitting={submitting}>
-                    <Input label="Model" value={vehModel} onChange={e => setVehModel(e.target.value)} />
-                    <Input label="Plate" value={vehPlate} onChange={e => setVehPlate(e.target.value)} />
-                    <Input label="Registered Owner" value={vehOwner} onChange={e => setVehOwner(e.target.value)} />
-                    <TextArea label="Notes" value={vehNotes} onChange={e => setVehNotes(e.target.value)} />
+                <Modal title={editingItemId ? t('editVehTitle') : t('addVehIntelTitle')} onClose={closeModal} onSubmit={handleAddVehicle} submitting={submitting}>
+                    <Input label={t('modelLabel')} value={vehModel} onChange={e => setVehModel(e.target.value)} />
+                    <Input label={t('plateLabel')} value={vehPlate} onChange={e => setVehPlate(e.target.value)} />
+                    <Input label={t('registeredOwnerLabel')} value={vehOwner} onChange={e => setVehOwner(e.target.value)} />
+                    <TextArea label={t('notesLabel')} value={vehNotes} onChange={e => setVehNotes(e.target.value)} />
                     <MultiImageUpload images={vehImages} setImages={setVehImages} onUpload={e => handleImageUpload(e, setVehImages)} />
                 </Modal>
             )}
 
             {/* Add/Edit Home */}
             {activeModal === 'home' && (
-                <Modal title={editingItemId ? "Edit Property" : "Add Property Intelligence"} onClose={closeModal} onSubmit={handleAddHome} submitting={submitting}>
-                    <Input label="Registered Owner / Occupant" value={homeOwner} onChange={e => setHomeOwner(e.target.value)} />
-                    <TextArea label="Address & Notes" value={homeNotes} onChange={e => setHomeNotes(e.target.value)} />
+                <Modal title={editingItemId ? t('editPropTitle') : t('addPropIntelTitle')} onClose={closeModal} onSubmit={handleAddHome} submitting={submitting}>
+                    <Input label={t('regOwnerOccLabel')} value={homeOwner} onChange={e => setHomeOwner(e.target.value)} />
+                    <TextArea label={t('addressNotesLabel')} value={homeNotes} onChange={e => setHomeNotes(e.target.value)} />
                     <MultiImageUpload images={homeImages} setImages={setHomeImages} onUpload={e => handleImageUpload(e, setHomeImages)} />
                 </Modal>
             )}
 
             {/* Add/Edit Member */}
             {activeModal === 'member' && (
-                <Modal title={editingItemId ? "Edit Member" : "Identify Member"} onClose={closeModal} onSubmit={handleAddMember} submitting={submitting}>
-                    <Input label="Full Name / Alias" value={memName} onChange={e => setMemName(e.target.value)} required />
+                <Modal title={editingItemId ? t('editMemberTitle') : t('identifyMemberTitle')} onClose={closeModal} onSubmit={handleAddMember} submitting={submitting}>
+                    <Input label={t('fullNameAliasLabel')} value={memName} onChange={e => setMemName(e.target.value)} required />
                     <div className="form-group">
-                        <label>Role / Hierarchy</label>
+                        <label>{t('roleHierarchyLabel')}</label>
                         <select className="form-input" value={memRole} onChange={e => setMemRole(e.target.value)}>
                             <option value="Lider">Líder (Boss)</option>
                             <option value="Sublider">Sublíder (Underboss)</option>
@@ -725,29 +727,29 @@ function Gangs() {
                             <option value="Sospechoso">Sospechoso (Associate)</option>
                         </select>
                     </div>
-                    <TextArea label="Notes" value={memNotes} onChange={e => setMemNotes(e.target.value)} />
-                    <ImageUpload label="Mugshot / Photo" image={memPhoto} onUpload={e => handleImageUpload(e, setMemPhoto, true)} single />
+                    <TextArea label={t('notesLabel')} value={memNotes} onChange={e => setMemNotes(e.target.value)} />
+                    <ImageUpload label={t('mugshotPhotoLabel')} image={memPhoto} onUpload={e => handleImageUpload(e, setMemPhoto, true)} single />
                 </Modal>
             )}
 
             {/* Add/Edit Info */}
             {activeModal === 'info' && (
-                <Modal title={editingItemId ? "Edit Intel" : "Add Intelligence"} onClose={closeModal} onSubmit={handleAddInfo} submitting={submitting}>
+                <Modal title={editingItemId ? t('editIntelTitle') : t('addIntelTitle')} onClose={closeModal} onSubmit={handleAddInfo} submitting={submitting}>
                     <div className="form-group">
-                        <label>Entry Type</label>
+                        <label>{t('entryTypeLabel')}</label>
                         <select className="form-input" value={infoType} onChange={e => setInfoType(e.target.value)}>
-                            <option value="info">General Info</option>
-                            <option value="characteristic">Defining Characteristic</option>
+                            <option value="info">{t('generalInfoOpt')}</option>
+                            <option value="characteristic">{t('defCharOpt')}</option>
                         </select>
                     </div>
-                    <TextArea label="Content" value={infoContent} onChange={e => setInfoContent(e.target.value)} required />
+                    <TextArea label={t('contentLabel')} value={infoContent} onChange={e => setInfoContent(e.target.value)} required />
                     <MultiImageUpload images={infoImages} setImages={setInfoImages} onUpload={e => handleImageUpload(e, setInfoImages)} />
                 </Modal>
             )}
 
             {/* Patrol Log Modal */}
             {activeModal === 'patrol' && (
-                <Modal title="Log Patrol Observation" onClose={closeModal} onSubmit={handleSubmitPatrolLog} submitting={submitting}>
+                <Modal title={t('logPatrolTitle')} onClose={closeModal} onSubmit={handleSubmitPatrolLog} submitting={submitting}>
                     {/* Current Time Display */}
                     {patrolTime && (
                         <div style={{
@@ -775,7 +777,7 @@ function Gangs() {
                     )}
 
                     <div className="form-group">
-                        <label>Patrol Time (rounded to 15-min intervals)</label>
+                        <label>{t('patrolTimeLabel')}</label>
                         <input
                             type="datetime-local"
                             className="form-input"
@@ -786,7 +788,7 @@ function Gangs() {
                         />
                     </div>
                     <div className="form-group">
-                        <label>People Count</label>
+                        <label>{t('peopleCountLabel')}</label>
                         <input
                             type="number"
                             className="form-input"
@@ -796,8 +798,8 @@ function Gangs() {
                             required
                         />
                     </div>
-                    <TextArea label="Notes (Optional)" value={patrolNotes} onChange={e => setPatrolNotes(e.target.value)} />
-                    <ImageUpload label="Photo (Optional)" image={patrolPhoto} onUpload={e => handleImageUpload(e, setPatrolPhoto, true)} single />
+                    <TextArea label={t('notesLabel') + ' (Opcional)'} value={patrolNotes} onChange={e => setPatrolNotes(e.target.value)} />
+                    <ImageUpload label={t('mugshotPhotoLabel') + ' (Opcional)'} image={patrolPhoto} onUpload={e => handleImageUpload(e, setPatrolPhoto, true)} single />
                 </Modal>
             )}
 
