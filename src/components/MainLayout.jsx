@@ -59,6 +59,17 @@ function MainLayout() {
         };
     }, []); // Empty dependency to run once
 
+    useEffect(() => {
+        if (profile && profile.rol === 'Externo') {
+            const allowedPaths = ['/cases', '/profile'];
+            const isAllowed = allowedPaths.includes(location.pathname) || location.pathname.startsWith('/cases/');
+            
+            if (!isAllowed) {
+                navigate('/cases');
+            }
+        }
+    }, [profile, location.pathname, navigate]);
+
     const handleLogout = async () => {
         await supabase.auth.signOut();
         navigate('/');
@@ -84,6 +95,11 @@ function MainLayout() {
         if (!profile) return false;
         // Administrator Bypass
         if (profile.rol === 'Administrador' || profile.rol === 'superadmin') return true;
+
+        // Invitado restriction (mapped to Externo in DB)
+        if (profile.rol === 'Externo') {
+            return item.path === '/cases';
+        }
 
         if (!profile.divisions) return false;
         

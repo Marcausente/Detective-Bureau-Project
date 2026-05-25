@@ -146,7 +146,7 @@ function Cases() {
                     <img src={isLSSD ? "/lssd/Generalcrimes.png" : "/mcd.png"} alt="MCD Logo" style={{ height: '70px', width: 'auto', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }} />
                     <h2 className="page-title" style={{ margin: 0 }}>{isLSSD ? "GENERAL CRIMES" : "MAJOR CRIMES DIVISION"}</h2>
                 </div>
-                {currentUser?.rol !== 'Ayudante' && (
+                {currentUser && !['Ayudante', 'Invitado', 'Externo'].includes(currentUser.rol) && (
                     <button className="login-button" style={{ width: 'auto', margin: 0 }} onClick={() => setShowCreateModal(true)}>
                         {t('openNewCaseBtn')}
                     </button>

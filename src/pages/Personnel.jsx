@@ -442,7 +442,7 @@ function Personnel() {
                             <div className="form-group">
                                 <label className="form-label">Role</label>
                                 <select name="rol" className="form-input custom-select" value={formData.rol} onChange={handleInputChange}>
-                                    <option value="Externo">Externo</option>
+                                    <option value="Externo">Invitado</option>
                                     <option value="Ayudante">Ayudante</option>
                                     <option value="Detective">Detective</option>
                                     <option value="Coordinador">Coordinador</option>
