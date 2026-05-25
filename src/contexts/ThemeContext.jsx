@@ -50,14 +50,16 @@ export function ThemeProvider({ children }) {
         };
     }, []);
 
-    // Apply CSS class to body and update favicon when theme changes
+    // Apply CSS class to body and update favicon/title when theme changes
     useEffect(() => {
         const favicon = document.querySelector("link[rel~='icon']");
         if (theme === 'LSSD') {
             document.body.classList.add('theme-lssd');
+            document.title = "Sheriff Criminal Unit Bureau";
             if (favicon) favicon.href = '/lssd/SCUB.png';
         } else {
             document.body.classList.remove('theme-lssd');
+            document.title = "Detective Bureau";
             if (favicon) favicon.href = '/dblogo.png';
         }
     }, [theme]);
