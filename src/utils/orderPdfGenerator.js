@@ -13,8 +13,11 @@ export const generateOrderPDF = async (order, config) => {
         img.onerror = () => resolve(null);
     });
 
-    const dbLogo = await loadImg('/dblogo.png');
-    const sapdLogo = await loadImg('/LOGO_SAPD.png');
+    // Determine theme
+    const isLSSD = document.body.classList.contains('theme-lssd');
+
+    const dbLogo = await loadImg(isLSSD ? '/lssd/SCUB.png' : '/dblogo.png');
+    const sapdLogo = await loadImg(isLSSD ? '/lssd/LSSDlogo.png' : '/LOGO_SAPD.png');
 
     // --- HEADER ---
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -26,10 +29,10 @@ export const generateOrderPDF = async (order, config) => {
     // Title
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
-    doc.text('LOS SANTOS POLICE DEPARTMENT', pageWidth / 2, 20, { align: 'center' });
+    doc.text(isLSSD ? 'LOS SANTOS SHERIFF DEPARTMENT' : 'LOS SANTOS POLICE DEPARTMENT', pageWidth / 2, 20, { align: 'center' });
     
     doc.setFontSize(14);
-    doc.text('DETECTIVE BUREAU', pageWidth / 2, 28, { align: 'center' });
+    doc.text(isLSSD ? 'SHERIFF CRIMINAL UNIT BUREAU' : 'DETECTIVE BUREAU', pageWidth / 2, 28, { align: 'center' });
 
     doc.setLineWidth(0.5);
     doc.line(20, 38, pageWidth - 20, 38);
@@ -174,7 +177,7 @@ export const generateOrderPDF = async (order, config) => {
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('Detective Bureau, LSPD', pageWidth - 20, y + 6, { align: 'right' });
+    doc.text(isLSSD ? 'SCUB, LSSD' : 'Detective Bureau, LSPD', pageWidth - 20, y + 6, { align: 'right' });
 
     doc.save(`Orden_${order.order_type.replace(/ /g, '_')}_${new Date().getTime()}.pdf`);
 };
