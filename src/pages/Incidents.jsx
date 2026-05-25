@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function Incidents() {
     const [incidents, setIncidents] = useState([]);
     const [outings, setOutings] = useState([]);
     const [loading, setLoading] = useState(true);
+    const { t } = useLanguage();
 
     // Modals
     const [showIncidentModal, setShowIncidentModal] = useState(false);
@@ -473,25 +475,25 @@ function Incidents() {
 
             {/* GLOBAL ACTIONS */}
             <div className="doc-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 className="page-title" style={{ margin: 0 }}>OPERATIONAL LOGS</h2>
+                <h2 className="page-title" style={{ margin: 0 }}>{t('incidentsTitle')}</h2>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <button className="login-button" style={{ width: 'auto' }} onClick={() => setShowIncidentModal(true)}>
-                        + New Incident
+                        {t('logIncidentBtn')}
                     </button>
                     <button className="login-button" style={{ width: 'auto', background: 'var(--accent-gold)', color: 'black' }} onClick={() => setShowOutingModal(true)}>
-                        + New Outing
+                        {t('logOutingBtn')}
                     </button>
                 </div>
             </div>
 
-            {loading ? <div className="loading-container">Loading Operation Data...</div> : (
+            {loading ? <div className="loading-container">{t('loadingIncidents')}</div> : (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2rem' }}>
 
                     {/* COLUMN 1: UNLINKED INCIDENTS */}
                     <div className="column-container">
-                        <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>General Incidents</h3>
+                        <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{t('generalIncidentsCol')}</h3>
                         <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                            {incidents.filter(i => !i.gang_id).length === 0 ? <div className="empty-list">No unlinked incidents.</div> :
+                            {incidents.filter(i => !i.gang_id).length === 0 ? <div className="empty-list">{t('noIncidents')}</div> :
                                 incidents.filter(i => !i.gang_id).map(inc => (
                                     <IncidentCard
                                         key={inc.record_id}
@@ -507,9 +509,9 @@ function Incidents() {
 
                     {/* COLUMN 2: LINKED INCIDENTS */}
                     <div className="column-container">
-                        <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Gang Linked Incidents</h3>
+                        <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{t('linkedIncidentsCol')}</h3>
                         <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                            {incidents.filter(i => i.gang_id).length === 0 ? <div className="empty-list">No linked incidents.</div> :
+                            {incidents.filter(i => i.gang_id).length === 0 ? <div className="empty-list">{t('noLinkedIncidents')}</div> :
                                 incidents.filter(i => i.gang_id).map(inc => (
                                     <IncidentCard
                                         key={inc.record_id}
@@ -525,9 +527,9 @@ function Incidents() {
 
                     {/* COLUMN 3: OUTINGS */}
                     <div className="column-container">
-                        <h3 className="section-title" style={{ borderBottom: '2px solid var(--accent-gold)', paddingBottom: '0.5rem' }}>Outings & Patrols</h3>
+                        <h3 className="section-title" style={{ borderBottom: '2px solid var(--accent-gold)', paddingBottom: '0.5rem' }}>{t('outingsCol')}</h3>
                         <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                            {outings.length === 0 ? <div className="empty-list">No outings logged.</div> :
+                            {outings.length === 0 ? <div className="empty-list">{t('noOutings')}</div> :
                                 outings.map(out => (
                                     <OutingCard
                                         key={out.record_id}
@@ -548,11 +550,11 @@ function Incidents() {
             {showIncidentModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3 className="section-title">Log New Incident</h3>
+                        <h3 className="section-title">{t('logNewIncidentTitle')}</h3>
                         <form onSubmit={handleSubmitIncident}>
-                            <div className="form-group"><label>Title</label><input className="form-input" required value={incTitle} onChange={e => setIncTitle(e.target.value)} /></div>
+                            <div className="form-group"><label>{t('titleLabel')}</label><input className="form-input" required value={incTitle} onChange={e => setIncTitle(e.target.value)} /></div>
                             <div className="form-group">
-                                <label>Link to Syndicates (Optional)</label>
+                                <label>{t('linkSyndicatesLabel')}</label>
                                 <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
                                     {gangs.map(g => (
                                         <div key={g.id} onClick={() => toggleGangIncident(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: incGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
@@ -565,9 +567,9 @@ function Incidents() {
 
 
                             <div className="form-group">
-                                <label>Link to Interrogations (Optional)</label>
+                                <label>{t('linkInterrogationsLabel')}</label>
                                 <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
-                                    {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>No interrogations available.</div> :
+                                    {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('noInterrogations')}</div> :
                                         interrogations.map(int => (
                                             <div key={int.id} onClick={() => toggleInterrogationIncident(int.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: incInterrogationIds.includes(int.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
                                                 <input type="checkbox" checked={incInterrogationIds.includes(int.id)} readOnly style={{ marginRight: '10px' }} />
@@ -578,15 +580,15 @@ function Incidents() {
                                 </div>
                             </div>
 
-                            <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={incDate} onChange={e => setIncDate(e.target.value)} /></div>
-                            <div className="form-group"><label>Location (Optional)</label><input className="form-input" value={incLocation} onChange={e => setIncLocation(e.target.value)} /></div>
-                            <div className="form-group"><label>Tablet Incident # (Optional)</label><input className="form-input" value={incTablet} onChange={e => setIncTablet(e.target.value)} /></div>
-                            <div className="form-group"><label>Description (Optional)</label><textarea className="eval-textarea" rows="4" value={incDesc} onChange={e => setIncDesc(e.target.value)} /></div>
+                            <div className="form-group"><label>{t('dateTimeLabel')}</label><input type="datetime-local" className="form-input" required value={incDate} onChange={e => setIncDate(e.target.value)} /></div>
+                            <div className="form-group"><label>{t('locationLabel')}</label><input className="form-input" value={incLocation} onChange={e => setIncLocation(e.target.value)} /></div>
+                            <div className="form-group"><label>{t('tabletNumberLabel')}</label><input className="form-input" value={incTablet} onChange={e => setIncTablet(e.target.value)} /></div>
+                            <div className="form-group"><label>{t('descriptionLabel')}</label><textarea className="eval-textarea" rows="4" value={incDesc} onChange={e => setIncDesc(e.target.value)} /></div>
 
                             <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>Images (Optional)</label>
+                                <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('imagesLabel')}</label>
                                 <label htmlFor="inc-file-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
-                                    📷 Upload Images
+                                    {t('uploadImagesBtn')}
                                 </label>
                                 <input
                                     id="inc-file-upload"
@@ -615,8 +617,8 @@ function Incidents() {
                             </div>
 
                             <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowIncidentModal(false)} style={{ width: 'auto' }}>Cancel</button>
-                                <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Create'}</button>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowIncidentModal(false)} style={{ width: 'auto' }}>{t('cancelBtn')}</button>
+                                <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : t('createBtn')}</button>
                             </div>
                         </form>
                     </div >
@@ -628,11 +630,11 @@ function Incidents() {
                 showEditIncidentModal && (
                     <div className="cropper-modal-overlay">
                         <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-                            <h3 className="section-title">Edit Incident</h3>
+                            <h3 className="section-title">{t('editIncidentTitle')}</h3>
                             <form onSubmit={handleUpdateIncident}>
-                                <div className="form-group"><label>Title</label><input className="form-input" required value={incTitle} onChange={e => setIncTitle(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('titleLabel')}</label><input className="form-input" required value={incTitle} onChange={e => setIncTitle(e.target.value)} /></div>
                                 <div className="form-group">
-                                    <label>Link to Syndicates (Optional)</label>
+                                    <label>{t('linkSyndicatesLabel')}</label>
                                     <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
                                         {gangs.map(g => (
                                             <div key={g.id} onClick={() => toggleGangIncident(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: incGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
@@ -644,9 +646,9 @@ function Incidents() {
                                 </div>
 
                                 <div className="form-group">
-                                    <label>Link to Interrogations (Optional)</label>
+                                    <label>{t('linkInterrogationsLabel')}</label>
                                     <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
-                                        {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>No interrogations available.</div> :
+                                        {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('noInterrogations')}</div> :
                                             interrogations.map(int => (
                                                 <div key={int.id} onClick={() => toggleInterrogationIncident(int.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: incInterrogationIds.includes(int.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
                                                     <input type="checkbox" checked={incInterrogationIds.includes(int.id)} readOnly style={{ marginRight: '10px' }} />
@@ -657,15 +659,15 @@ function Incidents() {
                                     </div>
                                 </div>
 
-                                <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={incDate} onChange={e => setIncDate(e.target.value)} /></div>
-                                <div className="form-group"><label>Location (Optional)</label><input className="form-input" value={incLocation} onChange={e => setIncLocation(e.target.value)} /></div>
-                                <div className="form-group"><label>Tablet Incident # (Optional)</label><input className="form-input" value={incTablet} onChange={e => setIncTablet(e.target.value)} /></div>
-                                <div className="form-group"><label>Description (Optional)</label><textarea className="eval-textarea" rows="4" value={incDesc} onChange={e => setIncDesc(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('dateTimeLabel')}</label><input type="datetime-local" className="form-input" required value={incDate} onChange={e => setIncDate(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('locationLabel')}</label><input className="form-input" value={incLocation} onChange={e => setIncLocation(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('tabletNumberLabel')}</label><input className="form-input" value={incTablet} onChange={e => setIncTablet(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('descriptionLabel')}</label><textarea className="eval-textarea" rows="4" value={incDesc} onChange={e => setIncDesc(e.target.value)} /></div>
 
                                 <div className="form-group">
-                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>Images (Optional)</label>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('imagesLabel')}</label>
                                     <label htmlFor="inc-edit-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
-                                        📷 Upload Images
+                                        {t('uploadImagesBtn')}
                                     </label>
                                     <input
                                         id="inc-edit-upload"
@@ -692,8 +694,8 @@ function Incidents() {
                                 </div>
 
                                 <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
-                                    <button type="button" className="login-button btn-secondary" onClick={() => { setShowEditIncidentModal(false); setEditingIncident(null); resetIncidentForm(); }} style={{ width: 'auto' }}>Cancel</button>
-                                    <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Update'}</button>
+                                    <button type="button" className="login-button btn-secondary" onClick={() => { setShowEditIncidentModal(false); setEditingIncident(null); resetIncidentForm(); }} style={{ width: 'auto' }}>{t('cancelBtn')}</button>
+                                    <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : t('updateBtn')}</button>
                                 </div>
                             </form >
                         </div >
@@ -706,13 +708,13 @@ function Incidents() {
                 showOutingModal && (
                     <div className="cropper-modal-overlay">
                         <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-                            <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>Log New Outing</h3>
+                            <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>{t('logNewOutingTitle')}</h3>
                             <form onSubmit={handleSubmitOuting}>
-                                <div className="form-group"><label>Title</label><input className="form-input" required value={outTitle} onChange={e => setOutTitle(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('titleLabel')}</label><input className="form-input" required value={outTitle} onChange={e => setOutTitle(e.target.value)} /></div>
 
                                 {/* User Selector */}
                                 <div className="form-group">
-                                    <label>Detectives Present</label>
+                                    <label>{t('detectivesPresentLabel')}</label>
                                     <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
                                         {users.map(u => (
                                             <div key={u.id} onClick={() => toggleDetective(u.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outDetectives.includes(u.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
@@ -724,7 +726,7 @@ function Incidents() {
                                 </div>
 
                                 <div className="form-group">
-                                    <label>Link to Syndicates (Optional)</label>
+                                    <label>{t('linkSyndicatesLabel')}</label>
                                     <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
                                         {gangs.map(g => (
                                             <div key={g.id} onClick={() => toggleGangOuting(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
@@ -736,9 +738,9 @@ function Incidents() {
                                 </div>
 
                                 <div className="form-group">
-                                    <label>Link to Interrogations (Optional)</label>
+                                    <label>{t('linkInterrogationsLabel')}</label>
                                     <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
-                                        {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>No interrogations available.</div> :
+                                        {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('noInterrogations')}</div> :
                                             interrogations.map(int => (
                                                 <div key={int.id} onClick={() => toggleInterrogationOuting(int.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outInterrogationIds.includes(int.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
                                                     <input type="checkbox" checked={outInterrogationIds.includes(int.id)} readOnly style={{ marginRight: '10px' }} />
@@ -749,14 +751,14 @@ function Incidents() {
                                     </div>
                                 </div>
 
-                                <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
-                                <div className="form-group"><label>Reason</label><input className="form-input" value={outReason} onChange={e => setOutReason(e.target.value)} /></div>
-                                <div className="form-group"><label>Information Obtained</label><textarea className="eval-textarea" rows="4" value={outInfo} onChange={e => setOutInfo(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('dateTimeLabel')}</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('reasonForOutingLabel')}</label><input className="form-input" value={outReason} onChange={e => setOutReason(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('infoObtainedLabel')}</label><textarea className="eval-textarea" rows="4" value={outInfo} onChange={e => setOutInfo(e.target.value)} /></div>
 
                                 <div className="form-group">
-                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>Images (Optional)</label>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('imagesLabel')}</label>
                                     <label htmlFor="out-file-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
-                                        📷 Upload Images
+                                        {t('uploadImagesBtn')}
                                     </label>
                                     <input
                                         id="out-file-upload"
@@ -783,8 +785,8 @@ function Incidents() {
                                 </div>
 
                                 <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
-                                    <button type="button" className="login-button btn-secondary" onClick={() => setShowOutingModal(false)} style={{ width: 'auto' }}>Cancel</button>
-                                    <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Create Outing'}</button>
+                                    <button type="button" className="login-button btn-secondary" onClick={() => setShowOutingModal(false)} style={{ width: 'auto' }}>{t('cancelBtn')}</button>
+                                    <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : t('createBtn')}</button>
                                 </div>
                             </form>
                         </div>
@@ -797,13 +799,13 @@ function Incidents() {
                 showEditOutingModal && (
                     <div className="cropper-modal-overlay">
                         <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-                            <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>Edit Outing</h3>
+                            <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>{t('editOutingTitle')}</h3>
                             <form onSubmit={handleUpdateOuting}>
-                                <div className="form-group"><label>Title</label><input className="form-input" required value={outTitle} onChange={e => setOutTitle(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('titleLabel')}</label><input className="form-input" required value={outTitle} onChange={e => setOutTitle(e.target.value)} /></div>
 
                                 {/* User Selector */}
                                 <div className="form-group">
-                                    <label>Detectives Present</label>
+                                    <label>{t('detectivesPresentLabel')}</label>
                                     <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
                                         {users.map(u => (
                                             <div key={u.id} onClick={() => toggleDetective(u.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outDetectives.includes(u.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
@@ -815,7 +817,7 @@ function Incidents() {
                                 </div>
 
                                 <div className="form-group">
-                                    <label>Link to Syndicates (Optional)</label>
+                                    <label>{t('linkSyndicatesLabel')}</label>
                                     <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
                                         {gangs.map(g => (
                                             <div key={g.id} onClick={() => toggleGangOuting(g.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outGangIds.includes(g.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
@@ -827,9 +829,9 @@ function Incidents() {
                                 </div>
 
                                 <div className="form-group">
-                                    <label>Link to Interrogations (Optional)</label>
+                                    <label>{t('linkInterrogationsLabel')}</label>
                                     <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}>
-                                        {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>No interrogations available.</div> :
+                                        {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('noInterrogations')}</div> :
                                             interrogations.map(int => (
                                                 <div key={int.id} onClick={() => toggleInterrogationOuting(int.id)} style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', cursor: 'pointer', background: outInterrogationIds.includes(int.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}>
                                                     <input type="checkbox" checked={outInterrogationIds.includes(int.id)} readOnly style={{ marginRight: '10px' }} />
@@ -840,14 +842,14 @@ function Incidents() {
                                     </div>
                                 </div>
 
-                                <div className="form-group"><label>Date & Time</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
-                                <div className="form-group"><label>Reason</label><input className="form-input" value={outReason} onChange={e => setOutReason(e.target.value)} /></div>
-                                <div className="form-group"><label>Information Obtained</label><textarea className="eval-textarea" rows="4" value={outInfo} onChange={e => setOutInfo(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('dateTimeLabel')}</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('reasonForOutingLabel')}</label><input className="form-input" value={outReason} onChange={e => setOutReason(e.target.value)} /></div>
+                                <div className="form-group"><label>{t('infoObtainedLabel')}</label><textarea className="eval-textarea" rows="4" value={outInfo} onChange={e => setOutInfo(e.target.value)} /></div>
 
                                 <div className="form-group">
-                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>Images (Optional)</label>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('imagesLabel')}</label>
                                     <label htmlFor="out-edit-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
-                                        📷 Upload Images
+                                        {t('uploadImagesBtn')}
                                     </label>
                                     <input
                                         id="out-edit-upload"
@@ -874,8 +876,8 @@ function Incidents() {
                                 </div>
 
                                 <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
-                                    <button type="button" className="login-button btn-secondary" onClick={() => { setShowEditOutingModal(false); setEditingOuting(null); resetOutingForm(); }} style={{ width: 'auto' }}>Cancel</button>
-                                    <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : 'Update Outing'}</button>
+                                    <button type="button" className="login-button btn-secondary" onClick={() => { setShowEditOutingModal(false); setEditingOuting(null); resetOutingForm(); }} style={{ width: 'auto' }}>{t('cancelBtn')}</button>
+                                    <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : t('updateBtn')}</button>
                                 </div>
                             </form>
                         </div>
