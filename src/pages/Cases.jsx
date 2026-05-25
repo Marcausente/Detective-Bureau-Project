@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function Cases() {
@@ -11,6 +12,7 @@ function Cases() {
     const [filter, setFilter] = useState('Open'); // Open, Closed, Archived
     const [showCreateModal, setShowCreateModal] = useState(false);
     const { isLSSD } = useTheme();
+    const { t } = useLanguage();
 
     // Form State
     const [newCase, setNewCase] = useState({
@@ -128,7 +130,7 @@ function Cases() {
                 </div>
                 {currentUser?.rol !== 'Ayudante' && (
                     <button className="login-button" style={{ width: 'auto', margin: 0 }} onClick={() => setShowCreateModal(true)}>
-                        + New Case File
+                        {t('openNewCaseBtn')}
                     </button>
                 )}
             </div>
@@ -152,16 +154,16 @@ function Cases() {
                             borderBottom: filter === status ? '2px solid var(--accent-gold)' : 'none'
                         }}
                     >
-                        {status} Cases
+                        {status === 'Open' ? t('openCasesBtn') : status === 'Closed' ? t('closedCasesBtn') : t('archivedCasesBtn')}
                     </button>
                 ))}
             </div>
 
             {/* Case Grid */}
             {loading ? (
-                <div className="loading-container">Loading Case Files...</div>
+                <div className="loading-container">{t('loadingCases')}</div>
             ) : cases.length === 0 ? (
-                <div className="empty-list">No {filter.toLowerCase()} cases found in the database.</div>
+                <div className="empty-list">{t('noCasesFound').replace('{status}', filter.toLowerCase())}</div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', marginTop: '2rem' }}>
                     {cases.map(c => (
@@ -172,7 +174,7 @@ function Cases() {
                             onClick={() => navigate(`/cases/${c.id}`)}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>CASE #{String(c.case_number).padStart(3, '0')}</span>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{t('caseHash')}{String(c.case_number).padStart(3, '0')}</span>
                                 <span style={{ color: statusColors[c.status], fontWeight: 'bold', fontSize: '0.8rem', textTransform: 'uppercase' }}>{c.status}</span>
                             </div>
 
@@ -196,7 +198,7 @@ function Cases() {
                                         />
                                     ))}
                                 </div>
-                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Assigned</span>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{t('assigned')}</span>
                             </div>
                         </div>
                     ))}
@@ -207,37 +209,37 @@ function Cases() {
             {showCreateModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '700px', textAlign: 'left', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3 className="section-title">Open New Case File</h3>
+                        <h3 className="section-title">{t('openNewCaseFile')}</h3>
                         <form onSubmit={handleCreateCase}>
                             <div className="form-group">
-                                <label className="form-label">Case Title</label>
+                                <label className="form-label">{t('caseTitle')}</label>
                                 <input type="text" className="form-input" required
-                                    value={newCase.title} onChange={e => setNewCase({ ...newCase, title: e.target.value })} placeholder="e.g. The Dockside Murder" />
+                                    value={newCase.title} onChange={e => setNewCase({ ...newCase, title: e.target.value })} placeholder={t('caseTitlePlaceholder')} />
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <div className="form-group">
-                                    <label className="form-label">Location</label>
+                                    <label className="form-label">{t('location')}</label>
                                     <input type="text" className="form-input" required
-                                        value={newCase.location} onChange={e => setNewCase({ ...newCase, location: e.target.value })} placeholder="e.g. Alta St, Apt 4" />
+                                        value={newCase.location} onChange={e => setNewCase({ ...newCase, location: e.target.value })} placeholder={t('locationPlaceholder')} />
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label">Date & Time</label>
+                                    <label className="form-label">{t('dateTime')}</label>
                                     <input type="datetime-local" className="form-input" required
                                         value={newCase.occurred_at} onChange={e => setNewCase({ ...newCase, occurred_at: e.target.value })} />
                                 </div>
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Initial Report / Description</label>
+                                <label className="form-label">{t('initialReport')}</label>
                                 <textarea className="eval-textarea" rows="5" required
-                                    value={newCase.description} onChange={e => setNewCase({ ...newCase, description: e.target.value })} placeholder="Describe the initial facts..." />
+                                    value={newCase.description} onChange={e => setNewCase({ ...newCase, description: e.target.value })} placeholder={t('initialReportPlaceholder')} />
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Evidence / Scene Photo (Optional)</label>
+                                <label className="form-label">{t('evidencePhoto')}</label>
                                 <label className="login-button btn-secondary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center', height: '50px', borderStyle: 'dashed' }}>
-                                    📷 Add Photo
+                                    {t('addPhoto')}
                                     <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
                                 </label>
                                 {newCase.initialImage && (
@@ -249,7 +251,7 @@ function Cases() {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Assign Detectives</label>
+                                <label className="form-label">{t('assignDetectives')}</label>
                                 <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--glass-border)' }}>
                                     {users.map(u => (
                                         <div key={u.id}
@@ -268,8 +270,8 @@ function Cases() {
                             </div>
 
                             <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '2rem' }}>
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowCreateModal(false)} style={{ width: 'auto' }}>Cancel</button>
-                                <button type="submit" className="login-button" disabled={submitting} style={{ width: 'auto' }}>{submitting ? 'Creating...' : 'Create Case File'}</button>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowCreateModal(false)} style={{ width: 'auto' }}>{t('cancelBtn')}</button>
+                                <button type="submit" className="login-button" disabled={submitting} style={{ width: 'auto' }}>{submitting ? t('creatingCase') : t('createCaseFileBtn')}</button>
                             </div>
                         </form>
                     </div>
