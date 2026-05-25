@@ -33,7 +33,7 @@ body.theme-lssd .layout-content {
 body.theme-lssd .doc-card,
 body.theme-lssd .announcement-card,
 body.theme-lssd .case-card,
-body.theme-lssd [style*="background: 'rgba(30, 41, 59"] {
+body.theme-lssd .case-update-card {
   background: rgba(22, 54, 30, 0.7) !important;
   border-color: rgba(255, 255, 255, 0.05);
 }
