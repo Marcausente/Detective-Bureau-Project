@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function Documentation() {
@@ -7,6 +8,7 @@ function Documentation() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [userRole, setUserRole] = useState(null);
+    const { t } = useLanguage();
 
     // Modal State
     const [showModal, setShowModal] = useState(false);
@@ -216,7 +218,7 @@ function Documentation() {
                                         {post.description}
                                     </p>
                                 )}
-                                <span className="doc-click-hint">{isImage ? 'Click to view image' : post.category === 'information' ? 'Click to read' : 'Click to open'}</span>
+                                <span className="doc-click-hint">{isImage ? t('clickViewImage') : post.category === 'information' ? t('clickToRead') : t('clickToOpen')}</span>
                             </a>
                         </div>
                     );
@@ -228,45 +230,45 @@ function Documentation() {
     return (
         <div className="documentation-container">
             {loading ? (
-                <div className="loading-container">Loading...</div>
+                <div className="loading-container">{t('loadingDocs')}</div>
             ) : (
                 <>
                     {/* Documentation Section */}
                     <div className="doc-section">
                         <div className="doc-header">
-                            <h2 className="page-title">Documentation</h2>
+                            <h2 className="page-title">{t('documentation')}</h2>
                             {canManage && (
                                 <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={() => openCreate('documentation')}>
-                                    + Add Document
+                                    {t('addDocumentBtn')}
                                 </button>
                             )}
                         </div>
-                        {renderGrid(docs, "No documentation found.")}
+                        {renderGrid(docs, t('noDocs'))}
                     </div>
 
                     {/* Resources Section */}
                     <div className="doc-section" style={{ marginTop: '5rem' }}>
                         <div className="doc-header">
-                            <h2 className="page-title">Resources</h2>
+                            <h2 className="page-title">{t('resourcesTitle')}</h2>
                             {canManage && (
                                 <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={() => openCreate('resource')}>
-                                    + Add Resource
+                                    {t('addResourceBtn')}
                                 </button>
                             )}
                         </div>
-                        {renderGrid(resources, "No resources found.")}
+                        {renderGrid(resources, t('noResources'))}
                     </div>
                     {/* Information Section */}
                     <div className="doc-section" style={{ marginTop: '5rem' }}>
                         <div className="doc-header">
-                            <h2 className="page-title">Information</h2>
+                            <h2 className="page-title">{t('informationTitle')}</h2>
                             {canManage && (
                                 <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={() => openCreate('information')}>
-                                    + Add Information
+                                    {t('addInfoBtn')}
                                 </button>
                             )}
                         </div>
-                        {renderGrid(information, "No information templates found.")}
+                        {renderGrid(information, t('noInfo'))}
                     </div>
                 </>
             )}
@@ -306,7 +308,7 @@ function Documentation() {
                             }}
                             onClick={() => setViewImage(null)}
                         >
-                            Close ✕
+                            {t('closeBtn')}
                         </button>
                     </div>
                 </div>
@@ -318,7 +320,7 @@ function Documentation() {
                     <div className="cropper-modal-content" style={{ maxWidth: '800px', textAlign: 'left', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
                             <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.5rem' }}>{viewText.title}</h3>
-                            <button className="login-button btn-secondary" style={{ width: 'auto', padding: '0.3rem 0.8rem' }} onClick={() => setViewText(null)}>Close</button>
+                            <button className="login-button btn-secondary" style={{ width: 'auto', padding: '0.3rem 0.8rem' }} onClick={() => setViewText(null)}>{t('closeBtnText')}</button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', overflowWrap: 'anywhere', color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: '1.6', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px' }}>
                             {viewText.description}
@@ -329,10 +331,10 @@ function Documentation() {
                                 style={{ width: 'auto' }}
                                 onClick={() => {
                                     navigator.clipboard.writeText(viewText.description);
-                                    alert('Copied to clipboard!');
+                                    alert(t('copiedAlert'));
                                 }}
                             >
-                                Copy to Clipboard
+                                {t('copyClipboard')}
                             </button>
                         </div>
                     </div>
@@ -342,7 +344,7 @@ function Documentation() {
             {showModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '500px' }}>
-                        <h3>{modalMode === 'create' ? `New ${targetCategory === 'resource' ? 'Resource' : targetCategory === 'information' ? 'Information' : 'Document'}` : 'Edit Item'}</h3>
+                        <h3>{modalMode === 'create' ? (targetCategory === 'resource' ? t('newResourceTitle') : targetCategory === 'information' ? t('newInfoTitle') : t('newDocTitle')) : t('editItemTitle')}</h3>
                         <form onSubmit={handleAction} style={{ textAlign: 'left', marginTop: '1rem' }}>
 
                             {/* Toggle for Resources Only */}
@@ -354,7 +356,7 @@ function Documentation() {
                                         style={{ padding: '0.5rem', fontSize: '0.9rem' }}
                                         onClick={() => setInputType('url')}
                                     >
-                                        External URL
+                                        {t('externalUrlBtn')}
                                     </button>
                                     <button
                                         type="button"
@@ -362,32 +364,32 @@ function Documentation() {
                                         style={{ padding: '0.5rem', fontSize: '0.9rem' }}
                                         onClick={() => setInputType('file')}
                                     >
-                                        Upload Image
+                                        {t('uploadImageBtn')}
                                     </button>
                                 </div>
                             )}
 
                             <div className="form-group">
-                                <label className="form-label">Title</label>
+                                <label className="form-label">{t('titleLabel')}</label>
                                 <input className="form-input" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
                             </div>
                             <div className="form-group">
-                                <label className="form-label">Description {targetCategory === 'information' ? '(Required)' : '(Optional)'}</label>
+                                <label className="form-label">{targetCategory === 'information' ? t('descRequired') : t('descOptional')}</label>
                                 <textarea className="form-input" rows={targetCategory === 'information' ? "10" : "3"} required={targetCategory === 'information'} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                             </div>
 
                             {targetCategory !== 'information' && (
                                 <div className="form-group">
-                                    <label className="form-label">{inputType === 'file' ? 'Image File' : 'External URL'}</label>
+                                    <label className="form-label">{inputType === 'file' ? t('imageFileLabel') : t('extUrlLabel')}</label>
                                     {inputType === 'file' ? (
                                         <>
                                             <label className="custom-file-upload">
                                                 <input type="file" accept="image/*" onChange={handleFileChange} />
-                                                {formData.url && formData.url.startsWith('data:') ? 'Change Image' : 'Select Image'}
+                                                {formData.url && formData.url.startsWith('data:') ? t('changeImage') : t('selectImage')}
                                             </label>
                                             {formData.url && formData.url.startsWith('data:') && (
                                                 <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#4ade80' }}>
-                                                    ✓ Image Selected
+                                                    {t('imageSelected')}
                                                 </div>
                                             )}
                                         </>
@@ -405,8 +407,8 @@ function Documentation() {
                             )}
 
                             <div className="cropper-actions">
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                                <button type="submit" className="login-button" disabled={submitLoading}>{submitLoading ? 'Saving...' : 'Save'}</button>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)}>{t('cancelBtn')}</button>
+                                <button type="submit" className="login-button" disabled={submitLoading}>{submitLoading ? t('savingBtn') : t('saveBtn')}</button>
                             </div>
                         </form>
                     </div>
