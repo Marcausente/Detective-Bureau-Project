@@ -82,6 +82,24 @@ function Cases() {
         }
     };
 
+    const canPinCase = () => {
+        if (!currentUser?.rol) return false;
+        const r = currentUser.rol.toLowerCase().trim();
+        return r === 'administrador' || r === 'coordinador' || r === 'comisionado' || r.includes('detective') || r.includes('admin');
+    };
+
+    const handleTogglePin = async (e, caseId, currentPinned) => {
+        e.stopPropagation();
+        if (!canPinCase()) return;
+        try {
+            const { error } = await supabase.rpc('toggle_case_pin', { p_case_id: caseId, p_pinned: !currentPinned });
+            if (error) throw error;
+            fetchCases();
+        } catch (err) {
+            console.error('Error toggling pin:', err);
+        }
+    };
+
     const toggleAssignment = (userId) => {
         const current = newCase.assignments;
         if (current.includes(userId)) {
@@ -173,9 +191,23 @@ function Cases() {
                             style={{ cursor: 'pointer', transition: 'transform 0.2s', borderLeft: `4px solid ${statusColors[c.status]}` }}
                             onClick={() => navigate(`/cases/${c.id}`)}
                         >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{t('caseHash')}{String(c.case_number).padStart(3, '0')}</span>
-                                <span style={{ color: statusColors[c.status], fontWeight: 'bold', fontSize: '0.8rem', textTransform: 'uppercase' }}>{c.status}</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', alignItems: 'center' }}>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {c.is_pinned && <span title="Anclado" style={{ color: '#cfb53b' }}>📌</span>}
+                                    {t('caseHash')}{String(c.case_number).padStart(3, '0')}
+                                </span>
+                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                    {canPinCase() && (
+                                        <button 
+                                            onClick={(e) => handleTogglePin(e, c.id, c.is_pinned)}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', padding: 0, opacity: c.is_pinned ? 1 : 0.3, transition: 'opacity 0.2s' }}
+                                            title={c.is_pinned ? "Desanclar Caso" : "Anclar Caso"}
+                                        >
+                                            📌
+                                        </button>
+                                    )}
+                                    <span style={{ color: statusColors[c.status], fontWeight: 'bold', fontSize: '0.8rem', textTransform: 'uppercase' }}>{c.status}</span>
+                                </div>
                             </div>
 
                             <h3 style={{ margin: '0.5rem 0', color: 'var(--text-primary)', fontSize: '1.2rem' }}>{c.title}</h3>

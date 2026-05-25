@@ -133,6 +133,25 @@ function CaseDetail() {
         }
     };
 
+    const canPinCase = () => {
+        if (!currentUser?.rol) return false;
+        const r = currentUser.rol.toLowerCase().trim();
+        return r === 'administrador' || r === 'coordinador' || r === 'comisionado' || r.includes('detective') || r.includes('admin');
+    };
+
+    const handleTogglePin = async () => {
+        if (!canPinCase()) return;
+        try {
+            const currentPinned = caseData.info.is_pinned;
+            const { error } = await supabase.rpc('toggle_case_pin', { p_case_id: id, p_pinned: !currentPinned });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            console.error('Error toggling pin:', err);
+            alert('Error toggling pin: ' + err.message);
+        }
+    };
+
     const handleStatusChange = async (newStatus) => {
         if (!window.confirm(`Are you sure you want to change status to ${newStatus}?`)) return;
         try {
@@ -361,9 +380,22 @@ function CaseDetail() {
                 ) : (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
-                            <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>
-                                <span style={{ color: 'var(--text-secondary)', marginRight: '1rem' }}>#{String(info.case_number).padStart(3, '0')}</span>
-                                {info.title}
+                            <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                <span>
+                                    <span style={{ color: 'var(--text-secondary)', marginRight: '1rem' }}>#{String(info.case_number).padStart(3, '0')}</span>
+                                    {info.title}
+                                </span>
+                                {canPinCase() ? (
+                                    <button 
+                                        onClick={handleTogglePin}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem', padding: 0, opacity: info.is_pinned ? 1 : 0.3, transition: 'opacity 0.2s' }}
+                                        title={info.is_pinned ? "Desanclar Caso" : "Anclar Caso"}
+                                    >
+                                        📌
+                                    </button>
+                                ) : (
+                                    info.is_pinned && <span title="Anclado" style={{ color: '#cfb53b', fontSize: '1.5rem' }}>📌</span>
+                                )}
                             </h1>
                             <div style={{ color: 'var(--text-secondary)' }}>
                                 Located at <strong>{info.location}</strong> • Occurred on {new Date(info.occurred_at).toLocaleString()}
