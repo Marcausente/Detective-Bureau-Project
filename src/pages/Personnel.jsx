@@ -94,6 +94,7 @@ function Personnel() {
         'Teniente': 90,
         'Internal Affairs Agent': 85,
         'Department of Justice Agent': 85,
+        'Agente Externo': 85,
         'Detective III': 80,
         'Detective II': 70,
         'Detective I': 60,
@@ -111,7 +112,7 @@ function Personnel() {
 
     const detectives = users.filter(u => ['Detective I', 'Detective II', 'Detective III'].includes(u.rango)).sort(sortUsers);
     const helpers = users.filter(u => ['Deputy Sheriff', 'Oficial I', 'Deputy Sheriff Bonus I', 'Oficial II', 'Deputy Sheriff Bonus II', 'Oficial III', 'Oficial III+'].includes(u.rango)).sort(sortUsers);
-    const commandAndExternal = users.filter(u => ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente', 'Internal Affairs Agent', 'Department of Justice Agent'].includes(u.rango)).sort(sortUsers);
+    const commandAndExternal = users.filter(u => ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente', 'Internal Affairs Agent', 'Department of Justice Agent', 'Agente Externo'].includes(u.rango)).sort(sortUsers);
 
     // --- Actions ---
 
@@ -429,6 +430,7 @@ function Personnel() {
                                     <option value="Detective III">Detective III</option>
                                     <option value="Internal Affairs Agent">Internal Affairs Agent</option>
                                     <option value="Department of Justice Agent">Department of Justice Agent</option>
+                                    <option value="Agente Externo">Agente Externo</option>
                                     <option value="Teniente">Teniente</option>
                                     <option value="Capitan">Capitan</option>
                                     <option value="Comandante">Comandante</option>
