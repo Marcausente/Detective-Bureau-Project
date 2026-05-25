@@ -5,9 +5,9 @@ function IncidentCard({ data, onExpand, onDelete, onEdit }) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
-        <div className="announcement-card" style={{ marginBottom: '1rem', background: 'rgba(30, 41, 59, 0.4)', padding: '1rem' }}>
+        <div className="announcement-card" style={{ marginBottom: '1rem', background: 'rgba(30, 41, 59, 0.4)', padding: '1rem', wordWrap: 'break-word', overflowWrap: 'anywhere' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                     <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>{data.title}</h4>
                     {data.tablet_incident_number && <div style={{ fontSize: '0.8rem', color: 'var(--accent-gold)' }}>Tablet #: {data.tablet_incident_number}</div>}
                     {data.gang_names && data.gang_names.length > 0 && (

@@ -2,9 +2,9 @@ import '../index.css';
 
 function OutingCard({ data, onExpand, onDelete, onEdit }) {
     return (
-        <div className="announcement-card" style={{ marginBottom: '1rem', background: 'rgba(20, 20, 20, 0.6)', padding: '1rem', borderLeft: '2px solid var(--accent-gold)' }}>
+        <div className="announcement-card" style={{ marginBottom: '1rem', background: 'rgba(20, 20, 20, 0.6)', padding: '1rem', borderLeft: '2px solid var(--accent-gold)', wordWrap: 'break-word', overflowWrap: 'anywhere' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                     <h4 style={{ margin: 0, color: 'var(--accent-gold)' }}>{data.title}</h4>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
                         📅 {new Date(data.occurred_at).toLocaleString()}
