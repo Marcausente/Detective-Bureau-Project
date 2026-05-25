@@ -142,6 +142,8 @@ export const translations = {
         logPatrolTitle: "Log Patrol Observation",
         patrolTimeLabel: "Patrol Time (rounded to 15-min intervals)",
         peopleCountLabel: "People Count",
+        gangIncidentsLabel: "Incidents",
+        gangOutingsLabel: "Outings",
         
         // Incidents & Outings
         loadingIncidents: "Loading Operation Data...",
@@ -364,6 +366,8 @@ export const translations = {
         logPatrolTitle: "Registrar Observación de Patrulla",
         patrolTimeLabel: "Hora de Patrulla (redondeada a 15 min)",
         peopleCountLabel: "Recuento de Personas",
+        gangIncidentsLabel: "Reportes",
+        gangOutingsLabel: "Informacion",
         
         // Incidents & Outings
         loadingIncidents: "Cargando Datos de Operación...",

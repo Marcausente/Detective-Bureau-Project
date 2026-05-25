@@ -1060,6 +1060,7 @@ function Gangs() {
 // --- SUB-COMPONENTS ---
 
 function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName }) {
+    const { t } = useLanguage();
     // Helper for buttons
     const ActionButtons = ({ type, item }) => (
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px', zIndex: 10, position: 'relative' }}>
@@ -1139,8 +1140,8 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
 
             {/* Stats Grid */}
             <div className="gang-stat-grid">
-                <StatBox label="Incidents" count={gang.incident_count} onClick={() => onViewActivity('incidents', gang.gang_id)} />
-                <StatBox label="Outings" count={gang.outing_count} onClick={() => onViewActivity('outings', gang.gang_id)} />
+                <StatBox label={t('gangIncidentsLabel')} count={gang.incident_count} onClick={() => onViewActivity('incidents', gang.gang_id)} />
+                <StatBox label={t('gangOutingsLabel')} count={gang.outing_count} onClick={() => onViewActivity('outings', gang.gang_id)} />
             </div>
 
             {/* Intel Section */}
