@@ -21,6 +21,26 @@ export const translations = {
         editProfile: "Edit Profile",
         logout: "Logout",
         
+        // Dashboard
+        loadingDashboard: "Loading Dashboard...",
+        welcomeBack: "Welcome back,",
+        logOutBtn: "Log Out",
+        newAnnouncementBtn: "+ New Announcement",
+        newEventBtn: "+ New Event",
+        announcementsTitle: "📢 Official Announcements & Notifications",
+        noAnnouncements: "No announcements yet.",
+        pinned: "📌 PINNED",
+        unpin: "Unpin",
+        pin: "Pin",
+        upcomingEventsTitle: "📅 Upcoming Events",
+        fullCalendar: "Full Calendar",
+        noUpcomingEvents: "No upcoming events scheduled.",
+        participantsCount: "participants",
+        joinEvent: "Join Event",
+        leaveEvent: "Leave Event",
+        attended: "Attended",
+        absent: "Absent",
+        
         // Login
         authAccess: "Authorized Access",
         identifyYourself: "Please identify yourself, Detective.",
@@ -59,6 +79,26 @@ export const translations = {
         badge: "Placa #",
         editProfile: "Editar Perfil",
         logout: "Cerrar Sesión",
+        
+        // Dashboard
+        loadingDashboard: "Cargando Panel Principal...",
+        welcomeBack: "Bienvenido de nuevo,",
+        logOutBtn: "Cerrar Sesión",
+        newAnnouncementBtn: "+ Nuevo Anuncio",
+        newEventBtn: "+ Nuevo Evento",
+        announcementsTitle: "📢 Anuncios Oficiales y Notificaciones",
+        noAnnouncements: "Aún no hay anuncios.",
+        pinned: "📌 FIJADO",
+        unpin: "Desfijar",
+        pin: "Fijar",
+        upcomingEventsTitle: "📅 Próximos Eventos",
+        fullCalendar: "Calendario Completo",
+        noUpcomingEvents: "No hay eventos programados.",
+        participantsCount: "participantes",
+        joinEvent: "Unirse al Evento",
+        leaveEvent: "Abandonar Evento",
+        attended: "Asistió",
+        absent: "Ausente",
         
         // Login
         authAccess: "Acceso Autorizado",

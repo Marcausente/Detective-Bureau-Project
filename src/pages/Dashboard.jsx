@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function Dashboard() {
@@ -9,6 +10,7 @@ function Dashboard() {
     const [announcements, setAnnouncements] = useState([]);
     const [events, setEvents] = useState([]); // New state for events
     const [loading, setLoading] = useState(true);
+    const { t } = useLanguage();
 
     // Create/Edit Modal State
     const [showModal, setShowModal] = useState(false);
@@ -257,7 +259,7 @@ function Dashboard() {
 
     const isLSSD = document.body.classList.contains('theme-lssd');
 
-    if (loading) return <div className="loading-container">Loading Dashboard...</div>;
+    if (loading) return <div className="loading-container">{t('loadingDashboard')}</div>;
 
     return (
         <div className="documentation-container" style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
@@ -265,21 +267,21 @@ function Dashboard() {
                 <div>
                     <h2 className="page-title">{isLSSD ? 'SHERIFF CRIMINAL UNIT DASHBOARD' : 'DETECTIVE BUREAU DASHBOARD'}</h2>
                     <h4 style={{ color: 'var(--accent-gold)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                        Welcome back, {user?.rango} {user?.apellido}
+                        {t('welcomeBack')} {user?.rango} {user?.apellido}
                     </h4>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <button className="login-button btn-secondary" style={{ width: 'auto' }} onClick={handleLogout}>
-                        Log Out
+                        {t('logOutBtn')}
                     </button>
                     {canPost && (
                         <button className="login-button" style={{ width: 'auto' }} onClick={() => { setEditingId(null); setNewPost({ title: '', content: '', pinned: false }); setShowModal(true); }}>
-                            + New Announcement
+                            {t('newAnnouncementBtn')}
                         </button>
                     )}
                     {canCreateEvent && (
                         <button className="login-button" style={{ width: 'auto', backgroundColor: 'var(--accent-purple)' }} onClick={() => setShowEventModal(true)}>
-                            + New Event
+                            {t('newEventBtn')}
                         </button>
                     )}
                 </div>
@@ -288,22 +290,22 @@ function Dashboard() {
             <div className="dashboard-grid">
                 {/* Announcements Section */}
                 <section className="announcements-section">
-                    <h3 className="section-title">📢 Official Announcements & Notifications</h3>
+                    <h3 className="section-title">{t('announcementsTitle')}</h3>
 
                     <div className="announcements-list">
                         {announcements.length === 0 ? (
-                            <div className="empty-list">No announcements yet.</div>
+                            <div className="empty-list">{t('noAnnouncements')}</div>
                         ) : (
                             announcements.map(ann => (
                                 <div key={ann.id} className={`announcement-card ${ann.pinned ? 'pinned' : ''}`}>
-                                    {ann.pinned && <div className="pin-icon">📌 PINNED</div>}
+                                    {ann.pinned && <div className="pin-icon">{t('pinned')}</div>}
 
                                     <div className="ann-header">
                                         <h4 className="ann-title" style={{ margin: 0 }}>{ann.title}</h4>
                                         <div className="ann-actions">
                                             {canPin && (
-                                                <button onClick={() => handlePin(ann.id)} className="icon-btn" title={ann.pinned ? "Unpin" : "Pin"}>
-                                                    {ann.pinned ? "Unpin" : "Pin"}
+                                                <button onClick={() => handlePin(ann.id)} className="icon-btn" title={ann.pinned ? t('unpin') : t('pin')}>
+                                                    {ann.pinned ? t('unpin') : t('pin')}
                                                 </button>
                                             )}
                                             {ann.cur_user_can_delete && (
@@ -343,15 +345,15 @@ function Dashboard() {
                 {/* Events Section */}
                 <section className="events-section">
                     <div className="section-header-row">
-                        <h3 className="section-title" style={{ borderBottom: 'none', margin: 0, padding: 0 }}>📅 Upcoming Events</h3>
+                        <h3 className="section-title" style={{ borderBottom: 'none', margin: 0, padding: 0 }}>{t('upcomingEventsTitle')}</h3>
                         <button className="view-calendar-btn" onClick={handleOpenCalendar}>
-                            <span className="calendar-icon">🗓️</span> Full Calendar
+                            <span className="calendar-icon">🗓️</span> {t('fullCalendar')}
                         </button>
                     </div>
 
                     <div className="events-list">
                         {events.length === 0 ? (
-                            <div className="empty-list">No upcoming events scheduled.</div>
+                            <div className="empty-list">{t('noUpcomingEvents')}</div>
                         ) : (
                             events.map(ev => (
                                 <div key={ev.id} className="event-card" onClick={() => setSelectedEvent(ev)} style={{ cursor: 'pointer' }}>
@@ -364,7 +366,7 @@ function Dashboard() {
                                     <div className="event-content">{ev.description}</div>
                                     <div className="event-footer">
                                         <div className="event-stats">
-                                            👥 {ev.participant_count} participants
+                                            👥 {ev.participant_count} {t('participantsCount')}
                                         </div>
                                         <div className="event-actions">
                                             <button
@@ -380,9 +382,9 @@ function Dashboard() {
                                                 disabled={ev.user_status === 'ATTENDED' || ev.user_status === 'ABSENT'}
                                                 style={{ opacity: (ev.user_status === 'ATTENDED' || ev.user_status === 'ABSENT') ? 0.5 : 1 }}
                                             >
-                                                {ev.user_status === 'ATTENDED' ? 'Asistió' :
-                                                    ev.user_status === 'ABSENT' ? 'Ausente' :
-                                                        ev.is_participating ? 'Abandonar' : 'Unirse al Evento'}
+                                                {ev.user_status === 'ATTENDED' ? t('attended') :
+                                                    ev.user_status === 'ABSENT' ? t('absent') :
+                                                        ev.is_participating ? t('leaveEvent') : t('joinEvent')}
                                             </button>
 
                                             {canDeleteEvent && (
