@@ -2260,6 +2260,201 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     cursor: pointer;
+  padding-bottom: 2rem !important;
+}
+
+#gangs-page .gang-image-container {
+  width: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  /* Forces Square */
+  height: auto !important;
+}
+
+/* SECTION SCROLLING */
+#gangs-page .gang-list-content {
+  padding: 1rem !important;
+  min-height: 180px !important;
+  max-height: 500px !important;
+  overflow-y: auto !important;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  /* Subtle border */
+}
+
+#gangs-page .gang-member-grid {
+  display: grid !important;
+  padding: 1rem !important;
+  min-height: 180px !important;
+  max-height: 500px !important;
+  overflow-y: auto !important;
+}
+
+.gang-member-item {
+  text-align: center;
+  transition: transform 0.2s;
+}
+
+.gang-member-item:hover {
+  transform: translateY(-3px);
+}
+
+.gang-member-photo {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 0.4rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* --- Leaflet Custom Dark Popups --- */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: rgba(var(--secondary-rgb), 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(5px);
+  border-radius: 8px !important;
+}
+
+.leaflet-popup-content {
+  margin: 15px !important;
+  line-height: 1.5 !important;
+}
+
+.leaflet-container {
+  background: #0f172a !important;
+  /* Force dark background */
+}
+
+/* Custom Scrollbar for Feeds */
+.scroll-feed {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-gold) transparent;
+}
+
+.scroll-feed::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scroll-feed::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-feed::-webkit-scrollbar-thumb {
+  background-color: var(--accent-gold);
+  border-radius: 20px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* Missing class for list items */
+.gang-list-item {
+  display: flex !important;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 60px; /* Ensure clickable area */
+}
+
+.gang-list-item:last-child {
+  border-bottom: none;
+}
+
+/* --- Full Calendar Modal --- */
+.calendar-modal {
+    max-width: 900px !important;
+    width: 90vw !important;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    background: var(--glass-border);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.calendar-day-header {
+    background: rgba(var(--secondary-rgb), 0.9);
+    color: var(--accent-gold);
+    text-align: center;
+    padding: 0.5rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.calendar-day {
+    background: rgba(0, 0, 0, 0.4);
+    min-height: 100px;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    transition: background 0.2s;
+}
+
+.calendar-day.empty {
+    background: transparent;
+}
+
+.calendar-day:hover:not(.empty) {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.calendar-day.today {
+    background: rgba(207, 181, 59, 0.1);
+    border: 1px solid rgba(207, 181, 59, 0.4);
+}
+
+.calendar-day.has-events {
+    border-bottom: 2px solid var(--accent-gold);
+}
+
+.day-number {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.3rem;
+    font-weight: 600;
+}
+
+.calendar-day.today .day-number {
+    color: var(--accent-gold);
+}
+
+.day-events {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    max-height: 70px;
+}
+
+.day-events::-webkit-scrollbar {
+    width: 3px;
+}
+.day-events::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 2px;
+}
+
+.day-event-chip {
+    background: rgba(207, 181, 59, 0.2);
+    border: 1px solid rgba(207, 181, 59, 0.4);
+    color: var(--text-primary);
+    font-size: 0.7rem;
+    padding: 2px 4px;
+    border-radius: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
     transition: all 0.2s;
 }
 
@@ -2272,3 +2467,16 @@ body {
 .ql-snow .ql-stroke { stroke: white !important; }
 .ql-snow .ql-fill { fill: white !important; }
 .ql-editor.ql-blank::before { color: #aaa !important; }
+
+/* Enforce word wrapping in Quill Editor and its output */
+.ql-editor, .quill-content {
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100%;
+}
+.quill-content img {
+    max-width: 100%;
+    height: auto;
+}
