@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { useLanguage } from '../contexts/LanguageContext';
 
 function CaseTodoList({ caseId }) {
+    const { t } = useLanguage();
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [newCategoryName, setNewCategoryName] = useState('');
@@ -34,7 +36,7 @@ function CaseTodoList({ caseId }) {
         e.preventDefault();
 
         if (!newCategoryName.trim()) {
-            alert("Please enter a name for the new list first.");
+            alert(t('alertCategoryNameRequired'));
             return;
         }
 
@@ -53,7 +55,7 @@ function CaseTodoList({ caseId }) {
     };
 
     const handleDeleteCategory = async (catId) => {
-        if (!window.confirm("Delete this category and all its tasks?")) return;
+        if (!window.confirm(t('confirmDeleteCategory'))) return;
         try {
             const { error } = await supabase.rpc('delete_todo_category', { p_category_id: catId });
             if (error) throw error;
@@ -119,7 +121,7 @@ function CaseTodoList({ caseId }) {
     };
 
     const handleDeleteTask = async (taskId) => {
-        if (!window.confirm("Remove this task?")) return;
+        if (!window.confirm(t('confirmDeleteTask'))) return;
         try {
             const { error } = await supabase.rpc('delete_todo_task', { p_task_id: taskId });
             if (error) throw error;
@@ -129,17 +131,17 @@ function CaseTodoList({ caseId }) {
         }
     };
 
-    if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '1rem' }}>Loading Tasks...</div>;
+    if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '1rem' }}>{t('loadingTasks')}</div>;
 
     return (
         <div className="todo-board">
             {/* Header: Add Category */}
             <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <h3 style={{ margin: 0 }}>Project Tasks</h3>
+                <h3 style={{ margin: 0 }}>{t('projectTasksTitle')}</h3>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <input
                         type="text"
-                        placeholder="New Category Name..."
+                        placeholder={t('newCategoryPlaceholder')}
                         value={newCategoryName}
                         onChange={e => setNewCategoryName(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleAddCategory(e); }}
@@ -152,7 +154,7 @@ function CaseTodoList({ caseId }) {
                         className="login-button"
                         style={{ width: 'auto', padding: '0.4rem 1rem', fontSize: '0.9rem' }}
                     >
-                        + Add List
+                        {t('addListBtn')}
                     </button>
                 </div>
             </div>
@@ -188,8 +190,8 @@ function CaseTodoList({ caseId }) {
                                 <>
                                     <h4 style={{ margin: 0, color: 'var(--accent-gold)', textTransform: 'uppercase', fontSize: '0.9rem', letterSpacing: '1px' }}>{cat.name}</h4>
                                     <div className="column-actions">
-                                        <button onClick={() => startEditCategory(cat)} title="Rename" style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5, marginRight: '5px' }}>✎</button>
-                                        <button onClick={() => handleDeleteCategory(cat.id)} title="Delete List" style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5, color: '#f87171' }}>🗑️</button>
+                                        <button onClick={() => startEditCategory(cat)} title={t('renameTooltip')} style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5, marginRight: '5px' }}>✎</button>
+                                        <button onClick={() => handleDeleteCategory(cat.id)} title={t('deleteListTooltip')} style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5, color: '#f87171' }}>🗑️</button>
                                     </div>
                                 </>
                             )}
@@ -226,7 +228,7 @@ function CaseTodoList({ caseId }) {
                                     <button
                                         onClick={() => handleDeleteTask(task.id)}
                                         style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', opacity: 0.5, fontSize: '0.8rem' }}
-                                        title="Delete Task"
+                                        title={t('deleteTaskTooltip')}
                                     >
                                         &times;
                                     </button>
@@ -238,7 +240,7 @@ function CaseTodoList({ caseId }) {
                         <form onSubmit={(e) => handleAddTask(e, cat.id)}>
                             <input
                                 type="text"
-                                placeholder="+ Add a task"
+                                placeholder={t('addTaskPlaceholder')}
                                 value={newTaskInputs[cat.id] || ''}
                                 onChange={e => setNewTaskInputs(prev => ({ ...prev, [cat.id]: e.target.value }))}
                                 className="form-input"
@@ -251,8 +253,8 @@ function CaseTodoList({ caseId }) {
 
             {categories.length === 0 && (
                 <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '3rem', border: '2px dashed var(--glass-border)', borderRadius: '8px' }}>
-                    <p>No To-Do lists created yet.</p>
-                    <p style={{ fontSize: '0.9rem' }}>Create a category above to start tracking tasks.</p>
+                    <p>{t('noTodoLists')}</p>
+                    <p style={{ fontSize: '0.9rem' }}>{t('createCategoryPrompt')}</p>
                 </div>
             )}
         </div>

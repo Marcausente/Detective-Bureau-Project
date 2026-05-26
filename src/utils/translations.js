@@ -127,6 +127,21 @@ export const translations = {
         caseStatusOpen: "Open",
         caseStatusClosed: "Closed",
         caseStatusArchived: "Archived",
+        
+        // Todo List
+        loadingTasks: "Loading Tasks...",
+        projectTasksTitle: "Project Tasks",
+        newCategoryPlaceholder: "New Category Name...",
+        addListBtn: "+ Add List",
+        renameTooltip: "Rename",
+        deleteListTooltip: "Delete List",
+        deleteTaskTooltip: "Delete Task",
+        addTaskPlaceholder: "+ Add a task",
+        noTodoLists: "No To-Do lists created yet.",
+        createCategoryPrompt: "Create a category above to start tracking tasks.",
+        alertCategoryNameRequired: "Please enter a name for the new list first.",
+        confirmDeleteCategory: "Delete this category and all its tasks?",
+        confirmDeleteTask: "Remove this task?",
         // Gangs
         loadingIntel: "Loading Intel...",
         accessDenied: "ACCESS DENIED",
@@ -422,6 +437,21 @@ export const translations = {
         caseStatusOpen: "Abierto",
         caseStatusClosed: "Cerrado",
         caseStatusArchived: "Archivado",
+        
+        // Todo List
+        loadingTasks: "Cargando Tareas...",
+        projectTasksTitle: "Tareas del Proyecto",
+        newCategoryPlaceholder: "Nombre de Nueva Categoría...",
+        addListBtn: "+ Añadir Lista",
+        renameTooltip: "Renombrar",
+        deleteListTooltip: "Eliminar Lista",
+        deleteTaskTooltip: "Eliminar Tarea",
+        addTaskPlaceholder: "+ Añadir una tarea",
+        noTodoLists: "Aún no se han creado listas de tareas.",
+        createCategoryPrompt: "Crea una categoría arriba para empezar a organizar tareas.",
+        alertCategoryNameRequired: "Por favor introduce un nombre para la lista primero.",
+        confirmDeleteCategory: "¿Eliminar esta categoría y todas sus tareas?",
+        confirmDeleteTask: "¿Eliminar esta tarea?",
         // Gangs
         loadingIntel: "Cargando Inteligencia...",
         accessDenied: "ACCESO DENEGADO",
