@@ -1,7 +1,9 @@
 :root {
   --primary-bg: #0b1120;
+  --primary-rgb: 11, 17, 32;
   /* Deep Navy Blue */
   --secondary-bg: #1e293b;
+  --secondary-rgb: 30, 41, 59;
   /* Adjustable secondary */
   --accent-gold: #cfb53b;
   /* Police Badge Gold */
@@ -1887,8 +1889,8 @@ body {
 .gang-header-card {
   background: linear-gradient(
     180deg,
-    rgba(30, 41, 59, 0.7) 0%,
-    rgba(var(--secondary-rgb), 0.9) 100%
+    rgba(var(--secondary-rgb), 0.7) 0%,
+    rgba(var(--primary-rgb), 0.95) 100%
   );
   border-radius: 12px;
   overflow: hidden;
