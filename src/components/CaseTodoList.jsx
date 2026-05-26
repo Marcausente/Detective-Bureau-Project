@@ -164,7 +164,7 @@ function CaseTodoList({ caseId }) {
                 {categories.map(cat => (
                     <div key={cat.id} className="todo-column" style={{
                         width: '100%',
-                        background: 'rgba(30, 41, 59, 0.4)',
+                        background: 'rgba(var(--secondary-rgb), 0.4)',
                         border: '1px solid var(--glass-border)',
                         borderRadius: '8px',
                         padding: '1rem',
