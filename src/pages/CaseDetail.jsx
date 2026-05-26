@@ -65,8 +65,8 @@ function CaseDetail() {
         }
     };
 
-    const loadCaseDetails = async () => {
-        setLoading(true);
+    const loadCaseDetails = async (showLoading = true) => {
+        if (showLoading) setLoading(true);
         const { data, error } = await supabase.rpc('get_case_details', { p_case_id: id });
         if (error) {
             console.error('Error loading case:', error);
@@ -105,6 +105,12 @@ function CaseDetail() {
     };
 
     const handleUpdateRole = async (userId, newRole) => {
+        // Optimistic update
+        setCaseData(prev => {
+            const newAssignments = prev.assignments.map(a => a.user_id === userId ? { ...a, role: newRole } : a);
+            return { ...prev, assignments: newAssignments };
+        });
+
         try {
             const { error } = await supabase.rpc('update_case_assignment_role', {
                 p_case_id: id,
@@ -112,9 +118,9 @@ function CaseDetail() {
                 p_role: newRole
             });
             if (error) throw error;
-            loadCaseDetails();
         } catch (err) {
             alert('Error updating role: ' + err.message);
+            loadCaseDetails(false); // Reload silently to revert if error
         }
     };
 
