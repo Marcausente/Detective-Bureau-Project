@@ -1965,7 +1965,7 @@ body {
   justify-content: center;
   color: var(--text-secondary);
   font-size: 0.9rem;
-  background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+  background: radial-gradient(circle at center, var(--secondary-bg) 0%, var(--primary-bg) 100%);
 }
 
 .gang-stat-grid {
@@ -1975,7 +1975,7 @@ body {
 }
 
 .gang-stat-box {
-  background: rgba(30, 41, 59, 0.4);
+  background: rgba(var(--secondary-rgb), 0.4);
   border: 1px solid var(--glass-border);
   padding: 1rem;
   border-radius: 8px;
@@ -1984,7 +1984,7 @@ body {
 }
 
 .gang-stat-box:hover {
-  background: rgba(30, 41, 59, 0.7);
+  background: rgba(var(--secondary-rgb), 0.7);
   border-color: rgba(255, 255, 255, 0.15);
 }
 

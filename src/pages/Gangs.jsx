@@ -1125,7 +1125,7 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                             borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem'
                         }}
                     >
-                        ✏️ Edit Map
+                        ✏️ {t('editMapBtnGangs')}
                     </button>
 
                     <div onClick={() => gang.zones_image && onViewImage(gang.zones_image)} style={{ width: '100%', height: '100%', cursor: gang.zones_image ? 'pointer' : 'default' }}>
@@ -1134,7 +1134,7 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                         ) : (
                             <div className="gang-image-empty">
                                 <span style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🗺️</span>
-                                <span>No Zone Data</span>
+                                <span>{t('noZoneData')}</span>
                             </div>
                         )}
                     </div>
@@ -1150,7 +1150,7 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
             {/* Intel Section */}
             <div className="gang-section-card">
                 <div className="gang-section-header">
-                    <span className="gang-section-title">📝 Intel & Characteristics</span>
+                    <span className="gang-section-title">📝 {t('intelAndCharacteristics')}</span>
                     <button className="gang-add-btn" onClick={() => onAdd('info', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-list-content">
@@ -1161,7 +1161,7 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                             paddingLeft: '0.8rem', color: '#cbd5e1', position: 'relative'
                         }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div style={{ flex: 1, marginRight: '10px' }}>{(i.content && i.content.trim()) ? i.content : <span style={{ fontStyle: 'italic', opacity: 0.5, color: '#f59e0b' }}>Empty Content (Click pencil to fix)</span>}</div>
+                                <div style={{ flex: 1, marginRight: '10px' }}>{(i.content && i.content.trim()) ? i.content : <span style={{ fontStyle: 'italic', opacity: 0.5, color: '#f59e0b' }}>{t('emptyContentFix')}</span>}</div>
                                 <ActionButtons type="info" item={i} />
                             </div>
                             {i.images && i.images.length > 0 && (
@@ -1173,14 +1173,14 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                             )}
                         </div>
                     ))}
-                    {(!gang.info || gang.info.length === 0) && <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>No intel gathered.</div>}
+                    {(!gang.info || gang.info.length === 0) && <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>{t('noIntelGathered')}</div>}
                 </div>
             </div>
 
             {/* Patrol Time Control Section */}
             <div className="gang-section-card">
                 <div className="gang-section-header">
-                    <span className="gang-section-title">🕐 Patrol Time Control</span>
+                    <span className="gang-section-title">🕐 {t('patrolTimeControl')}</span>
                 </div>
                 <div className="gang-list-content" style={{ padding: '0.5rem' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
@@ -1189,14 +1189,14 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                             onClick={() => onAdd('patrol', gang.gang_id)}
                             style={{ fontSize: '0.8rem', padding: '0.5rem', width: '100%' }}
                         >
-                            ➕ Log Patrol
+                            ➕ {t('logPatrolBtn')}
                         </button>
                         <button
                             className="login-button btn-secondary"
                             onClick={() => onViewActivity('patrolTable', gang.gang_id)}
                             style={{ fontSize: '0.8rem', padding: '0.5rem', width: '100%' }}
                         >
-                            📊 View Matrix
+                            📊 {t('viewMatrixBtn')}
                         </button>
                     </div>
                 </div>
@@ -1205,20 +1205,20 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
             {/* Vehicles Section */}
             <div className="gang-section-card">
                 <div className="gang-section-header">
-                    <span className="gang-section-title">🚗 Fleet ({gang.vehicles.length})</span>
+                    <span className="gang-section-title">🚗 {t('fleetLabel')} ({gang.vehicles.length})</span>
                     <button className="gang-add-btn" onClick={() => onAdd('vehicle', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-list-content">
                     {gang.vehicles.map(v => (
                         <div key={v.id} className="gang-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid #3b82f6', paddingLeft: '0.8rem' }}>
                             <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{(v.model && v.model.trim()) ? v.model : <span style={{ fontStyle: 'italic', opacity: 0.5, fontWeight: 'normal', color: '#f59e0b' }}>Unknown Model</span>}</span>
+                                <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{(v.model && v.model.trim()) ? v.model : <span style={{ fontStyle: 'italic', opacity: 0.5, fontWeight: 'normal', color: '#f59e0b' }}>{t('unknownModel')}</span>}</span>
                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                     <span style={{ color: 'var(--accent-gold)', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>[{v.plate}]</span>
                                     <ActionButtons type="vehicle" item={v} />
                                 </div>
                             </div>
-                            {v.owner && <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '3px' }}>Owner: {v.owner}</div>}
+                            {v.owner && <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '3px' }}>{t('ownerLabelText')} {v.owner}</div>}
                             {v.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{v.notes}</div>}
                             {/* Vehicle Images */}
                             {v.images && v.images.length > 0 && (
@@ -1230,21 +1230,21 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                             )}
                         </div>
                     ))}
-                    {gang.vehicles.length === 0 && <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>No known vehicles.</div>}
+                    {gang.vehicles.length === 0 && <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>{t('noKnownVehicles')}</div>}
                 </div>
             </div>
 
             {/* Homes Section */}
             <div className="gang-section-card">
                 <div className="gang-section-header">
-                    <span className="gang-section-title">🏠 Properties ({gang.homes.length})</span>
+                    <span className="gang-section-title">🏠 {t('propertiesLabel')} ({gang.homes.length})</span>
                     <button className="gang-add-btn" onClick={() => onAdd('home', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-list-content">
                     {gang.homes.map(h => (
                         <div key={h.id} className="gang-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid #10b981', paddingLeft: '0.8rem' }}>
                             <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between' }}>
-                                <span>{(h.owner && h.owner.trim()) ? h.owner : <span style={{ fontStyle: 'italic', opacity: 0.5, color: '#f59e0b' }}>Unknown Owner</span>}</span>
+                                <span>{(h.owner && h.owner.trim()) ? h.owner : <span style={{ fontStyle: 'italic', opacity: 0.5, color: '#f59e0b' }}>{t('unknownOwner')}</span>}</span>
                                 <ActionButtons type="home" item={h} />
                             </div>
                             {h.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{h.notes}</div>}
@@ -1258,14 +1258,14 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                             )}
                         </div>
                     ))}
-                    {gang.homes.length === 0 && <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>No known properties.</div>}
+                    {gang.homes.length === 0 && <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>{t('noKnownProperties')}</div>}
                 </div>
             </div>
 
             {/* Members Section */}
             <div className="gang-section-card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <div className="gang-section-header">
-                    <span className="gang-section-title">👥 Known Affiliates ({gang.members.length})</span>
+                    <span className="gang-section-title">👥 {t('knownAffiliatesLabel')} ({gang.members.length})</span>
                     <button className="gang-add-btn" onClick={() => onAdd('member', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-member-grid">
@@ -1292,14 +1292,14 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                             />
                             <div style={{ fontSize: '0.75rem', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
                             <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{m.role}</div>
-                            {m.notes && <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic', textAlign: 'center' }} title={m.notes}>📋 Has Notes</div>}
+                            {m.notes && <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic', textAlign: 'center' }} title={m.notes}>📋 {t('hasNotes')}</div>}
                             <div style={{ marginTop: '5px', display: 'flex', justifyContent: 'center', gap: '5px' }} onClick={e => e.stopPropagation()}>
                                 <button onClick={() => onEdit('member', gang.gang_id, m)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>✏️</button>
                                 <button onClick={() => onDeleteSubItem('member', m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>🗑️</button>
                             </div>
                         </div>
                     ))}
-                    {gang.members.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>No known members.</div>}
+                    {gang.members.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>{t('noKnownMembers')}</div>}
                 </div>
             </div>
 
