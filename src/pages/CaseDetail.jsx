@@ -5,8 +5,10 @@ import '../index.css';
 import CaseTodoList from '../components/CaseTodoList';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { useLanguage } from '../contexts/LanguageContext';
 
 function CaseDetail() {
+    const { t } = useLanguage();
     const { id } = useParams();
     const navigate = useNavigate();
     const [caseData, setCaseData] = useState(null);
@@ -337,8 +339,8 @@ function CaseDetail() {
         }
     };
 
-    if (loading) return <div className="loading-screen">Loading Case File...</div>;
-    if (!caseData) return <div className="loading-screen" style={{ color: '#f87171' }}>Case File Not Found.</div>;
+    if (loading) return <div className="loading-screen">{t('loadingCases')}</div>;
+    if (!caseData) return <div className="loading-screen" style={{ color: '#f87171' }}>{t('noCasesFound').replace('{status}', '')}</div>;
 
     const { info, assignments, updates, interrogations } = caseData;
 
@@ -369,12 +371,12 @@ function CaseDetail() {
             <div className="case-detail-header" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem', marginBottom: '2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <button onClick={() => navigate('/cases')} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', marginBottom: '1rem' }}>
-                        ← Back to Cases
+                        {t('backToCases')}
                     </button>
 
                     {!isEditingInfo && canEditCase && (
                         <button onClick={startEditingInfo} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline' }}>
-                            Edit Details
+                            {t('editDetailsBtn')}
                         </button>
                     )}
                 </div>
@@ -383,27 +385,27 @@ function CaseDetail() {
                     <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--accent-gold)' }}>
                         <div style={{ display: 'grid', gap: '1rem', marginBottom: '1rem' }}>
                             <div>
-                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Case Title</label>
+                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('caseTitle')}</label>
                                 <input type="text" className="form-input" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <div>
-                                    <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Location</label>
+                                    <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('location')}</label>
                                     <input type="text" className="form-input" value={editLocation} onChange={e => setEditLocation(e.target.value)} />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Date & Time</label>
+                                    <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('dateTime')}</label>
                                     <input type="datetime-local" className="form-input" value={editOccurredAt} onChange={e => setEditOccurredAt(e.target.value)} />
                                 </div>
                             </div>
                             <div>
-                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Initial Report</label>
+                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('initialReport')}</label>
                                 <textarea className="eval-textarea" rows="5" value={editDescription} onChange={e => setEditDescription(e.target.value)} style={{ width: '100%' }} />
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                            <button className="login-button btn-secondary" onClick={() => setIsEditingInfo(false)} style={{ width: 'auto' }}>Cancel</button>
-                            <button className="login-button" onClick={handleSaveInfo} style={{ width: 'auto' }}>Save Changes</button>
+                            <button className="login-button btn-secondary" onClick={() => setIsEditingInfo(false)} style={{ width: 'auto' }}>{t('cancelBtn')}</button>
+                            <button className="login-button" onClick={handleSaveInfo} style={{ width: 'auto' }}>{t('saveChangesBtn')}</button>
                         </div>
                     </div>
                 ) : (
@@ -427,7 +429,7 @@ function CaseDetail() {
                                 )}
                             </h1>
                             <div style={{ color: 'var(--text-secondary)' }}>
-                                Located at <strong>{info.location}</strong> • Occurred on {new Date(info.occurred_at).toLocaleString()}
+                                {t('locatedAtLabel')} <strong>{info.location}</strong> • {t('occurredOnLabel')} {new Date(info.occurred_at).toLocaleString()}
                             </div>
                         </div>
 
@@ -439,18 +441,18 @@ function CaseDetail() {
                                     color: info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#f87171' : '#94a3b8',
                                     border: `1px solid ${info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#f87171' : '#94a3b8'}`
                                 }}>
-                                {info.status}
+                                {info.status === 'Open' ? t('caseStatusOpen') : info.status === 'Closed' ? t('caseStatusClosed') : t('caseStatusArchived')}
                             </div>
 
                             <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                                 {info.status === 'Open' && !isAyudante && (
                                     <>
-                                        <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Closed')}>Close Case</button>
-                                        <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Archived')}>Archive</button>
+                                        <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Closed')}>{t('closeCaseBtn')}</button>
+                                        <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Archived')}>{t('archiveBtn')}</button>
                                     </>
                                 )}
                                 {info.status !== 'Open' && !isAyudante && (
-                                    <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Open')}>Re-Open Case</button>
+                                    <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Open')}>{t('reOpenCaseBtn')}</button>
                                 )}
 
                                 {/* DELETE BUTTON: Only for Coordinador, Administrador, Comisionado */}
@@ -463,7 +465,7 @@ function CaseDetail() {
                                         }}
                                         onClick={handleDeleteCase}
                                     >
-                                        Delete
+                                        {t('deleteBtn')}
                                     </button>
                                 )}
                             </div>
@@ -474,11 +476,11 @@ function CaseDetail() {
                 {/* Initial Description - Hide if editing because it's in the form */}
                 {!isEditingInfo && (
                     <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', borderLeft: '4px solid var(--accent-gold)' }}>
-                        <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-gold)' }}>INITIAL REPORT</h4>
+                        <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-gold)' }}>{t('initialReportTitle')}</h4>
                         {info.initial_image_url && (
                             <div style={{ marginBottom: '1rem', borderRadius: '4px', overflow: 'hidden', cursor: 'pointer', maxWidth: '400px', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => setExpandedImage(info.initial_image_url)}>
                                 <img src={info.initial_image_url} alt="Initial Evidence" style={{ width: '100%', display: 'block' }} />
-                                <div style={{ fontSize: '0.7rem', color: '#aaa', padding: '2px 5px', background: 'rgba(0,0,0,0.5)', textAlign: 'right' }}>Click to expand</div>
+                                <div style={{ fontSize: '0.7rem', color: '#aaa', padding: '2px 5px', background: 'rgba(0,0,0,0.5)', textAlign: 'right' }}>{t('clickToExpand')}</div>
                             </div>
                         )}
                         <p style={{ margin: 0, whiteSpace: 'pre-line', color: 'var(--text-secondary)' }}>{info.description}</p>
@@ -506,7 +508,7 @@ function CaseDetail() {
                                 transition: 'all 0.2s'
                             }}
                         >
-                            Updates & Evidence
+                            {t('updatesAndEvidenceTab')}
                         </button>
                         <button
                             onClick={() => setActiveTab('todo')}
@@ -522,7 +524,7 @@ function CaseDetail() {
                                 transition: 'all 0.2s'
                             }}
                         >
-                            To-Do List
+                            {t('toDoListTab')}
                         </button>
                     </div>
 
@@ -535,7 +537,7 @@ function CaseDetail() {
                                         <ReactQuill 
                                             theme="snow"
                                             modules={quillModules}
-                                            placeholder="Log a new development, update or evidence..."
+                                            placeholder={t('logNewUpdatePlaceholder')}
                                             value={newUpdateContent}
                                             onChange={setNewUpdateContent}
                                             style={{ marginBottom: '1rem' }}
@@ -563,11 +565,11 @@ function CaseDetail() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                                 <label className="custom-file-upload" style={{ display: 'inline-block', width: 'auto', margin: 0, fontSize: '0.9rem', padding: '0.4rem 1rem' }}>
                                                     <input type="file" accept="image/*" multiple onChange={handleImageUpload} />
-                                                    📸 Add Images
+                                                    {t('addImagesBtn')}
                                                 </label>
                                             </div>
                                             <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submittingUpdate}>
-                                                {submittingUpdate ? 'Posting...' : 'Post Update'}
+                                                {submittingUpdate ? t('postingBtn') : t('postUpdateBtn')}
                                             </button>
                                         </div>
                                     </form>
@@ -576,7 +578,7 @@ function CaseDetail() {
 
                             {/* Updates Feed */}
                             <div className="updates-feed">
-                                {updates.length === 0 ? <div className="empty-list">No updates or developments recorded yet.</div> : (
+                                {updates.length === 0 ? <div className="empty-list">{t('noUpdatesRecorded')}</div> : (
                                     updates.map(update => {
                                         const isAuthor = currentUser && currentUser.id === update.user_id;
 
@@ -639,8 +641,8 @@ function CaseDetail() {
                                                             style={{ marginBottom: '0.5rem' }}
                                                         />
                                                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                            <button className="login-button btn-secondary" onClick={() => setEditingId(null)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Cancel</button>
-                                                            <button className="login-button" onClick={() => handleSaveEdit(update.id)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Save Changes</button>
+                                                            <button className="login-button btn-secondary" onClick={() => setEditingId(null)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>{t('cancelBtn')}</button>
+                                                            <button className="login-button" onClick={() => handleSaveEdit(update.id)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>{t('saveChangesBtn')}</button>
                                                         </div>
                                                     </div>
                                                 ) : (
@@ -685,15 +687,15 @@ function CaseDetail() {
                     {/* Assigned Detectives */}
                     <div className="sidebar-section" style={{ marginBottom: '2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>Assigned Detectives</h4>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>{t('assignedDetectives')}</h4>
                             {info.status === 'Open' && !isAyudante && (
                                 <button onClick={openAssignModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
-                                    Manage
+                                    {t('manageBtn')}
                                 </button>
                             )}
                         </div>
                         <div className="assigned-list">
-                            {assignments.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No detectives assigned.</div> : (
+                            {assignments.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{t('noDetectivesAssigned')}</div> : (
                                 assignments.map(user => (
                                     <div key={user.user_id} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '4px' }}>
                                         <img src={user.avatar || '/anon.png'} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', marginRight: '10px', border: '1px solid var(--accent-gold)' }} />
@@ -727,15 +729,15 @@ function CaseDetail() {
                     {/* Linked Interrogations */}
                     <div className="sidebar-section">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>Linked Interrogations</h4>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>{t('linkedInterrogations')}</h4>
                             {info.status === 'Open' && !isAyudante && (
                                 <button onClick={openLinkModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
-                                    + Link
+                                    {t('linkBtn')}
                                 </button>
                             )}
                         </div>
                         <div className="linked-interrogations">
-                            {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No interrogations linked.</div> : (
+                            {interrogations.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{t('noInterrogationsLinked')}</div> : (
                                 interrogations.map(inv => (
                                     <div key={inv.id}
                                         onClick={() => navigate(`/interrogations?id=${inv.id}`)}
@@ -747,7 +749,7 @@ function CaseDetail() {
                                         <div style={{ paddingRight: '20px' }}>
                                             <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{inv.title}</div>
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(inv.created_at).toLocaleDateString()}</div>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Subjects: {inv.subjects}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{t('subjectsLabel')} {inv.subjects}</div>
                                         </div>
                                         {info.status === 'Open' && !isAyudante && (
                                             <button
