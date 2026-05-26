@@ -946,14 +946,16 @@ function Gangs() {
             {selectedMember && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={handleCloseMemberProfile}>
                     <div style={{
-                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
+                        background: isLSSD 
+                            ? 'linear-gradient(180deg, rgba(22, 54, 30, 0.95) 0%, rgba(18, 30, 21, 0.98) 100%)' 
+                            : 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
                         borderRadius: '16px',
                         padding: '2rem',
                         maxWidth: '600px',
                         width: '90%',
                         maxHeight: '80vh',
                         overflowY: 'auto',
-                        border: '1px solid rgba(212, 175, 55, 0.3)',
+                        border: isLSSD ? '1px solid rgba(74, 222, 128, 0.3)' : '1px solid rgba(212, 175, 55, 0.3)',
                         boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
                     }} onClick={e => e.stopPropagation()}>
                         {/* Header */}
@@ -971,7 +973,7 @@ function Gangs() {
                                     height: '120px',
                                     borderRadius: '12px',
                                     objectFit: 'cover',
-                                    border: `3px solid ${getStatusColor(selectedMember.role)}`,
+                                    border: `3px solid ${getStatusColor(selectedMember.role, isLSSD)}`,
                                     boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
                                     cursor: selectedMember.photo ? 'pointer' : 'default',
                                     transition: 'transform 0.2s'
@@ -981,11 +983,11 @@ function Gangs() {
                                 alt={selectedMember.name}
                             />
                             <div style={{ flex: 1 }}>
-                                <h2 style={{ color: 'var(--accent-gold)', fontSize: '1.8rem', marginBottom: '0.5rem' }}>{selectedMember.name}</h2>
+                                <h2 style={{ color: isLSSD ? '#4ade80' : 'var(--accent-gold)', fontSize: '1.8rem', marginBottom: '0.5rem' }}>{selectedMember.name}</h2>
                                 <div style={{
                                     display: 'inline-block',
                                     padding: '0.4rem 0.8rem',
-                                    background: getStatusColor(selectedMember.role),
+                                    background: getStatusColor(selectedMember.role, isLSSD),
                                     borderRadius: '6px',
                                     fontSize: '0.9rem',
                                     fontWeight: '600',
@@ -1006,7 +1008,7 @@ function Gangs() {
                             <label style={{
                                 display: 'block',
                                 marginBottom: '0.5rem',
-                                color: 'var(--accent-gold)',
+                                color: isLSSD ? '#4ade80' : 'var(--accent-gold)',
                                 fontSize: '1.1rem',
                                 fontWeight: '600'
                             }}>
@@ -1061,6 +1063,7 @@ function Gangs() {
 
 function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName }) {
     const { t } = useLanguage();
+    const { isLSSD } = useTheme();
     // Helper for buttons
     const ActionButtons = ({ type, item }) => (
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px', zIndex: 10, position: 'relative' }}>
@@ -1284,7 +1287,7 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                             <img
                                 src={m.photo || '/anon.png'}
                                 className="gang-member-photo"
-                                style={{ border: `2px solid ${getStatusColor(m.role)}` }}
+                                style={{ border: `2px solid ${getStatusColor(m.role, isLSSD)}` }}
                                 alt=""
                             />
                             <div style={{ fontSize: '0.75rem', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
@@ -1435,7 +1438,13 @@ function StatBox({ label, count, onClick }) {
     );
 }
 
-function getStatusColor(role) {
+function getStatusColor(role, isLSSD = false) {
+    if (isLSSD) {
+        if (role === 'Lider') return '#15803d'; // green-700
+        if (role === 'Sublider') return '#16a34a'; // green-600
+        if (role === 'Miembro') return '#22c55e'; // green-500
+        return '#86efac'; // green-300
+    }
     if (role === 'Lider') return '#ef4444';
     if (role === 'Sublider') return '#f97316';
     if (role === 'Miembro') return '#eab308';
