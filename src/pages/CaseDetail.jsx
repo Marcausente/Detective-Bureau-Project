@@ -104,6 +104,20 @@ function CaseDetail() {
         setShowLinkModal(true);
     };
 
+    const handleUpdateRole = async (userId, newRole) => {
+        try {
+            const { error } = await supabase.rpc('update_case_assignment_role', {
+                p_case_id: id,
+                p_user_id: userId,
+                p_role: newRole
+            });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error updating role: ' + err.message);
+        }
+    };
+
     const handleUpdateAssignments = async () => {
         try {
             const { error } = await supabase.rpc('update_case_assignments', {
@@ -677,10 +691,27 @@ function CaseDetail() {
                                 assignments.map(user => (
                                     <div key={user.user_id} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '4px' }}>
                                         <img src={user.avatar || '/anon.png'} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', marginRight: '10px', border: '1px solid var(--accent-gold)' }} />
-                                        <div>
+                                        <div style={{ flex: 1 }}>
                                             <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{user.rank}</div>
                                             <div style={{ fontSize: '0.85rem' }}>{user.full_name}</div>
                                         </div>
+                                        {info.status === 'Open' && !isAyudante ? (
+                                            <select
+                                                value={user.role || 'Investigador'}
+                                                onChange={(e) => handleUpdateRole(user.user_id, e.target.value)}
+                                                style={{ background: 'rgba(0,0,0,0.5)', color: 'var(--accent-gold)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', padding: '2px 5px', fontSize: '0.8rem', cursor: 'pointer', outline: 'none' }}
+                                            >
+                                                <option value="Supervisor" style={{ background: '#1e293b', color: '#fff' }}>Supervisor</option>
+                                                <option value="Encargado" style={{ background: '#1e293b', color: '#fff' }}>Encargado</option>
+                                                <option value="Investigador" style={{ background: '#1e293b', color: '#fff' }}>Investigador</option>
+                                                <option value="Ayudante" style={{ background: '#1e293b', color: '#fff' }}>Ayudante</option>
+                                                <option value="Externo" style={{ background: '#1e293b', color: '#fff' }}>Externo</option>
+                                            </select>
+                                        ) : (
+                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '2px 5px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}>
+                                                {user.role || 'Investigador'}
+                                            </span>
+                                        )}
                                     </div>
                                 ))
                             )}
