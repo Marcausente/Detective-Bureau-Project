@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import '../index.css';
 import IACaseTodoList from '../components/IACaseTodoList'; // Import component
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 function IACaseDetail() {
     const { id } = useParams();
@@ -15,6 +17,16 @@ function IACaseDetail() {
     const [newUpdateContent, setNewUpdateContent] = useState('');
     const [newUpdateImages, setNewUpdateImages] = useState([]);
     const [submittingUpdate, setSubmittingUpdate] = useState(false);
+
+    // Edit State
+    const [editingId, setEditingId] = useState(null);
+    const [editContent, setEditContent] = useState('');
+
+    const quillModules = {
+        toolbar: [
+            ['bold', 'italic', 'underline']
+        ],
+    };
 
     // Image Viewer
     const [expandedImage, setExpandedImage] = useState(null);
@@ -163,7 +175,8 @@ function IACaseDetail() {
 
     const handlePostUpdate = async (e) => {
         e.preventDefault();
-        if (!newUpdateContent.trim() && newUpdateImages.length === 0) {
+        const isTextEmpty = newUpdateContent.replace(/<[^>]*>/g, '').trim() === '';
+        if (isTextEmpty && newUpdateImages.length === 0) {
             alert("Please enter text or attach an image.");
             return;
         }
@@ -185,6 +198,36 @@ function IACaseDetail() {
             alert('Error posting update: ' + err.message);
         } finally {
             setSubmittingUpdate(false);
+        }
+    };
+
+    const handleStartEdit = (update) => {
+        setEditingId(update.id);
+        setEditContent(update.content);
+    };
+
+    const handleSaveEdit = async (updateId) => {
+        try {
+            const { error } = await supabase.rpc('update_ia_case_update_content', {
+                p_update_id: updateId,
+                p_content: editContent
+            });
+            if (error) throw error;
+            setEditingId(null);
+            loadCaseDetails();
+        } catch (err) {
+            alert("Error updating: " + err.message);
+        }
+    };
+
+    const handleDeleteUpdate = async (updateId) => {
+        if (!window.confirm("Are you sure you want to delete this message?")) return;
+        try {
+            const { error } = await supabase.rpc('delete_ia_case_update', { p_update_id: updateId });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            alert("Error deleting: " + err.message);
         }
     };
 
@@ -266,10 +309,12 @@ function IACaseDetail() {
                             {info.status !== 'Archived' && (
                                 <div className="new-update-box" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
                                     <form onSubmit={handlePostUpdate}>
-                                        <textarea
-                                            className="eval-textarea" rows="3"
+                                        <ReactQuill 
+                                            theme="snow"
+                                            modules={quillModules}
                                             placeholder="Log a new finding, evidence or statement..."
-                                            value={newUpdateContent} onChange={e => setNewUpdateContent(e.target.value)}
+                                            value={newUpdateContent}
+                                            onChange={setNewUpdateContent}
                                             style={{ marginBottom: '1rem' }}
                                         />
                                         {newUpdateImages.length > 0 && (
@@ -297,7 +342,17 @@ function IACaseDetail() {
 
                             <div className="updates-feed">
                                 {updates.length === 0 ? <div className="empty-list">No updates or developments recorded yet.</div> : (
-                                    updates.map(update => (
+                                    updates.map(update => {
+                                        const isAuthor = currentUser && currentUser.id === update.user_id;
+                                        const isHighCommand = currentUser && (
+                                            ['Coordinador', 'Administrador', 'Comisionado', 'Director', 'Fundador'].includes(currentUser.rol) ||
+                                            ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente'].includes(currentUser.rango)
+                                        );
+                                        const canEdit = isAuthor;
+                                        const canDelete = isAuthor || isHighCommand;
+                                        const isEditing = editingId === update.id;
+
+                                        return (
                                         <div key={update.id} className="case-update-card" style={{
                                             background: 'rgba(30, 41, 59, 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
                                             borderLeft: '2px solid rgba(255,255,255,0.1)'
@@ -310,8 +365,36 @@ function IACaseDetail() {
                                                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(update.created_at).toLocaleString()}</div>
                                                     </div>
                                                 </div>
+
+                                                {(canEdit || canDelete) && !isEditing && (
+                                                    <div style={{ display: 'flex', gap: '5px' }}>
+                                                        {canEdit && (
+                                                            <button onClick={() => handleStartEdit(update)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }} title="Edit Message">✏️</button>
+                                                        )}
+                                                        {canDelete && (
+                                                            <button onClick={() => handleDeleteUpdate(update.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }} title="Delete Message">🗑️</button>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div style={{ whiteSpace: 'pre-line', marginBottom: '1rem', color: 'var(--text-primary)' }}>{update.content}</div>
+
+                                            {isEditing ? (
+                                                <div style={{ marginBottom: '1rem' }}>
+                                                    <ReactQuill 
+                                                        theme="snow"
+                                                        modules={quillModules}
+                                                        value={editContent}
+                                                        onChange={setEditContent}
+                                                        style={{ marginBottom: '0.5rem' }}
+                                                    />
+                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                        <button className="login-button btn-secondary" onClick={() => setEditingId(null)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Cancel</button>
+                                                        <button className="login-button" onClick={() => handleSaveEdit(update.id)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Save Changes</button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div style={{ marginBottom: '1rem', color: 'var(--text-primary)' }} className="quill-content" dangerouslySetInnerHTML={{ __html: update.content }} />
+                                            )}
                                             {(update.images && update.images.length > 0) && (
                                                 <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                                                     {update.images.map((imgSrc, i) => (
@@ -322,7 +405,7 @@ function IACaseDetail() {
                                                 </div>
                                             )}
                                         </div>
-                                    ))
+                                    )})
                                 )}
                             </div>
                         </>

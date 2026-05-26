@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import '../index.css';
 import CaseTodoList from '../components/CaseTodoList';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 function CaseDetail() {
     const { id } = useParams();
@@ -10,6 +12,12 @@ function CaseDetail() {
     const [caseData, setCaseData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('updates'); // updates, evidence, interrogations
+
+    const quillModules = {
+        toolbar: [
+            ['bold', 'italic', 'underline']
+        ],
+    };
 
     // New Update State
     // New Update State
@@ -194,7 +202,8 @@ function CaseDetail() {
     const handlePostUpdate = async (e) => {
         e.preventDefault();
         // Allow if content OR images exist
-        if (!newUpdateContent.trim() && newUpdateImages.length === 0) {
+        const isTextEmpty = newUpdateContent.replace(/<[^>]*>/g, '').trim() === '';
+        if (isTextEmpty && newUpdateImages.length === 0) {
             alert("Please enter text or attach an image.");
             return;
         }
@@ -503,12 +512,12 @@ function CaseDetail() {
                             {info.status !== 'Archived' && (
                                 <div className="new-update-box" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
                                     <form onSubmit={handlePostUpdate}>
-                                        <textarea
-                                            className="eval-textarea"
-                                            rows="3"
+                                        <ReactQuill 
+                                            theme="snow"
+                                            modules={quillModules}
                                             placeholder="Log a new development, update or evidence..."
                                             value={newUpdateContent}
-                                            onChange={e => setNewUpdateContent(e.target.value)}
+                                            onChange={setNewUpdateContent}
                                             style={{ marginBottom: '1rem' }}
                                         />
 
@@ -602,12 +611,12 @@ function CaseDetail() {
 
                                                 {isEditing ? (
                                                     <div style={{ marginBottom: '1rem' }}>
-                                                        <textarea
-                                                            className="eval-textarea"
+                                                        <ReactQuill 
+                                                            theme="snow"
+                                                            modules={quillModules}
                                                             value={editContent}
-                                                            onChange={e => setEditContent(e.target.value)}
-                                                            rows="4"
-                                                            style={{ width: '100%', marginBottom: '0.5rem', background: 'rgba(0,0,0,0.3)' }}
+                                                            onChange={setEditContent}
+                                                            style={{ marginBottom: '0.5rem' }}
                                                         />
                                                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                                                             <button className="login-button btn-secondary" onClick={() => setEditingId(null)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Cancel</button>
@@ -615,7 +624,7 @@ function CaseDetail() {
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div style={{ whiteSpace: 'pre-line', marginBottom: '1rem', color: 'var(--text-primary)' }}>{update.content}</div>
+                                                    <div style={{ marginBottom: '1rem', color: 'var(--text-primary)' }} className="quill-content" dangerouslySetInnerHTML={{ __html: update.content }} />
                                                 )}
 
                                                 {/* Render Images from Array (new) or Single (legacy) */}

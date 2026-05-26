@@ -2267,3 +2267,8 @@ body {
     background: rgba(207, 181, 59, 0.4);
     transform: scale(1.02);
 }
+
+.ql-toolbar.ql-snow, .ql-container.ql-snow { background-color: rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.1) !important; color: white; }
+.ql-snow .ql-stroke { stroke: white !important; }
+.ql-snow .ql-fill { fill: white !important; }
+.ql-editor.ql-blank::before { color: #aaa !important; }
