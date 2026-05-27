@@ -725,6 +725,7 @@ function Gangs() {
                             <option value="Sublider">Sublíder (Underboss)</option>
                             <option value="Miembro">Miembro (Soldier)</option>
                             <option value="Sospechoso">Sospechoso (Associate)</option>
+                            <option value="Inactivo">Inactivo (Inactive)</option>
                         </select>
                     </div>
                     <TextArea label={t('notesLabel')} value={memNotes} onChange={e => setMemNotes(e.target.value)} />
@@ -983,7 +984,7 @@ function Gangs() {
                                 alt={selectedMember.name}
                             />
                             <div style={{ flex: 1 }}>
-                                <h2 style={{ color: isLSSD ? '#4ade80' : 'var(--accent-gold)', fontSize: '1.8rem', marginBottom: '0.5rem' }}>{selectedMember.name}</h2>
+                                <h2 style={{ color: selectedMember.role === 'Inactivo' ? '#ef4444' : (isLSSD ? '#4ade80' : 'var(--accent-gold)'), fontSize: '1.8rem', marginBottom: '0.5rem' }}>{selectedMember.name}</h2>
                                 <div style={{
                                     display: 'inline-block',
                                     padding: '0.4rem 0.8rem',
@@ -995,6 +996,25 @@ function Gangs() {
                                 }}>
                                     {selectedMember.role}
                                 </div>
+                                {selectedMember.role === 'Inactivo' && (
+                                    <div style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.4rem',
+                                        marginLeft: '0.6rem',
+                                        padding: '0.4rem 0.8rem',
+                                        background: 'rgba(239, 68, 68, 0.15)',
+                                        border: '1px solid rgba(239, 68, 68, 0.6)',
+                                        borderRadius: '6px',
+                                        fontSize: '0.85rem',
+                                        fontWeight: '700',
+                                        color: '#ef4444',
+                                        letterSpacing: '1px',
+                                        textTransform: 'uppercase'
+                                    }}>
+                                        ⚫ INACTIVO
+                                    </div>
+                                )}
                                 {selectedMember.status && (
                                     <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#94a3b8' }}>
                                         Status: {selectedMember.status}
@@ -1269,15 +1289,33 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                     <button className="gang-add-btn" onClick={() => onAdd('member', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-member-grid">
-                    {gang.members.map(m => (
+                    {[...gang.members]
+                        .sort((a, b) => {
+                            const aInactive = a.role === 'Inactivo';
+                            const bInactive = b.role === 'Inactivo';
+                            if (aInactive && !bInactive) return 1;
+                            if (!aInactive && bInactive) return -1;
+                            return 0;
+                        })
+                        .map(m => (
                         <div
                             key={m.id}
                             className="gang-member-item"
                             onClick={() => onViewMemberProfile(m, gang.gang_id)}
-                            style={{ cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }}
+                            style={{
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                ...(m.role === 'Inactivo' ? {
+                                    background: 'rgba(239, 68, 68, 0.08)',
+                                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                                    opacity: 0.75
+                                } : {})
+                            }}
                             onMouseEnter={e => {
                                 e.currentTarget.style.transform = 'scale(1.05)';
-                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(212, 175, 55, 0.3)';
+                                e.currentTarget.style.boxShadow = m.role === 'Inactivo'
+                                    ? '0 4px 12px rgba(239, 68, 68, 0.3)'
+                                    : '0 4px 12px rgba(212, 175, 55, 0.3)';
                             }}
                             onMouseLeave={e => {
                                 e.currentTarget.style.transform = 'scale(1)';
@@ -1291,7 +1329,25 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                                 alt=""
                             />
                             <div style={{ fontSize: '0.75rem', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
-                            <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{m.role}</div>
+                            <div style={{
+                                fontSize: '0.65rem',
+                                color: m.role === 'Inactivo' ? '#ef4444' : '#94a3b8',
+                                fontWeight: m.role === 'Inactivo' ? '600' : '400'
+                            }}>{m.role}</div>
+                            {m.role === 'Inactivo' && (
+                                <div style={{
+                                    fontSize: '0.55rem',
+                                    background: 'rgba(239, 68, 68, 0.2)',
+                                    color: '#ef4444',
+                                    border: '1px solid rgba(239, 68, 68, 0.5)',
+                                    borderRadius: '4px',
+                                    padding: '1px 5px',
+                                    marginTop: '2px',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    fontWeight: '700'
+                                }}>⚫ INACTIVO</div>
+                            )}
                             {m.notes && <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic', textAlign: 'center' }} title={m.notes}>📋 {t('hasNotes')}</div>}
                             <div style={{ marginTop: '5px', display: 'flex', justifyContent: 'center', gap: '5px' }} onClick={e => e.stopPropagation()}>
                                 <button onClick={() => onEdit('member', gang.gang_id, m)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>✏️</button>
@@ -1439,6 +1495,7 @@ function StatBox({ label, count, onClick }) {
 }
 
 function getStatusColor(role, isLSSD = false) {
+    if (role === 'Inactivo') return '#7f1d1d'; // dark red for Inactivo regardless of theme
     if (isLSSD) {
         if (role === 'Lider') return '#15803d'; // green-700
         if (role === 'Sublider') return '#16a34a'; // green-600
