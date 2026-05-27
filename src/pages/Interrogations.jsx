@@ -37,6 +37,7 @@ function Interrogations() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data } = await supabase.from('users').select('rol').eq('id', user.id).single();
+                console.log('[DEBUG] currentUser data:', data);
                 setCurrentUser(data);
             }
         };
