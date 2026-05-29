@@ -58,6 +58,7 @@ function CaseDetail() {
     const [editLocation, setEditLocation] = useState("");
     const [editOccurredAt, setEditOccurredAt] = useState("");
     const [editDescription, setEditDescription] = useState("");
+    const [editInitialImage, setEditInitialImage] = useState(null); // null = no change, '' = remove, base64 = new image
 
     useEffect(() => {
         loadCaseDetails();
@@ -413,7 +414,18 @@ function CaseDetail() {
                 p_description: editDescription
             });
             if (error) throw error;
+
+            // If the user changed the initial image, update it directly
+            if (editInitialImage !== null) {
+                const { error: imgError } = await supabase
+                    .from('cases')
+                    .update({ initial_image_url: editInitialImage || null })
+                    .eq('id', id);
+                if (imgError) throw imgError;
+            }
+
             setIsEditingInfo(false);
+            setEditInitialImage(null);
             loadCaseDetails();
         } catch (err) {
             alert('Error updating case details: ' + err.message);
@@ -443,6 +455,7 @@ function CaseDetail() {
         dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
         setEditOccurredAt(dt.toISOString().slice(0, 16));
         setEditDescription(info.description || '');
+        setEditInitialImage(null); // null = no change to image
         setIsEditingInfo(true);
     };
 
@@ -480,8 +493,66 @@ function CaseDetail() {
                                 </div>
                             </div>
                             <div>
-                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{t('initialReport')}</label>
-                                <textarea className="eval-textarea" rows="5" value={editDescription} onChange={e => setEditDescription(e.target.value)} style={{ width: '100%' }} />
+                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>{t('initialReport')}</label>
+                                <ReactQuill
+                                    theme="snow"
+                                    modules={quillModules}
+                                    formats={quillFormats}
+                                    value={editDescription}
+                                    onChange={setEditDescription}
+                                    style={{ marginBottom: '0.5rem' }}
+                                />
+                            </div>
+
+                            {/* Initial Image section */}
+                            <div>
+                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>{t('initialReport')} — Imagen</label>
+
+                                {/* Preview: show new image if selected, else existing */}
+                                {(editInitialImage || (editInitialImage === null && info.initial_image_url)) && (
+                                    <div style={{ position: 'relative', display: 'inline-block', marginBottom: '0.75rem' }}>
+                                        <img
+                                            src={editInitialImage || info.initial_image_url}
+                                            alt="Initial evidence"
+                                            style={{ maxHeight: '160px', maxWidth: '100%', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)', display: 'block' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditInitialImage('')}
+                                            style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            title="Eliminar imagen"
+                                        >
+                                            &times;
+                                        </button>
+                                    </div>
+                                )}
+
+                                <label className="custom-file-upload" style={{ display: 'inline-block', width: 'auto', margin: 0, fontSize: '0.85rem', padding: '0.4rem 1rem' }}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (!file) return;
+                                            const reader = new FileReader();
+                                            reader.readAsDataURL(file);
+                                            reader.onload = (ev) => {
+                                                const img = new Image();
+                                                img.src = ev.target.result;
+                                                img.onload = () => {
+                                                    const canvas = document.createElement('canvas');
+                                                    const MAX_W = 800;
+                                                    const scale = img.width > MAX_W ? MAX_W / img.width : 1;
+                                                    canvas.width = img.width * scale;
+                                                    canvas.height = img.height * scale;
+                                                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                                                    setEditInitialImage(canvas.toDataURL('image/jpeg', 0.75));
+                                                };
+                                            };
+                                        }}
+                                    />
+                                    📸 {editInitialImage === null && info.initial_image_url ? 'Cambiar imagen' : 'Subir imagen'}
+                                </label>
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
@@ -557,14 +628,18 @@ function CaseDetail() {
                 {/* Initial Description - Hide if editing because it's in the form */}
                 {!isEditingInfo && (
                     <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', borderLeft: '4px solid var(--accent-gold)' }}>
-                        <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-gold)' }}>{t('initialReportTitle')}</h4>
+                        <h4 style={{ margin: '0 0 0.75rem 0', color: 'var(--accent-gold)' }}>{t('initialReportTitle')}</h4>
                         {info.initial_image_url && (
                             <div style={{ marginBottom: '1rem', borderRadius: '4px', overflow: 'hidden', cursor: 'pointer', maxWidth: '400px', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => setExpandedImage(info.initial_image_url)}>
                                 <img src={info.initial_image_url} alt="Initial Evidence" style={{ width: '100%', display: 'block' }} />
                                 <div style={{ fontSize: '0.7rem', color: '#aaa', padding: '2px 5px', background: 'rgba(0,0,0,0.5)', textAlign: 'right' }}>{t('clickToExpand')}</div>
                             </div>
                         )}
-                        <p style={{ margin: 0, whiteSpace: 'pre-line', color: 'var(--text-secondary)' }}>{info.description}</p>
+                        <div
+                            className="quill-content"
+                            style={{ color: 'var(--text-secondary)' }}
+                            dangerouslySetInnerHTML={{ __html: info.description }}
+                        />
                     </div>
                 )}
             </div>
