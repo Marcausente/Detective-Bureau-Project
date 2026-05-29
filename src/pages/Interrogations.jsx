@@ -229,7 +229,7 @@ function Interrogations() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                         disabled={!!searchParams.get('id')}
                     />
-                    {currentUser && currentUser.rol !== 'Ayudante' && (
+                    {currentUser && (
                         <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={openCreate}>
                             {t('newEntryBtn')}
                         </button>
