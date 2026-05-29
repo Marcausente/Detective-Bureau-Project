@@ -33,14 +33,20 @@ function CaseDetail() {
     // Modals Data
     const [users, setUsers] = useState([]);
     const [availableInterrogations, setAvailableInterrogations] = useState([]);
+    const [availableIncidents, setAvailableIncidents] = useState([]);
+    const [availableOutings, setAvailableOutings] = useState([]);
 
     // Modals Visibility
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [showLinkModal, setShowLinkModal] = useState(false);
+    const [showLinkIncidentModal, setShowLinkIncidentModal] = useState(false);
+    const [showLinkOutingModal, setShowLinkOutingModal] = useState(false);
 
     // Temp Selection State
     const [selectedAssignments, setSelectedAssignments] = useState([]);
     const [selectedInterrogation, setSelectedInterrogation] = useState('');
+    const [selectedIncident, setSelectedIncident] = useState('');
+    const [selectedOuting, setSelectedOuting] = useState('');
 
     // Edit/Delete Permissions State
     const [currentUser, setCurrentUser] = useState(null);
@@ -106,6 +112,22 @@ function CaseDetail() {
         setShowLinkModal(true);
     };
 
+    const openLinkIncidentModal = async () => {
+        const { data, error } = await supabase.rpc('get_available_incidents_to_link', { p_case_id: id });
+        if (error) console.error(error);
+        else setAvailableIncidents(data || []);
+        setSelectedIncident('');
+        setShowLinkIncidentModal(true);
+    };
+
+    const openLinkOutingModal = async () => {
+        const { data, error } = await supabase.rpc('get_available_outings_to_link', { p_case_id: id });
+        if (error) console.error(error);
+        else setAvailableOutings(data || []);
+        setSelectedOuting('');
+        setShowLinkOutingModal(true);
+    };
+
     const handleUpdateRole = async (userId, newRole) => {
         // Optimistic update
         setCaseData(prev => {
@@ -152,6 +174,66 @@ function CaseDetail() {
             loadCaseDetails();
         } catch (err) {
             alert('Error linking interrogation: ' + err.message);
+        }
+    };
+
+    const handleLinkIncident = async () => {
+        if (!selectedIncident) return;
+        try {
+            const { error } = await supabase.rpc('link_incident_to_case', {
+                p_incident_id: selectedIncident,
+                p_case_id: id
+            });
+            if (error) throw error;
+            setShowLinkIncidentModal(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error linking incident: ' + err.message);
+        }
+    };
+
+    const handleLinkOuting = async () => {
+        if (!selectedOuting) return;
+        try {
+            const { error } = await supabase.rpc('link_outing_to_case', {
+                p_outing_id: selectedOuting,
+                p_case_id: id
+            });
+            if (error) throw error;
+            setShowLinkOutingModal(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error linking outing: ' + err.message);
+        }
+    };
+
+    const handleUnlinkIncident = async (e, incidentId) => {
+        e.stopPropagation();
+        if (!window.confirm('¿Deseas desvincular este informe del caso?')) return;
+        try {
+            const { error } = await supabase.rpc('unlink_incident_from_case', {
+                p_incident_id: incidentId,
+                p_case_id: id
+            });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error unlinking incident: ' + err.message);
+        }
+    };
+
+    const handleUnlinkOuting = async (e, outingId) => {
+        e.stopPropagation();
+        if (!window.confirm('¿Deseas desvincular este outing del caso?')) return;
+        try {
+            const { error } = await supabase.rpc('unlink_outing_from_case', {
+                p_outing_id: outingId,
+                p_case_id: id
+            });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error unlinking outing: ' + err.message);
         }
     };
 
@@ -342,7 +424,7 @@ function CaseDetail() {
     if (loading) return <div className="loading-screen">{t('loadingCases')}</div>;
     if (!caseData) return <div className="loading-screen" style={{ color: '#f87171' }}>{t('noCasesFound').replace('{status}', '')}</div>;
 
-    const { info, assignments, updates, interrogations } = caseData;
+    const { info, assignments, updates, interrogations, incidents: linkedIncidents, outings: linkedOutings } = caseData;
 
     // Permission Check using locally loaded User and Case Info
     // Admins/High Command OR the Creator of the case
@@ -727,7 +809,7 @@ function CaseDetail() {
                     </div>
 
                     {/* Linked Interrogations */}
-                    <div className="sidebar-section">
+                    <div className="sidebar-section" style={{ marginBottom: '2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>{t('linkedInterrogations')}</h4>
                             {info.status === 'Open' && !isAyudante && (
@@ -760,6 +842,97 @@ function CaseDetail() {
                                                     fontSize: '1.2rem', cursor: 'pointer', lineHeight: 1, padding: '0 5px'
                                                 }}
                                                 title="Unlink Interrogation"
+                                            >
+                                                &times;
+                                            </button>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Linked Incidents (Informes) */}
+                    <div className="sidebar-section" style={{ marginBottom: '2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>📋 Informes Vinculados</h4>
+                            {info.status === 'Open' && !isAyudante && (
+                                <button onClick={openLinkIncidentModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
+                                    {t('linkBtn')}
+                                </button>
+                            )}
+                        </div>
+                        <div>
+                            {(!linkedIncidents || linkedIncidents.length === 0) ? (
+                                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No hay informes vinculados.</div>
+                            ) : (
+                                linkedIncidents.map(inc => (
+                                    <div key={inc.id}
+                                        onClick={() => navigate('/incidents')}
+                                        style={{
+                                            padding: '0.8rem', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', cursor: 'pointer',
+                                            borderLeft: '2px solid #60a5fa',
+                                            position: 'relative'
+                                        }}>
+                                        <div style={{ paddingRight: '20px' }}>
+                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{inc.title}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(inc.occurred_at).toLocaleDateString()}</div>
+                                            {inc.location && <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>📍 {inc.location}</div>}
+                                        </div>
+                                        {info.status === 'Open' && !isAyudante && (
+                                            <button
+                                                onClick={(e) => handleUnlinkIncident(e, inc.id)}
+                                                style={{
+                                                    position: 'absolute', top: '2px', right: '5px',
+                                                    background: 'none', border: 'none', color: '#f87171',
+                                                    fontSize: '1.2rem', cursor: 'pointer', lineHeight: 1, padding: '0 5px'
+                                                }}
+                                                title="Desvincular Informe"
+                                            >
+                                                &times;
+                                            </button>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Linked Outings */}
+                    <div className="sidebar-section">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>🚗 Outings Vinculados</h4>
+                            {info.status === 'Open' && !isAyudante && (
+                                <button onClick={openLinkOutingModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
+                                    {t('linkBtn')}
+                                </button>
+                            )}
+                        </div>
+                        <div>
+                            {(!linkedOutings || linkedOutings.length === 0) ? (
+                                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No hay outings vinculados.</div>
+                            ) : (
+                                linkedOutings.map(out => (
+                                    <div key={out.id}
+                                        onClick={() => navigate('/incidents')}
+                                        style={{
+                                            padding: '0.8rem', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', cursor: 'pointer',
+                                            borderLeft: '2px solid var(--accent-gold)',
+                                            position: 'relative'
+                                        }}>
+                                        <div style={{ paddingRight: '20px' }}>
+                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{out.title}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(out.occurred_at).toLocaleDateString()}</div>
+                                        </div>
+                                        {info.status === 'Open' && !isAyudante && (
+                                            <button
+                                                onClick={(e) => handleUnlinkOuting(e, out.id)}
+                                                style={{
+                                                    position: 'absolute', top: '2px', right: '5px',
+                                                    background: 'none', border: 'none', color: '#f87171',
+                                                    fontSize: '1.2rem', cursor: 'pointer', lineHeight: 1, padding: '0 5px'
+                                                }}
+                                                title="Desvincular Outing"
                                             >
                                                 &times;
                                             </button>
@@ -840,6 +1013,80 @@ function CaseDetail() {
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                             <button className="login-button btn-secondary" onClick={() => setShowLinkModal(false)} style={{ width: 'auto' }}>Cancel</button>
                             <button className="login-button" onClick={handleLinkInterrogation} disabled={!selectedInterrogation} style={{ width: 'auto' }}>Link Case</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Link Incident Modal */}
+            {showLinkIncidentModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content" style={{ maxWidth: '500px' }}>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>📋 Vincular Informe</h3>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                            Selecciona un informe para vincularlo a este caso.
+                        </p>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <select
+                                className="form-input custom-select"
+                                value={selectedIncident}
+                                onChange={e => setSelectedIncident(e.target.value)}
+                                style={{ width: '100%' }}
+                                aria-label="Seleccionar Informe a Vincular"
+                            >
+                                <option value="">-- Selecciona un Informe --</option>
+                                {availableIncidents.map(inc => (
+                                    <option key={inc.id} value={inc.id}>
+                                        {inc.title} ({new Date(inc.occurred_at).toLocaleDateString()}){inc.location ? ` - ${inc.location}` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            {availableIncidents.length === 0 && (
+                                <div style={{ marginTop: '0.5rem', color: '#f87171', fontSize: '0.9rem' }}>
+                                    No hay informes disponibles para vincular.
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                            <button className="login-button btn-secondary" onClick={() => setShowLinkIncidentModal(false)} style={{ width: 'auto' }}>Cancelar</button>
+                            <button className="login-button" onClick={handleLinkIncident} disabled={!selectedIncident} style={{ width: 'auto' }}>Vincular</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Link Outing Modal */}
+            {showLinkOutingModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content" style={{ maxWidth: '500px' }}>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>🚗 Vincular Outing</h3>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                            Selecciona un outing para vincularlo a este caso.
+                        </p>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <select
+                                className="form-input custom-select"
+                                value={selectedOuting}
+                                onChange={e => setSelectedOuting(e.target.value)}
+                                style={{ width: '100%' }}
+                                aria-label="Seleccionar Outing a Vincular"
+                            >
+                                <option value="">-- Selecciona un Outing --</option>
+                                {availableOutings.map(out => (
+                                    <option key={out.id} value={out.id}>
+                                        {out.title} ({new Date(out.occurred_at).toLocaleDateString()})
+                                    </option>
+                                ))}
+                            </select>
+                            {availableOutings.length === 0 && (
+                                <div style={{ marginTop: '0.5rem', color: '#f87171', fontSize: '0.9rem' }}>
+                                    No hay outings disponibles para vincular.
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                            <button className="login-button btn-secondary" onClick={() => setShowLinkOutingModal(false)} style={{ width: 'auto' }}>Cancelar</button>
+                            <button className="login-button" onClick={handleLinkOuting} disabled={!selectedOuting} style={{ width: 'auto' }}>Vincular</button>
                         </div>
                     </div>
                 </div>
