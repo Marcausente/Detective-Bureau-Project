@@ -2600,3 +2600,39 @@ body {
     margin: 1.2rem 0;
     display: block;
 }
+
+/* Links in editor */
+.ql-editor a {
+    color: var(--accent-gold);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.ql-editor a:hover { opacity: 0.8; }
+
+/* Links in rendered / published content */
+.quill-content a {
+    color: var(--accent-gold);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    transition: opacity 0.15s;
+}
+.quill-content a:hover { opacity: 0.75; }
+
+/* Quill link tooltip styling (dark mode) */
+.ql-snow .ql-tooltip {
+    background: #1e293b !important;
+    border-color: rgba(255,255,255,0.15) !important;
+    color: var(--text-primary) !important;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.ql-snow .ql-tooltip input[type=text] {
+    background: rgba(0,0,0,0.4) !important;
+    border-color: rgba(255,255,255,0.2) !important;
+    color: var(--text-primary) !important;
+    border-radius: 4px;
+}
+.ql-snow .ql-tooltip a.ql-action,
+.ql-snow .ql-tooltip a.ql-remove {
+    color: var(--accent-gold) !important;
+}

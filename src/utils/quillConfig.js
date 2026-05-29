@@ -30,7 +30,7 @@ export function makeQuillModules() {
                 [{ color: [] }, { background: [] }],
                 [{ list: 'ordered' }, { list: 'bullet' }],
                 ['blockquote', 'code-block'],
-                ['divider'],
+                ['link', 'divider'],
                 ['clean'],
             ],
             handlers: {
@@ -59,5 +59,6 @@ export const quillFormats = [
     'color', 'background',
     'list', 'bullet',
     'blockquote', 'code-block',
+    'link',
     'divider',
 ];
