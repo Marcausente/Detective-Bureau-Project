@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
@@ -10,6 +11,8 @@ function Incidents() {
     const [outings, setOutings] = useState([]);
     const [loading, setLoading] = useState(true);
     const { t } = useLanguage();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const highlightedRef = useRef(null);
 
     // Modals
     const [showIncidentModal, setShowIncidentModal] = useState(false);
@@ -53,6 +56,15 @@ function Incidents() {
         fetchGangs();
         fetchInterrogations();
     }, []);
+
+    // Scroll to highlighted element after data loads
+    useEffect(() => {
+        if (!loading && highlightedRef.current) {
+            setTimeout(() => {
+                highlightedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 150);
+        }
+    }, [loading]);
 
     const loadData = async () => {
         setLoading(true);
@@ -476,7 +488,16 @@ function Incidents() {
             {/* GLOBAL ACTIONS */}
             <div className="doc-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 className="page-title" style={{ margin: 0 }}>{t('incidentsTitle')}</h2>
-                <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    {(searchParams.get('incident_id') || searchParams.get('outing_id')) && (
+                        <button
+                            className="login-button btn-secondary"
+                            style={{ width: 'auto', padding: '0.5rem 1rem' }}
+                            onClick={() => setSearchParams({})}
+                        >
+                            Mostrar todos
+                        </button>
+                    )}
                     <button className="login-button" style={{ width: 'auto' }} onClick={() => setShowIncidentModal(true)}>
                         {t('logIncidentBtn')}
                     </button>
@@ -494,15 +515,20 @@ function Incidents() {
                         <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{t('generalIncidentsCol')}</h3>
                         <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
                             {incidents.filter(i => !i.gang_id).length === 0 ? <div className="empty-list">{t('noIncidents')}</div> :
-                                incidents.filter(i => !i.gang_id).map(inc => (
-                                    <IncidentCard
-                                        key={inc.record_id}
-                                        data={inc}
-                                        onExpand={setExpandedImage}
-                                        onDelete={handleDeleteIncident}
-                                        onEdit={handleEditIncident}
-                                    />
-                                ))
+                                incidents.filter(i => !i.gang_id).map(inc => {
+                                    const isHighlighted = searchParams.get('incident_id') === inc.record_id;
+                                    return (
+                                        <div key={inc.record_id} ref={isHighlighted ? highlightedRef : null}>
+                                            <IncidentCard
+                                                data={inc}
+                                                onExpand={setExpandedImage}
+                                                onDelete={handleDeleteIncident}
+                                                onEdit={handleEditIncident}
+                                                isHighlighted={isHighlighted}
+                                            />
+                                        </div>
+                                    );
+                                })
                             }
                         </div>
                     </div>
@@ -512,15 +538,20 @@ function Incidents() {
                         <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{t('linkedIncidentsCol')}</h3>
                         <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
                             {incidents.filter(i => i.gang_id).length === 0 ? <div className="empty-list">{t('noLinkedIncidents')}</div> :
-                                incidents.filter(i => i.gang_id).map(inc => (
-                                    <IncidentCard
-                                        key={inc.record_id}
-                                        data={inc}
-                                        onExpand={setExpandedImage}
-                                        onDelete={handleDeleteIncident}
-                                        onEdit={handleEditIncident}
-                                    />
-                                ))
+                                incidents.filter(i => i.gang_id).map(inc => {
+                                    const isHighlighted = searchParams.get('incident_id') === inc.record_id;
+                                    return (
+                                        <div key={inc.record_id} ref={isHighlighted ? highlightedRef : null}>
+                                            <IncidentCard
+                                                data={inc}
+                                                onExpand={setExpandedImage}
+                                                onDelete={handleDeleteIncident}
+                                                onEdit={handleEditIncident}
+                                                isHighlighted={isHighlighted}
+                                            />
+                                        </div>
+                                    );
+                                })
                             }
                         </div>
                     </div>
@@ -530,15 +561,20 @@ function Incidents() {
                         <h3 className="section-title" style={{ borderBottom: '2px solid var(--accent-gold)', paddingBottom: '0.5rem' }}>{t('outingsCol')}</h3>
                         <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
                             {outings.length === 0 ? <div className="empty-list">{t('noOutings')}</div> :
-                                outings.map(out => (
-                                    <OutingCard
-                                        key={out.record_id}
-                                        data={out}
-                                        onExpand={setExpandedImage}
-                                        onDelete={handleDeleteOuting}
-                                        onEdit={handleEditOuting}
-                                    />
-                                ))
+                                outings.map(out => {
+                                    const isHighlighted = searchParams.get('outing_id') === out.record_id;
+                                    return (
+                                        <div key={out.record_id} ref={isHighlighted ? highlightedRef : null}>
+                                            <OutingCard
+                                                data={out}
+                                                onExpand={setExpandedImage}
+                                                onDelete={handleDeleteOuting}
+                                                onEdit={handleEditOuting}
+                                                isHighlighted={isHighlighted}
+                                            />
+                                        </div>
+                                    );
+                                })
                             }
                         </div>
                     </div>

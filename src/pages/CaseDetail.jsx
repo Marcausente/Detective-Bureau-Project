@@ -868,7 +868,7 @@ function CaseDetail() {
                             ) : (
                                 linkedIncidents.map(inc => (
                                     <div key={inc.id}
-                                        onClick={() => navigate('/incidents')}
+                                        onClick={() => navigate(`/incidents?incident_id=${inc.id}`)}
                                         style={{
                                             padding: '0.8rem', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', cursor: 'pointer',
                                             borderLeft: '2px solid #60a5fa',
@@ -914,7 +914,7 @@ function CaseDetail() {
                             ) : (
                                 linkedOutings.map(out => (
                                     <div key={out.id}
-                                        onClick={() => navigate('/incidents')}
+                                        onClick={() => navigate(`/incidents?outing_id=${out.id}`)}
                                         style={{
                                             padding: '0.8rem', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', cursor: 'pointer',
                                             borderLeft: '2px solid var(--accent-gold)',

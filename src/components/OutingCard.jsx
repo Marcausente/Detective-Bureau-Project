@@ -1,8 +1,18 @@
 import '../index.css';
 
-function OutingCard({ data, onExpand, onDelete, onEdit }) {
+function OutingCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
     return (
-        <div className="announcement-card" style={{ marginBottom: '1rem', background: 'rgba(20, 20, 20, 0.6)', padding: '1rem', borderLeft: '2px solid var(--accent-gold)', wordWrap: 'break-word', overflowWrap: 'anywhere' }}>
+        <div className="announcement-card" style={{
+            marginBottom: '1rem',
+            background: isHighlighted ? 'rgba(212, 175, 55, 0.12)' : 'rgba(20, 20, 20, 0.6)',
+            padding: '1rem',
+            borderLeft: isHighlighted ? '4px solid #d4af37' : '2px solid var(--accent-gold)',
+            wordWrap: 'break-word',
+            overflowWrap: 'anywhere',
+            boxShadow: isHighlighted ? '0 0 20px rgba(212, 175, 55, 0.35)' : 'none',
+            borderRadius: isHighlighted ? '8px' : undefined,
+            transition: 'all 0.3s'
+        }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <h4 style={{ margin: 0, color: 'var(--accent-gold)' }}>{data.title}</h4>

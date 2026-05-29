@@ -1,11 +1,21 @@
 import { useState } from 'react';
 import '../index.css';
 
-function IncidentCard({ data, onExpand, onDelete, onEdit }) {
+function IncidentCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
-        <div className="announcement-card" style={{ marginBottom: '1rem', background: 'rgba(30, 41, 59, 0.4)', padding: '1rem', wordWrap: 'break-word', overflowWrap: 'anywhere' }}>
+        <div className="announcement-card" style={{
+            marginBottom: '1rem',
+            background: isHighlighted ? 'rgba(96, 165, 250, 0.12)' : 'rgba(30, 41, 59, 0.4)',
+            padding: '1rem',
+            wordWrap: 'break-word',
+            overflowWrap: 'anywhere',
+            border: isHighlighted ? '2px solid #60a5fa' : '2px solid transparent',
+            borderRadius: '8px',
+            boxShadow: isHighlighted ? '0 0 20px rgba(96, 165, 250, 0.3)' : 'none',
+            transition: 'all 0.3s'
+        }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>{data.title}</h4>
