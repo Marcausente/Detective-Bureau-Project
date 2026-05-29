@@ -8,7 +8,7 @@ import 'react-quill/dist/quill.snow.css';
 import { useLanguage } from '../contexts/LanguageContext';
 
 function CaseDetail() {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const { id } = useParams();
     const navigate = useNavigate();
     const [caseData, setCaseData] = useState(null);
@@ -901,7 +901,7 @@ function CaseDetail() {
                     {/* Linked Outings */}
                     <div className="sidebar-section">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>🚗 Outings Vinculados</h4>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>🚗 {language === 'es' ? 'Información Vinculada' : 'Outings Vinculados'}</h4>
                             {info.status === 'Open' && !isAyudante && (
                                 <button onClick={openLinkOutingModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
                                     {t('linkBtn')}
@@ -1059,7 +1059,7 @@ function CaseDetail() {
             {showLinkOutingModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '500px' }}>
-                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>🚗 Vincular Outing</h3>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>🚗 {language === 'es' ? 'Vincular Información' : 'Vincular Outing'}</h3>
                         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
                             Selecciona un outing para vincularlo a este caso.
                         </p>
