@@ -888,7 +888,7 @@ function CaseDetail() {
                     <div className="sidebar-section" style={{ marginBottom: '2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>{t('linkedInterrogations')}</h4>
-                            {info.status === 'Open' && !isAyudante && (
+                            {info.status === 'Open' && (
                                 <button onClick={openLinkModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
                                     {t('linkBtn')}
                                 </button>
@@ -909,7 +909,7 @@ function CaseDetail() {
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(inv.created_at).toLocaleDateString()}</div>
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{t('subjectsLabel')} {inv.subjects}</div>
                                         </div>
-                                        {info.status === 'Open' && !isAyudante && (
+                                        {info.status === 'Open' && (
                                             <button
                                                 onClick={(e) => handleUnlink(e, inv.id)}
                                                 style={{
@@ -932,7 +932,7 @@ function CaseDetail() {
                     <div className="sidebar-section" style={{ marginBottom: '2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>📋 Informes Vinculados</h4>
-                            {info.status === 'Open' && !isAyudante && (
+                            {info.status === 'Open' && (
                                 <button onClick={openLinkIncidentModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
                                     {t('linkBtn')}
                                 </button>
@@ -955,7 +955,7 @@ function CaseDetail() {
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(inc.occurred_at).toLocaleDateString()}</div>
                                             {inc.location && <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>📍 {inc.location}</div>}
                                         </div>
-                                        {info.status === 'Open' && !isAyudante && (
+                                        {info.status === 'Open' && (
                                             <button
                                                 onClick={(e) => handleUnlinkIncident(e, inc.id)}
                                                 style={{
@@ -978,7 +978,7 @@ function CaseDetail() {
                     <div className="sidebar-section">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>🚗 {language === 'es' ? 'Información Vinculada' : 'Outings Vinculados'}</h4>
-                            {info.status === 'Open' && !isAyudante && (
+                            {info.status === 'Open' && (
                                 <button onClick={openLinkOutingModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
                                     {t('linkBtn')}
                                 </button>
@@ -1000,7 +1000,7 @@ function CaseDetail() {
                                             <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{out.title}</div>
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(out.occurred_at).toLocaleDateString()}</div>
                                         </div>
-                                        {info.status === 'Open' && !isAyudante && (
+                                        {info.status === 'Open' && (
                                             <button
                                                 onClick={(e) => handleUnlinkOuting(e, out.id)}
                                                 style={{
