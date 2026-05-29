@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import '../index.css';
 import CaseTodoList from '../components/CaseTodoList';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { makeQuillModules, quillFormats } from '../utils/quillConfig';
 import { useLanguage } from '../contexts/LanguageContext';
 
 function CaseDetail() {
@@ -15,11 +16,9 @@ function CaseDetail() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('updates'); // updates, evidence, interrogations
 
-    const quillModules = {
-        toolbar: [
-            ['bold', 'italic', 'underline']
-        ],
-    };
+    // Quill config – memoized so the object reference is stable across renders
+    // (ReactQuill resets the editor if modules changes reference)
+    const quillModules = useMemo(() => makeQuillModules(), []);
 
     // New Update State
     // New Update State
@@ -619,6 +618,7 @@ function CaseDetail() {
                                         <ReactQuill 
                                             theme="snow"
                                             modules={quillModules}
+                                            formats={quillFormats}
                                             placeholder={t('logNewUpdatePlaceholder')}
                                             value={newUpdateContent}
                                             onChange={setNewUpdateContent}
@@ -718,6 +718,7 @@ function CaseDetail() {
                                                         <ReactQuill 
                                                             theme="snow"
                                                             modules={quillModules}
+                                                            formats={quillFormats}
                                                             value={editContent}
                                                             onChange={setEditContent}
                                                             style={{ marginBottom: '0.5rem' }}

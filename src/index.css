@@ -2465,10 +2465,100 @@ body {
     transform: scale(1.02);
 }
 
-.ql-toolbar.ql-snow, .ql-container.ql-snow { background-color: rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.1) !important; color: white; }
+/* === Quill Editor Dark Mode Styles === */
+.ql-toolbar.ql-snow, .ql-container.ql-snow {
+    background-color: rgba(0,0,0,0.3);
+    border-color: rgba(255,255,255,0.1) !important;
+    color: white;
+}
+.ql-toolbar.ql-snow {
+    border-radius: 8px 8px 0 0;
+}
+.ql-container.ql-snow {
+    border-radius: 0 0 8px 8px;
+}
 .ql-snow .ql-stroke { stroke: white !important; }
 .ql-snow .ql-fill { fill: white !important; }
 .ql-editor.ql-blank::before { color: #aaa !important; }
+.ql-snow .ql-picker { color: white !important; }
+.ql-snow .ql-picker-label { color: white !important; }
+.ql-snow .ql-picker-options {
+    background-color: #1e293b !important;
+    border-color: rgba(255,255,255,0.15) !important;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.ql-snow .ql-picker-item { color: white !important; }
+.ql-snow .ql-picker-item:hover { color: var(--accent-gold) !important; }
+.ql-snow .ql-picker-item.ql-selected { color: var(--accent-gold) !important; }
+.ql-snow.ql-toolbar button:hover .ql-stroke,
+.ql-snow .ql-toolbar button:hover .ql-stroke { stroke: var(--accent-gold) !important; }
+.ql-snow.ql-toolbar button.ql-active .ql-stroke,
+.ql-snow .ql-toolbar button.ql-active .ql-stroke { stroke: var(--accent-gold) !important; }
+.ql-snow.ql-toolbar button:hover .ql-fill,
+.ql-snow .ql-toolbar button.ql-active .ql-fill { fill: var(--accent-gold) !important; }
+
+/* Headings in editor */
+.ql-editor h1 { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); margin: 0.8rem 0 0.4rem; line-height: 1.2; border-bottom: 2px solid rgba(207,181,59,0.3); padding-bottom: 0.3rem; }
+.ql-editor h2 { font-size: 1.4rem; font-weight: 600; color: var(--accent-gold); margin: 0.6rem 0 0.3rem; }
+.ql-editor h3 { font-size: 1.1rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin: 0.5rem 0 0.25rem; }
+
+/* Separator (hr) in editor */
+.ql-editor hr { border: none; border-top: 1px solid rgba(255,255,255,0.2); margin: 1rem 0; }
+
+/* Blockquote in editor */
+.ql-editor blockquote {
+    border-left: 3px solid var(--accent-gold);
+    background: rgba(207,181,59,0.06);
+    padding: 0.5rem 1rem;
+    margin: 0.5rem 0;
+    color: var(--text-secondary);
+    font-style: italic;
+    border-radius: 0 4px 4px 0;
+}
+
+/* Code block in editor */
+.ql-editor pre.ql-syntax {
+    background: rgba(0,0,0,0.5) !important;
+    color: #a5f3fc !important;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+}
+
+/* Lists in editor */
+.ql-editor ol, .ql-editor ul { padding-left: 1.5rem; }
+.ql-editor li { margin: 0.2rem 0; }
+
+/* === Quill Rendered Content (quill-content) === */
+.quill-content h1 { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); margin: 0.8rem 0 0.4rem; border-bottom: 2px solid rgba(207,181,59,0.3); padding-bottom: 0.3rem; }
+.quill-content h2 { font-size: 1.4rem; font-weight: 600; color: var(--accent-gold); margin: 0.6rem 0 0.3rem; }
+.quill-content h3 { font-size: 1.1rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin: 0.5rem 0 0.25rem; }
+.quill-content hr { border: none; border-top: 1px solid rgba(255,255,255,0.2); margin: 1rem 0; }
+.quill-content blockquote {
+    border-left: 3px solid var(--accent-gold);
+    background: rgba(207,181,59,0.06);
+    padding: 0.5rem 1rem;
+    margin: 0.5rem 0;
+    color: var(--text-secondary);
+    font-style: italic;
+    border-radius: 0 4px 4px 0;
+}
+.quill-content pre {
+    background: rgba(0,0,0,0.5) !important;
+    color: #a5f3fc !important;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+}
+.quill-content ol, .quill-content ul { padding-left: 1.5rem; }
+.quill-content li { margin: 0.2rem 0; }
+.quill-content p { margin-bottom: 0.4rem; }
 
 /* Enforce word wrapping in Quill Editor and its output */
 .ql-editor, .quill-content {
@@ -2481,4 +2571,32 @@ body {
 .quill-content img {
     max-width: 100%;
     height: auto;
+}
+
+/* ── Divider (HR) button icon in Quill toolbar ── */
+/* The button has class .ql-divider; we use ::before to show a "—" icon */
+.ql-toolbar .ql-divider::before {
+    content: '─';
+    font-size: 1.1rem;
+    line-height: 1;
+    color: white;
+}
+.ql-toolbar .ql-divider:hover::before {
+    color: var(--accent-gold);
+}
+
+/* HR line inside Quill editor */
+.ql-editor hr {
+    border: none;
+    border-top: 2px solid rgba(255, 255, 255, 0.2);
+    margin: 1.2rem 0;
+    display: block;
+}
+
+/* HR line in rendered / published content */
+.quill-content hr {
+    border: none;
+    border-top: 2px solid rgba(255, 255, 255, 0.2);
+    margin: 1.2rem 0;
+    display: block;
 }
