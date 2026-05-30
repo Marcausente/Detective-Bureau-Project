@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import PracticeArchive from '../../components/Training/PracticeArchive';
 import PracticeSchedule from '../../components/Training/PracticeSchedule';
+import PracticeCount from '../../components/Training/PracticeCount';
 import './Training.css'; // Import the new CSS file
 
 function TrainingBase() {
@@ -87,11 +88,18 @@ function TrainingBase() {
                 >
                     <i className="fas fa-calendar-alt" style={{marginRight: '8px'}}></i> Schedule
                 </button>
+                <button 
+                    className={`dtp-tab-btn ${activeTab === 'count' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('count')}
+                >
+                    <i className="fas fa-list-ol" style={{marginRight: '8px'}}></i> Conteo
+                </button>
             </div>
 
             <div className="tab-content" style={{ animation: 'fadeIn 0.3s ease-out' }}>
                 {activeTab === 'archive' && <PracticeArchive />}
                 {activeTab === 'schedule' && <PracticeSchedule />}
+                {activeTab === 'count' && <PracticeCount />}
             </div>
         </div>
     );

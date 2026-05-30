@@ -159,5 +159,70 @@ export const dtpService = {
     
     if (error) throw error;
     return true;
+  },
+
+  // ==========================================
+  // PRACTICE LOG (Conteo de Prácticas)
+  // ==========================================
+
+  // Get all practice log entries for a specific agent
+  async getPracticeLog(agentId) {
+    const { data, error } = await supabase
+      .from('dtp_practice_log')
+      .select(`
+        *,
+        logged_by_user:logged_by (id, nombre, apellido, rango, no_placa)
+      `)
+      .eq('agent_id', agentId)
+      .order('logged_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Get practice count per agent (all agents at once)
+  async getPracticeCountsAll() {
+    const { data, error } = await supabase
+      .from('dtp_practice_log')
+      .select('agent_id');
+
+    if (error) throw error;
+    // Group by agent_id
+    const counts = {};
+    (data || []).forEach(row => {
+      counts[row.agent_id] = (counts[row.agent_id] || 0) + 1;
+    });
+    return counts;
+  },
+
+  // Add a practice log entry for an agent
+  async addPracticeLog(agentId, practiceName, loggedBy) {
+    const { data, error } = await supabase
+      .from('dtp_practice_log')
+      .insert([{
+        agent_id: agentId,
+        practice_name: practiceName,
+        logged_by: loggedBy,
+        logged_at: new Date().toISOString()
+      }])
+      .select(`
+        *,
+        logged_by_user:logged_by (id, nombre, apellido, rango, no_placa)
+      `)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Delete a practice log entry
+  async deletePracticeLog(id) {
+    const { error } = await supabase
+      .from('dtp_practice_log')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return true;
   }
 };
