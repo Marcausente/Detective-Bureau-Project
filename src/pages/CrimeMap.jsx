@@ -32,7 +32,7 @@ export default function CrimeMap() {
     const [drawingPoints, setDrawingPoints] = useState([]);
 
     // Form State
-    const [tempZoneData, setTempZoneData] = useState({ name: '', description: '', color: '#ef4444', is_gang_zone: false });
+    const [tempZoneData, setTempZoneData] = useState({ name: '', description: '', color: '#ef4444', is_gang_zone: false, emoji: '' });
     const [showModal, setShowModal] = useState(false);
     const [editingZoneId, setEditingZoneId] = useState(null); // ID if editing, null if creating
 
@@ -184,7 +184,7 @@ export default function CrimeMap() {
                 });
 
                 let popupHTML = `
-                    <h3 style="margin: 0 0 5px 0; color: #cfb53b; text-transform: uppercase;">${zone.name}</h3>
+                    <h3 style="margin: 0 0 5px 0; color: #cfb53b; text-transform: uppercase;">${zone.emoji ? zone.emoji + ' ' : ''}${zone.name}</h3>
                     <p style="margin: 0 0 10px 0; color: #ccc; font-size: 0.9em;">${zone.description || ''}</p>
                     ${zone.gang_name ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">${t('gangLabel')}</strong> ${zone.gang_name}</div>` : ''}
                     ${zone.case_title ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">${t('caseLabel')}</strong> ${authorized ? zone.case_title : `<span style="color: #ef4444; font-weight: bold;">${t('noAccessMap')}</span>`}</div>` : ''}
@@ -231,6 +231,32 @@ export default function CrimeMap() {
                 poly.on('mouseout', function () { this.setStyle({ fillOpacity: 0.35, weight: 2 }); });
 
                 poly.addTo(layerGroupRef.current);
+
+                // --- EMOJI LABEL centrado en el polígono ---
+                if (zone.emoji && zone.emoji.trim() !== '') {
+                    // Calcular el centroide del polígono
+                    const coords = zone.coordinates;
+                    let latSum = 0, lngSum = 0;
+                    coords.forEach(pt => { latSum += pt[0]; lngSum += pt[1]; });
+                    const centroid = [latSum / coords.length, lngSum / coords.length];
+
+                    const emojiIcon = L.divIcon({
+                        html: `<div style="
+                            font-size: 3rem;
+                            line-height: 1;
+                            opacity: 0.35;
+                            user-select: none;
+                            pointer-events: none;
+                            filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
+                            text-align: center;
+                        ">${zone.emoji}</div>`,
+                        className: '',
+                        iconSize: [60, 60],
+                        iconAnchor: [30, 30]
+                    });
+
+                    L.marker(centroid, { icon: emojiIcon, interactive: false }).addTo(layerGroupRef.current);
+                }
             });
         }
     }, [zones, authorized]);
@@ -270,7 +296,8 @@ export default function CrimeMap() {
             name: zone.name,
             description: zone.description || '',
             color: zone.color || '#ef4444',
-            is_gang_zone: zone.is_gang_zone || false
+            is_gang_zone: zone.is_gang_zone || false,
+            emoji: zone.emoji || ''
         });
         setSelectedGang(zone.gang_id || '');
         setSelectedCase(zone.case_id || '');
@@ -282,7 +309,7 @@ export default function CrimeMap() {
     const handleFinishDraw = () => {
         if (drawingPoints.length < 3) return alert("Zone must have at least 3 points");
         setEditingZoneId(null); // Ensure we are creating
-        setTempZoneData({ name: '', description: '', color: '#ef4444', is_gang_zone: false });
+        setTempZoneData({ name: '', description: '', color: '#ef4444', is_gang_zone: false, emoji: '' });
         setSelectedGang('');
         setSelectedCase('');
         setSelectedIncident('');
@@ -303,9 +330,9 @@ export default function CrimeMap() {
                 p_gang_id: selectedGang || null,
                 p_case_id: selectedCase || null,
                 p_incident_id: selectedIncident || null,
-
                 p_color: tempZoneData.color,
-                p_is_gang_zone: tempZoneData.is_gang_zone
+                p_is_gang_zone: tempZoneData.is_gang_zone,
+                p_emoji: tempZoneData.emoji || null
             };
             const res = await supabase.rpc('update_map_zone', payload);
             error = res.error;
@@ -319,9 +346,9 @@ export default function CrimeMap() {
                 p_gang_id: selectedGang || null,
                 p_case_id: selectedCase || null,
                 p_incident_id: selectedIncident || null,
-
                 p_color: tempZoneData.color,
-                p_is_gang_zone: tempZoneData.is_gang_zone
+                p_is_gang_zone: tempZoneData.is_gang_zone,
+                p_emoji: tempZoneData.emoji || null
             };
             const res = await supabase.rpc('create_map_zone', payload);
             error = res.error;
@@ -335,7 +362,7 @@ export default function CrimeMap() {
             setDrawingPoints([]);
             setShowModal(false);
             setEditingZoneId(null);
-            setTempZoneData({ name: '', description: '', color: '#ef4444' });
+            setTempZoneData({ name: '', description: '', color: '#ef4444', is_gang_zone: false, emoji: '' });
             setSelectedGang('');
             setSelectedCase('');
             setSelectedIncident('');
@@ -483,16 +510,29 @@ export default function CrimeMap() {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">{t('linkedGang')}</label>
-                                <select
+                                <label className="form-label">Emoji de zona</label>
+                                <input
+                                    type="text"
                                     className="form-input"
-                                    value={selectedGang}
-                                    onChange={e => setSelectedGang(e.target.value)}
-                                >
-                                    <option value="">{t('noneOption')}</option>
-                                    {gangs.map(g => <option key={g.gang_id} value={g.gang_id}>{g.name}</option>)}
-                                </select>
+                                    placeholder="Ej: 🔫 💊 🏠 ⚠️"
+                                    value={tempZoneData.emoji}
+                                    onChange={e => setTempZoneData({ ...tempZoneData, emoji: e.target.value })}
+                                    style={{ fontSize: '1.4rem', textAlign: 'center', letterSpacing: '4px' }}
+                                    maxLength={4}
+                                />
                             </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">{t('linkedGang')}</label>
+                            <select
+                                className="form-input"
+                                value={selectedGang}
+                                onChange={e => setSelectedGang(e.target.value)}
+                            >
+                                <option value="">{t('noneOption')}</option>
+                                {gangs.map(g => <option key={g.gang_id} value={g.gang_id}>{g.name}</option>)}
+                            </select>
                         </div>
 
                         <div className="form-group">
