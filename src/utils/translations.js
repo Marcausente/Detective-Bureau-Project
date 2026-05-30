@@ -20,7 +20,7 @@ export const translations = {
         badge: "Badge #",
         editProfile: "Edit Profile",
         logout: "Logout",
-        
+
         // Dashboard
         loadingDashboard: "Loading Dashboard...",
         welcomeBack: "Welcome back,",
@@ -40,7 +40,7 @@ export const translations = {
         leaveEvent: "Leave Event",
         attended: "Attended",
         absent: "Absent",
-        
+
         // Documentation
         loadingDocs: "Loading...",
         addDocumentBtn: "+ Add Document",
@@ -75,7 +75,7 @@ export const translations = {
         cancelBtn: "Cancel",
         saveBtn: "Save",
         savingBtn: "Saving...",
-        
+
         // Criminal Cases
         loadingCases: "Loading Case Files...",
         criminalCasesTitle: "Criminal Cases",
@@ -127,7 +127,7 @@ export const translations = {
         caseStatusOpen: "Open",
         caseStatusClosed: "Closed",
         caseStatusArchived: "Archived",
-        
+
         // Todo List
         loadingTasks: "Loading Tasks...",
         projectTasksTitle: "Project Tasks",
@@ -204,7 +204,7 @@ export const translations = {
         knownAffiliatesLabel: "Known Affiliates",
         hasNotes: "Has Notes",
         noKnownMembers: "No known members.",
-        
+
         // Incidents & Outings
         loadingIncidents: "Loading Operation Data...",
 
@@ -265,7 +265,7 @@ export const translations = {
         detectivesPresentLabel: "Detectives Present",
         reasonForOutingLabel: "Reason for Outing",
         infoObtainedLabel: "Information Obtained",
-        
+
         // Interrogations
         interrogationsLogTitle: "Interrogations Log",
         showAllBtn: "← Show All",
@@ -291,7 +291,7 @@ export const translations = {
         recordingLinkLabel: "Recording / Evidence Link (YouTube/Drive)",
         saveLogBtn: "Save Log",
         cancelBtnLog: "Cancel",
-        
+
         // Login
         authAccess: "Authorized Access",
         identifyYourself: "Please identify yourself, Detective.",
@@ -330,7 +330,7 @@ export const translations = {
         badge: "Placa #",
         editProfile: "Editar Perfil",
         logout: "Cerrar Sesión",
-        
+
         // Dashboard
         loadingDashboard: "Cargando Panel Principal...",
         welcomeBack: "Bienvenido de nuevo,",
@@ -350,7 +350,7 @@ export const translations = {
         leaveEvent: "Abandonar Evento",
         attended: "Asistió",
         absent: "Ausente",
-        
+
         // Documentation
         loadingDocs: "Cargando...",
         addDocumentBtn: "+ Añadir Documento",
@@ -385,7 +385,7 @@ export const translations = {
         cancelBtn: "Cancelar",
         saveBtn: "Guardar",
         savingBtn: "Guardando...",
-        
+
         // Criminal Cases
         loadingCases: "Cargando Casos...",
         criminalCasesTitle: "Casos Criminales",
@@ -437,7 +437,7 @@ export const translations = {
         caseStatusOpen: "Abierto",
         caseStatusClosed: "Cerrado",
         caseStatusArchived: "Archivado",
-        
+
         // Todo List
         loadingTasks: "Cargando Tareas...",
         projectTasksTitle: "Tareas del Proyecto",
@@ -494,8 +494,8 @@ export const translations = {
         logPatrolTitle: "Registrar Observación de Patrulla",
         patrolTimeLabel: "Hora de Patrulla (redondeada a 15 min)",
         peopleCountLabel: "Recuento de Personas",
-        gangIncidentsLabel: "Reportes",
-        gangOutingsLabel: "Informacion",
+        gangIncidentsLabel: "Informes",
+        gangOutingsLabel: "Vigilancias",
         editMapBtnGangs: "Editar Mapa",
         noZoneData: "Sin Zona Asignada",
         intelAndCharacteristics: "Inteligencia y Características",
@@ -514,7 +514,7 @@ export const translations = {
         knownAffiliatesLabel: "Afiliados Conocidos",
         hasNotes: "Tiene Notas",
         noKnownMembers: "Sin miembros conocidos.",
-        
+
         // Incidents & Outings
         loadingIncidents: "Cargando Datos de Operación...",
 
@@ -548,16 +548,16 @@ export const translations = {
         deleteMapBtn: "ELIMINAR",
         noAccessMap: "SIN ACCESO",
         incidentsTitle: "REGISTROS OPERATIVOS",
-        logIncidentBtn: "+ Nuevo Reporte",
-        logOutingBtn: "+ Nueva Información",
+        logIncidentBtn: "+ Nuevo Informe",
+        logOutingBtn: "+ Nueva Vigilancia",
         generalIncidentsCol: "Informes Generales",
         linkedIncidentsCol: "Informes Vinculados a Grupos",
         outingsCol: "Información y Patrullas",
         noIncidents: "No hay informes no vinculados.",
         noLinkedIncidents: "No hay informes vinculados.",
         noOutings: "No hay información registrada.",
-        logNewIncidentTitle: "Registrar Nuevo Reporte",
-        editIncidentTitle: "Editar Reporte",
+        logNewIncidentTitle: "Registrar nuevo informe",
+        editIncidentTitle: "Editar Informe",
         titleLabel: "Título",
         linkSyndicatesLabel: "Vincular a Grupos (Opcional)",
         linkInterrogationsLabel: "Vincular a Interrogatorios (Opcional)",
@@ -570,12 +570,12 @@ export const translations = {
         uploadImagesBtn: "📷 Subir Imágenes",
         createBtn: "Crear",
         updateBtn: "Actualizar",
-        logNewOutingTitle: "Registrar Nueva Información",
-        editOutingTitle: "Editar Información",
+        logNewOutingTitle: "Registrar Nueva Vigilancia",
+        editOutingTitle: "Editar Vigilancia",
         detectivesPresentLabel: "Detectives Presentes",
         reasonForOutingLabel: "Motivo de la Información",
         infoObtainedLabel: "Información Obtenida",
-        
+
         // Interrogations
         interrogationsLogTitle: "Registro de Interrogatorios",
         showAllBtn: "← Mostrar Todos",
@@ -601,7 +601,7 @@ export const translations = {
         recordingLinkLabel: "Enlace a Grabación / Evidencia (YouTube/Drive)",
         saveLogBtn: "Guardar Registro",
         cancelBtnLog: "Cancelar",
-        
+
         // Login
         authAccess: "Acceso Autorizado",
         identifyYourself: "Por favor identifíquese, Detective.",
