@@ -244,7 +244,13 @@ function Incidents() {
 
         setIncTitle(titleToEdit);
         setIncLocation(incident.location || '');
-        setIncDate(incident.occurred_at ? new Date(incident.occurred_at).toISOString().slice(0, 16) : '');
+        if (incident.occurred_at) {
+            const dt = new Date(incident.occurred_at);
+            dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+            setIncDate(dt.toISOString().slice(0, 16));
+        } else {
+            setIncDate('');
+        }
         setIncTablet(incident.tablet_incident_number || '');
         setIncDesc(incident.description || '');
         setIncImages(incident.images || []); // Load existing images
@@ -335,7 +341,13 @@ function Incidents() {
         try {
             setEditingOuting(outing);
             setOutTitle(outing.title);
-            setOutDate(outing.occurred_at ? new Date(outing.occurred_at).toISOString().slice(0, 16) : '');
+            if (outing.occurred_at) {
+                const dt = new Date(outing.occurred_at);
+                dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+                setOutDate(dt.toISOString().slice(0, 16));
+            } else {
+                setOutDate('');
+            }
             setOutReason(outing.reason || '');
             setOutInfo(outing.info_obtained || '');
             setOutImages(outing.images || []);
