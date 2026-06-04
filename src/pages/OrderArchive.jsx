@@ -660,8 +660,13 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
 
                     {/* Signature Area */}
                     <div style={{ marginTop: '4rem', textAlign: 'right' }}>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', textTransform: 'uppercase' }}>{order.author_rank} {order.author_name}</div>
-                        <div style={{ fontSize: '0.9rem' }}>{isLSSD ? "SCUB, LSSD" : "Detective Bureau, LSPD"}</div>
+                        <div style={{ 
+                            fontFamily: "'Alex Brush', cursive", 
+                            fontSize: '2rem', 
+                            color: '#1e293b',
+                            marginBottom: '0.2rem'
+                        }}>{order.content.author_agent || order.author_name}</div>
+                        <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{isLSSD ? "SCUB, LSSD" : "Detective Bureau, LSPD"}</div>
                     </div>
 
                 </div>

@@ -1,9 +1,14 @@
 import jsPDF from 'jspdf';
 // eslint-disable-next-line no-unused-vars
 import autoTable from 'jspdf-autotable'; // Extends jsPDF with autoTable method
+import { signatureFontBase64 } from './signatureFont';
 
 export const generateOrderPDF = async (order, config) => {
     const doc = new jsPDF();
+    
+    // Register custom signature font
+    doc.addFileToVFS('AlexBrush-Regular.ttf', signatureFontBase64);
+    doc.addFont('AlexBrush-Regular.ttf', 'AlexBrush', 'normal');
     
     // --- ASSETS ---
     const loadImg = (src) => new Promise((resolve) => {
@@ -171,13 +176,13 @@ export const generateOrderPDF = async (order, config) => {
 
     const signatureName = order.content.author_agent || order.author_name;
 
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text(signatureName.toUpperCase(), pageWidth - 20, y, { align: 'right' });
+    doc.setFont('AlexBrush', 'normal');
+    doc.setFontSize(22);
+    doc.text(signatureName, pageWidth - 20, y, { align: 'right' });
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(isLSSD ? 'SCUB, LSSD' : 'Detective Bureau, LSPD', pageWidth - 20, y + 6, { align: 'right' });
+    doc.text(isLSSD ? 'SCUB, LSSD' : 'Detective Bureau, LSPD', pageWidth - 20, y + 8, { align: 'right' });
 
     doc.save(`Orden_${order.order_type.replace(/ /g, '_')}_${new Date().getTime()}.pdf`);
 };
