@@ -58,6 +58,11 @@ function Gangs() {
     const [infoContent, setInfoContent] = useState('');
     const [infoImages, setInfoImages] = useState([]);
 
+    // Graffiti
+    const [graffitiImage, setGraffitiImage] = useState(null);
+    const [gpsImage, setGpsImage] = useState(null);
+    const [graffitiNotes, setGraffitiNotes] = useState('');
+
     // Patrol Log
     const [patrolTime, setPatrolTime] = useState('');
     const [patrolPeopleCount, setPatrolPeopleCount] = useState(0);
@@ -197,6 +202,10 @@ function Gangs() {
             setInfoType(item.type || 'info'); 
             setInfoContent(item.content || ''); 
             setInfoImages(item.images || []);
+        } else if (type === 'graffiti') {
+            setGraffitiImage(item.graffiti_image || null);
+            setGpsImage(item.gps_image || null);
+            setGraffitiNotes(item.notes || '');
         }
     };
 
@@ -321,6 +330,46 @@ function Gangs() {
             closeModal();
             loadGangs();
         } catch (err) { alert(err.message); } finally { setSubmitting(false); }
+    };
+
+    const handleAddGraffiti = async (e) => {
+        e.preventDefault();
+        
+        if (!graffitiImage) {
+            alert("Please upload a photo of the graffiti.");
+            return;
+        }
+        if (!gpsImage) {
+            alert("Please upload a photo of the GPS/map location.");
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            if (editingItemId) {
+                const { error } = await supabase.rpc('update_gang_graffiti', {
+                    p_graffiti_id: editingItemId,
+                    p_graffiti_image: graffitiImage,
+                    p_gps_image: gpsImage,
+                    p_notes: graffitiNotes.trim()
+                });
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.rpc('add_gang_graffiti', {
+                    p_gang_id: activeGangId,
+                    p_graffiti_image: graffitiImage,
+                    p_gps_image: gpsImage,
+                    p_notes: graffitiNotes.trim()
+                });
+                if (error) throw error;
+            }
+            closeModal();
+            loadGangs();
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleUpdateZone = async (e) => {
@@ -558,6 +607,7 @@ function Gangs() {
         setHomeOwner(''); setHomeNotes(''); setHomeImages([]);
         setMemName(''); setMemRole('Sospechoso'); setMemNotes(''); setMemPhoto(null);
         setInfoType('info'); setInfoContent(''); setInfoImages([]);
+        setGraffitiImage(null); setGpsImage(null); setGraffitiNotes('');
         setShowActivity(false);
         setActivityLog([]);
     };
@@ -745,6 +795,15 @@ function Gangs() {
                     </div>
                     <TextArea label={t('contentLabel')} value={infoContent} onChange={e => setInfoContent(e.target.value)} required />
                     <MultiImageUpload images={infoImages} setImages={setInfoImages} onUpload={e => handleImageUpload(e, setInfoImages)} />
+                </Modal>
+            )}
+
+            {/* Add/Edit Graffiti */}
+            {activeModal === 'graffiti' && (
+                <Modal title={editingItemId ? t('editGraffitiTitle') : t('addGraffitiTitle')} onClose={closeModal} onSubmit={handleAddGraffiti} submitting={submitting}>
+                    <ImageUpload label={t('graffitiImageLabel')} image={graffitiImage} onUpload={e => handleImageUpload(e, setGraffitiImage, true)} single />
+                    <ImageUpload label={t('gpsImageLabel')} image={gpsImage} onUpload={e => handleImageUpload(e, setGpsImage, true)} single />
+                    <TextArea label={t('notesLabel') + ' (Opcional)'} value={graffitiNotes} onChange={e => setGraffitiNotes(e.target.value)} />
                 </Modal>
             )}
 
@@ -1279,6 +1338,59 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                         </div>
                     ))}
                     {gang.homes.length === 0 && <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>{t('noKnownProperties')}</div>}
+                </div>
+            </div>
+
+            {/* Graffiti Section */}
+            <div className="gang-section-card">
+                <div className="gang-section-header">
+                    <span className="gang-section-title">🎨 {t('graffitisLabel')} ({(gang.graffiti || []).length})</span>
+                    <button className="gang-add-btn" onClick={() => onAdd('graffiti', gang.gang_id)}>+</button>
+                </div>
+                <div className="gang-list-content">
+                    {(gang.graffiti || []).map(g => (
+                        <div key={g.id} className="gang-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid #a855f7', paddingLeft: '0.8rem' }}>
+                            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '0.8rem' }}>
+                                    {g.notes ? g.notes : <span style={{ fontStyle: 'italic', opacity: 0.5 }}>{t('noNotes')}</span>}
+                                </span>
+                                <ActionButtons type="graffiti" item={g} />
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '8px', width: '100%' }}>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{t('graffitiImageLabel')}</span>
+                                    {g.graffiti_image ? (
+                                        <img 
+                                            src={g.graffiti_image} 
+                                            onClick={() => onViewImage(g.graffiti_image)} 
+                                            style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} 
+                                            alt="Graffiti" 
+                                        />
+                                    ) : (
+                                        <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#ef4444' }}>No image</div>
+                                    )}
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{t('gpsImageLabel')}</span>
+                                    {g.gps_image ? (
+                                        <img 
+                                            src={g.gps_image} 
+                                            onClick={() => onViewImage(g.gps_image)} 
+                                            style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} 
+                                            alt="GPS Location" 
+                                        />
+                                    ) : (
+                                        <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#ef4444' }}>No image</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {(!gang.graffiti || gang.graffiti.length === 0) && (
+                        <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>
+                            {t('noGraffitis')}
+                        </div>
+                    )}
                 </div>
             </div>
 

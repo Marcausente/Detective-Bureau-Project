@@ -204,6 +204,14 @@ export const translations = {
         knownAffiliatesLabel: "Known Affiliates",
         hasNotes: "Has Notes",
         noKnownMembers: "No known members.",
+        graffitiLabel: "Graffiti",
+        graffitisLabel: "Graffiti Gallery",
+        noGraffitis: "No graffiti registered.",
+        addGraffitiTitle: "Add Graffiti",
+        editGraffitiTitle: "Edit Graffiti",
+        graffitiImageLabel: "Graffiti Photo",
+        gpsImageLabel: "GPS Location Photo",
+        noNotes: "No notes",
 
         // Incidents & Outings
         loadingIncidents: "Loading Operation Data...",
@@ -514,6 +522,14 @@ export const translations = {
         knownAffiliatesLabel: "Afiliados Conocidos",
         hasNotes: "Tiene Notas",
         noKnownMembers: "Sin miembros conocidos.",
+        graffitiLabel: "Grafitis",
+        graffitisLabel: "Recopilación de Grafitis",
+        noGraffitis: "No hay grafitis registrados.",
+        addGraffitiTitle: "Añadir Grafiti",
+        editGraffitiTitle: "Editar Grafiti",
+        graffitiImageLabel: "Foto del Grafiti",
+        gpsImageLabel: "Foto de la Ubicación GPS",
+        noNotes: "Sin notas",
 
         // Incidents & Outings
         loadingIncidents: "Cargando Datos de Operación...",
