@@ -162,16 +162,6 @@ DECLARE
     v_uid UUID;
     v_user_role TEXT;
     v_author_id UUID;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Let's update delete_denuncia implementation details
-CREATE OR REPLACE FUNCTION delete_denuncia(p_id UUID)
-RETURNS VOID AS $$
-DECLARE
-    v_uid UUID;
-    v_user_role TEXT;
-    v_author_id UUID;
 BEGIN
     v_uid := auth.uid();
     SELECT TRIM(rol::text) INTO v_user_role FROM public.users WHERE id = v_uid;
