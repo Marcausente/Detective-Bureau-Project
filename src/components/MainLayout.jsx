@@ -81,6 +81,7 @@ function MainLayout() {
         { name: t('criminalCases'), path: '/cases', divisions: ['Detective Bureau'] },
         { name: isLSSD ? t('gangUnit') : t('gangs'), path: '/gangs', divisions: ['Detective Bureau'] },
         { name: t('incidents'), path: '/incidents', divisions: ['Detective Bureau'] },
+        { name: t('complaints'), path: '/complaints', divisions: ['Detective Bureau'] },
         { name: t('crimeMap'), path: '/crimemap', divisions: ['Detective Bureau'] },
         { name: t('judicialOrders'), path: '/warrants', divisions: ['Detective Bureau'] },
         { name: t('interrogations'), path: '/interrogations', divisions: ['Detective Bureau'] },

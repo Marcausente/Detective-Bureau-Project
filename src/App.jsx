@@ -8,6 +8,7 @@ import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail'; // Import
 import Gangs from './pages/Gangs'; // Import
 import Incidents from './pages/Incidents'; // Import
+import Denuncias from './pages/Denuncias'; // Import
 import Personnel from './pages/Personnel';
 import PersonnelDetail from './pages/PersonnelDetail';
 import Documentation from './pages/Documentation';
@@ -62,6 +63,7 @@ function App() {
             <Route path="/cases/:id" element={<CaseDetail />} /> {/* New Route */}
             <Route path="/gangs" element={<Gangs />} />
             <Route path="/incidents" element={<Incidents />} />
+            <Route path="/complaints" element={<Denuncias />} />
             <Route path="/interrogations" element={<Interrogations />} />
             <Route path="/crimemap" element={<CrimeMap />} />
             <Route path="/training" element={<TrainingBase />} />
