@@ -41,6 +41,8 @@ export const translations = {
         leaveEvent: "Leave Event",
         attended: "Attended",
         absent: "Absent",
+        participantsList: "Participants List",
+        noParticipants: "No participants signed up yet.",
 
         // Documentation
         loadingDocs: "Loading...",
@@ -393,6 +395,8 @@ export const translations = {
         leaveEvent: "Abandonar Evento",
         attended: "Asistió",
         absent: "Ausente",
+        participantsList: "Lista de Participantes",
+        noParticipants: "No hay participantes inscritos todavía.",
 
         // Documentation
         loadingDocs: "Cargando...",

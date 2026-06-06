@@ -365,7 +365,10 @@ function Dashboard() {
                                     </div>
                                     <div className="event-content">{ev.description}</div>
                                     <div className="event-footer">
-                                        <div className="event-stats">
+                                        <div 
+                                            className="event-stats"
+                                            title={ev.participants && ev.participants.length > 0 ? ev.participants.map(p => `${p.rango} ${p.nombre} ${p.apellido}`).join('\n') : t('noParticipants')}
+                                        >
                                             👥 {ev.participant_count} {t('participantsCount')}
                                         </div>
                                         <div className="event-actions">
@@ -563,7 +566,12 @@ function Dashboard() {
                                             <div className="day-number">{i}</div>
                                             <div className="day-events">
                                                 {dayEvents.map(ev => (
-                                                    <div key={ev.id} className="day-event-chip" title={ev.title} onClick={() => setSelectedEvent(ev)}>
+                                                    <div 
+                                                        key={ev.id} 
+                                                        className="day-event-chip" 
+                                                        title={`${ev.title}\n👥 ${ev.participant_count} ${t('participantsCount')}${ev.participants && ev.participants.length > 0 ? `:\n${ev.participants.map(p => `• ${p.rango} ${p.nombre} ${p.apellido}`).join('\n')}` : ''}`} 
+                                                        onClick={() => setSelectedEvent(ev)}
+                                                    >
                                                         {ev.title}
                                                     </div>
                                                 ))}
@@ -636,6 +644,64 @@ function Dashboard() {
                             </div>
                         </div>
 
+                        {/* Participants List */}
+                        <div style={{ textAlign: 'left', marginTop: '1.5rem' }}>
+                            <h4 style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                {t('participantsList')} ({selectedEvent.participants ? selectedEvent.participants.length : 0})
+                            </h4>
+                            {!selectedEvent.participants || selectedEvent.participants.length === 0 ? (
+                                <div style={{ 
+                                    color: 'var(--text-secondary)', 
+                                    fontSize: '0.9rem', 
+                                    fontStyle: 'italic', 
+                                    padding: '1rem',
+                                    background: 'rgba(0, 0, 0, 0.2)',
+                                    borderRadius: '8px',
+                                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                                    textAlign: 'center'
+                                }}>
+                                    {t('noParticipants')}
+                                </div>
+                            ) : (
+                                <div style={{ 
+                                    maxHeight: '180px', 
+                                    overflowY: 'auto', 
+                                    background: 'rgba(0, 0, 0, 0.2)', 
+                                    borderRadius: '8px', 
+                                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                                    padding: '0.5rem 1rem'
+                                }}>
+                                    {selectedEvent.participants.map(participant => (
+                                        <div key={participant.user_id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
+                                            <div className="mini-avatar" style={{ width: '28px', height: '28px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255, 255, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', flexShrink: 0 }}>
+                                                {participant.profile_image ? (
+                                                    <img src={participant.profile_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    participant.nombre?.charAt(0)
+                                                )}
+                                            </div>
+                                            <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                                {participant.rango} {participant.nombre} {participant.apellido}
+                                            </div>
+                                            {participant.status && participant.status !== 'REGISTERED' && (
+                                                <span style={{ 
+                                                    fontSize: '0.75rem', 
+                                                    padding: '0.1rem 0.4rem', 
+                                                    borderRadius: '4px', 
+                                                    marginLeft: 'auto',
+                                                    background: participant.status === 'ATTENDED' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                                                    color: participant.status === 'ATTENDED' ? '#10b981' : '#ef4444',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {participant.status === 'ATTENDED' ? t('attended') : t('absent')}
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                         <div className="cropper-actions" style={{ justifyContent: 'center', marginTop: '2rem' }}>
                             <button
                                 className={`login-button ${selectedEvent.is_participating ? 'btn-secondary' : ''}`}
@@ -654,11 +720,33 @@ function Dashboard() {
                                     await toggleEventRegistration(selectedEvent.id);
                                     // Update visual representation immediately
                                     const newStatus = selectedEvent.is_participating ? null : (selectedEvent.dtp_event ? 'REGISTERED' : null);
+                                    
+                                    // Update participants array locally
+                                    let updatedParticipants = [...(selectedEvent.participants || [])];
+                                    if (selectedEvent.is_participating) {
+                                        // User is leaving, remove from list
+                                        updatedParticipants = updatedParticipants.filter(p => p.user_id !== user.id);
+                                    } else {
+                                        // User is joining, add to list
+                                        const isAlreadyIn = updatedParticipants.some(p => p.user_id === user.id);
+                                        if (!isAlreadyIn) {
+                                            updatedParticipants.push({
+                                                user_id: user.id,
+                                                nombre: user.nombre,
+                                                apellido: user.apellido,
+                                                rango: user.rango,
+                                                profile_image: user.profile_image,
+                                                status: newStatus || 'REGISTERED'
+                                            });
+                                        }
+                                    }
+
                                     setSelectedEvent({
                                         ...selectedEvent,
                                         is_participating: !selectedEvent.is_participating,
                                         user_status: newStatus,
-                                        participant_count: selectedEvent.is_participating ? parseInt(selectedEvent.participant_count) - 1 : parseInt(selectedEvent.participant_count) + 1
+                                        participant_count: selectedEvent.is_participating ? parseInt(selectedEvent.participant_count) - 1 : parseInt(selectedEvent.participant_count) + 1,
+                                        participants: updatedParticipants
                                     });
                                 }}
                             >
