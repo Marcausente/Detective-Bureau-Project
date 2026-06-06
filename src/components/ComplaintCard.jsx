@@ -15,6 +15,26 @@ function ComplaintCard({
     const [isExpanded, setIsExpanded] = useState(false);
     const { t } = useLanguage();
 
+    // Robust JSON list parsing to handle stringified, double-stringified or raw JSON array structures
+    const parseJsonField = (field) => {
+        if (!field) return [];
+        if (Array.isArray(field)) return field;
+        try {
+            const parsed = typeof field === 'string' ? JSON.parse(field) : field;
+            if (typeof parsed === 'string') {
+                const doubleParsed = JSON.parse(parsed);
+                return Array.isArray(doubleParsed) ? doubleParsed : [];
+            }
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.error("Error parsing JSON field in ComplaintCard:", e);
+            return [];
+        }
+    };
+
+    const complainantsList = parseJsonField(data.complainants);
+    const accusedList = parseJsonField(data.accused);
+
     // Determine current column category for status changes
     const isClosed = data.status === 'Closed';
 
@@ -131,7 +151,7 @@ function ComplaintCard({
                     👤 {t('complainantNumber').replace('#{number}', 's')}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {data.complainants && data.complainants.map((c, idx) => (
+                    {complainantsList.map((c, idx) => (
                         <div key={idx} style={{
                             background: 'rgba(0,0,0,0.15)',
                             padding: '6px 10px',
@@ -155,7 +175,7 @@ function ComplaintCard({
                     👤 {t('accusedNumber').replace('#{number}', 's')}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {data.accused && data.accused.map((a, idx) => (
+                    {accusedList.map((a, idx) => (
                         <div key={idx} style={{
                             background: 'rgba(0,0,0,0.15)',
                             padding: '6px 10px',

@@ -144,6 +144,22 @@ function Denuncias() {
         };
     };
 
+    const parseJsonField = (field) => {
+        if (!field) return [];
+        if (Array.isArray(field)) return field;
+        try {
+            const parsed = typeof field === 'string' ? JSON.parse(field) : field;
+            if (typeof parsed === 'string') {
+                const doubleParsed = JSON.parse(parsed);
+                return Array.isArray(doubleParsed) ? doubleParsed : [];
+            }
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.error("Error parsing JSON field in Denuncias:", e);
+            return [];
+        }
+    };
+
     // Submissions
     const handleCreateComplaint = async (e) => {
         e.preventDefault();
@@ -151,8 +167,8 @@ function Denuncias() {
         try {
             const { data, error } = await supabase.rpc('create_denuncia', {
                 p_case_id: formCaseId === "" ? null : formCaseId,
-                p_complainants: JSON.stringify(complainants),
-                p_accused: JSON.stringify(accusedList),
+                p_complainants: complainants,
+                p_accused: accusedList,
                 p_motivo: motivo,
                 p_acontecimientos: acontecimientos,
                 p_solicitud: solicitud || null,
@@ -174,8 +190,8 @@ function Denuncias() {
     const handleEditClick = (complaint) => {
         setEditingComplaint(complaint);
         setFormCaseId(complaint.case_id || '');
-        setComplainants(complaint.complainants || [initialComplainant()]);
-        setAccusedList(complaint.accused || [initialAccused()]);
+        setComplainants(parseJsonField(complaint.complainants) || [initialComplainant()]);
+        setAccusedList(parseJsonField(complaint.accused) || [initialAccused()]);
         setMotivo(complaint.motivo || '');
         setAcontecimientos(complaint.acontecimientos || '');
         setSolicitud(complaint.solicitud || '');
@@ -191,8 +207,8 @@ function Denuncias() {
             const { error } = await supabase.rpc('update_denuncia', {
                 p_id: editingComplaint.record_id,
                 p_case_id: formCaseId === "" ? null : formCaseId,
-                p_complainants: JSON.stringify(complainants),
-                p_accused: JSON.stringify(accusedList),
+                p_complainants: complainants,
+                p_accused: accusedList,
                 p_motivo: motivo,
                 p_acontecimientos: acontecimientos,
                 p_solicitud: solicitud || null,
@@ -234,17 +250,19 @@ function Denuncias() {
     };
 
     const handleLinkCase = async (id, caseId) => {
+        const comp = complaints.find(c => c.record_id === id);
+        if (!comp) return;
         try {
             const { error } = await supabase.rpc('update_denuncia', {
                 p_id: id,
                 p_case_id: caseId,
-                p_complainants: JSON.stringify(complaints.find(c => c.record_id === id).complainants),
-                p_accused: JSON.stringify(complaints.find(c => c.record_id === id).accused),
-                p_motivo: complaints.find(c => c.record_id === id).motivo,
-                p_acontecimientos: complaints.find(c => c.record_id === id).acontecimientos,
-                p_solicitud: complaints.find(c => c.record_id === id).solicitud,
-                p_notas: complaints.find(c => c.record_id === id).notas,
-                p_image_url: complaints.find(c => c.record_id === id).image_url
+                p_complainants: parseJsonField(comp.complainants),
+                p_accused: parseJsonField(comp.accused),
+                p_motivo: comp.motivo,
+                p_acontecimientos: comp.acontecimientos,
+                p_solicitud: comp.solicitud,
+                p_notas: comp.notas,
+                p_image_url: comp.image_url
             });
             if (error) throw error;
             loadData();
