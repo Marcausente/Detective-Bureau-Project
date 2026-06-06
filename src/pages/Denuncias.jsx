@@ -309,10 +309,10 @@ function Denuncias() {
             {loading ? (
                 <div className="loading-container">{t('loadingComplaints')}</div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '2rem', width: '100%' }}>
                     
                     {/* Column 1: Denuncias Abiertas */}
-                    <div className="column-container">
+                    <div className="column-container" style={{ minWidth: 0, width: '100%' }}>
                         <h3 className="section-title" style={{ borderBottom: '2px solid #60a5fa', paddingBottom: '0.5rem', color: '#60a5fa' }}>
                             {t('openComplaintsCol')} ({openComplaints.length})
                         </h3>
@@ -342,7 +342,7 @@ function Denuncias() {
                     </div>
 
                     {/* Column 2: Denuncias con Caso */}
-                    <div className="column-container">
+                    <div className="column-container" style={{ minWidth: 0, width: '100%' }}>
                         <h3 className="section-title" style={{ borderBottom: '2px solid #4ade80', paddingBottom: '0.5rem', color: '#4ade80' }}>
                             {t('withCaseComplaintsCol')} ({withCaseComplaints.length})
                         </h3>
@@ -372,7 +372,7 @@ function Denuncias() {
                     </div>
 
                     {/* Column 3: Denuncias Archivadas / Cerradas */}
-                    <div className="column-container">
+                    <div className="column-container" style={{ minWidth: 0, width: '100%' }}>
                         <h3 className="section-title" style={{ borderBottom: '2px solid #f87171', paddingBottom: '0.5rem', color: '#f87171' }}>
                             {t('closedComplaintsCol')} ({closedComplaints.length})
                         </h3>
