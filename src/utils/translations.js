@@ -23,6 +23,8 @@ export const translations = {
         logout: "Logout",
 
         // Dashboard
+        readBy: "Read confirmed by",
+        noReactions: "No read confirmations yet.",
         loadingDashboard: "Loading Dashboard...",
         welcomeBack: "Welcome back,",
         logOutBtn: "Log Out",
@@ -378,6 +380,8 @@ export const translations = {
         logout: "Cerrar Sesión",
 
         // Dashboard
+        readBy: "Lectura confirmada por",
+        noReactions: "Sin lecturas confirmadas todavía.",
         loadingDashboard: "Cargando Panel Principal...",
         welcomeBack: "Bienvenido de nuevo,",
         logOutBtn: "Cerrar Sesión",

@@ -191,6 +191,18 @@ function Dashboard() {
         }
     };
 
+    const toggleAnnouncementReaction = async (announcementId) => {
+        try {
+            const { error } = await supabase.rpc('toggle_announcement_reaction', {
+                p_announcement_id: announcementId
+            });
+            if (error) throw error;
+            fetchAnnouncements();
+        } catch (err) {
+            console.error('Error toggling reaction:', err);
+        }
+    };
+
     // --- EVENT HANDLERS ---
     const handleSaveEvent = async (e) => {
         e.preventDefault();
@@ -323,7 +335,7 @@ function Dashboard() {
 
                                     <div className="ann-content">{ann.content}</div>
 
-                                    <div className="ann-footer">
+                                    <div className="ann-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div className="ann-author-info">
                                             {ann.author_image ? (
                                                 <img src={ann.author_image} alt="Author" className="mini-avatar" />
@@ -334,6 +346,31 @@ function Dashboard() {
                                                 <span className="ann-author-name">{ann.author_rank} {ann.author_name}</span>
                                                 <span className="ann-date">{new Date(ann.created_at).toLocaleString()}</span>
                                             </div>
+                                        </div>
+
+                                        {/* Read Confirmation Badge */}
+                                        <div 
+                                            onClick={(e) => { e.stopPropagation(); toggleAnnouncementReaction(ann.id); }}
+                                            title={ann.reactions && ann.reactions.length > 0 
+                                                ? `${t('readBy')}:\n${ann.reactions.map(r => `• ${r.rango} ${r.nombre} ${r.apellido}`).join('\n')}` 
+                                                : t('noReactions')}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                background: ann.has_reacted ? 'rgba(74, 222, 128, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                                border: ann.has_reacted ? '1px solid rgba(74, 222, 128, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
+                                                padding: '4px 10px',
+                                                borderRadius: '20px',
+                                                cursor: 'pointer',
+                                                fontSize: '0.8rem',
+                                                color: ann.has_reacted ? '#4ade80' : 'var(--text-secondary)',
+                                                transition: 'all 0.2s ease',
+                                                fontWeight: ann.has_reacted ? 'bold' : 'normal'
+                                            }}
+                                        >
+                                            <span>✓</span>
+                                            <span>{ann.reaction_count || 0}</span>
                                         </div>
                                     </div>
                                 </div>
