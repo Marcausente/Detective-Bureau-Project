@@ -119,8 +119,8 @@ function ComplaintCard({
                         )}
                     </div>
                     
-                    <h4 style={{ margin: '0.4rem 0 0.2rem 0', color: 'var(--text-primary)', fontSize: '1rem' }}>
-                        {data.motivo}
+                    <h4 style={{ margin: '0.4rem 0 0.2rem 0', color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: 'bold' }}>
+                        {data.titulo || 'Sin título'}
                     </h4>
                 </div>
 
@@ -234,18 +234,32 @@ function ComplaintCard({
                         </div>
                     </div>
 
-                    {/* Body of Complaint (Acontecimientos) */}
+                    {/* Body of Complaint (Motivo & Acontecimientos) */}
                     <div style={{
                         background: 'rgba(255, 255, 255, 0.02)',
                         padding: '0.6rem',
                         borderRadius: '6px',
-                        border: '1px solid rgba(255, 255, 255, 0.04)'
+                        border: '1px solid rgba(255, 255, 255, 0.04)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
                     }}>
-                        <div style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '3px', textTransform: 'uppercase' }}>
-                            📖 {t('complaintEvents')}
+                        <div>
+                            <div style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--accent-gold)', marginBottom: '2px', textTransform: 'uppercase' }}>
+                                🎯 {t('complaintReason')}
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: '600' }}>
+                                {data.motivo}
+                            </div>
                         </div>
-                        <div style={{ fontSize: '0.85rem', whiteSpace: 'pre-line', color: 'var(--text-primary)', lineHeight: 1.3 }}>
-                            {data.acontecimientos}
+
+                        <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '6px' }}>
+                            <div style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '3px', textTransform: 'uppercase' }}>
+                                📖 {t('complaintEvents')}
+                            </div>
+                            <div style={{ fontSize: '0.85rem', whiteSpace: 'pre-line', color: 'var(--text-primary)', lineHeight: 1.3 }}>
+                                {data.acontecimientos}
+                            </div>
                         </div>
                         
                         {(data.solicitud || data.notas) && (

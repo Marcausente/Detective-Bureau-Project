@@ -321,6 +321,7 @@ export const translations = {
         languageDesc: "Switch the entire application between English and Spanish. This applies to all users instantly.",
 
         // Complaints
+        complaintTitle: "Complaint Title",
         loadingComplaints: "Loading Complaints...",
         complaintsTitle: "Complaints Log",
         logComplaintBtn: "+ New Complaint",
@@ -675,6 +676,7 @@ export const translations = {
         languageDesc: "Cambia la aplicación entera entre Inglés y Español. Esto se aplica a todos los usuarios al instante.",
 
         // Complaints
+        complaintTitle: "Título de la denuncia",
         loadingComplaints: "Cargando denuncias...",
         complaintsTitle: "REGISTRO DE DENUNCIAS",
         logComplaintBtn: "+ Nueva Denuncia",

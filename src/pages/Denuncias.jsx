@@ -36,6 +36,7 @@ function Denuncias() {
     const [formCaseId, setFormCaseId] = useState('');
     const [complainants, setComplainants] = useState([initialComplainant()]);
     const [accusedList, setAccusedList] = useState([initialAccused()]);
+    const [titulo, setTitulo] = useState('');
     const [motivo, setMotivo] = useState('');
     const [acontecimientos, setAcontecimientos] = useState('');
     const [solicitud, setSolicitud] = useState('');
@@ -85,6 +86,7 @@ function Denuncias() {
         setFormCaseId('');
         setComplainants([initialComplainant()]);
         setAccusedList([initialAccused()]);
+        setTitulo('');
         setMotivo('');
         setAcontecimientos('');
         setSolicitud('');
@@ -173,7 +175,8 @@ function Denuncias() {
                 p_acontecimientos: acontecimientos,
                 p_solicitud: solicitud || null,
                 p_notas: notas || null,
-                p_image_url: imageUrl || null
+                p_image_url: imageUrl || null,
+                p_titulo: titulo
             });
             if (error) throw error;
 
@@ -192,6 +195,7 @@ function Denuncias() {
         setFormCaseId(complaint.case_id || '');
         setComplainants(parseJsonField(complaint.complainants) || [initialComplainant()]);
         setAccusedList(parseJsonField(complaint.accused) || [initialAccused()]);
+        setTitulo(complaint.titulo || '');
         setMotivo(complaint.motivo || '');
         setAcontecimientos(complaint.acontecimientos || '');
         setSolicitud(complaint.solicitud || '');
@@ -213,7 +217,8 @@ function Denuncias() {
                 p_acontecimientos: acontecimientos,
                 p_solicitud: solicitud || null,
                 p_notas: notas || null,
-                p_image_url: imageUrl || null
+                p_image_url: imageUrl || null,
+                p_titulo: titulo
             });
             if (error) throw error;
 
@@ -262,7 +267,8 @@ function Denuncias() {
                 p_acontecimientos: comp.acontecimientos,
                 p_solicitud: comp.solicitud,
                 p_notas: comp.notas,
-                p_image_url: comp.image_url
+                p_image_url: comp.image_url,
+                p_titulo: comp.titulo
             });
             if (error) throw error;
             loadData();
@@ -409,6 +415,19 @@ function Denuncias() {
                         <h3 className="section-title">{t('logComplaintBtn')}</h3>
                         <form onSubmit={handleCreateComplaint}>
                             
+                            {/* COMPLAINT TITLE */}
+                            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                <label className="form-label" style={{ fontWeight: 'bold', color: 'var(--accent-gold)' }}>{t('complaintTitle')}</label>
+                                <input 
+                                    type="text"
+                                    className="form-input" 
+                                    required 
+                                    value={titulo} 
+                                    onChange={e => setTitulo(e.target.value)} 
+                                    placeholder="e.g. Robo a mano armada en joyería"
+                                />
+                            </div>
+
                             {/* COMPLAINANTS LIST */}
                             <div style={{ marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
@@ -583,6 +602,19 @@ function Denuncias() {
                         <h3 className="section-title">{t('editComplaintTitle')}</h3>
                         <form onSubmit={handleUpdateComplaint}>
                             
+                            {/* COMPLAINT TITLE */}
+                            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                <label className="form-label" style={{ fontWeight: 'bold', color: 'var(--accent-gold)' }}>{t('complaintTitle')}</label>
+                                <input 
+                                    type="text"
+                                    className="form-input" 
+                                    required 
+                                    value={titulo} 
+                                    onChange={e => setTitulo(e.target.value)} 
+                                    placeholder="e.g. Robo a mano armada en joyería"
+                                />
+                            </div>
+
                             {/* COMPLAINANTS LIST */}
                             <div style={{ marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
