@@ -34,18 +34,21 @@ function CaseDetail() {
     const [availableInterrogations, setAvailableInterrogations] = useState([]);
     const [availableIncidents, setAvailableIncidents] = useState([]);
     const [availableOutings, setAvailableOutings] = useState([]);
+    const [availableComplaints, setAvailableComplaints] = useState([]);
 
     // Modals Visibility
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [showLinkModal, setShowLinkModal] = useState(false);
     const [showLinkIncidentModal, setShowLinkIncidentModal] = useState(false);
     const [showLinkOutingModal, setShowLinkOutingModal] = useState(false);
+    const [showLinkComplaintModal, setShowLinkComplaintModal] = useState(false);
 
     // Temp Selection State
     const [selectedAssignments, setSelectedAssignments] = useState([]);
     const [selectedInterrogation, setSelectedInterrogation] = useState('');
     const [selectedIncident, setSelectedIncident] = useState('');
     const [selectedOuting, setSelectedOuting] = useState('');
+    const [selectedComplaint, setSelectedComplaint] = useState('');
 
     // Edit/Delete Permissions State
     const [currentUser, setCurrentUser] = useState(null);
@@ -128,6 +131,14 @@ function CaseDetail() {
         setShowLinkOutingModal(true);
     };
 
+    const openLinkComplaintModal = async () => {
+        const { data, error } = await supabase.rpc('get_available_complaints_to_link', { p_case_id: id });
+        if (error) console.error(error);
+        else setAvailableComplaints(data || []);
+        setSelectedComplaint('');
+        setShowLinkComplaintModal(true);
+    };
+
     const handleUpdateRole = async (userId, newRole) => {
         // Optimistic update
         setCaseData(prev => {
@@ -207,6 +218,21 @@ function CaseDetail() {
         }
     };
 
+    const handleLinkComplaint = async () => {
+        if (!selectedComplaint) return;
+        try {
+            const { error } = await supabase.rpc('link_complaint_to_case', {
+                p_complaint_id: selectedComplaint,
+                p_case_id: id
+            });
+            if (error) throw error;
+            setShowLinkComplaintModal(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error linking complaint: ' + err.message);
+        }
+    };
+
     const handleUnlinkIncident = async (e, incidentId) => {
         e.stopPropagation();
         if (!window.confirm('¿Deseas desvincular este informe del caso?')) return;
@@ -234,6 +260,20 @@ function CaseDetail() {
             loadCaseDetails();
         } catch (err) {
             alert('Error unlinking outing: ' + err.message);
+        }
+    };
+
+    const handleUnlinkComplaint = async (e, complaintId) => {
+        e.stopPropagation();
+        if (!window.confirm(language === 'es' ? '¿Deseas desvincular esta denuncia del caso?' : 'Do you want to unlink this complaint from the case?')) return;
+        try {
+            const { error } = await supabase.rpc('unlink_complaint', {
+                p_complaint_id: complaintId
+            });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error unlinking complaint: ' + err.message);
         }
     };
 
@@ -435,7 +475,7 @@ function CaseDetail() {
     if (loading) return <div className="loading-screen">{t('loadingCases')}</div>;
     if (!caseData) return <div className="loading-screen" style={{ color: '#f87171' }}>{t('noCasesFound').replace('{status}', '')}</div>;
 
-    const { info, assignments, updates, interrogations, incidents: linkedIncidents, outings: linkedOutings } = caseData;
+    const { info, assignments, updates, interrogations, incidents: linkedIncidents, outings: linkedOutings, complaints: linkedComplaints = [] } = caseData;
 
     // Permission Check using locally loaded User and Case Info
     // Admins/High Command OR the Creator of the case
@@ -975,7 +1015,7 @@ function CaseDetail() {
                     </div>
 
                     {/* Linked Outings */}
-                    <div className="sidebar-section">
+                    <div className="sidebar-section" style={{ marginBottom: '2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>🚗 {language === 'es' ? 'Información Vinculada' : 'Outings Vinculados'}</h4>
                             {info.status === 'Open' && (
@@ -1009,6 +1049,51 @@ function CaseDetail() {
                                                     fontSize: '1.2rem', cursor: 'pointer', lineHeight: 1, padding: '0 5px'
                                                 }}
                                                 title="Desvincular Outing"
+                                            >
+                                                &times;
+                                            </button>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Linked Complaints (Denuncias) */}
+                    <div className="sidebar-section">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>⚖️ {t('linkedComplaints')}</h4>
+                            {info.status === 'Open' && (
+                                <button onClick={openLinkComplaintModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>
+                                    {t('linkBtn')}
+                                </button>
+                            )}
+                        </div>
+                        <div>
+                            {(!linkedComplaints || linkedComplaints.length === 0) ? (
+                                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{t('noComplaintsLinked')}</div>
+                            ) : (
+                                linkedComplaints.map(comp => (
+                                    <div key={comp.id}
+                                        onClick={() => navigate(`/complaints?complaint_id=${comp.id}`)}
+                                        style={{
+                                            padding: '0.8rem', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', cursor: 'pointer',
+                                            borderLeft: '2px solid #60a5fa',
+                                            position: 'relative'
+                                        }}>
+                                        <div style={{ paddingRight: '20px' }}>
+                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{comp.titulo}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(comp.created_at).toLocaleDateString()}</div>
+                                        </div>
+                                        {info.status === 'Open' && (
+                                            <button
+                                                onClick={(e) => handleUnlinkComplaint(e, comp.id)}
+                                                style={{
+                                                    position: 'absolute', top: '2px', right: '5px',
+                                                    background: 'none', border: 'none', color: '#f87171',
+                                                    fontSize: '1.2rem', cursor: 'pointer', lineHeight: 1, padding: '0 5px'
+                                                }}
+                                                title={language === 'es' ? 'Desvincular Denuncia' : 'Unlink Complaint'}
                                             >
                                                 &times;
                                             </button>
@@ -1163,6 +1248,43 @@ function CaseDetail() {
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                             <button className="login-button btn-secondary" onClick={() => setShowLinkOutingModal(false)} style={{ width: 'auto' }}>Cancelar</button>
                             <button className="login-button" onClick={handleLinkOuting} disabled={!selectedOuting} style={{ width: 'auto' }}>Vincular</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Link Complaint Modal */}
+            {showLinkComplaintModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content" style={{ maxWidth: '500px' }}>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>⚖️ {t('linkComplaintBtn')}</h3>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                            {language === 'es' ? 'Selecciona una denuncia para vincularla a este caso.' : 'Select a complaint to link to this case.'}
+                        </p>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <select
+                                className="form-input custom-select"
+                                value={selectedComplaint}
+                                onChange={e => setSelectedComplaint(e.target.value)}
+                                style={{ width: '100%' }}
+                                aria-label="Seleccionar Denuncia a Vincular"
+                            >
+                                <option value="">{t('selectComplaint')}</option>
+                                {availableComplaints.map(comp => (
+                                    <option key={comp.id} value={comp.id}>
+                                        {comp.titulo} ({new Date(comp.created_at).toLocaleDateString()})
+                                    </option>
+                                ))}
+                            </select>
+                            {availableComplaints.length === 0 && (
+                                <div style={{ marginTop: '0.5rem', color: '#f87171', fontSize: '0.9rem' }}>
+                                    {t('noComplaintsAvailable')}
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                            <button className="login-button btn-secondary" onClick={() => setShowLinkComplaintModal(false)} style={{ width: 'auto' }}>{t('cancelBtn')}</button>
+                            <button className="login-button" onClick={handleLinkComplaint} disabled={!selectedComplaint} style={{ width: 'auto' }}>{language === 'es' ? 'Vincular' : 'Link'}</button>
                         </div>
                     </div>
                 </div>
