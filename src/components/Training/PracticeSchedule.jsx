@@ -10,6 +10,8 @@ function PracticeSchedule({ userProfile }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [currentUserProfile, setCurrentUserProfile] = useState(userProfile || null);
     const [loading, setLoading] = useState(true);
+    
+    const isAyudante = currentUserProfile?.rol?.toLowerCase() === 'ayudante';
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
     
@@ -70,6 +72,7 @@ function PracticeSchedule({ userProfile }) {
     }, [viewMode, userProfile]);
 
     const canViewDocuments = (practice) => {
+        if (isAyudante) return false;
         if (!practice) return false;
         if (!currentUserProfile) return false;
         
@@ -423,11 +426,13 @@ function PracticeSchedule({ userProfile }) {
 
             {viewMode === 'list' && (
                 <>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem' }}>
-                        <button className="dtp-btn-primary" onClick={() => setViewMode('create')}>
-                            <span>+</span> Programar Práctica
-                        </button>
-                    </div>
+                    {!isAyudante && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem' }}>
+                            <button className="dtp-btn-primary" onClick={() => setViewMode('create')}>
+                                <span>+</span> Programar Práctica
+                            </button>
+                        </div>
+                    )}
 
                     {loading ? (
                         <div style={{ textAlign: 'center', padding: '3rem', color: '#a0aec0' }}>Cargando programación...</div>
@@ -474,39 +479,41 @@ function PracticeSchedule({ userProfile }) {
                             </div>
 
                             {/* Past Events */}
-                            <div>
-                                <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem', marginBottom: '1.5rem', color: '#a0aec0', fontSize: '1.4rem' }}>
-                                    <span style={{ color: '#718096', marginRight: '0.5rem' }}>●</span> Historial de Prácticas
-                                </h3>
-                                
-                                {pastEvents.length === 0 ? (
-                                    <p style={{ color: '#718096', fontStyle: 'italic', padding: '1rem 0' }}>No hay registro de prácticas anteriores.</p>
-                                ) : (
-                                    <div className="dtp-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-                                        {pastEvents.map(event => (
-                                            <div key={event.id} className="dtp-glass-card dtp-event-card past" style={{ padding: '1.2rem' }}>
-                                                <h4 style={{ margin: '0 0 0.5rem 0', color: '#e2e8f0', fontSize: '1.1rem' }}>{event.practice?.title || 'Práctica Desconocida'}</h4>
-                                                <div style={{ color: '#a0aec0', fontSize: '0.9rem', marginBottom: '0.8rem' }}>
-                                                    <div style={{ marginBottom: '0.2rem' }}>{formatDate(event.event_date, 'short')}</div>
-                                                    <div>Status: <span style={{ color: event.status === 'COMPLETED' ? '#48bb78' : event.status === 'CANCELLED' ? '#fc8181' : '#e2e8f0', fontWeight: event.status === 'CANCELLED' ? 'bold' : 'normal' }}>{event.status}</span></div>
-                                                    <div style={{ marginTop: '0.2rem' }}>Instructor: {event.organizer?.apellido || 'N/A'}</div>
+                            {!isAyudante && (
+                                <div>
+                                    <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem', marginBottom: '1.5rem', color: '#a0aec0', fontSize: '1.4rem' }}>
+                                        <span style={{ color: '#718096', marginRight: '0.5rem' }}>●</span> Historial de Prácticas
+                                    </h3>
+                                    
+                                    {pastEvents.length === 0 ? (
+                                        <p style={{ color: '#718096', fontStyle: 'italic', padding: '1rem 0' }}>No hay registro de prácticas anteriores.</p>
+                                    ) : (
+                                        <div className="dtp-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+                                            {pastEvents.map(event => (
+                                                <div key={event.id} className="dtp-glass-card dtp-event-card past" style={{ padding: '1.2rem' }}>
+                                                    <h4 style={{ margin: '0 0 0.5rem 0', color: '#e2e8f0', fontSize: '1.1rem' }}>{event.practice?.title || 'Práctica Desconocida'}</h4>
+                                                    <div style={{ color: '#a0aec0', fontSize: '0.9rem', marginBottom: '0.8rem' }}>
+                                                        <div style={{ marginBottom: '0.2rem' }}>{formatDate(event.event_date, 'short')}</div>
+                                                        <div>Status: <span style={{ color: event.status === 'COMPLETED' ? '#48bb78' : event.status === 'CANCELLED' ? '#fc8181' : '#e2e8f0', fontWeight: event.status === 'CANCELLED' ? 'bold' : 'normal' }}>{event.status}</span></div>
+                                                        <div style={{ marginTop: '0.2rem' }}>Instructor: {event.organizer?.apellido || 'N/A'}</div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                        <button className="dtp-btn-secondary" onClick={() => handleActionClick('view', event.id)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', background: 'transparent' }}>
+                                                            Revisar Actividad
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                                    <button className="dtp-btn-secondary" onClick={() => handleActionClick('view', event.id)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', background: 'transparent' }}>
-                                                        Revisar Actividad
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
                 </>
             )}
 
-            {viewMode === 'create' && (
+            {viewMode === 'create' && !isAyudante && (
                 <div className="dtp-form-container">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
                         <h3 style={{ margin: 0, color: '#e2e8f0', fontSize: '1.5rem', fontWeight: 600 }}>Programar Nueva Práctica</h3>
@@ -758,7 +765,7 @@ function PracticeSchedule({ userProfile }) {
                                 </>
                             )}
                             
-                            {selectedEvent.practice?.documents_urls && selectedEvent.practice.documents_urls.length > 0 && (
+                            {!isAyudante && selectedEvent.practice?.documents_urls && selectedEvent.practice.documents_urls.length > 0 && (
                                 <div>
                                     <h4 style={{ color: '#ffffff', marginBottom: '1rem', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                         <svg width="22" height="22" fill="none" stroke="#9f7aea" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>

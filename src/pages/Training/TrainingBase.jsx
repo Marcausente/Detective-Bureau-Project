@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import PracticeArchive from '../../components/Training/PracticeArchive';
 import PracticeSchedule from '../../components/Training/PracticeSchedule';
@@ -9,6 +9,8 @@ function TrainingBase() {
     const [activeTab, setActiveTab] = useState('archive');
     const [isAuthorized, setIsAuthorized] = useState(null);
     const [userProfile, setUserProfile] = useState(null);
+    
+    const isAyudante = userProfile?.rol?.toLowerCase() === 'ayudante';
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -26,13 +28,16 @@ function TrainingBase() {
                 
             if (profile) {
                 setUserProfile(profile);
+                if (profile.rol?.toLowerCase() === 'ayudante') {
+                    setActiveTab('schedule');
+                }
                 if (profile.rol === 'Administrador' || profile.rol === 'superadmin') {
                     setIsAuthorized(true);
                     return;
                 }
                 
                 const hasDivision = profile.divisions && profile.divisions.includes('Detective Bureau');
-                const allowedRoles = ['detective', 'coordinador'];
+                const allowedRoles = ['detective', 'coordinador', 'ayudante'];
                 const userRole = profile.rol ? profile.rol.toLowerCase() : '';
                 
                 if (hasDivision && allowedRoles.includes(userRole)) {
@@ -78,30 +83,34 @@ function TrainingBase() {
             </header>
             
             <div className="dtp-tabs">
-                <button 
-                    className={`dtp-tab-btn ${activeTab === 'archive' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('archive')}
-                >
-                    <i className="fas fa-folder-open" style={{marginRight: '8px'}}></i> Archive
-                </button>
+                {!isAyudante && (
+                    <button 
+                        className={`dtp-tab-btn ${activeTab === 'archive' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('archive')}
+                    >
+                        <i className="fas fa-folder-open" style={{marginRight: '8px'}}></i> Archive
+                    </button>
+                )}
                 <button 
                     className={`dtp-tab-btn ${activeTab === 'schedule' ? 'active' : ''}`}
                     onClick={() => setActiveTab('schedule')}
                 >
                     <i className="fas fa-calendar-alt" style={{marginRight: '8px'}}></i> Schedule
                 </button>
-                <button 
-                    className={`dtp-tab-btn ${activeTab === 'count' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('count')}
-                >
-                    <i className="fas fa-list-ol" style={{marginRight: '8px'}}></i> Conteo
-                </button>
+                {!isAyudante && (
+                    <button 
+                        className={`dtp-tab-btn ${activeTab === 'count' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('count')}
+                    >
+                        <i className="fas fa-list-ol" style={{marginRight: '8px'}}></i> Conteo
+                    </button>
+                )}
             </div>
 
             <div className="tab-content" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                {activeTab === 'archive' && <PracticeArchive userProfile={userProfile} />}
+                {activeTab === 'archive' && !isAyudante && <PracticeArchive userProfile={userProfile} />}
                 {activeTab === 'schedule' && <PracticeSchedule userProfile={userProfile} />}
-                {activeTab === 'count' && <PracticeCount />}
+                {activeTab === 'count' && !isAyudante && <PracticeCount />}
             </div>
         </div>
     );
