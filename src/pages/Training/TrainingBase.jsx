@@ -8,6 +8,7 @@ import './Training.css'; // Import the new CSS file
 function TrainingBase() {
     const [activeTab, setActiveTab] = useState('archive');
     const [isAuthorized, setIsAuthorized] = useState(null);
+    const [userProfile, setUserProfile] = useState(null);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -19,11 +20,12 @@ function TrainingBase() {
             
             const { data: profile } = await supabase
                 .from('users')
-                .select('rol, divisions')
+                .select('id, nombre, apellido, rango, rol, divisions')
                 .eq('id', session.user.id)
                 .single();
                 
             if (profile) {
+                setUserProfile(profile);
                 if (profile.rol === 'Administrador' || profile.rol === 'superadmin') {
                     setIsAuthorized(true);
                     return;
@@ -97,8 +99,8 @@ function TrainingBase() {
             </div>
 
             <div className="tab-content" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                {activeTab === 'archive' && <PracticeArchive />}
-                {activeTab === 'schedule' && <PracticeSchedule />}
+                {activeTab === 'archive' && <PracticeArchive userProfile={userProfile} />}
+                {activeTab === 'schedule' && <PracticeSchedule userProfile={userProfile} />}
                 {activeTab === 'count' && <PracticeCount />}
             </div>
         </div>

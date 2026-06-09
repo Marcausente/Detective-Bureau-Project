@@ -3,7 +3,7 @@ import { supabase } from '../../supabaseClient';
 import { dtpService } from '../../services/dtpService';
 import '../../pages/Training/Training.css'; // Use shared styles
 
-function PracticeArchive() {
+function PracticeArchive({ userProfile }) {
     const [practices, setPractices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -13,6 +13,7 @@ function PracticeArchive() {
     const [viewMode, setViewMode] = useState('list'); // 'list', 'create', 'details', 'edit'
     const [selectedPractice, setSelectedPractice] = useState(null);
     const [currentUser, setCurrentUser] = useState(null);
+    const [currentUserProfile, setCurrentUserProfile] = useState(userProfile || null);
     
     // Form state
     const [formData, setFormData] = useState({
@@ -21,16 +22,33 @@ function PracticeArchive() {
         documentUrl: '' 
     });
     const [documentUrls, setDocumentUrls] = useState([]);
+    const [allowedUsers, setAllowedUsers] = useState([]);
+    const [users, setUsers] = useState([]);
+    const [userSearch, setUserSearch] = useState('');
 
     useEffect(() => {
         const fetchInitialData = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
                 setCurrentUser(session.user);
+                if (!currentUserProfile) {
+                    try {
+                        const { data: profile, error } = await supabase
+                            .from('users')
+                            .select('id, nombre, apellido, rango, no_placa, rol')
+                            .eq('id', session.user.id)
+                            .single();
+                        if (!error && profile) {
+                            setCurrentUserProfile(profile);
+                        }
+                    } catch (err) {
+                        console.error('Error fetching profile in PracticeArchive:', err);
+                    }
+                }
             }
         };
         fetchInitialData();
-    }, []);
+    }, [userProfile]);
 
     useEffect(() => {
         if (viewMode === 'list') {
@@ -52,6 +70,19 @@ function PracticeArchive() {
         }
     };
 
+    const loadUsers = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('id, nombre, apellido, rango, no_placa, rol')
+                .order('nombre', { ascending: true });
+            if (error) throw error;
+            setUsers(data || []);
+        } catch (err) {
+            console.error('Error loading users list:', err);
+        }
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -68,10 +99,49 @@ function PracticeArchive() {
         setDocumentUrls(documentUrls.filter((_, index) => index !== indexToRemove));
     };
 
+    const handleToggleUser = (userId) => {
+        setAllowedUsers(prev => {
+            if (prev.includes(userId)) {
+                return prev.filter(id => id !== userId);
+            } else {
+                return [...prev, userId];
+            }
+        });
+    };
+
+    const isAlwaysAllowedRole = (roleName) => {
+        if (!roleName) return false;
+        const r = roleName.toLowerCase();
+        return ['coordinador', 'comisionado', 'administrador', 'superadmin'].includes(r);
+    };
+
+    const canViewDocuments = (practice) => {
+        if (!practice) return false;
+        if (!currentUserProfile) return false;
+        
+        const role = currentUserProfile.rol ? currentUserProfile.rol.toLowerCase() : '';
+        if (['coordinador', 'comisionado', 'administrador', 'superadmin'].includes(role)) {
+            return true;
+        }
+        
+        if (practice.author_id === currentUserProfile.id) {
+            return true;
+        }
+        
+        if (practice.allowed_users && Array.isArray(practice.allowed_users)) {
+            return practice.allowed_users.includes(currentUserProfile.id);
+        }
+        
+        return false;
+    };
+
     const prepareCreate = () => {
         setFormData({ title: '', description: '', documentUrl: '' });
         setDocumentUrls([]);
+        setAllowedUsers([]);
+        setUserSearch('');
         setViewMode('create');
+        loadUsers();
     };
 
     const prepareEdit = (practice) => {
@@ -82,7 +152,10 @@ function PracticeArchive() {
             documentUrl: ''
         });
         setDocumentUrls(practice.documents_urls || []);
+        setAllowedUsers(practice.allowed_users || []);
+        setUserSearch('');
         setViewMode('edit');
+        loadUsers();
     };
 
     const viewDetails = (practice) => {
@@ -112,10 +185,10 @@ function PracticeArchive() {
             const practiceData = {
                 title: formData.title,
                 description: formData.description,
-                documents_urls: finalUrls
+                documents_urls: finalUrls,
+                allowed_users: allowedUsers
             };
 
-            
             if (viewMode === 'create') {
                 if (currentUser) practiceData.author_id = currentUser.id;
                 await dtpService.createPractice(practiceData);
@@ -127,6 +200,7 @@ function PracticeArchive() {
             
             setFormData({ title: '', description: '', documentUrl: '' });
             setDocumentUrls([]);
+            setAllowedUsers([]);
             
             setTimeout(() => {
                 setSuccessMessage(null);
@@ -199,7 +273,13 @@ function PracticeArchive() {
                                     
                                     <div style={{ color: '#718096', fontSize: '0.85rem', marginBottom: '1rem' }}>
                                         {practice.documents_urls && practice.documents_urls.length > 0 ? (
-                                            <span>📎 {practice.documents_urls.length} documento(s) adjunto(s)</span>
+                                            canViewDocuments(practice) ? (
+                                                <span>📎 {practice.documents_urls.length} documento(s) adjunto(s)</span>
+                                            ) : (
+                                                <span style={{ color: '#a0aec0', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                                    <span style={{ color: '#cbd5e0' }}>🔒</span> Documentos (Restringido)
+                                                </span>
+                                            )
                                         ) : (
                                             <span>No hay documentos</span>
                                         )}
@@ -296,6 +376,96 @@ function PracticeArchive() {
                             )}
                         </div>
 
+                        <div className="dtp-input-group" style={{ marginTop: '2rem' }}>
+                            <label className="dtp-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span>🔒</span> Control de Acceso al Documento
+                            </label>
+                            <p style={{ color: '#a0aec0', fontSize: '0.85rem', margin: '0 0 1rem 0' }}>
+                                Por defecto, coordinadores, comisionados y administradores tienen acceso automático. Marca a los agentes adicionales que deben poder ver los documentos adjuntos de esta práctica.
+                            </p>
+                            
+                            <input
+                                type="text"
+                                className="dtp-input"
+                                placeholder="Buscar agente por nombre, rango o rol..."
+                                value={userSearch}
+                                onChange={(e) => setUserSearch(e.target.value)}
+                                style={{ marginBottom: '0.8rem', padding: '0.6rem 1rem', fontSize: '0.9rem' }}
+                            />
+
+                            <div style={{ 
+                                background: 'rgba(0, 0, 0, 0.25)', 
+                                border: '1px solid rgba(255, 255, 255, 0.08)', 
+                                borderRadius: '10px', 
+                                maxHeight: '220px', 
+                                overflowY: 'auto', 
+                                padding: '0.8rem' 
+                            }}>
+                                {users.filter(u => {
+                                    if (!userSearch.trim()) return true;
+                                    const search = userSearch.toLowerCase();
+                                    const nombreFull = `${u.nombre || ''} ${u.apellido || ''}`.toLowerCase();
+                                    const rango = (u.rango || '').toLowerCase();
+                                    const placa = (u.no_placa || '').toLowerCase();
+                                    const rol = (u.rol || '').toLowerCase();
+                                    return nombreFull.includes(search) || rango.includes(search) || placa.includes(search) || rol.includes(search);
+                                }).map(u => {
+                                    const isAlways = isAlwaysAllowedRole(u.rol);
+                                    const isChecked = isAlways || allowedUsers.includes(u.id);
+                                    
+                                    return (
+                                        <label key={u.id} style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'space-between', 
+                                            padding: '0.5rem 0.8rem', 
+                                            marginBottom: '0.4rem', 
+                                            background: isChecked ? 'rgba(66, 153, 225, 0.08)' : 'rgba(255,255,255,0.02)',
+                                            border: isChecked ? '1px solid rgba(66, 153, 225, 0.25)' : '1px solid rgba(255,255,255,0.03)',
+                                            borderRadius: '6px', 
+                                            cursor: isAlways ? 'not-allowed' : 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            opacity: isAlways ? 0.7 : 1
+                                        }}
+                                        onMouseOver={(e) => { if (!isAlways) e.currentTarget.style.background = 'rgba(66, 153, 225, 0.15)'; }}
+                                        onMouseOut={(e) => { if (!isAlways) e.currentTarget.style.background = isChecked ? 'rgba(66, 153, 225, 0.08)' : 'rgba(255,255,255,0.02)'; }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isChecked}
+                                                    disabled={isAlways}
+                                                    onChange={() => handleToggleUser(u.id)}
+                                                    style={{ width: '16px', height: '16px', cursor: isAlways ? 'not-allowed' : 'pointer' }}
+                                                />
+                                                <span style={{ fontSize: '0.9rem', color: isChecked ? '#fff' : '#cbd5e0' }}>
+                                                    <span style={{ color: '#a0aec0', fontSize: '0.8rem', marginRight: '0.4rem' }}>[{u.rango || 'Rango N/A'}]</span>
+                                                    {u.nombre} {u.apellido}
+                                                    {u.no_placa && <span style={{ color: '#718096', fontSize: '0.8rem', marginLeft: '0.4rem' }}>(Placa {u.no_placa})</span>}
+                                                </span>
+                                            </div>
+                                            
+                                            <span style={{ 
+                                                fontSize: '0.75rem', 
+                                                padding: '0.15rem 0.5rem', 
+                                                borderRadius: '4px',
+                                                background: isAlways ? 'rgba(72, 187, 120, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                                color: isAlways ? '#68d391' : '#a0aec0',
+                                                border: isAlways ? '1px solid rgba(72, 187, 120, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)'
+                                            }}>
+                                                {u.rol || 'Agente'}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                                {users.length === 0 && (
+                                    <div style={{ textAlign: 'center', color: '#718096', padding: '1rem', fontSize: '0.9rem' }}>
+                                        No hay usuarios disponibles en el sistema.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
                             <button type="submit" className="dtp-btn-primary" disabled={loading}>
                                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{marginRight: '8px'}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
@@ -348,28 +518,49 @@ function PracticeArchive() {
                                 Documentos de la Práctica
                             </h4>
                             
-                            {selectedPractice.documents_urls && selectedPractice.documents_urls.length > 0 ? (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-                                    {selectedPractice.documents_urls.map((url, idx) => (
-                                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                                            <div style={{ background: 'rgba(159, 122, 234, 0.1)', border: '1px solid rgba(159, 122, 234, 0.3)', padding: '1.2rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'transform 0.2s', cursor: 'pointer' }}
-                                                onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                                onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                                
-                                                <div style={{ background: 'rgba(159, 122, 234, 0.2)', padding: '0.8rem', borderRadius: '8px', color: '#d6bcfa' }}>
-                                                    <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            {canViewDocuments(selectedPractice) ? (
+                                selectedPractice.documents_urls && selectedPractice.documents_urls.length > 0 ? (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+                                        {selectedPractice.documents_urls.map((url, idx) => (
+                                            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                                                <div style={{ background: 'rgba(159, 122, 234, 0.1)', border: '1px solid rgba(159, 122, 234, 0.3)', padding: '1.2rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'transform 0.2s', cursor: 'pointer' }}
+                                                    onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                                    onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                                                    
+                                                    <div style={{ background: 'rgba(159, 122, 234, 0.2)', padding: '0.8rem', borderRadius: '8px', color: '#d6bcfa' }}>
+                                                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                                    </div>
+                                                    <div style={{ overflow: 'hidden' }}>
+                                                        <div style={{ color: '#e2e8f0', fontWeight: 600, marginBottom: '0.2rem' }}>Documento {idx + 1}</div>
+                                                        <div style={{ color: '#9fa6b2', fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{url}</div>
+                                                    </div>
                                                 </div>
-                                                <div style={{ overflow: 'hidden' }}>
-                                                    <div style={{ color: '#e2e8f0', fontWeight: 600, marginBottom: '0.2rem' }}>Documento {idx + 1}</div>
-                                                    <div style={{ color: '#9fa6b2', fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{url}</div>
-                                                </div>
-                                            </div>
-                                        </a>
-                                    ))}
-                                </div>
+                                            </a>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '2rem', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)', textAlign: 'center', color: '#a0aec0' }}>
+                                        Esta práctica no contiene documentos adjuntos adicionales.
+                                    </div>
+                                )
                             ) : (
-                                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '2rem', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)', textAlign: 'center', color: '#a0aec0' }}>
-                                    Esta práctica no contiene documentos adjuntos adicionales.
+                                <div style={{ 
+                                    background: 'rgba(229, 62, 62, 0.05)', 
+                                    padding: '2.5rem 2rem', 
+                                    borderRadius: '12px', 
+                                    border: '1px dashed rgba(229, 62, 62, 0.3)', 
+                                    textAlign: 'center', 
+                                    color: '#feb2b2',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    gap: '0.8rem'
+                                }}>
+                                    <span style={{ fontSize: '2rem' }}>🔒</span>
+                                    <div style={{ fontWeight: 'bold', fontSize: '1.05rem', color: '#fff' }}>Acceso Restringido</div>
+                                    <div style={{ fontSize: '0.9rem', color: '#cbd5e0', maxWidth: '500px', lineHeight: '1.5' }}>
+                                        Los documentos adjuntos de esta práctica son de carácter confidencial. Solo están visibles para coordinadores, comisionados, administradores o personal expresamente autorizado al momento de crear la práctica.
+                                    </div>
                                 </div>
                             )}
                         </div>

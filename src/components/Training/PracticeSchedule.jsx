@@ -3,11 +3,12 @@ import { supabase } from '../../supabaseClient';
 import { dtpService } from '../../services/dtpService';
 import '../../pages/Training/Training.css'; // Shared premium styles
 
-function PracticeSchedule() {
+function PracticeSchedule({ userProfile }) {
     const [events, setEvents] = useState([]);
     const [practices, setPractices] = useState([]);
     const [users, setUsers] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
+    const [currentUserProfile, setCurrentUserProfile] = useState(userProfile || null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
@@ -44,6 +45,20 @@ function PracticeSchedule() {
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
                 setCurrentUser(session.user);
+                if (!currentUserProfile) {
+                    try {
+                        const { data: profile, error } = await supabase
+                            .from('users')
+                            .select('id, nombre, apellido, rango, no_placa, rol')
+                            .eq('id', session.user.id)
+                            .single();
+                        if (!error && profile) {
+                            setCurrentUserProfile(profile);
+                        }
+                    } catch (err) {
+                        console.error('Error fetching profile in PracticeSchedule:', err);
+                    }
+                }
             }
             if (viewMode === 'list') {
                 loadEvents();
@@ -52,7 +67,27 @@ function PracticeSchedule() {
             }
         };
         fetchInitialData();
-    }, [viewMode]);
+    }, [viewMode, userProfile]);
+
+    const canViewDocuments = (practice) => {
+        if (!practice) return false;
+        if (!currentUserProfile) return false;
+        
+        const role = currentUserProfile.rol ? currentUserProfile.rol.toLowerCase() : '';
+        if (['coordinador', 'comisionado', 'administrador', 'superadmin'].includes(role)) {
+            return true;
+        }
+        
+        if (practice.author_id === currentUserProfile.id) {
+            return true;
+        }
+        
+        if (practice.allowed_users && Array.isArray(practice.allowed_users)) {
+            return practice.allowed_users.includes(currentUserProfile.id);
+        }
+        
+        return false;
+    };
 
     const loadFormData = async () => {
         setLoading(true);
@@ -729,16 +764,39 @@ function PracticeSchedule() {
                                         <svg width="22" height="22" fill="none" stroke="#9f7aea" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                                         Documentos de la Práctica
                                     </h4>
-                                    <ul className="dtp-docs-list">
-                                        {selectedEvent.practice.documents_urls.map((url, idx) => (
-                                            <li key={idx} className="dtp-doc-item" style={{ marginBottom: '0.8rem' }}>
-                                                <a href={url} target="_blank" rel="noopener noreferrer" className="dtp-doc-link" style={{ width: '100%', padding: '0.8rem 1rem', background: 'rgba(159, 122, 234, 0.1)', color: '#d6bcfa' }}>
-                                                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{flexShrink: 0}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Acceder al Documento {idx + 1}</span>
-                                                </a>
-                                            </li>
-                                        ))}
-                                    </ul>
+                                    
+                                    {canViewDocuments(selectedEvent.practice) ? (
+                                        <ul className="dtp-docs-list">
+                                            {selectedEvent.practice.documents_urls.map((url, idx) => (
+                                                <li key={idx} className="dtp-doc-item" style={{ marginBottom: '0.8rem' }}>
+                                                    <a href={url} target="_blank" rel="noopener noreferrer" className="dtp-doc-link" style={{ width: '100%', padding: '0.8rem 1rem', background: 'rgba(159, 122, 234, 0.1)', color: '#d6bcfa' }}>
+                                                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{flexShrink: 0}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Acceder al Documento {idx + 1}</span>
+                                                    </a>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <div style={{ 
+                                            background: 'rgba(229, 62, 62, 0.05)', 
+                                            padding: '1.5rem', 
+                                            borderRadius: '12px', 
+                                            border: '1px dashed rgba(229, 62, 62, 0.3)', 
+                                            textAlign: 'center', 
+                                            color: '#feb2b2',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            marginTop: '0.5rem'
+                                        }}>
+                                            <span style={{ fontSize: '1.5rem' }}>🔒</span>
+                                            <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#fff' }}>Acceso Restringido</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#cbd5e0', maxWidth: '400px', lineHeight: '1.4' }}>
+                                                Los documentos adjuntos son de carácter confidencial y solo están visibles para personal autorizado.
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
