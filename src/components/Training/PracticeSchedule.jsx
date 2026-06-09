@@ -413,7 +413,7 @@ function PracticeSchedule({ userProfile }) {
       return currentUser && currentUser.id === userId;
     };
 
-    const detectives = users.filter(u => ['detective', 'coordinador', 'admin', 'superadmin'].includes(u.rol?.toLowerCase()) || (u.rango && (u.rango.toLowerCase().includes('detective') || u.rango.toLowerCase().includes('coordinador'))));
+    const detectives = users.filter(u => u.rol && u.rol.toLowerCase() !== 'externo');
     const ayudantes = users.filter(u => u.rol?.toLowerCase() === 'ayudante' || (u.rango && u.rango.toLowerCase().includes('ayudante')) || (u.rango && u.rango.toLowerCase().includes('aspirante')));
 
     return (
