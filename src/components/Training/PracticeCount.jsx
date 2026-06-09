@@ -3,8 +3,8 @@ import { supabase } from '../../supabaseClient';
 import { dtpService } from '../../services/dtpService';
 import '../../pages/Training/Training.css';
 
-// Roles que pueden apuntar prácticas
-const ALLOWED_ROLES = ['detective', 'coordinador', 'comisionado', 'administrador', 'superadmin'];
+// Roles que pueden apuntar/quitar prácticas en conteo
+const ALLOWED_ROLES = ['coordinador', 'comisionado', 'administrador', 'superadmin'];
 
 function PracticeCount() {
     const [agents, setAgents] = useState([]);
