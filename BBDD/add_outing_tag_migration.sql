@@ -132,7 +132,7 @@ BEGIN
             ORDER BY g.name
         )::TEXT[],
         COALESCE(u.nombre || ' ' || u.apellido, 'Unknown'),
-        COALESCE(u.rango, 'N/A'),
+        COALESCE(u.rango::text, 'N/A'),
         u.profile_image,
         (v_user_role IN ('Administrador', 'Coordinador', 'Comisionado') OR o.created_by = v_uid) as can_delete,
         o.tag             -- Added tag
