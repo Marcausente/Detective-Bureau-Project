@@ -8,6 +8,37 @@ import 'react-quill/dist/quill.snow.css';
 import { makeQuillModules, quillFormats } from '../utils/quillConfig';
 import { useLanguage } from '../contexts/LanguageContext';
 
+const getTagStyles = (tag) => {
+    switch (tag) {
+        case 'ORDINARIA':
+            return {
+                backgroundColor: 'rgba(74, 222, 128, 0.15)',
+                color: '#4ade80',
+                border: '1px solid rgba(74, 222, 128, 0.3)'
+            };
+        case 'FOXTROT':
+            return {
+                backgroundColor: 'rgba(96, 165, 250, 0.15)',
+                color: '#60a5fa',
+                border: '1px solid rgba(96, 165, 250, 0.3)'
+            };
+        case 'MIKE':
+            return {
+                backgroundColor: 'rgba(217, 119, 6, 0.15)',
+                color: '#fbbf24',
+                border: '1px solid rgba(217, 119, 6, 0.3)'
+            };
+        case 'FUERA DE SERVICIO':
+            return {
+                backgroundColor: 'rgba(156, 163, 175, 0.15)',
+                color: '#9ca3af',
+                border: '1px solid rgba(156, 163, 175, 0.3)'
+            };
+        default:
+            return null;
+    }
+};
+
 function CaseDetail() {
     const { t, language } = useLanguage();
     const { id } = useParams();
@@ -1037,7 +1068,21 @@ function CaseDetail() {
                                             position: 'relative'
                                         }}>
                                         <div style={{ paddingRight: '20px' }}>
-                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{out.title}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.2rem' }}>
+                                                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{out.title}</div>
+                                                {out.tag && getTagStyles(out.tag) && (
+                                                    <span style={{
+                                                        fontSize: '0.65rem',
+                                                        fontWeight: 'bold',
+                                                        padding: '1px 6px',
+                                                        borderRadius: '3px',
+                                                        textTransform: 'uppercase',
+                                                        ...getTagStyles(out.tag)
+                                                    }}>
+                                                        {out.tag}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(out.occurred_at).toLocaleDateString()}</div>
                                         </div>
                                         {info.status === 'Open' && (

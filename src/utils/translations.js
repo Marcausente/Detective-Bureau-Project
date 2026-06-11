@@ -283,6 +283,11 @@ export const translations = {
         detectivesPresentLabel: "Detectives Present",
         reasonForOutingLabel: "Reason for Outing",
         infoObtainedLabel: "Information Obtained",
+        tagLabel: "Label (Optional)",
+        tagOrdinaria: "ORDINARIA",
+        tagFoxtrot: "FOXTROT",
+        tagMike: "MIKE",
+        tagFueraDeServicio: "FUERA DE SERVICIO",
 
         // Interrogations
         interrogationsLogTitle: "Interrogations Log",
@@ -645,6 +650,11 @@ export const translations = {
         detectivesPresentLabel: "Detectives Presentes",
         reasonForOutingLabel: "Motivo de la Información",
         infoObtainedLabel: "Información Obtenida",
+        tagLabel: "Etiqueta (Opcional)",
+        tagOrdinaria: "ORDINARIA",
+        tagFoxtrot: "FOXTROT",
+        tagMike: "MIKE",
+        tagFueraDeServicio: "FUERA DE SERVICIO",
 
         // Interrogations
         interrogationsLogTitle: "Registro de Interrogatorios",

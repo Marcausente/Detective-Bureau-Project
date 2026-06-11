@@ -1,6 +1,38 @@
 import '../index.css';
 
+const getTagStyles = (tag) => {
+    switch (tag) {
+        case 'ORDINARIA':
+            return {
+                backgroundColor: 'rgba(74, 222, 128, 0.15)',
+                color: '#4ade80',
+                border: '1px solid rgba(74, 222, 128, 0.3)'
+            };
+        case 'FOXTROT':
+            return {
+                backgroundColor: 'rgba(96, 165, 250, 0.15)',
+                color: '#60a5fa',
+                border: '1px solid rgba(96, 165, 250, 0.3)'
+            };
+        case 'MIKE':
+            return {
+                backgroundColor: 'rgba(217, 119, 6, 0.15)',
+                color: '#fbbf24',
+                border: '1px solid rgba(217, 119, 6, 0.3)'
+            };
+        case 'FUERA DE SERVICIO':
+            return {
+                backgroundColor: 'rgba(156, 163, 175, 0.15)',
+                color: '#9ca3af',
+                border: '1px solid rgba(156, 163, 175, 0.3)'
+            };
+        default:
+            return null;
+    }
+};
+
 function OutingCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
+    const tagStyles = getTagStyles(data.tag);
     return (
         <div className="announcement-card" style={{
             marginBottom: '1rem',
@@ -15,7 +47,22 @@ function OutingCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <h4 style={{ margin: 0, color: 'var(--accent-gold)' }}>{data.title}</h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
+                        <h4 style={{ margin: 0, color: 'var(--accent-gold)' }}>{data.title}</h4>
+                        {data.tag && tagStyles && (
+                            <span style={{
+                                fontSize: '0.7rem',
+                                fontWeight: 'bold',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                ...tagStyles
+                            }}>
+                                {data.tag}
+                            </span>
+                        )}
+                    </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
                         📅 {new Date(data.occurred_at).toLocaleString()}
                         {data.author_name && <span style={{ marginLeft: '10px' }}>by {data.author_rank} {data.author_name}</span>}

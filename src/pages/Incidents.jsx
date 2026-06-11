@@ -48,6 +48,7 @@ function Incidents() {
     const [outGangIds, setOutGangIds] = useState([]); // Changed to array for multiple gangs
     const [outInterrogationIds, setOutInterrogationIds] = useState([]); // Array of linked interrogation IDs
     const [outImages, setOutImages] = useState([]);
+    const [outTag, setOutTag] = useState('');
 
 
     useEffect(() => {
@@ -182,7 +183,8 @@ function Incidents() {
                 p_reason: outReason,
                 p_info_obtained: outInfo,
                 p_images: outImages,
-                p_detective_ids: outDetectives
+                p_detective_ids: outDetectives,
+                p_tag: outTag || null
             });
             if (error) throw error;
 
@@ -351,6 +353,7 @@ function Incidents() {
             setOutReason(outing.reason || '');
             setOutInfo(outing.info_obtained || '');
             setOutImages(outing.images || []);
+            setOutTag(outing.tag || '');
 
             // Setup detectives
             if (outing.detectives && outing.detectives.length > 0) {
@@ -395,7 +398,8 @@ function Incidents() {
                 p_occurred_at: new Date(outDate).toISOString(),
                 p_reason: outReason,
                 p_info_obtained: outInfo,
-                p_images: outImages
+                p_images: outImages,
+                p_tag: outTag || null
             });
             if (updateError) throw updateError;
 
@@ -469,7 +473,7 @@ function Incidents() {
         setIncTitle(''); setIncLocation(''); setIncDate(''); setIncTablet(''); setIncDesc(''); setIncGangIds([]); setIncInterrogationIds([]); setIncImages([]);
     };
     const resetOutingForm = () => {
-        setOutTitle(''); setOutDate(''); setOutDetectives([]); setOutReason(''); setOutInfo(''); setOutGangIds([]); setOutInterrogationIds([]); setOutImages([]);
+        setOutTitle(''); setOutDate(''); setOutDetectives([]); setOutReason(''); setOutInfo(''); setOutGangIds([]); setOutInterrogationIds([]); setOutImages([]); setOutTag('');
     };
 
     const toggleGangIncident = (gangId) => {
@@ -802,6 +806,16 @@ function Incidents() {
                                 <div className="form-group"><label>{t('dateTimeLabel')}</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
                                 <div className="form-group"><label>{t('reasonForOutingLabel')}</label><input className="form-input" value={outReason} onChange={e => setOutReason(e.target.value)} /></div>
                                 <div className="form-group"><label>{t('infoObtainedLabel')}</label><textarea className="eval-textarea" rows="4" value={outInfo} onChange={e => setOutInfo(e.target.value)} /></div>
+                                <div className="form-group">
+                                    <label>{t('tagLabel')}</label>
+                                    <select className="form-input" value={outTag} onChange={e => setOutTag(e.target.value)}>
+                                        <option value="">-- {t('noneOption') || 'Ninguno'} --</option>
+                                        <option value="ORDINARIA">{t('tagOrdinaria')}</option>
+                                        <option value="FOXTROT">{t('tagFoxtrot')}</option>
+                                        <option value="MIKE">{t('tagMike')}</option>
+                                        <option value="FUERA DE SERVICIO">{t('tagFueraDeServicio')}</option>
+                                    </select>
+                                </div>
 
                                 <div className="form-group">
                                     <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('imagesLabel')}</label>
@@ -893,6 +907,16 @@ function Incidents() {
                                 <div className="form-group"><label>{t('dateTimeLabel')}</label><input type="datetime-local" className="form-input" required value={outDate} onChange={e => setOutDate(e.target.value)} /></div>
                                 <div className="form-group"><label>{t('reasonForOutingLabel')}</label><input className="form-input" value={outReason} onChange={e => setOutReason(e.target.value)} /></div>
                                 <div className="form-group"><label>{t('infoObtainedLabel')}</label><textarea className="eval-textarea" rows="4" value={outInfo} onChange={e => setOutInfo(e.target.value)} /></div>
+                                <div className="form-group">
+                                    <label>{t('tagLabel')}</label>
+                                    <select className="form-input" value={outTag} onChange={e => setOutTag(e.target.value)}>
+                                        <option value="">-- {t('noneOption') || 'Ninguno'} --</option>
+                                        <option value="ORDINARIA">{t('tagOrdinaria')}</option>
+                                        <option value="FOXTROT">{t('tagFoxtrot')}</option>
+                                        <option value="MIKE">{t('tagMike')}</option>
+                                        <option value="FUERA DE SERVICIO">{t('tagFueraDeServicio')}</option>
+                                    </select>
+                                </div>
 
                                 <div className="form-group">
                                     <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('imagesLabel')}</label>
