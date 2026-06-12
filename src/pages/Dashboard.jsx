@@ -14,9 +14,10 @@ function Dashboard() {
 
     // Create/Edit Modal State
     const [showModal, setShowModal] = useState(false);
-    const [newPost, setNewPost] = useState({ title: '', content: '', pinned: false });
+    const [newPost, setNewPost] = useState({ title: '', content: '', pinned: false, images: [] });
     const [editingId, setEditingId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [expandedImage, setExpandedImage] = useState(null);
 
     // Event Modal State
     const [showEventModal, setShowEventModal] = useState(false);
@@ -136,7 +137,8 @@ function Dashboard() {
                     p_id: editingId,
                     p_title: newPost.title,
                     p_content: newPost.content,
-                    p_pinned: newPost.pinned
+                    p_pinned: newPost.pinned,
+                    p_images: newPost.images || []
                 });
                 if (error) throw error;
             } else {
@@ -144,7 +146,8 @@ function Dashboard() {
                 const { error } = await supabase.rpc('create_announcement', {
                     p_title: newPost.title,
                     p_content: newPost.content,
-                    p_pinned: newPost.pinned
+                    p_pinned: newPost.pinned,
+                    p_images: newPost.images || []
                 });
                 if (error) throw error;
             }
@@ -158,15 +161,40 @@ function Dashboard() {
         }
     };
 
+    const handleImageUpload = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    const scaleSize = img.width > MAX_WIDTH ? (MAX_WIDTH / img.width) : 1;
+                    canvas.width = img.width * scaleSize;
+                    canvas.height = img.height * scaleSize;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    setNewPost(prev => ({ ...prev, images: [...(prev.images || []), dataUrl] }));
+                };
+            };
+        });
+    };
+
     const handleEdit = (ann) => {
-        setNewPost({ title: ann.title, content: ann.content, pinned: ann.pinned });
+        setNewPost({ title: ann.title, content: ann.content, pinned: ann.pinned, images: ann.images || [] });
         setEditingId(ann.id);
         setShowModal(true);
     };
 
     const closeModal = () => {
         setShowModal(false);
-        setNewPost({ title: '', content: '', pinned: false });
+        setNewPost({ title: '', content: '', pinned: false, images: [] });
         setEditingId(null);
     };
 
@@ -335,6 +363,16 @@ function Dashboard() {
 
                                     <div className="ann-content">{ann.content}</div>
 
+                                    {ann.images && ann.images.length > 0 && (
+                                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+                                            {ann.images.map((src, i) => (
+                                                <div key={i} onClick={() => setExpandedImage(src)} style={{ cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                    <img src={src} style={{ height: '60px', width: '60px', objectFit: 'cover' }} alt="" />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
                                     <div className="ann-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div className="ann-author-info">
                                             {ann.author_image ? (
@@ -471,6 +509,34 @@ function Dashboard() {
                                     onChange={e => setNewPost({ ...newPost, content: e.target.value })}
                                     required
                                 />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>{t('imagesLabel')}</label>
+                                <label htmlFor="ann-file-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
+                                    {t('uploadImagesBtn')}
+                                </label>
+                                <input
+                                    id="ann-file-upload"
+                                    type="file"
+                                    multiple
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                    style={{ display: 'none' }}
+                                />
+                                <div style={{ display: 'flex', gap: '5px', marginTop: '10px', flexWrap: 'wrap' }}>
+                                    {newPost.images && newPost.images.map((src, i) => (
+                                        <div key={i} style={{ position: 'relative' }}>
+                                            <img src={src} style={{ height: '60px', borderRadius: '4px', border: '1px solid #444' }} alt="" />
+                                            <button
+                                                type="button"
+                                                onClick={() => setNewPost(prev => ({ ...prev, images: prev.images.filter((_, idx) => idx !== i) }))}
+                                                style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '18px', height: '18px', border: 'none', cursor: 'pointer', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                             {canPin && (
                                 <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -793,6 +859,12 @@ function Dashboard() {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+            {/* FULL SCREEN IMAGE VIEWER */}
+            {expandedImage && (
+                <div onClick={() => setExpandedImage(null)} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src={expandedImage} alt="" style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain' }} />
                 </div>
             )}
         </div>
