@@ -36,13 +36,14 @@ function PracticeCount() {
                 setCurrentUser(session.user);
                 const { data: profile } = await supabase
                     .from('users')
-                    .select('id, nombre, apellido, rango, rol, no_placa')
+                    .select('id, nombre, apellido, rango, rol, no_placa, divisions')
                     .eq('id', session.user.id)
                     .single();
                 if (profile) {
                     setCurrentUserProfile(profile);
                     const rolLower = (profile.rol || '').toLowerCase();
-                    setCanLog(ALLOWED_ROLES.includes(rolLower));
+                    const isDTP = profile.divisions && profile.divisions.includes('DTP');
+                    setCanLog(ALLOWED_ROLES.includes(rolLower) || isDTP);
                 }
             }
             await loadAgentsAndCounts();

@@ -11,6 +11,9 @@ function TrainingBase() {
     const [userProfile, setUserProfile] = useState(null);
     
     const isAyudante = userProfile?.rol?.toLowerCase() === 'ayudante';
+    const isHighCommand = ['coordinador', 'comisionado', 'administrador', 'superadmin'].includes(userProfile?.rol?.toLowerCase());
+    const isDTP = userProfile?.divisions && userProfile.divisions.includes('DTP');
+    const canManageDTP = isDTP || isHighCommand;
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -28,16 +31,25 @@ function TrainingBase() {
                 
             if (profile) {
                 setUserProfile(profile);
-                if (profile.rol?.toLowerCase() === 'ayudante') {
+                
+                const isHighCommand = ['coordinador', 'comisionado', 'administrador', 'superadmin'].includes(profile.rol?.toLowerCase());
+                const isDTP = profile.divisions && profile.divisions.includes('DTP');
+                const canManage = isDTP || isHighCommand;
+                const isAyu = profile.rol?.toLowerCase() === 'ayudante';
+
+                if (isAyu || !canManage) {
                     setActiveTab('schedule');
+                } else {
+                    setActiveTab('archive');
                 }
+                
                 if (profile.rol === 'Administrador' || profile.rol === 'superadmin') {
                     setIsAuthorized(true);
                     return;
                 }
                 
-                const hasDivision = profile.divisions && profile.divisions.includes('Detective Bureau');
-                const allowedRoles = ['detective', 'coordinador', 'ayudante'];
+                const hasDivision = profile.divisions && (profile.divisions.includes('Detective Bureau') || profile.divisions.includes('DTP'));
+                const allowedRoles = ['detective', 'coordinador', 'ayudante', 'comisionado'];
                 const userRole = profile.rol ? profile.rol.toLowerCase() : '';
                 
                 if (hasDivision && allowedRoles.includes(userRole)) {
@@ -83,7 +95,7 @@ function TrainingBase() {
             </header>
             
             <div className="dtp-tabs">
-                {!isAyudante && (
+                {canManageDTP && (
                     <button 
                         className={`dtp-tab-btn ${activeTab === 'archive' ? 'active' : ''}`}
                         onClick={() => setActiveTab('archive')}
@@ -97,20 +109,18 @@ function TrainingBase() {
                 >
                     <i className="fas fa-calendar-alt" style={{marginRight: '8px'}}></i> Schedule
                 </button>
-                {!isAyudante && (
-                    <button 
-                        className={`dtp-tab-btn ${activeTab === 'count' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('count')}
-                    >
-                        <i className="fas fa-list-ol" style={{marginRight: '8px'}}></i> Conteo
-                    </button>
-                )}
+                <button 
+                    className={`dtp-tab-btn ${activeTab === 'count' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('count')}
+                >
+                    <i className="fas fa-list-ol" style={{marginRight: '8px'}}></i> Conteo
+                </button>
             </div>
 
             <div className="tab-content" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                {activeTab === 'archive' && !isAyudante && <PracticeArchive userProfile={userProfile} />}
+                {activeTab === 'archive' && canManageDTP && <PracticeArchive userProfile={userProfile} />}
                 {activeTab === 'schedule' && <PracticeSchedule userProfile={userProfile} />}
-                {activeTab === 'count' && !isAyudante && <PracticeCount />}
+                {activeTab === 'count' && <PracticeCount />}
             </div>
         </div>
     );

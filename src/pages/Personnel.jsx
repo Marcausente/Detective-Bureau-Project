@@ -495,6 +495,19 @@ function Personnel() {
                                         />
                                         Department of Justice
                                     </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.divisions.includes('DTP')}
+                                            onChange={(e) => {
+                                                const newDivisions = e.target.checked
+                                                    ? [...formData.divisions, 'DTP']
+                                                    : formData.divisions.filter(d => d !== 'DTP');
+                                                setFormData({ ...formData, divisions: newDivisions });
+                                            }}
+                                        />
+                                        DTP
+                                    </label>
                                 </div>
                             </div>
 
