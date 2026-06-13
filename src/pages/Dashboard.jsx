@@ -363,30 +363,31 @@ function Dashboard() {
 
                                     <div className="ann-content">{ann.content}</div>
 
-                                    {ann.images && ann.images.length > 0 && (
-                                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '0.8rem', marginBottom: '0.8rem' }}>
-                                            {ann.images.map((src, i) => (
-                                                <div 
-                                                    key={i} 
-                                                    onClick={() => setExpandedImage(src)} 
-                                                    style={{ 
-                                                        cursor: 'pointer', 
-                                                        border: '1px solid rgba(255,255,255,0.08)', 
-                                                        borderRadius: '8px', 
-                                                        overflow: 'hidden',
-                                                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
-                                                        transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s',
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        e.currentTarget.style.transform = 'scale(1.03)';
-                                                        e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.3)';
+                                     {ann.images && ann.images.length > 0 && (
+                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', marginTop: '1rem', marginBottom: '1rem', width: '100%' }}>
+                                             {ann.images.map((src, i) => (
+                                                 <div 
+                                                     key={i} 
+                                                     onClick={() => setExpandedImage(src)} 
+                                                     style={{ 
+                                                         cursor: 'pointer', 
+                                                         border: '1px solid rgba(255,255,255,0.08)', 
+                                                         borderRadius: '10px', 
+                                                         overflow: 'hidden',
+                                                         width: '100%',
+                                                         boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)',
+                                                         transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s',
+                                                     }}
+                                                     onMouseEnter={(e) => {
+                                                         e.currentTarget.style.transform = 'scale(1.015)';
+                                                         e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.3)';
                                                      }}
                                                      onMouseLeave={(e) => {
                                                          e.currentTarget.style.transform = 'scale(1)';
                                                          e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)';
                                                      }}
                                                  >
-                                                     <img src={src} style={{ height: '150px', width: '150px', objectFit: 'cover', display: 'block' }} alt="" />
+                                                     <img src={src} style={{ height: '260px', width: '100%', objectFit: 'cover', display: 'block' }} alt="" />
                                                  </div>
                                              ))}
                                          </div>
