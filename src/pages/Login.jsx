@@ -37,7 +37,7 @@ function Login() {
         <div className="app-container">
             {/* Background */}
             <div className="background-container">
-                <img src={isLSSD ? "/lssd/fondolssd.png" : "/indeximage.png"} alt="Background" className="background-image" />
+                <img src={isLSSD ? "/lssd/fondolssd.jpg" : "/indeximage.png"} alt="Background" className="background-image" />
             </div>
 
             {/* Header */}

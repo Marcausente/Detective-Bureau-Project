@@ -30,7 +30,7 @@ body.theme-lssd {
 body.theme-lssd .layout-content {
   background-image:
     linear-gradient(var(--content-overlay), var(--content-overlay)),
-    url("/lssd/fondolssd.png");
+    url("/lssd/fondolssd.jpg");
 }
 
 /* LSSD specific cards */
