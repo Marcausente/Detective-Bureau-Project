@@ -62,7 +62,8 @@ RETURNS TABLE (
     author_name TEXT,
     author_rank TEXT,
     author_image TEXT,
-    user_status TEXT
+    user_status TEXT,
+    participants JSON
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -80,7 +81,22 @@ BEGIN
         u.nombre || ' ' || u.apellido AS author_name,
         u.rango::text AS author_rank,
         u.profile_image AS author_image,
-        NULL::TEXT AS user_status -- Normal events don't have attendance status
+        NULL::TEXT AS user_status, -- Normal events don't have attendance status
+        (
+            SELECT COALESCE(json_agg(
+                json_build_object(
+                    'user_id', u_p.id,
+                    'nombre', u_p.nombre,
+                    'apellido', u_p.apellido,
+                    'rango', u_p.rango::text,
+                    'profile_image', u_p.profile_image,
+                    'status', 'REGISTERED'
+                ) ORDER BY u_p.rango DESC, u_p.apellido ASC, u_p.nombre ASC
+            ), '[]'::json)
+            FROM event_participants ep
+            JOIN users u_p ON ep.user_id = u_p.id
+            WHERE ep.event_id = e.id
+        ) AS participants
     FROM events e
     LEFT JOIN users u ON e.created_by = u.id
     WHERE e.event_date >= CURRENT_DATE
@@ -100,7 +116,22 @@ BEGIN
         u.nombre || ' ' || u.apellido AS author_name,
         u.rango::text AS author_rank,
         u.profile_image AS author_image,
-        (SELECT status FROM dtp_event_attendees dpea WHERE dpea.event_id = de.id AND dpea.user_id = p_user_id LIMIT 1) AS user_status
+        (SELECT status FROM dtp_event_attendees dpea WHERE dpea.event_id = de.id AND dpea.user_id = p_user_id LIMIT 1) AS user_status,
+        (
+            SELECT COALESCE(json_agg(
+                json_build_object(
+                    'user_id', u_p.id,
+                    'nombre', u_p.nombre,
+                    'apellido', u_p.apellido,
+                    'rango', u_p.rango::text,
+                    'profile_image', u_p.profile_image,
+                    'status', dpea.status
+                ) ORDER BY u_p.rango DESC, u_p.apellido ASC, u_p.nombre ASC
+            ), '[]'::json)
+            FROM dtp_event_attendees dpea
+            JOIN users u_p ON dpea.user_id = u_p.id
+            WHERE dpea.event_id = de.id
+        ) AS participants
     FROM dtp_events de
     JOIN dtp_practices dp ON de.practice_id = dp.id
     LEFT JOIN users u ON de.organizer_id = u.id
@@ -128,7 +159,8 @@ RETURNS TABLE (
     author_name TEXT,
     author_rank TEXT,
     author_image TEXT,
-    user_status TEXT
+    user_status TEXT,
+    participants JSON
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -146,7 +178,22 @@ BEGIN
         u.nombre || ' ' || u.apellido AS author_name,
         u.rango::text AS author_rank,
         u.profile_image AS author_image,
-        NULL::TEXT AS user_status
+        NULL::TEXT AS user_status,
+        (
+            SELECT COALESCE(json_agg(
+                json_build_object(
+                    'user_id', u_p.id,
+                    'nombre', u_p.nombre,
+                    'apellido', u_p.apellido,
+                    'rango', u_p.rango::text,
+                    'profile_image', u_p.profile_image,
+                    'status', 'REGISTERED'
+                ) ORDER BY u_p.rango DESC, u_p.apellido ASC, u_p.nombre ASC
+            ), '[]'::json)
+            FROM event_participants ep
+            JOIN users u_p ON ep.user_id = u_p.id
+            WHERE ep.event_id = e.id
+        ) AS participants
     FROM events e
     LEFT JOIN users u ON e.created_by = u.id
     WHERE EXTRACT(YEAR FROM e.event_date) = p_year 
@@ -167,7 +214,22 @@ BEGIN
         u.nombre || ' ' || u.apellido AS author_name,
         u.rango::text AS author_rank,
         u.profile_image AS author_image,
-        (SELECT status FROM dtp_event_attendees dpea WHERE dpea.event_id = de.id AND dpea.user_id = p_user_id LIMIT 1) AS user_status
+        (SELECT status FROM dtp_event_attendees dpea WHERE dpea.event_id = de.id AND dpea.user_id = p_user_id LIMIT 1) AS user_status,
+        (
+            SELECT COALESCE(json_agg(
+                json_build_object(
+                    'user_id', u_p.id,
+                    'nombre', u_p.nombre,
+                    'apellido', u_p.apellido,
+                    'rango', u_p.rango::text,
+                    'profile_image', u_p.profile_image,
+                    'status', dpea.status
+                ) ORDER BY u_p.rango DESC, u_p.apellido ASC, u_p.nombre ASC
+            ), '[]'::json)
+            FROM dtp_event_attendees dpea
+            JOIN users u_p ON dpea.user_id = u_p.id
+            WHERE dpea.event_id = de.id
+        ) AS participants
     FROM dtp_events de
     JOIN dtp_practices dp ON de.practice_id = dp.id
     LEFT JOIN users u ON de.organizer_id = u.id
