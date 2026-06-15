@@ -42,6 +42,34 @@ const getRankLevel = (rank) => {
     }
 };
 
+const SUBDIVISIONS = [
+    'Gang Unit',
+    'Undercover Division',
+    'General Crimes',
+    'Detective Training Program'
+];
+
+const getSubdivisionAbbrev = (sub) => {
+    switch (sub) {
+        case 'Gang Unit': return 'GU';
+        case 'Undercover Division': return 'UD';
+        case 'General Crimes': return 'GC';
+        case 'Detective Training Program': return 'DTP';
+        default: return sub;
+    }
+};
+
+const getSubdivisionClass = (sub) => {
+    switch (sub) {
+        case 'Gang Unit': return 'gu';
+        case 'Undercover Division': return 'ud';
+        case 'General Crimes': return 'gc';
+        case 'Detective Training Program': return 'dtp';
+        default: return '';
+    }
+};
+
+
 function PersonnelDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -67,6 +95,44 @@ function PersonnelDetail() {
 
     // Assigned Cases State
     const [assignedCases, setAssignedCases] = useState([]);
+
+    // Subdivisions State & Handler
+    const [subdivisionSaving, setSubdivisionSaving] = useState(false);
+
+    const handleToggleSubdivision = async (sub) => {
+        if (!viewer) return;
+        const permittedRoles = ['Detective', 'Coordinador', 'Administrador', 'Comisionado'];
+        if (!permittedRoles.includes(viewer.rol)) return;
+
+        try {
+            setSubdivisionSaving(true);
+            const currentSubdivisions = user.subdivisions || [];
+            let newSubdivisions;
+            if (currentSubdivisions.includes(sub)) {
+                newSubdivisions = currentSubdivisions.filter(s => s !== sub);
+            } else {
+                newSubdivisions = [...currentSubdivisions, sub];
+            }
+
+            const { error: rpcError } = await supabase.rpc('update_user_subdivisions', {
+                p_target_user_id: user.id,
+                p_subdivisions: newSubdivisions
+            });
+
+            if (rpcError) throw rpcError;
+
+            setUser({
+                ...user,
+                subdivisions: newSubdivisions
+            });
+        } catch (err) {
+            console.error('Error updating subdivisions:', err);
+            alert('Error updating subdivisions: ' + err.message);
+        } finally {
+            setSubdivisionSaving(false);
+        }
+    };
+
 
     useEffect(() => {
         loadData();
@@ -321,6 +387,43 @@ function PersonnelDetail() {
                                 <span className="detail-label" style={{ fontWeight: 'bold', display: 'block', marginBottom: '0.2rem', color: 'var(--accent-gold)' }}>Divisions</span>
                                 <span>{user.divisions ? user.divisions.join(', ') : 'Detective Bureau'}</span>
                             </div>
+                            <div className="detail-item" style={{ gridColumn: '1 / -1', marginTop: '1rem' }}>
+                                <span className="detail-label" style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', marginBottom: '0.5rem', color: 'var(--accent-gold)' }}>
+                                    Subdivisiones
+                                    {subdivisionSaving && (
+                                        <span className="subdivision-saving-indicator">Guardando...</span>
+                                    )}
+                                </span>
+                                {viewer && ['Detective', 'Coordinador', 'Administrador', 'Comisionado'].includes(viewer.rol) ? (
+                                    <div className="subdivision-editor">
+                                        {SUBDIVISIONS.map(sub => {
+                                            const isActive = user.subdivisions?.includes(sub);
+                                            return (
+                                                <span
+                                                    key={sub}
+                                                    onClick={() => handleToggleSubdivision(sub)}
+                                                    className={`subdivision-tag editable ${isActive ? 'active subdivision-' + getSubdivisionClass(sub) : 'inactive'}`}
+                                                >
+                                                    {sub} ({getSubdivisionAbbrev(sub)})
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="personnel-subdivisions" style={{ marginTop: '0.2rem' }}>
+                                        {user.subdivisions && user.subdivisions.length > 0 ? (
+                                            user.subdivisions.map(sub => (
+                                                <span key={sub} className={`subdivision-tag subdivision-${getSubdivisionClass(sub)}`} style={{ padding: '4px 8px', fontSize: '0.75rem' }}>
+                                                    {sub} ({getSubdivisionAbbrev(sub)})
+                                                </span>
+                                            ))
+                                        ) : (
+                                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'italic' }}>Ninguna</span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
                         </div>
                     </div>
 

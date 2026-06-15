@@ -7,6 +7,26 @@ import { usePresence } from '../contexts/PresenceContext';
 import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
 
+const getSubdivisionAbbrev = (sub) => {
+    switch (sub) {
+        case 'Gang Unit': return 'GU';
+        case 'Undercover Division': return 'UD';
+        case 'General Crimes': return 'GC';
+        case 'Detective Training Program': return 'DTP';
+        default: return sub;
+    }
+};
+
+const getSubdivisionClass = (sub) => {
+    switch (sub) {
+        case 'Gang Unit': return 'gu';
+        case 'Undercover Division': return 'ud';
+        case 'General Crimes': return 'gc';
+        case 'Detective Training Program': return 'dtp';
+        default: return '';
+    }
+};
+
 function Personnel() {
     const navigate = useNavigate();
     const { isLSSD } = useTheme();
@@ -292,6 +312,15 @@ function Personnel() {
                     <div className="personnel-rank">{user.rango}</div>
                     <div className="personnel-name">{user.nombre} {user.apellido}</div>
                     <div className="personnel-badge">#{user.no_placa || '---'}</div>
+                    {user.subdivisions && user.subdivisions.length > 0 && (
+                        <div className="personnel-subdivisions" onClick={(e) => e.stopPropagation()}>
+                            {user.subdivisions.map(sub => (
+                                <span key={sub} className={`subdivision-tag subdivision-${getSubdivisionClass(sub)}`} title={sub}>
+                                    {getSubdivisionAbbrev(sub)}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {isOnline && (
