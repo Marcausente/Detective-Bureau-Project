@@ -362,9 +362,25 @@ export const translations = {
         linkToCaseLabel: "Link to Case (Optional)",
         archiveComplaintBtn: "Archive Complaint",
         reopenComplaintBtn: "Re-open Complaint",
-        editComplaintTitle: "Edit Complaint",
         createComplaintBtn: "File Complaint",
         savingComplaintBtn: "Filing...",
+        
+        // Minesweeper
+        msTitle: "Detective Minesweeper Challenge",
+        msLeaderboard: "Leaderboard",
+        msGameTab: "Game",
+        msEasy: "Easy",
+        msMedium: "Medium",
+        msHard: "Hard",
+        msRank: "Rank",
+        msAgent: "Agent",
+        msTime: "Time (Seconds)",
+        msDate: "Date",
+        msReset: "Reset",
+        msWin: "Congratulations Agent! Score saved.",
+        msGameOver: "Boom! Mine detonated.",
+        msLoading: "Loading scoreboard...",
+        msNoScores: "No high scores registered yet.",
     },
     es: {
         // Layout / Sidebar
@@ -729,8 +745,24 @@ export const translations = {
         linkToCaseLabel: "Ligar a Caso (Opcional)",
         archiveComplaintBtn: "Cerrar / Archivar denuncia",
         reopenComplaintBtn: "Reabrir Denuncia",
-        editComplaintTitle: "Editar Denuncia",
         createComplaintBtn: "Presentar Denuncia",
         savingComplaintBtn: "Guardando...",
+        
+        // Buscaminas
+        msTitle: "Desafío de Buscaminas del Detective",
+        msLeaderboard: "Clasificación",
+        msGameTab: "Juego",
+        msEasy: "Fácil",
+        msMedium: "Medio",
+        msHard: "Difícil",
+        msRank: "Puesto",
+        msAgent: "Agente",
+        msTime: "Tiempo (Segundos)",
+        msDate: "Fecha",
+        msReset: "Reiniciar",
+        msWin: "¡Felicidades Agente! Puntuación guardada.",
+        msGameOver: "¡Boom! Mina detonada.",
+        msLoading: "Cargando clasificación...",
+        msNoScores: "Aún no hay puntuaciones registradas.",
     }
 };

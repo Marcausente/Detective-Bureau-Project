@@ -3,6 +3,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import MinesweeperModal from './MinesweeperModal';
 import '../index.css';
 
 function MainLayout() {
@@ -11,6 +12,28 @@ function MainLayout() {
     const location = useLocation();
     const { isLSSD } = useTheme();
     const { t } = useLanguage();
+
+    // Minesweeper secret states
+    const [showMinesweeper, setShowMinesweeper] = useState(false);
+    const [logoClicks, setLogoClicks] = useState(0);
+
+    useEffect(() => {
+        if (logoClicks > 0) {
+            const timer = setTimeout(() => setLogoClicks(0), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [logoClicks]);
+
+    const handleLogoClick = () => {
+        setLogoClicks(prev => {
+            const next = prev + 1;
+            if (next >= 5) {
+                setShowMinesweeper(true);
+                return 0;
+            }
+            return next;
+        });
+    };
 
     useEffect(() => {
         let mounted = true;
@@ -120,7 +143,13 @@ function MainLayout() {
             {/* Sidebar */}
             <aside className="sidebar">
                 <div className="sidebar-header">
-                    <img src={isLSSD ? "/lssd/SCUB.png" : "/LOGO_SAPD.png"} alt={isLSSD ? "SCUB" : "SAPD"} className="sidebar-logo" />
+                    <img
+                        src={isLSSD ? "/lssd/SCUB.png" : "/LOGO_SAPD.png"}
+                        alt={isLSSD ? "SCUB" : "SAPD"}
+                        className="sidebar-logo"
+                        onClick={handleLogoClick}
+                        style={{ cursor: 'pointer' }}
+                    />
                     <div className="sidebar-title">{isLSSD ? t('scub') : t('detectiveBureau')}</div>
                 </div>
 
@@ -148,7 +177,25 @@ function MainLayout() {
                             </div>
                             <div className="user-info">
                                 <div className="user-name">{profile.rango} {profile.nombre} {profile.apellido}</div>
-                                <div className="user-badge">{t('badge')}{profile.no_placa}</div>
+                                <div className="user-badge">
+                                    {t('badge')}{profile.no_placa}
+                                    <span
+                                        onClick={() => setShowMinesweeper(true)}
+                                        style={{
+                                            opacity: 0.15,
+                                            cursor: 'pointer',
+                                            marginLeft: '8px',
+                                            fontSize: '0.7rem',
+                                            userSelect: 'none',
+                                            transition: 'opacity 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.opacity = 0.6}
+                                        onMouseLeave={(e) => e.target.style.opacity = 0.15}
+                                        title="Buscaminas Secreto"
+                                    >
+                                        🎮
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -169,6 +216,9 @@ function MainLayout() {
                     <Outlet />
                 </div>
             </main>
+            {showMinesweeper && (
+                <MinesweeperModal onClose={() => setShowMinesweeper(false)} profile={profile} />
+            )}
         </div>
     );
 }
