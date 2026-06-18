@@ -509,13 +509,14 @@ function CaseDetail() {
     const { info, assignments, updates, interrogations, incidents: linkedIncidents, outings: linkedOutings, complaints: linkedComplaints = [] } = caseData;
 
     // Permission Check using locally loaded User and Case Info
-    // Admins/High Command OR the Creator of the case
+    // Admins/High Command OR the Creator of the case OR the assigned Encargado
     const isHighCommand = currentUser && ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol);
     const isCreator = currentUser && info.created_by === currentUser.id;
+    const isAssignedEncargado = currentUser && assignments && assignments.some(a => a.user_id === currentUser.id && a.role === 'Encargado');
     const isAyudante = currentUser && currentUser.rol === 'Ayudante';
     
     // Restrict editing/management to Non-Ayudantes who have permission
-    const canEditCase = (isHighCommand || isCreator) && !isAyudante;
+    const canEditCase = (isHighCommand || isCreator || isAssignedEncargado) && !isAyudante;
 
     // Initialize edit state when not editing
     const startEditingInfo = () => {
