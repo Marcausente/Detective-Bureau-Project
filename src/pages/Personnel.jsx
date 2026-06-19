@@ -537,6 +537,19 @@ function Personnel() {
                                         />
                                         DTP
                                     </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.divisions.includes('Gang Unit')}
+                                            onChange={(e) => {
+                                                const newDivisions = e.target.checked
+                                                    ? [...formData.divisions, 'Gang Unit']
+                                                    : formData.divisions.filter(d => d !== 'Gang Unit');
+                                                setFormData({ ...formData, divisions: newDivisions });
+                                            }}
+                                        />
+                                        Gang Unit
+                                    </label>
                                 </div>
                             </div>
 

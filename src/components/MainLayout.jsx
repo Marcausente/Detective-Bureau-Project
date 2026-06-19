@@ -125,9 +125,10 @@ function MainLayout() {
             return item.path === '/cases' || item.path === '/interrogations';
         }
 
-        // Gang Unit subdivision bypass for Gangs, Incidents and Crime Map
+        // Gang Unit subdivision/division bypass for Gangs, Incidents and Crime Map
         if (item.path === '/gangs' || item.path === '/incidents' || item.path === '/crimemap') {
-            const hasGangUnit = profile.subdivisions && profile.subdivisions.includes('Gang Unit');
+            const hasGangUnit = (profile.subdivisions && profile.subdivisions.includes('Gang Unit')) ||
+                                (profile.divisions && profile.divisions.includes('Gang Unit'));
             if (hasGangUnit) return true;
         }
 

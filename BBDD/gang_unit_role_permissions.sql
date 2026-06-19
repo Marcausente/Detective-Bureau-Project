@@ -1,10 +1,10 @@
 -- MIGRATION SCRIPT: GANG UNIT ROLE PERMISSIONS
--- Grants users in the 'Gang Unit' subdivision access to manage gangs, edit/delete incidents, and edit/delete outings.
+-- Grants users in the 'Gang Unit' subdivision OR division access to manage gangs, edit/delete incidents, and edit/delete outings.
 
 -- =========================================================================
 -- 1. Redefining auth_is_gang_authorized()
 -- =========================================================================
--- Now returns TRUE if the user has a permitted role OR has 'Gang Unit' in their subdivisions.
+-- Now returns TRUE if the user has a permitted role OR has 'Gang Unit' in their divisions/subdivisions.
 CREATE OR REPLACE FUNCTION auth_is_gang_authorized() 
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -13,7 +13,10 @@ DECLARE
 BEGIN
     SELECT 
         TRIM(rol::text), 
-        (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions)) 
+        (
+            (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions)) OR
+            (divisions IS NOT NULL AND 'Gang Unit' = ANY(divisions))
+        )
     INTO v_role, v_has_gang_unit 
     FROM public.users 
     WHERE id = auth.uid();
@@ -59,7 +62,10 @@ BEGIN
     
     SELECT 
         TRIM(u_auth.rol::text),
-        (u_auth.subdivisions IS NOT NULL AND 'Gang Unit' = ANY(u_auth.subdivisions))
+        (
+            (u_auth.subdivisions IS NOT NULL AND 'Gang Unit' = ANY(u_auth.subdivisions)) OR
+            (u_auth.divisions IS NOT NULL AND 'Gang Unit' = ANY(u_auth.divisions))
+        )
     INTO v_user_role, v_has_gang_unit
     FROM public.users u_auth 
     WHERE u_auth.id = v_uid;
@@ -132,7 +138,10 @@ BEGIN
     
     SELECT 
         TRIM(u_auth.rol::text),
-        (u_auth.subdivisions IS NOT NULL AND 'Gang Unit' = ANY(u_auth.subdivisions))
+        (
+            (u_auth.subdivisions IS NOT NULL AND 'Gang Unit' = ANY(u_auth.subdivisions)) OR
+            (u_auth.divisions IS NOT NULL AND 'Gang Unit' = ANY(u_auth.divisions))
+        )
     INTO v_user_role, v_has_gang_unit
     FROM public.users u_auth 
     WHERE u_auth.id = v_uid;
@@ -187,7 +196,7 @@ GRANT EXECUTE ON FUNCTION get_outings() TO authenticated;
 -- =========================================================================
 -- 4. Redefining get_gang_incidents(p_gang_id UUID)
 -- =========================================================================
--- Enables 'can_delete' for Gang Unit subdivision members.
+-- Enables 'can_delete' for Gang Unit subdivision/division members.
 CREATE OR REPLACE FUNCTION get_gang_incidents(p_gang_id UUID)
 RETURNS TABLE (
     record_id UUID,
@@ -218,7 +227,10 @@ BEGIN
     
     SELECT 
         TRIM(rol::text),
-        (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions))
+        (
+            (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions)) OR
+            (divisions IS NOT NULL AND 'Gang Unit' = ANY(divisions))
+        )
     INTO v_user_rango, v_has_gang_unit 
     FROM users 
     WHERE id = v_user_id;
@@ -262,33 +274,8 @@ GRANT EXECUTE ON FUNCTION get_gang_incidents(UUID) TO authenticated;
 -- =========================================================================
 -- 5. Redefining get_gang_outings(p_gang_id UUID)
 -- =========================================================================
--- Enables 'can_delete' for Gang Unit subdivision members.
+-- Enables 'can_delete' for Gang Unit subdivision/division members.
 DROP FUNCTION IF EXISTS public.get_gang_outings(UUID);
-
-CREATE OR REPLACE FUNCTION public.get_gang_outings(p_gang_id UUID)
-RETURNS TABLE (
-    record_id UUID,
-    title TEXT,
-    occurred_at TIMESTAMPTZ,
-    reason TEXT,
-    info_obtained TEXT,
-    images JSONB,
-    author_id UUID,
-    is_author BOOLEAN,
-    can_delete BOOLEAN,
-    detectives JSONB,
-    tag TEXT
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-    v_user_rango TEXT;
-    v_user_id UUID;
-    v_has_gang_unit BOOLEAN;
-END;
-$$; -- Stub for dropping/recreating signature correctly if needed.
 
 CREATE OR REPLACE FUNCTION public.get_gang_outings(p_gang_id UUID)
 RETURNS TABLE (
@@ -317,7 +304,10 @@ BEGIN
     
     SELECT 
         TRIM(rol::text),
-        (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions))
+        (
+            (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions)) OR
+            (divisions IS NOT NULL AND 'Gang Unit' = ANY(divisions))
+        )
     INTO v_user_rango, v_has_gang_unit 
     FROM users 
     WHERE id = v_user_id;
@@ -374,7 +364,10 @@ BEGIN
     
     SELECT 
         TRIM(rol::text),
-        (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions))
+        (
+            (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions)) OR
+            (divisions IS NOT NULL AND 'Gang Unit' = ANY(divisions))
+        )
     INTO v_user_role, v_has_gang_unit 
     FROM public.users 
     WHERE id = v_uid;
@@ -409,7 +402,10 @@ BEGIN
     
     SELECT 
         TRIM(rol::text),
-        (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions))
+        (
+            (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions)) OR
+            (divisions IS NOT NULL AND 'Gang Unit' = ANY(divisions))
+        )
     INTO v_user_role, v_has_gang_unit 
     FROM public.users 
     WHERE id = v_uid;
@@ -454,7 +450,10 @@ BEGIN
     
     SELECT 
         TRIM(rol::text),
-        (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions))
+        (
+            (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions)) OR
+            (divisions IS NOT NULL AND 'Gang Unit' = ANY(divisions))
+        )
     INTO v_user_role, v_has_gang_unit 
     FROM public.users 
     WHERE id = v_uid;
@@ -506,7 +505,10 @@ BEGIN
     
     SELECT 
         TRIM(rol::text),
-        (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions))
+        (
+            (subdivisions IS NOT NULL AND 'Gang Unit' = ANY(subdivisions)) OR
+            (divisions IS NOT NULL AND 'Gang Unit' = ANY(divisions))
+        )
     INTO v_user_role, v_has_gang_unit 
     FROM public.users 
     WHERE id = v_uid;
