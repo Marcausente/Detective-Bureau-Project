@@ -43,7 +43,7 @@ function IncidentCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
                     )}
                 </div>
                 <div style={{ display: 'flex', gap: '5px' }}>
-                    {onEdit && <button onClick={() => onEdit(data)} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '1.2rem' }}>✏️</button>}
+                    {onEdit && data.can_delete && <button onClick={() => onEdit(data)} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '1.2rem' }}>✏️</button>}
                     {data.can_delete && (
                         <button onClick={() => onDelete(data.record_id)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '1.2rem' }}>&times;</button>
                     )}

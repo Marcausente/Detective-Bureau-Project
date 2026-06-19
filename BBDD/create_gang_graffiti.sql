@@ -129,9 +129,9 @@ BEGIN
             SELECT jsonb_agg(jsonb_build_object('id', i.id, 'type', i.type, 'content', i.content, 'images', i.images, 'author', (SELECT nombre||' '||apellido FROM public.users WHERE id=i.author_id)))
             FROM public.gang_info i WHERE i.gang_id = g.id
         ), '[]'::jsonb),
-        -- Counts
-        (SELECT COUNT(*) FROM public.incidents inc WHERE inc.gang_id = g.id),
-        (SELECT COUNT(*) FROM public.outings out WHERE out.gang_id = g.id),
+        -- Counts (Using junction tables to support multiple gangs linked to a single incident/outing)
+        (SELECT COUNT(*) FROM public.incident_gangs ig WHERE ig.gang_id = g.id),
+        (SELECT COUNT(*) FROM public.outing_gangs og WHERE og.gang_id = g.id),
         -- Graffiti Collection
         COALESCE((
             SELECT jsonb_agg(jsonb_build_object(
