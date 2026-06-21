@@ -108,6 +108,7 @@ function MainLayout() {
         { name: t('crimeMap'), path: '/crimemap', divisions: ['Detective Bureau'] },
         { name: t('judicialOrders'), path: '/warrants', divisions: ['Detective Bureau'] },
         { name: t('interrogations'), path: '/interrogations', divisions: ['Detective Bureau'] },
+        { name: t('ballistics'), path: '/ballistics', divisions: ['Detective Bureau'] },
         { name: t('trainingProgram'), path: '/training', divisions: ['Detective Bureau'], roles: ['detective', 'coordinador', 'ayudante'] },
         { name: t('personnel'), path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ'] },
         { name: t('internalAffairs'), path: '/internal-affairs', divisions: ['Internal Affairs'] },

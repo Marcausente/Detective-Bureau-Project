@@ -34,6 +34,7 @@ import DOJLicenses from './pages/DOJLicenses';
 import DOJLicenseProfile from './pages/DOJLicenseProfile';
 import OrderArchive from './pages/OrderArchive'; // Import
 import Admin from './pages/Admin'; // New Admin page
+import Ballistics from './pages/Ballistics';
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
 import { ThemeProvider } from './contexts/ThemeContext'; // Import ThemeProvider
@@ -86,6 +87,7 @@ function App() {
             <Route path="/warrants" element={<OrderArchive />} /> {/* Updated Route */}
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} /> {/* Admin Route */}
+            <Route path="/ballistics" element={<Ballistics />} />
           </Route>
 
           {/* Fallback */}
