@@ -382,6 +382,19 @@ export const translations = {
         msGameOver: "Boom! Mine detonated.",
         msLoading: "Loading scoreboard...",
         msNoScores: "No high scores registered yet.",
+
+        // Ballistics
+        addSeizedWeapon: "+ Add Seized Weapon",
+        addBulletCasing: "+ Add Bullet Casing",
+        relatedIncident: "Related Incident",
+        bulletCaliber: "Bullet Caliber",
+        serialNumber: "Serial Number",
+        ownerName: "Owner Name",
+        weaponModel: "Weapon Model",
+        coincidences: "Coincidences",
+        newCoincidenceDetected: "A coincidence was detected on {item}!",
+        newBadge: "NEW",
+        ballistics_module_desc: "Ballistics Module of the Detective Bureau Division.",
     },
     es: {
         // Layout / Sidebar
@@ -766,5 +779,18 @@ export const translations = {
         msGameOver: "¡Boom! Mina detonada.",
         msLoading: "Cargando clasificación...",
         msNoScores: "Aún no hay puntuaciones registradas.",
+
+        // Ballistics
+        addSeizedWeapon: "+ Añadir Arma Incautada",
+        addBulletCasing: "+ Añadir Casquillos",
+        relatedIncident: "Incidente Relacionado",
+        bulletCaliber: "Calibre de la Bala",
+        serialNumber: "Número de Serie",
+        ownerName: "Nombre del Propietario",
+        weaponModel: "Modelo de Arma",
+        coincidences: "Coincidencias",
+        newCoincidenceDetected: "¡Se ha detectado una coincidencia en {item}!",
+        newBadge: "NUEVA",
+        ballistics_module_desc: "Módulo de Balística de la División de Detective Bureau.",
     }
 };
