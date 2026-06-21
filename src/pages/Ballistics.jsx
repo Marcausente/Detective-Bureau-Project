@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
 
 function Ballistics() {
     const { t } = useLanguage();
+    const { isLSSD } = useTheme();
 
     // Data states
     const [bullets, setBullets] = useState([]);
@@ -37,6 +39,7 @@ function Ballistics() {
     const [alertMatch, setAlertMatch] = useState(null); // stores the most recent match for popup alert
     const [seenMatchIds, setSeenMatchIds] = useState([]);
     const [activeTab, setActiveTab] = useState('coincidences');
+    const [expandedWeapons, setExpandedWeapons] = useState([]);
 
     // Load initial data
     useEffect(() => {
@@ -236,6 +239,23 @@ function Ballistics() {
         setAlertMatch(null);
     };
 
+    // Toggle weapon expand
+    const toggleWeaponExpand = (weaponId) => {
+        setExpandedWeapons(prev => 
+            prev.includes(weaponId) 
+                ? prev.filter(id => id !== weaponId) 
+                : [...prev, weaponId]
+        );
+    };
+
+    // Mark all matches for a specific weapon as seen
+    const handleMarkWeaponMatchesAsSeen = (weapon, matchedBullets) => {
+        const weaponMatchesIds = matchedBullets.map(bullet => `${bullet.id}-${weapon.id}`);
+        const updated = [...new Set([...seenMatchIds, ...weaponMatchesIds])];
+        setSeenMatchIds(updated);
+        localStorage.setItem('seen_ballistics_matches', JSON.stringify(updated));
+    };
+
     return (
         <div className="documentation-container" style={{ maxWidth: '1600px', margin: '0 auto', padding: '2rem' }}>
             
@@ -335,7 +355,7 @@ function Ballistics() {
                     <div>
                         <h2 className="page-title" style={{ margin: 0 }}>{t('ballistics')}</h2>
                         <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                            {t('ballistics_module_desc')}
+                            {isLSSD ? t('ballistics_module_desc_lssd') : t('ballistics_module_desc')}
                         </p>
                     </div>
                 </div>
@@ -416,67 +436,128 @@ function Ballistics() {
                     </div>
 
                     {/* RENDERING ACTIVE TAB CONTENT */}
-                    {activeTab === 'coincidences' && (
-                        <div className="doc-section">
-                            <h3 className="section-title" style={{ borderBottom: '2px solid #eab308', paddingBottom: '0.5rem', color: '#eab308', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                                {t('coincidences')} ({coincidences.length})
-                            </h3>
-                            {coincidences.length === 0 ? (
-                                <div className="empty-list">No se han detectado coincidencias de número de serie todavía.</div>
-                            ) : (
-                                <div className="coincidence-grid">
-                                    {coincidences.map(match => {
-                                        const isNew = !seenMatchIds.includes(match.id);
-                                        return (
-                                            <div 
-                                                key={match.id} 
-                                                className={`ballistics-list-card ${isNew ? 'new-coincidence-card' : ''}`}
-                                                style={{ display: 'flex', flexDirection: 'column', justifycontent: 'space-between', minHeight: '210px' }}
-                                            >
-                                                <div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                                        <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'var(--accent-gold)', background: 'rgba(255,255,255,0.06)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.95rem' }}>
-                                                            N/S: {match.serialNumber}
-                                                        </span>
-                                                        {isNew ? (
-                                                            <span className="glow-badge">{t('newBadge')}</span>
-                                                        ) : (
-                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>✓ Vinculado</span>
+                    {activeTab === 'coincidences' && (() => {
+                        const groupedCoincidences = weapons.map(weapon => {
+                            if (!weapon.numero_serie) return null;
+                            const cleanWeaponSn = weapon.numero_serie.trim().toLowerCase();
+                            if (cleanWeaponSn === '' || cleanWeaponSn === 'n/a') return null;
+
+                            const matchingBullets = bullets.filter(bullet => 
+                                bullet.numero_serie && bullet.numero_serie.trim().toLowerCase() === cleanWeaponSn
+                            );
+
+                            if (matchingBullets.length === 0) return null;
+
+                            const newBullets = matchingBullets.filter(bullet => {
+                                const matchId = `${bullet.id}-${weapon.id}`;
+                                return !seenMatchIds.includes(matchId);
+                            });
+
+                            return {
+                                weapon,
+                                bullets: matchingBullets,
+                                newBullets,
+                                isNew: newBullets.length > 0,
+                                latestDate: matchingBullets.reduce((latest, bullet) => {
+                                    const bDate = new Date(bullet.created_at);
+                                    const wDate = new Date(weapon.created_at);
+                                    const max = bDate > wDate ? bDate : wDate;
+                                    return max > latest ? max : latest;
+                                }, new Date(weapon.created_at))
+                            };
+                        }).filter(Boolean).sort((a, b) => b.latestDate - a.latestDate);
+
+                        return (
+                            <div className="doc-section">
+                                <h3 className="section-title" style={{ borderBottom: '2px solid #eab308', paddingBottom: '0.5rem', color: '#eab308', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                                    {t('coincidences')} ({groupedCoincidences.length})
+                                </h3>
+                                {groupedCoincidences.length === 0 ? (
+                                    <div className="empty-list">No se han detectado coincidencias de número de serie todavía.</div>
+                                ) : (
+                                    <div className="coincidence-grid">
+                                        {groupedCoincidences.map(group => {
+                                            const isExpanded = expandedWeapons.includes(group.weapon.id);
+                                            return (
+                                                <div 
+                                                    key={group.weapon.id} 
+                                                    className={`ballistics-list-card ${group.isNew ? 'new-coincidence-card' : ''}`}
+                                                    style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', transition: 'all 0.3s ease' }}
+                                                >
+                                                    <div>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                            <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'var(--accent-gold)', background: 'rgba(255,255,255,0.06)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.95rem' }}>
+                                                                N/S: {group.weapon.numero_serie}
+                                                            </span>
+                                                            {group.isNew ? (
+                                                                <span className="glow-badge">{t('newBadge')} ({group.newBullets.length})</span>
+                                                            ) : (
+                                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>✓ {group.bullets.length} Vinculados</span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Weapon Info */}
+                                                        <div style={{ background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px', marginBottom: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                            <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#ef4444', marginBottom: '0.5rem' }}>
+                                                                🔫 {group.weapon.modelo}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                                                <span style={{ color: '#fff', opacity: 0.8 }}>Propietario:</span> {group.weapon.propietario}
+                                                                <br />
+                                                                <span style={{ color: '#fff', opacity: 0.8 }}>Incidente Incautación:</span> {group.weapon.incidente_relacionado}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Expanded Bullet Relationships */}
+                                                        {isExpanded && (
+                                                            <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+                                                                <h4 style={{ fontSize: '0.85rem', color: '#60a5fa', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>Casquillos Vinculados:</h4>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                                    {group.bullets.map(bullet => {
+                                                                        const isBulletNew = !seenMatchIds.includes(`${bullet.id}-${group.weapon.id}`);
+                                                                        return (
+                                                                            <div key={bullet.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: '4px', fontSize: '0.8rem', borderLeft: isBulletNew ? '3px solid #eab308' : '3px solid #60a5fa' }}>
+                                                                                <strong>Incidente:</strong> {bullet.incidente_relacionado}
+                                                                                <br />
+                                                                                <strong>Calibre:</strong> {bullet.calibre}
+                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', opacity: 0.7, marginTop: '4px' }}>
+                                                                                    <span>Por: {bullet.author_rank} {bullet.author_name}</span>
+                                                                                    <span>{new Date(bullet.created_at).toLocaleDateString()}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
                                                         )}
                                                     </div>
 
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem' }}>
-                                                        <div style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px' }}>
-                                                            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Arma:</span> {match.weapon.modelo}
-                                                            <br />
-                                                            <span style={{ opacity: 0.7 }}>Incidente: {match.weapon.incidente_relacionado}</span>
-                                                            <br />
-                                                            <span style={{ opacity: 0.7 }}>Propietario: {match.weapon.propietario}</span>
-                                                        </div>
-                                                        <div style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px' }}>
-                                                            <span style={{ color: '#60a5fa', fontWeight: 'bold' }}>⚪ Casquillo:</span> Calibre {match.bullet.calibre}
-                                                            <br />
-                                                            <span style={{ opacity: 0.7 }}>Incidente: {match.bullet.incidente_relacionado}</span>
-                                                        </div>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem' }}>
+                                                        <button 
+                                                            className="login-button btn-secondary" 
+                                                            style={{ flex: 1, margin: 0, padding: '6px', fontSize: '0.8rem' }}
+                                                            onClick={() => toggleWeaponExpand(group.weapon.id)}
+                                                        >
+                                                            {isExpanded ? 'Ocultar Casquillos' : `Ver Casquillos (${group.bullets.length})`}
+                                                        </button>
+                                                        {group.isNew && (
+                                                            <button 
+                                                                className="login-button" 
+                                                                style={{ flex: 1, margin: 0, padding: '6px', fontSize: '0.8rem' }}
+                                                                onClick={() => handleMarkWeaponMatchesAsSeen(group.weapon, group.bullets)}
+                                                            >
+                                                                Marcar vistos
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
-
-                                                {isNew && (
-                                                    <button 
-                                                        className="login-button btn-secondary" 
-                                                        style={{ width: '100%', margin: '1rem 0 0 0', padding: '5px', fontSize: '0.75rem' }}
-                                                        onClick={() => handleMarkMatchAsSeen(match.id)}
-                                                    >
-                                                        Marcar como visto
-                                                    </button>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
 
                     {activeTab === 'bullets' && (
                         <div className="doc-section" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
