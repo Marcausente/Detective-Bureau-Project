@@ -331,7 +331,7 @@ function Ballistics() {
             {/* Header Area */}
             <div className="doc-header" style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                    <div style={{ fontSize: '3rem', filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))' }}>🔫</div>
+                    <div style={{ fontSize: '3rem', filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))' }}>🔬</div>
                     <div>
                         <h2 className="page-title" style={{ margin: 0 }}>{t('ballistics')}</h2>
                         <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
@@ -377,7 +377,7 @@ function Ballistics() {
                                 marginBottom: '-0.6rem'
                             }}
                         >
-                            🔗 {t('coincidences')} ({coincidences.length})
+                            {t('coincidences')} ({coincidences.length})
                         </button>
                         <button 
                             onClick={() => setActiveTab('bullets')}
@@ -394,7 +394,7 @@ function Ballistics() {
                                 marginBottom: '-0.6rem'
                             }}
                         >
-                            ⚪ {t('bulletCasings')} ({bullets.length})
+                            {t('bulletCasings')} ({bullets.length})
                         </button>
                         <button 
                             onClick={() => setActiveTab('weapons')}
@@ -411,7 +411,7 @@ function Ballistics() {
                                 marginBottom: '-0.6rem'
                             }}
                         >
-                            🔫 {t('seizedWeapons')} ({weapons.length})
+                            {t('seizedWeapons')} ({weapons.length})
                         </button>
                     </div>
 
@@ -419,7 +419,7 @@ function Ballistics() {
                     {activeTab === 'coincidences' && (
                         <div className="doc-section">
                             <h3 className="section-title" style={{ borderBottom: '2px solid #eab308', paddingBottom: '0.5rem', color: '#eab308', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                                🔗 {t('coincidences')} ({coincidences.length})
+                                {t('coincidences')} ({coincidences.length})
                             </h3>
                             {coincidences.length === 0 ? (
                                 <div className="empty-list">No se han detectado coincidencias de número de serie todavía.</div>
@@ -447,7 +447,7 @@ function Ballistics() {
 
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem' }}>
                                                         <div style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px' }}>
-                                                            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>🔫 Arma:</span> {match.weapon.modelo}
+                                                            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Arma:</span> {match.weapon.modelo}
                                                             <br />
                                                             <span style={{ opacity: 0.7 }}>Incidente: {match.weapon.incidente_relacionado}</span>
                                                             <br />
@@ -481,7 +481,7 @@ function Ballistics() {
                     {activeTab === 'bullets' && (
                         <div className="doc-section" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
                             <h3 className="section-title" style={{ borderBottom: '2px solid #60a5fa', paddingBottom: '0.5rem', color: '#60a5fa', marginBottom: '1.5rem' }}>
-                                ⚪ {t('bulletCasings')} ({bullets.length})
+                                {t('bulletCasings')} ({bullets.length})
                             </h3>
                             <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
                                 {bullets.length === 0 ? (
@@ -526,7 +526,7 @@ function Ballistics() {
                     {activeTab === 'weapons' && (
                         <div className="doc-section" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
                             <h3 className="section-title" style={{ borderBottom: '2px solid #ef4444', paddingBottom: '0.5rem', color: '#ef4444', marginBottom: '1.5rem' }}>
-                                🔫 {t('seizedWeapons')} ({weapons.length})
+                                {t('seizedWeapons')} ({weapons.length})
                             </h3>
                             <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
                                 {weapons.length === 0 ? (
