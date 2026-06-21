@@ -395,6 +395,8 @@ export const translations = {
         newCoincidenceDetected: "A coincidence was detected on {item}!",
         newBadge: "NEW",
         ballistics_module_desc: "Ballistics Module of the Detective Bureau Division.",
+        bulletCasings: "Bullet Casings",
+        seizedWeapons: "Seized Weapons",
     },
     es: {
         // Layout / Sidebar
@@ -792,5 +794,7 @@ export const translations = {
         newCoincidenceDetected: "¡Se ha detectado una coincidencia en {item}!",
         newBadge: "NUEVA",
         ballistics_module_desc: "Módulo de Balística de la División de Detective Bureau.",
+        bulletCasings: "Casquillos Incautados",
+        seizedWeapons: "Armas Incautadas",
     }
 };

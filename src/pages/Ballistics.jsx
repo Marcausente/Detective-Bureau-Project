@@ -36,6 +36,7 @@ function Ballistics() {
     // Match alerts state
     const [alertMatch, setAlertMatch] = useState(null); // stores the most recent match for popup alert
     const [seenMatchIds, setSeenMatchIds] = useState([]);
+    const [activeTab, setActiveTab] = useState('coincidences');
 
     // Load initial data
     useEffect(() => {
@@ -357,78 +358,132 @@ function Ballistics() {
             ) : loading ? (
                 <div className="loading-container">Cargando módulo de balística...</div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     
-                    {/* SECTION: COINCIDENCIAS */}
-                    <div className="doc-section">
-                        <h3 className="section-title" style={{ borderBottom: '2px solid #eab308', paddingBottom: '0.5rem', color: '#eab308', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                    {/* TABS NAVIGATION */}
+                    <div className="tabs-container" style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '1rem', paddingBottom: '0.5rem', flexWrap: 'wrap' }}>
+                        <button 
+                            onClick={() => setActiveTab('coincidences')}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: activeTab === 'coincidences' ? 'var(--accent-gold, #eab308)' : 'var(--text-secondary, #94a3b8)',
+                                borderBottom: activeTab === 'coincidences' ? '2px solid var(--accent-gold, #eab308)' : 'none',
+                                padding: '0.75rem 1.5rem',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                transition: 'all 0.2s',
+                                marginBottom: '-0.6rem'
+                            }}
+                        >
                             🔗 {t('coincidences')} ({coincidences.length})
-                        </h3>
-                        {coincidences.length === 0 ? (
-                            <div className="empty-list">No se han detectado coincidencias de número de serie todavía.</div>
-                        ) : (
-                            <div className="coincidence-grid">
-                                {coincidences.map(match => {
-                                    const isNew = !seenMatchIds.includes(match.id);
-                                    return (
-                                        <div 
-                                            key={match.id} 
-                                            className={`ballistics-list-card ${isNew ? 'new-coincidence-card' : ''}`}
-                                            style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: '210px' }}
-                                        >
-                                            <div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                                    <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'var(--accent-gold)', background: 'rgba(255,255,255,0.06)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.95rem' }}>
-                                                        N/S: {match.serialNumber}
-                                                    </span>
-                                                    {isNew ? (
-                                                        <span className="glow-badge">{t('newBadge')}</span>
-                                                    ) : (
-                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>✓ Vinculado</span>
-                                                    )}
-                                                </div>
-
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem' }}>
-                                                    <div style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px' }}>
-                                                        <span style={{ color: '#ef4444', fontWeight: 'bold' }}>🔫 Arma:</span> {match.weapon.modelo}
-                                                        <br />
-                                                        <span style={{ opacity: 0.7 }}>Incidente: {match.weapon.incidente_relacionado}</span>
-                                                        <br />
-                                                        <span style={{ opacity: 0.7 }}>Propietario: {match.weapon.propietario}</span>
-                                                    </div>
-                                                    <div style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px' }}>
-                                                        <span style={{ color: '#60a5fa', fontWeight: 'bold' }}>⚪ Casquillo:</span> Calibre {match.bullet.calibre}
-                                                        <br />
-                                                        <span style={{ opacity: 0.7 }}>Incidente: {match.bullet.incidente_relacionado}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {isNew && (
-                                                <button 
-                                                    className="login-button btn-secondary" 
-                                                    style={{ width: '100%', margin: '1rem 0 0 0', padding: '5px', fontSize: '0.75rem' }}
-                                                    onClick={() => handleMarkMatchAsSeen(match.id)}
-                                                >
-                                                    Marcar como visto
-                                                </button>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('bullets')}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: activeTab === 'bullets' ? '#60a5fa' : 'var(--text-secondary, #94a3b8)',
+                                borderBottom: activeTab === 'bullets' ? '2px solid #60a5fa' : 'none',
+                                padding: '0.75rem 1.5rem',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                transition: 'all 0.2s',
+                                marginBottom: '-0.6rem'
+                            }}
+                        >
+                            ⚪ {t('bulletCasings')} ({bullets.length})
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('weapons')}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: activeTab === 'weapons' ? '#ef4444' : 'var(--text-secondary, #94a3b8)',
+                                borderBottom: activeTab === 'weapons' ? '2px solid #ef4444' : 'none',
+                                padding: '0.75rem 1.5rem',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                transition: 'all 0.2s',
+                                marginBottom: '-0.6rem'
+                            }}
+                        >
+                            🔫 {t('seizedWeapons')} ({weapons.length})
+                        </button>
                     </div>
 
-                    {/* TWO COLUMN GRID FOR BULLETS AND WEAPONS LISTS */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '2.5rem' }}>
-                        
-                        {/* COLUMN: CASQUILLOS */}
+                    {/* RENDERING ACTIVE TAB CONTENT */}
+                    {activeTab === 'coincidences' && (
                         <div className="doc-section">
-                            <h3 className="section-title" style={{ borderBottom: '2px solid #60a5fa', paddingBottom: '0.5rem', color: '#60a5fa', marginBottom: '1.5rem' }}>
-                                ⚪ Casquillos Incautados ({bullets.length})
+                            <h3 className="section-title" style={{ borderBottom: '2px solid #eab308', paddingBottom: '0.5rem', color: '#eab308', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                                🔗 {t('coincidences')} ({coincidences.length})
                             </h3>
-                            <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                            {coincidences.length === 0 ? (
+                                <div className="empty-list">No se han detectado coincidencias de número de serie todavía.</div>
+                            ) : (
+                                <div className="coincidence-grid">
+                                    {coincidences.map(match => {
+                                        const isNew = !seenMatchIds.includes(match.id);
+                                        return (
+                                            <div 
+                                                key={match.id} 
+                                                className={`ballistics-list-card ${isNew ? 'new-coincidence-card' : ''}`}
+                                                style={{ display: 'flex', flexDirection: 'column', justifycontent: 'space-between', minHeight: '210px' }}
+                                            >
+                                                <div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                        <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'var(--accent-gold)', background: 'rgba(255,255,255,0.06)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.95rem' }}>
+                                                            N/S: {match.serialNumber}
+                                                        </span>
+                                                        {isNew ? (
+                                                            <span className="glow-badge">{t('newBadge')}</span>
+                                                        ) : (
+                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>✓ Vinculado</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem' }}>
+                                                        <div style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px' }}>
+                                                            <span style={{ color: '#ef4444', fontWeight: 'bold' }}>🔫 Arma:</span> {match.weapon.modelo}
+                                                            <br />
+                                                            <span style={{ opacity: 0.7 }}>Incidente: {match.weapon.incidente_relacionado}</span>
+                                                            <br />
+                                                            <span style={{ opacity: 0.7 }}>Propietario: {match.weapon.propietario}</span>
+                                                        </div>
+                                                        <div style={{ background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: '4px' }}>
+                                                            <span style={{ color: '#60a5fa', fontWeight: 'bold' }}>⚪ Casquillo:</span> Calibre {match.bullet.calibre}
+                                                            <br />
+                                                            <span style={{ opacity: 0.7 }}>Incidente: {match.bullet.incidente_relacionado}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {isNew && (
+                                                    <button 
+                                                        className="login-button btn-secondary" 
+                                                        style={{ width: '100%', margin: '1rem 0 0 0', padding: '5px', fontSize: '0.75rem' }}
+                                                        onClick={() => handleMarkMatchAsSeen(match.id)}
+                                                    >
+                                                        Marcar como visto
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'bullets' && (
+                        <div className="doc-section" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+                            <h3 className="section-title" style={{ borderBottom: '2px solid #60a5fa', paddingBottom: '0.5rem', color: '#60a5fa', marginBottom: '1.5rem' }}>
+                                ⚪ {t('bulletCasings')} ({bullets.length})
+                            </h3>
+                            <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
                                 {bullets.length === 0 ? (
                                     <div className="empty-list">No hay casquillos registrados.</div>
                                 ) : (
@@ -466,13 +521,14 @@ function Ballistics() {
                                 )}
                             </div>
                         </div>
+                    )}
 
-                        {/* COLUMN: ARMAS */}
-                        <div className="doc-section">
+                    {activeTab === 'weapons' && (
+                        <div className="doc-section" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
                             <h3 className="section-title" style={{ borderBottom: '2px solid #ef4444', paddingBottom: '0.5rem', color: '#ef4444', marginBottom: '1.5rem' }}>
-                                🔫 Armas Incautadas ({weapons.length})
+                                🔫 {t('seizedWeapons')} ({weapons.length})
                             </h3>
-                            <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                            <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
                                 {weapons.length === 0 ? (
                                     <div className="empty-list">No hay armas registradas.</div>
                                 ) : (
@@ -516,8 +572,8 @@ function Ballistics() {
                                 )}
                             </div>
                         </div>
+                    )}
 
-                    </div>
                 </div>
             )}
 
