@@ -936,6 +936,31 @@ body {
   text-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
 }
 
+/* Subdivision Specialty Highlights */
+.subdivision-tag.specialty {
+  border: 1.5px solid var(--accent-gold);
+  box-shadow: 0 0 10px rgba(207, 181, 59, 0.5);
+  font-weight: 800;
+  transform: scale(1.05);
+}
+
+.specialty-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, filter 0.2s;
+}
+
+.specialty-toggle-btn:hover {
+  transform: scale(1.25);
+  filter: brightness(1.3);
+}
+
 /* Interactive tag selection on detail page */
 .subdivision-editor {
   display: flex;

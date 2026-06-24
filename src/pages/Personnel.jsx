@@ -314,11 +314,18 @@ function Personnel() {
                     <div className="personnel-badge">#{user.no_placa || '---'}</div>
                     {user.subdivisions && user.subdivisions.length > 0 && (
                         <div className="personnel-subdivisions" onClick={(e) => e.stopPropagation()}>
-                            {user.subdivisions.map(sub => (
-                                <span key={sub} className={`subdivision-tag subdivision-${getSubdivisionClass(sub)}`} title={sub}>
-                                    {getSubdivisionAbbrev(sub)}
-                                </span>
-                            ))}
+                            {user.subdivisions.map(sub => {
+                                const isSpecialty = user.specialty_subdivision === sub;
+                                return (
+                                    <span 
+                                        key={sub} 
+                                        className={`subdivision-tag subdivision-${getSubdivisionClass(sub)} ${isSpecialty ? 'specialty' : ''}`} 
+                                        title={isSpecialty ? `${sub} (Especialidad)` : sub}
+                                    >
+                                        {isSpecialty ? '⭐ ' : ''}{getSubdivisionAbbrev(sub)}
+                                    </span>
+                                );
+                            })}
                         </div>
                     )}
                 </div>

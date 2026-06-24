@@ -121,13 +121,46 @@ function PersonnelDetail() {
 
             if (rpcError) throw rpcError;
 
+            // If we removed a subdivision and it was the specialty, clear it locally
+            const isSpecialtyRemoved = currentSubdivisions.includes(sub) && user.specialty_subdivision === sub;
+
             setUser({
                 ...user,
-                subdivisions: newSubdivisions
+                subdivisions: newSubdivisions,
+                specialty_subdivision: isSpecialtyRemoved ? null : user.specialty_subdivision
             });
         } catch (err) {
             console.error('Error updating subdivisions:', err);
             alert('Error updating subdivisions: ' + err.message);
+        } finally {
+            setSubdivisionSaving(false);
+        }
+    };
+
+    const handleToggleSpecialty = async (sub) => {
+        if (!viewer) return;
+        const permittedRoles = ['Detective', 'Coordinador', 'Administrador', 'Comisionado'];
+        if (!permittedRoles.includes(viewer.rol)) return;
+
+        try {
+            setSubdivisionSaving(true);
+            const currentSpecialty = user.specialty_subdivision;
+            const newSpecialty = currentSpecialty === sub ? null : sub;
+
+            const { error: rpcError } = await supabase.rpc('update_user_specialty', {
+                p_target_user_id: user.id,
+                p_specialty: newSpecialty
+            });
+
+            if (rpcError) throw rpcError;
+
+            setUser({
+                ...user,
+                specialty_subdivision: newSpecialty
+            });
+        } catch (err) {
+            console.error('Error updating specialty:', err);
+            alert('Error updating specialty: ' + err.message);
         } finally {
             setSubdivisionSaving(false);
         }
@@ -395,28 +428,63 @@ function PersonnelDetail() {
                                     )}
                                 </span>
                                 {viewer && ['Detective', 'Coordinador', 'Administrador', 'Comisionado'].includes(viewer.rol) ? (
-                                    <div className="subdivision-editor">
+                                    <div className="subdivision-editor" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
                                         {SUBDIVISIONS.map(sub => {
                                             const isActive = user.subdivisions?.includes(sub);
+                                            const isSpecialty = user.specialty_subdivision === sub;
                                             return (
-                                                <span
+                                                <div
                                                     key={sub}
-                                                    onClick={() => handleToggleSubdivision(sub)}
-                                                    className={`subdivision-tag editable ${isActive ? 'active subdivision-' + getSubdivisionClass(sub) : 'inactive'}`}
+                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                                                 >
-                                                    {sub} ({getSubdivisionAbbrev(sub)})
-                                                </span>
+                                                    <span
+                                                        onClick={() => handleToggleSubdivision(sub)}
+                                                        className={`subdivision-tag editable ${isActive ? 'active subdivision-' + getSubdivisionClass(sub) : 'inactive'} ${isSpecialty ? 'specialty' : ''}`}
+                                                    >
+                                                        {sub} ({getSubdivisionAbbrev(sub)})
+                                                    </span>
+                                                    {isActive && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleToggleSpecialty(sub);
+                                                            }}
+                                                            className="specialty-toggle-btn"
+                                                            title={isSpecialty ? "Quitar especialidad" : "Marcar como especialidad"}
+                                                            style={{
+                                                                fontSize: '1rem',
+                                                                cursor: 'pointer',
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                color: isSpecialty ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                padding: 0
+                                                            }}
+                                                        >
+                                                            {isSpecialty ? '⭐' : '☆'}
+                                                        </button>
+                                                    )}
+                                                </div>
                                             );
                                         })}
                                     </div>
                                 ) : (
                                     <div className="personnel-subdivisions" style={{ marginTop: '0.2rem' }}>
                                         {user.subdivisions && user.subdivisions.length > 0 ? (
-                                            user.subdivisions.map(sub => (
-                                                <span key={sub} className={`subdivision-tag subdivision-${getSubdivisionClass(sub)}`} style={{ padding: '4px 8px', fontSize: '0.75rem' }}>
-                                                    {sub} ({getSubdivisionAbbrev(sub)})
-                                                </span>
-                                            ))
+                                            user.subdivisions.map(sub => {
+                                                const isSpecialty = user.specialty_subdivision === sub;
+                                                return (
+                                                    <span 
+                                                        key={sub} 
+                                                        className={`subdivision-tag subdivision-${getSubdivisionClass(sub)} ${isSpecialty ? 'specialty' : ''}`} 
+                                                        style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                                                    >
+                                                        {isSpecialty ? '⭐ ' : ''}{sub} ({getSubdivisionAbbrev(sub)})
+                                                    </span>
+                                                );
+                                            })
                                         ) : (
                                             <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'italic' }}>Ninguna</span>
                                         )}
