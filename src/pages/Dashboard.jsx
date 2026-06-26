@@ -242,7 +242,7 @@ function Dashboard() {
             const { error } = await supabase.rpc('create_event', {
                 p_title: newEvent.title,
                 p_description: newEvent.description,
-                p_event_date: newEvent.event_date
+                p_event_date: new Date(newEvent.event_date).toISOString()
             });
             if (error) throw error;
 

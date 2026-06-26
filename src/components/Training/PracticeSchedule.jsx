@@ -149,8 +149,13 @@ function PracticeSchedule({ userProfile }) {
 
             // Prepare edit data just in case they click Edit
             const eventDateObj = new Date(event.event_date);
+            const year = eventDateObj.getFullYear();
+            const month = String(eventDateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(eventDateObj.getDate()).padStart(2, '0');
+            const localDate = `${year}-${month}-${day}`;
+
             setEditEventData({
-                event_date: eventDateObj.toISOString().split('T')[0],
+                event_date: localDate,
                 event_time: eventDateObj.toTimeString().substring(0, 5),
                 organizer_id: event.organizer_id,
                 notes: event.notes || ''
