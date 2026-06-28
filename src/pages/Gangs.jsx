@@ -542,6 +542,7 @@ function Gangs() {
         if (gang) {
             setActiveGangId(gangId);
             setNewName(gang.name);
+            setNewColor(gang.color || '#ffffff');
             setActiveModal('editGangName');
         }
     };
@@ -556,21 +557,22 @@ function Gangs() {
         try {
             const { error } = await supabase.rpc('update_gang_name', {
                 p_gang_id: activeGangId,
-                p_name: newName.trim()
+                p_name: newName.trim(),
+                p_color: newColor
             });
             if (error) throw error;
 
             // Update local state
             setGangs(gangs.map(g =>
                 g.gang_id === activeGangId
-                    ? { ...g, name: newName.trim() }
+                    ? { ...g, name: newName.trim(), color: newColor }
                     : g
             ));
 
             closeModal();
-            alert('Gang name updated successfully!');
+            alert('Gang details updated successfully!');
         } catch (err) {
-            alert('Error updating gang name: ' + err.message);
+            alert('Error updating gang details: ' + err.message);
         } finally {
             setSubmitting(false);
         }
@@ -742,6 +744,7 @@ function Gangs() {
             {activeModal === 'editGangName' && (
                 <Modal title={t('editGangNameTitle')} onClose={closeModal} onSubmit={handleSaveGangName} submitting={submitting}>
                     <Input label={t('syndicateNameLabel')} value={newName} onChange={e => setNewName(e.target.value)} required />
+                    <ColorPicker label={t('colorIdLabel')} value={newColor} onChange={e => setNewColor(e.target.value)} />
                 </Modal>
             )}
 
