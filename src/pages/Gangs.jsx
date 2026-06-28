@@ -17,7 +17,6 @@ function Gangs() {
 
     // --- VIEW STATE ---
     const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
-    const [showTodoList, setShowTodoList] = useState(true);
 
     // --- MODAL CONTROLS ---
     const [activeModal, setActiveModal] = useState(null); // 'createGang', 'vehicle', 'home', 'member', 'info', 'patrol', 'patrolTable'
@@ -676,6 +675,7 @@ function Gangs() {
                     <div className="gangs-tabs">
                         <button className={`gang-tab-btn ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')}>{t('activeOperationTab')}</button>
                         <button className={`gang-tab-btn ${viewMode === 'archived' ? 'active' : ''}`} onClick={() => setViewMode('archived')}>{t('archiveTab')}</button>
+                        <button className={`gang-tab-btn ${viewMode === 'todo' ? 'active' : ''}`} onClick={() => setViewMode('todo')}>{t('toDoListTab')}</button>
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -686,89 +686,46 @@ function Gangs() {
                 </div>
             </div>
 
-            {/* Gang Unit To-Do List (Collapsible) */}
-            <div style={{
-                margin: '1.5rem 3rem 0 3rem',
-                background: 'var(--glass-bg)',
-                border: '1px solid var(--glass-border)',
-                borderRadius: '12px',
-                padding: '1.25rem',
-                boxShadow: 'var(--glass-shadow)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1rem',
-                flexShrink: 0
-            }}>
-                <div 
-                    onClick={() => setShowTodoList(!showTodoList)} 
-                    style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center', 
-                        cursor: 'pointer',
-                        userSelect: 'none'
-                    }}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <span style={{ fontSize: '1.2rem' }}>📋</span>
-                        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                            {t('gangTasksTitle')}
-                        </h3>
-                    </div>
-                    <button style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--accent-gold)',
-                        cursor: 'pointer',
-                        fontSize: '1rem',
-                        fontWeight: 'bold',
-                        transition: 'transform 0.2s',
-                        transform: showTodoList ? 'rotate(180deg)' : 'rotate(0deg)'
-                    }}>
-                        ▼
-                    </button>
+            {viewMode === 'todo' ? (
+                <div style={{ flex: 1, padding: '2rem 3rem', overflowY: 'auto' }}>
+                    <GangTodoList />
                 </div>
-                {showTodoList && (
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
-                        <GangTodoList />
-                    </div>
-                )}
-            </div>
-
-            {/* Horizontal Scroll Container */}
-            <div
-                className="gang-scroll-container"
-                ref={scrollContainerRef}
-                onMouseDown={handleMouseDown}
-                onMouseLeave={handleMouseLeave}
-                onMouseUp={handleMouseUp}
-                onMouseMove={handleMouseMove}
-                style={{ cursor: 'grab' }}
-            >
-                {filteredGangs.length === 0 ? (
-                    <div style={{ margin: 'auto', textAlign: 'center', opacity: 0.6 }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📁</div>
-                        <div>{t('noSyndicateFilesFound').replace('{mode}', viewMode === 'active' ? t('activeOperationTab') : t('archiveTab'))}</div>
-                    </div>
-                ) : (
-                    filteredGangs.map(gang => (
-                        <GangColumn
-                            key={gang.gang_id}
-                            gang={gang}
-                            onAdd={openModal}
-                            isVIP={isVIP()}
-                            onArchive={() => handleToggleArchive(gang.gang_id, gang.is_archived)}
-                            onDelete={() => handleDeleteGang(gang.gang_id)}
-                            onViewImage={setExpandedImage}
-                            onEdit={handleEditItem}
-                            onDeleteSubItem={handleDeleteItem}
-                            onViewActivity={handleViewActivity}
-                            onViewMemberProfile={handleOpenMemberProfile}
-                            onEditGangName={handleEditGangName}
-                        />
-                    ))
-                )}
-            </div>
+            ) : (
+                /* Horizontal Scroll Container */
+                <div
+                    className="gang-scroll-container"
+                    ref={scrollContainerRef}
+                    onMouseDown={handleMouseDown}
+                    onMouseLeave={handleMouseLeave}
+                    onMouseUp={handleMouseUp}
+                    onMouseMove={handleMouseMove}
+                    style={{ cursor: 'grab' }}
+                >
+                    {filteredGangs.length === 0 ? (
+                        <div style={{ margin: 'auto', textAlign: 'center', opacity: 0.6 }}>
+                            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📁</div>
+                            <div>{t('noSyndicateFilesFound').replace('{mode}', viewMode === 'active' ? t('activeOperationTab') : t('archiveTab'))}</div>
+                        </div>
+                    ) : (
+                        filteredGangs.map(gang => (
+                            <GangColumn
+                                key={gang.gang_id}
+                                gang={gang}
+                                onAdd={openModal}
+                                isVIP={isVIP()}
+                                onArchive={() => handleToggleArchive(gang.gang_id, gang.is_archived)}
+                                onDelete={() => handleDeleteGang(gang.gang_id)}
+                                onViewImage={setExpandedImage}
+                                onEdit={handleEditItem}
+                                onDeleteSubItem={handleDeleteItem}
+                                onViewActivity={handleViewActivity}
+                                onViewMemberProfile={handleOpenMemberProfile}
+                                onEditGangName={handleEditGangName}
+                            />
+                        ))
+                    )}
+                </div>
+            )}
 
             {/* --- MODALS --- */}
 
