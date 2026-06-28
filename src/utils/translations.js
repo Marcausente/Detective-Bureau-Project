@@ -142,6 +142,7 @@ export const translations = {
         // Todo List
         loadingTasks: "Loading Tasks...",
         projectTasksTitle: "Project Tasks",
+        gangTasksTitle: "Gang Unit Tasks",
         newCategoryPlaceholder: "New Category Name...",
         addListBtn: "+ Add List",
         renameTooltip: "Rename",
@@ -542,6 +543,7 @@ export const translations = {
         // Todo List
         loadingTasks: "Cargando Tareas...",
         projectTasksTitle: "Tareas del Proyecto",
+        gangTasksTitle: "Tareas de la Gang Unit",
         newCategoryPlaceholder: "Nombre de Nueva Categoría...",
         addListBtn: "+ Añadir Lista",
         renameTooltip: "Renombrar",

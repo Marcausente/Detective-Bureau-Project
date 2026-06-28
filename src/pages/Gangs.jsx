@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
+import GangTodoList from '../components/GangTodoList';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
@@ -16,6 +17,7 @@ function Gangs() {
 
     // --- VIEW STATE ---
     const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
+    const [showTodoList, setShowTodoList] = useState(true);
 
     // --- MODAL CONTROLS ---
     const [activeModal, setActiveModal] = useState(null); // 'createGang', 'vehicle', 'home', 'member', 'info', 'patrol', 'patrolTable'
@@ -682,6 +684,55 @@ function Gangs() {
 
                     {viewMode === 'active' && <button className="login-button" style={{ width: 'auto', padding: '0.6rem 1.2rem', fontSize: '0.9rem' }} onClick={() => openModal('createGang', null)}>{t('trackNewSyndicateBtn')}</button>}
                 </div>
+            </div>
+
+            {/* Gang Unit To-Do List (Collapsible) */}
+            <div style={{
+                margin: '1.5rem 3rem 0 3rem',
+                background: 'var(--glass-bg)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '12px',
+                padding: '1.25rem',
+                boxShadow: 'var(--glass-shadow)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+                flexShrink: 0
+            }}>
+                <div 
+                    onClick={() => setShowTodoList(!showTodoList)} 
+                    style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        cursor: 'pointer',
+                        userSelect: 'none'
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '1.2rem' }}>📋</span>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                            {t('gangTasksTitle')}
+                        </h3>
+                    </div>
+                    <button style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--accent-gold)',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        fontWeight: 'bold',
+                        transition: 'transform 0.2s',
+                        transform: showTodoList ? 'rotate(180deg)' : 'rotate(0deg)'
+                    }}>
+                        ▼
+                    </button>
+                </div>
+                {showTodoList && (
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
+                        <GangTodoList />
+                    </div>
+                )}
             </div>
 
             {/* Horizontal Scroll Container */}
