@@ -28,11 +28,12 @@ export default function CrimeMap() {
     // State
     const [zones, setZones] = useState([]);
     const [authorized, setAuthorized] = useState(false);
+    const [isGU, setIsGU] = useState(false);
     const [mode, setMode] = useState('view'); // 'view', 'draw'
     const [drawingPoints, setDrawingPoints] = useState([]);
 
     // Form State
-    const [tempZoneData, setTempZoneData] = useState({ name: '', description: '', color: '#ef4444', is_gang_zone: false, emoji: '' });
+    const [tempZoneData, setTempZoneData] = useState({ name: '', description: '', color: '#ef4444', is_gang_zone: false, emoji: '', is_surveillance: false });
     const [showModal, setShowModal] = useState(false);
     const [editingZoneId, setEditingZoneId] = useState(null); // ID if editing, null if creating
 
@@ -152,6 +153,8 @@ export default function CrimeMap() {
         if (user) {
             const { data } = await supabase.rpc('auth_is_gang_authorized');
             if (data) setAuthorized(true);
+            const { data: guData } = await supabase.rpc('auth_is_gang_unit_member');
+            if (guData) setIsGU(true);
         }
     };
 
@@ -176,15 +179,18 @@ export default function CrimeMap() {
             layerGroupRef.current.clearLayers();
 
             zones.forEach(zone => {
+                const isSurv = zone.is_surveillance;
                 const poly = L.polygon(zone.coordinates, {
                     color: zone.color,
                     fillColor: zone.color,
-                    fillOpacity: 0.35,
-                    weight: 2
+                    fillOpacity: isSurv ? 0.2 : 0.35,
+                    weight: isSurv ? 3 : 2,
+                    dashArray: isSurv ? '8, 8' : undefined
                 });
 
                 let popupHTML = `
                     <h3 style="margin: 0 0 5px 0; color: #cfb53b; text-transform: uppercase;">${zone.emoji ? zone.emoji + ' ' : ''}${zone.name}</h3>
+                    ${zone.is_surveillance ? `<div style="font-size: 0.8em; margin-bottom: 8px; color: #60a5fa; font-weight: bold; border: 1px solid #3b82f6; padding: 2px 5px; border-radius: 4px; display: inline-block;">🕵️ ZONA DE VIGILANCIA</div>` : ''}
                     <p style="margin: 0 0 10px 0; color: #ccc; font-size: 0.9em;">${zone.description || ''}</p>
                     ${zone.gang_name ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">${t('gangLabel')}</strong> ${zone.gang_name}</div>` : ''}
                     ${zone.case_title ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">${t('caseLabel')}</strong> ${authorized ? zone.case_title : `<span style="color: #ef4444; font-weight: bold;">${t('noAccessMap')}</span>`}</div>` : ''}
@@ -297,7 +303,8 @@ export default function CrimeMap() {
             description: zone.description || '',
             color: zone.color || '#ef4444',
             is_gang_zone: zone.is_gang_zone || false,
-            emoji: zone.emoji || ''
+            emoji: zone.emoji || '',
+            is_surveillance: zone.is_surveillance || false
         });
         setSelectedGang(zone.gang_id || '');
         setSelectedCase(zone.case_id || '');
@@ -309,7 +316,7 @@ export default function CrimeMap() {
     const handleFinishDraw = () => {
         if (drawingPoints.length < 3) return alert("Zone must have at least 3 points");
         setEditingZoneId(null); // Ensure we are creating
-        setTempZoneData({ name: '', description: '', color: '#ef4444', is_gang_zone: false, emoji: '' });
+        setTempZoneData({ name: '', description: '', color: '#ef4444', is_gang_zone: false, emoji: '', is_surveillance: false });
         setSelectedGang('');
         setSelectedCase('');
         setSelectedIncident('');
@@ -332,7 +339,8 @@ export default function CrimeMap() {
                 p_incident_id: selectedIncident || null,
                 p_color: tempZoneData.color,
                 p_is_gang_zone: tempZoneData.is_gang_zone,
-                p_emoji: tempZoneData.emoji || null
+                p_emoji: tempZoneData.emoji || null,
+                p_is_surveillance: tempZoneData.is_surveillance || false
             };
             const res = await supabase.rpc('update_map_zone', payload);
             error = res.error;
@@ -348,7 +356,8 @@ export default function CrimeMap() {
                 p_incident_id: selectedIncident || null,
                 p_color: tempZoneData.color,
                 p_is_gang_zone: tempZoneData.is_gang_zone,
-                p_emoji: tempZoneData.emoji || null
+                p_emoji: tempZoneData.emoji || null,
+                p_is_surveillance: tempZoneData.is_surveillance || false
             };
             const res = await supabase.rpc('create_map_zone', payload);
             error = res.error;
@@ -486,6 +495,21 @@ export default function CrimeMap() {
                                 {t('showPublicLabel')} <span style={{ fontSize: '0.8em', color: '#94a3b8', marginLeft: '5px', fontWeight: 'normal' }}>{t('visibleWithoutLogin')}</span>
                             </label>
                         </div>
+
+                        {isGU && (
+                            <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '25px', marginBottom: '15px', padding: '12px', background: 'rgba(59, 130, 246, 0.15)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.4)' }}>
+                                <input
+                                    type="checkbox"
+                                    id="isSurveillance"
+                                    checked={tempZoneData.is_surveillance}
+                                    onChange={e => setTempZoneData({ ...tempZoneData, is_surveillance: e.target.checked })}
+                                    style={{ width: '22px', height: '22px', cursor: 'pointer', accentColor: '#3b82f6' }}
+                                />
+                                <label htmlFor="isSurveillance" style={{ color: '#fff', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>
+                                    🕵️ Zona de vigilancia <span style={{ fontSize: '0.8em', color: '#93c5fd', marginLeft: '5px', fontWeight: 'normal' }}>(Exclusivo de la Gang Unit)</span>
+                                </label>
+                            </div>
+                        )}
 
                         <div className="form-group">
                             <label className="form-label">{t('descriptionIntel')}</label>
