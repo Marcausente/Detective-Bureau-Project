@@ -18,9 +18,9 @@ const getTagStyles = (tag) => {
             };
         case 'FOXTROT':
             return {
-                backgroundColor: 'rgba(96, 165, 250, 0.15)',
+                backgroundColor: 'rgba(var(--color-blue-rgb), 0.15)',
                 color: 'var(--color-blue-light)',
-                border: '1px solid rgba(96, 165, 250, 0.3)'
+                border: '1px solid rgba(var(--color-blue-rgb), 0.3)'
             };
         case 'MIKE':
             return {

@@ -408,7 +408,7 @@ function IACaseDetail() {
 
                                         return (
                                         <div key={update.id} className="case-update-card" style={{
-                                            background: 'rgba(30, 41, 59, 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
+                                            background: 'rgba(var(--secondary-rgb), 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
                                             borderLeft: '2px solid rgba(255,255,255,0.1)'
                                         }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>

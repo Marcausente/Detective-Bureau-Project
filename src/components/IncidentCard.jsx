@@ -7,13 +7,13 @@ function IncidentCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
     return (
         <div className="announcement-card" style={{
             marginBottom: '1rem',
-            background: isHighlighted ? 'rgba(96, 165, 250, 0.12)' : 'rgba(30, 41, 59, 0.4)',
+            background: isHighlighted ? 'rgba(var(--color-blue-rgb), 0.12)' : 'rgba(var(--secondary-rgb), 0.4)',
             padding: '1rem',
             wordWrap: 'break-word',
             overflowWrap: 'anywhere',
             border: isHighlighted ? '2px solid var(--color-blue-light)' : '2px solid transparent',
             borderRadius: '8px',
-            boxShadow: isHighlighted ? '0 0 20px rgba(96, 165, 250, 0.3)' : 'none',
+            boxShadow: isHighlighted ? '0 0 20px rgba(var(--color-blue-rgb), 0.3)' : 'none',
             transition: 'all 0.3s'
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

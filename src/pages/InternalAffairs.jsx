@@ -69,7 +69,7 @@ function InternalAffairs() {
                     className="ia-card"
                     onClick={() => navigate('/internal-affairs/cases')}
                     style={{
-                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6))',
+                        background: 'linear-gradient(180deg, rgba(var(--secondary-rgb), 0.4), rgba(var(--primary-rgb), 0.6))',
                         border: '1px solid rgba(255,255,255,0.05)',
                         borderRadius: '12px',
                         padding: '2rem',
@@ -116,7 +116,7 @@ function InternalAffairs() {
                     className="ia-card"
                     onClick={() => navigate('/internal-affairs/docs')}
                     style={{
-                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6))',
+                        background: 'linear-gradient(180deg, rgba(var(--secondary-rgb), 0.4), rgba(var(--primary-rgb), 0.6))',
                         border: '1px solid rgba(255,255,255,0.05)',
                         borderRadius: '12px',
                         padding: '2rem',
@@ -163,7 +163,7 @@ function InternalAffairs() {
                     className="ia-card"
                     onClick={() => navigate('/internal-affairs/interrogations')}
                     style={{
-                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6))',
+                        background: 'linear-gradient(180deg, rgba(var(--secondary-rgb), 0.4), rgba(var(--primary-rgb), 0.6))',
                         border: '1px solid rgba(255,255,255,0.05)',
                         borderRadius: '12px',
                         padding: '2rem',
@@ -210,7 +210,7 @@ function InternalAffairs() {
                     className="ia-card"
                     onClick={() => navigate('/internal-affairs/sanctions')}
                     style={{
-                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6))',
+                        background: 'linear-gradient(180deg, rgba(var(--secondary-rgb), 0.4), rgba(var(--primary-rgb), 0.6))',
                         border: '1px solid rgba(255,255,255,0.05)',
                         borderRadius: '12px',
                         padding: '2rem',
@@ -257,7 +257,7 @@ function InternalAffairs() {
                     className="ia-card"
                     onClick={() => navigate('/internal-affairs/receptor-denuncias')}
                     style={{
-                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6))',
+                        background: 'linear-gradient(180deg, rgba(var(--secondary-rgb), 0.4), rgba(var(--primary-rgb), 0.6))',
                         border: '1px solid rgba(255,255,255,0.05)',
                         borderRadius: '12px',
                         padding: '2rem',

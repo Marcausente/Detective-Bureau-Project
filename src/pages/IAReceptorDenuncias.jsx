@@ -358,7 +358,7 @@ function IAReceptorDenuncias() {
                     <div style={{
                         flex: '1 0 320px',
                         maxWidth: '450px',
-                        background: 'rgba(30, 41, 59, 0.25)',
+                        background: 'rgba(var(--secondary-rgb), 0.25)',
                         border: '1px solid rgba(255,255,255,0.03)',
                         borderRadius: '12px',
                         padding: '1.2rem',
@@ -398,7 +398,7 @@ function IAReceptorDenuncias() {
                     <div style={{
                         flex: '1 0 320px',
                         maxWidth: '450px',
-                        background: 'rgba(30, 41, 59, 0.25)',
+                        background: 'rgba(var(--secondary-rgb), 0.25)',
                         border: '1px solid rgba(255,255,255,0.03)',
                         borderRadius: '12px',
                         padding: '1.2rem',
@@ -438,7 +438,7 @@ function IAReceptorDenuncias() {
                     <div style={{
                         flex: '1 0 320px',
                         maxWidth: '450px',
-                        background: 'rgba(30, 41, 59, 0.25)',
+                        background: 'rgba(var(--secondary-rgb), 0.25)',
                         border: '1px solid rgba(255,255,255,0.03)',
                         borderRadius: '12px',
                         padding: '1.2rem',

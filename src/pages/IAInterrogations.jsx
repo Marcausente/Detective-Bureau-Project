@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function IAInterrogations() {
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
     const { language } = useLanguage();
     const [interrogations, setInterrogations] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -196,6 +197,9 @@ function IAInterrogations() {
 
     return (
         <div className="documentation-container" style={{ padding: '2rem' }}>
+            <button onClick={() => navigate('/internal-affairs')} style={{ display: 'block', marginBottom: '1rem', background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', padding: 0 }}>
+                {language === 'es' ? '← Volver al Panel' : '← Back to Dashboard'}
+            </button>
             <div className="doc-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h2 className="page-title" style={{ margin: 0, color: '#f87171' }}>{language === 'es' ? 'Interrogatorios de IA' : 'IA Interrogations'}</h2>

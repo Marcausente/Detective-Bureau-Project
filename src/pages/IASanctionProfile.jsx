@@ -122,7 +122,7 @@ function IASanctionProfile() {
                 <button onClick={() => navigate('/internal-affairs/sanctions')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', marginBottom: '1rem', padding: 0 }}>
                     {language === 'es' ? '← Volver al Registro' : '← Back to Registry'}
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', background: 'rgba(30, 41, 59, 0.4)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', background: 'rgba(var(--secondary-rgb), 0.4)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                     <div style={{
                         width: '100px', height: '100px', borderRadius: '50%',
                         background: 'rgba(248, 113, 113, 0.1)',

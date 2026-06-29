@@ -52,13 +52,13 @@ function ComplaintCard({
             onClick={() => setIsExpanded(!isExpanded)}
             style={{
                 marginBottom: '1rem',
-                background: isHighlighted ? 'rgba(96, 165, 250, 0.12)' : 'rgba(30, 41, 59, 0.4)',
+                background: isHighlighted ? 'rgba(var(--color-blue-rgb), 0.12)' : 'rgba(var(--secondary-rgb), 0.4)',
                 padding: '1rem',
                 wordWrap: 'break-word',
                 overflowWrap: 'anywhere',
                 border: isHighlighted ? '2px solid var(--color-blue-light)' : '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '10px',
-                boxShadow: isHighlighted ? '0 0 20px rgba(96, 165, 250, 0.3)' : '0 2px 4px rgba(0, 0, 0, 0.1)',
+                boxShadow: isHighlighted ? '0 0 20px rgba(var(--color-blue-rgb), 0.3)' : '0 2px 4px rgba(0, 0, 0, 0.1)',
                 transition: 'all 0.25s ease',
                 cursor: 'pointer',
                 minWidth: 0,
@@ -106,13 +106,13 @@ function ComplaintCard({
                             </span>
                         ) : (
                             <span style={{
-                                background: 'rgba(96, 165, 250, 0.15)',
+                                background: 'rgba(var(--color-blue-rgb), 0.15)',
                                 color: 'var(--color-blue-light)',
                                 padding: '2px 6px',
                                 borderRadius: '4px',
                                 fontSize: '0.7rem',
                                 fontWeight: 'bold',
-                                border: '1px solid rgba(96, 165, 250, 0.3)'
+                                border: '1px solid rgba(var(--color-blue-rgb), 0.3)'
                             }}>
                                 {t('openComplaintsCol')}
                             </span>
@@ -369,9 +369,9 @@ function ComplaintCard({
                     <button
                         onClick={(e) => { e.stopPropagation(); onStatusChange(data.record_id, isClosed ? 'Open' : 'Closed'); }}
                         style={{
-                            background: isClosed ? 'rgba(96, 165, 250, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                            background: isClosed ? 'rgba(var(--color-blue-rgb), 0.1)' : 'rgba(239, 68, 68, 0.1)',
                             color: isClosed ? 'var(--color-blue-light)' : '#f87171',
-                            border: isClosed ? '1px solid rgba(96, 165, 250, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
+                            border: isClosed ? '1px solid rgba(var(--color-blue-rgb), 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
                             padding: '3px 8px',
                             borderRadius: '4px',
                             fontSize: '0.7rem',
