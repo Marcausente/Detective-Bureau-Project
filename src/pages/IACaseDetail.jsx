@@ -40,6 +40,38 @@ function IACaseDetail() {
     const [showLinkModal, setShowLinkModal] = useState(false);
     const [availableInterrogations, setAvailableInterrogations] = useState([]);
 
+    // Linked Complaints State
+    const [complaints, setComplaints] = useState([]);
+    const [selectedComplaint, setSelectedComplaint] = useState(null);
+
+    const loadComplaints = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('ia_complaints')
+                .select('*')
+                .eq('case_id', id)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            setComplaints(data || []);
+        } catch (err) {
+            console.error("Error loading linked complaints:", err);
+        }
+    };
+
+    const handleUnlinkComplaint = async (complaintId) => {
+        if (!window.confirm("¿Desvincular esta denuncia del caso? Volverá al receptor de denuncias como 'Entrante'.")) return;
+        try {
+            const { error } = await supabase
+                .from('ia_complaints')
+                .update({ case_id: null, status: 'Incoming' })
+                .eq('id', complaintId);
+            if (error) throw error;
+            loadComplaints();
+        } catch (err) {
+            alert('Error al desvincular la denuncia: ' + err.message);
+        }
+    };
+
     const loadAvailableInterrogations = async () => {
         try {
             const { data, error } = await supabase.rpc('get_available_ia_interrogations_to_link');
@@ -83,6 +115,7 @@ function IACaseDetail() {
     useEffect(() => {
         loadCaseDetails();
         loadCurrentUser();
+        loadComplaints();
     }, [id]);
 
     const loadCurrentUser = async () => {
@@ -505,6 +538,39 @@ function IACaseDetail() {
                             )}
                         </div>
                     </div>
+
+                    {/* Complaints Section */}
+                    <div className="sidebar-section" style={{ marginTop: '2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>Linked Complaints</h4>
+                        </div>
+                        <div className="assigned-list">
+                            {complaints.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No complaints linked.</div> : (
+                                complaints.map(comp => (
+                                    <div key={comp.id} style={{ marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '4px', borderLeft: '3px solid var(--accent-gold)' }}>
+                                        <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>
+                                            <span onClick={() => setSelectedComplaint(comp)} style={{ color: 'var(--accent-gold)', cursor: 'pointer', textDecoration: 'underline' }}>
+                                                {comp.motivo}
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+                                            Por: {comp.denunciante_nombre}
+                                        </div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                            Fecha: {new Date(comp.created_at).toLocaleDateString()}
+                                        </div>
+                                        {info.status === 'Open' && (
+                                            <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
+                                                <button onClick={() => handleUnlinkComplaint(comp.id)} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer', opacity: 0.8 }}>
+                                                    Unlink
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -575,6 +641,91 @@ function IACaseDetail() {
                 </div>
             )}
 
+            {/* Modal: View Complaint Details */}
+            {selectedComplaint && (
+                <div className="cropper-modal-overlay" onClick={() => setSelectedComplaint(null)}>
+                    <div className="cropper-modal-content" style={{ maxWidth: '600px', width: '90%', textAlign: 'left' }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem', color: 'var(--accent-gold)', fontSize: '1.3rem' }}>
+                            Detalle de Denuncia Confidencial
+                        </h3>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', margin: '1rem 0' }}>
+                            <div>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Denunciante:</span>
+                                <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', margin: '0.1rem 0 0 0', fontWeight: 'bold' }}>{selectedComplaint.denunciante_nombre}</p>
+                            </div>
+                            <div>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Nº Teléfono:</span>
+                                <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', margin: '0.1rem 0 0 0', fontWeight: 'bold' }}>{selectedComplaint.denunciante_telefono}</p>
+                            </div>
+                            <div>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Denunciado:</span>
+                                <p style={{ color: '#ef4444', fontSize: '0.95rem', margin: '0.1rem 0 0 0', fontWeight: 'bold' }}>{selectedComplaint.denunciado_nombre_placa}</p>
+                            </div>
+                            <div>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Fecha de los hechos:</span>
+                                <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', margin: '0.1rem 0 0 0' }}>{selectedComplaint.fecha_hechos}</p>
+                            </div>
+                        </div>
+
+                        <div style={{ margin: '1rem 0' }}>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Motivo de la denuncia:</span>
+                            <p style={{ color: 'var(--text-primary)', fontSize: '1.05rem', margin: '0.1rem 0 0 0', fontWeight: 'bold' }}>{selectedComplaint.motivo}</p>
+                        </div>
+
+                        <div style={{ margin: '1rem 0', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Declaración de los hechos:</span>
+                            <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', margin: '0.3rem 0 0 0', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                                {selectedComplaint.declaracion}
+                            </p>
+                        </div>
+
+                        <div style={{ margin: '1rem 0' }}>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Pruebas aportadas:</span>
+                            {selectedComplaint.pruebas ? (
+                                <div style={{ marginTop: '0.5rem', whiteSpace: 'pre-wrap', fontSize: '0.9rem' }}>
+                                    {selectedComplaint.pruebas.includes('Imagen adjunta:') ? (
+                                        (() => {
+                                            const parts = selectedComplaint.pruebas.split('Imagen adjunta:');
+                                            const linkPart = parts[0].replace('Enlace: ', '').trim();
+                                            const imagePart = parts[1].trim();
+                                            return (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                                    {linkPart && (
+                                                        <div>
+                                                            <a href={linkPart} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-gold)', textDecoration: 'underline' }}>{linkPart}</a>
+                                                        </div>
+                                                    )}
+                                                    {imagePart && (
+                                                        <div>
+                                                            <img src={imagePart} alt="Evidencia" style={{ maxWidth: '100%', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()
+                                    ) : (
+                                        selectedComplaint.pruebas.startsWith('data:image') ? (
+                                            <img src={selectedComplaint.pruebas} alt="Evidencia" style={{ maxWidth: '100%', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                        ) : (
+                                            <a href={selectedComplaint.pruebas} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-gold)', textDecoration: 'underline' }}>{selectedComplaint.pruebas}</a>
+                                        )
+                                    )}
+                                </div>
+                            ) : (
+                                <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0, fontSize: '0.9rem' }}>Ninguna prueba adjunta</p>
+                            )}
+                        </div>
+
+                        <div className="cropper-actions" style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+                            <button className="login-button btn-secondary" onClick={() => setSelectedComplaint(null)}>
+                                Cerrar Detalles
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
             {/* FULL SCREEN IMAGE VIEWER */}
             {expandedImage && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }} onClick={() => setExpandedImage(null)}>
