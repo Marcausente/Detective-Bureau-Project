@@ -117,12 +117,11 @@ function PublicIADenuncia() {
         <div 
             className="app-container" 
             style={{ 
-                minHeight: '100vh', 
-                display: 'flex', 
-                flexDirection: 'column',
-                height: 'auto',
-                maxHeight: 'none',
-                overflowY: 'auto'
+                height: '100vh',
+                maxHeight: '100vh',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column'
             }}
         >
             {/* Background image / style standard to the app */}

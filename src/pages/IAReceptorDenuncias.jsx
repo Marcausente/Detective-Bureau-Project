@@ -301,9 +301,15 @@ function IAReceptorDenuncias() {
     };
 
     return (
-        <div className="documentation-container" style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+        <div className="documentation-container" style={{ 
+            padding: '1.5rem 2rem', 
+            maxWidth: '100%', 
+            height: 'calc(100vh - 180px)', 
+            display: 'flex', 
+            flexDirection: 'column' 
+        }}>
             {/* Header / Search Controls */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '2.5rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', flexShrink: 0 }}>
                 <div>
                     <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
                         <button
@@ -334,28 +340,32 @@ function IAReceptorDenuncias() {
             </div>
 
             {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', flex: 1 }}>
                     <div className="loading-container" style={{ fontSize: '1.2rem', color: '#3b82f6' }}>Cargando Denuncias...</div>
                 </div>
             ) : (
-                /* Kanban Grid */
+                /* Kanban flex row */
                 <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                    gap: '2rem',
-                    alignItems: 'start'
+                    display: 'flex',
+                    gap: '1.5rem',
+                    overflowX: 'auto',
+                    flex: 1,
+                    alignItems: 'stretch',
+                    paddingBottom: '1rem'
                 }}>
                     
                     {/* Column 1: Denuncias Entrantes */}
                     <div style={{
+                        flex: '1 0 320px',
+                        maxWidth: '450px',
                         background: 'rgba(30, 41, 59, 0.25)',
                         border: '1px solid rgba(255,255,255,0.03)',
                         borderRadius: '12px',
                         padding: '1.2rem',
-                        minHeight: '60vh',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '1rem'
+                        gap: '1rem',
+                        height: '100%'
                     }}>
                         <div style={{
                             display: 'flex',
@@ -363,7 +373,8 @@ function IAReceptorDenuncias() {
                             alignItems: 'center',
                             borderBottom: '2px solid #ef4444',
                             paddingBottom: '0.5rem',
-                            marginBottom: '0.5rem'
+                            marginBottom: '0.5rem',
+                            flexShrink: 0
                         }}>
                             <h3 style={{ color: '#f8fafc', fontSize: '1.1rem', fontWeight: 'bold', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 📥 Denuncias Entrantes
@@ -372,7 +383,7 @@ function IAReceptorDenuncias() {
                                 {incomingComplaints.length}
                             </span>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', maxHeight: '70vh', padding: '0.2rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', flex: 1, padding: '0.2rem' }}>
                             {incomingComplaints.length === 0 ? (
                                 <div style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem', fontSize: '0.9rem', fontStyle: 'italic' }}>
                                     Ninguna denuncia entrante.
@@ -385,14 +396,16 @@ function IAReceptorDenuncias() {
 
                     {/* Column 2: Denuncias con Caso */}
                     <div style={{
+                        flex: '1 0 320px',
+                        maxWidth: '450px',
                         background: 'rgba(30, 41, 59, 0.25)',
                         border: '1px solid rgba(255,255,255,0.03)',
                         borderRadius: '12px',
                         padding: '1.2rem',
-                        minHeight: '60vh',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '1rem'
+                        gap: '1rem',
+                        height: '100%'
                     }}>
                         <div style={{
                             display: 'flex',
@@ -400,7 +413,8 @@ function IAReceptorDenuncias() {
                             alignItems: 'center',
                             borderBottom: '2px solid #3b82f6',
                             paddingBottom: '0.5rem',
-                            marginBottom: '0.5rem'
+                            marginBottom: '0.5rem',
+                            flexShrink: 0
                         }}>
                             <h3 style={{ color: '#f8fafc', fontSize: '1.1rem', fontWeight: 'bold', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 📁 Denuncias con Caso
@@ -409,7 +423,7 @@ function IAReceptorDenuncias() {
                                 {withCaseComplaints.length}
                             </span>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', maxHeight: '70vh', padding: '0.2rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', flex: 1, padding: '0.2rem' }}>
                             {withCaseComplaints.length === 0 ? (
                                 <div style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem', fontSize: '0.9rem', fontStyle: 'italic' }}>
                                     Ninguna denuncia con caso.
@@ -422,14 +436,16 @@ function IAReceptorDenuncias() {
 
                     {/* Column 3: Denuncias Cerradas */}
                     <div style={{
+                        flex: '1 0 320px',
+                        maxWidth: '450px',
                         background: 'rgba(30, 41, 59, 0.25)',
                         border: '1px solid rgba(255,255,255,0.03)',
                         borderRadius: '12px',
                         padding: '1.2rem',
-                        minHeight: '60vh',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '1rem'
+                        gap: '1rem',
+                        height: '100%'
                     }}>
                         <div style={{
                             display: 'flex',
@@ -437,7 +453,8 @@ function IAReceptorDenuncias() {
                             alignItems: 'center',
                             borderBottom: '2px solid #10b981',
                             paddingBottom: '0.5rem',
-                            marginBottom: '0.5rem'
+                            marginBottom: '0.5rem',
+                            flexShrink: 0
                         }}>
                             <h3 style={{ color: '#f8fafc', fontSize: '1.1rem', fontWeight: 'bold', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 ✓ Denuncias Cerradas
@@ -446,7 +463,7 @@ function IAReceptorDenuncias() {
                                 {closedComplaints.length}
                             </span>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', maxHeight: '70vh', padding: '0.2rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', flex: 1, padding: '0.2rem' }}>
                             {closedComplaints.length === 0 ? (
                                 <div style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem', fontSize: '0.9rem', fontStyle: 'italic' }}>
                                     Ninguna denuncia cerrada.
