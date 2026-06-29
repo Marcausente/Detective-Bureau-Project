@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function IASanctionProfile() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { language } = useLanguage();
     const [profileData, setProfileData] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -95,7 +97,7 @@ function IASanctionProfile() {
     };
 
     const handleDelete = async (sanctionId) => {
-        if (!window.confirm("Are you sure you want to delete this sanction record?")) return;
+        if (!window.confirm(language === 'es' ? '¿Está seguro de que desea eliminar este registro de sanción?' : 'Are you sure you want to delete this sanction record?')) return;
         try {
             const { error } = await supabase.rpc('manage_ia_sanction', {
                 p_action: 'delete',
@@ -108,8 +110,8 @@ function IASanctionProfile() {
         }
     };
 
-    if (loading) return <div className="loading-screen">Loading Profile...</div>;
-    if (!profileData) return <div className="loading-screen" style={{ color: '#f87171' }}>Profile Not Found.</div>;
+    if (loading) return <div className="loading-screen">{language === 'es' ? 'Cargando Perfil...' : 'Loading Profile...'}</div>;
+    if (!profileData) return <div className="loading-screen" style={{ color: '#f87171' }}>{language === 'es' ? 'Perfil no encontrado.' : 'Profile Not Found.'}</div>;
 
     const { profile, sanctions } = profileData;
 
@@ -118,7 +120,7 @@ function IASanctionProfile() {
             {/* Header */}
             <div style={{ marginBottom: '2rem' }}>
                 <button onClick={() => navigate('/internal-affairs/sanctions')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', marginBottom: '1rem', padding: 0 }}>
-                    ← Back to Registry
+                    {language === 'es' ? '← Volver al Registro' : '← Back to Registry'}
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', background: 'rgba(30, 41, 59, 0.4)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                     <div style={{
@@ -133,23 +135,23 @@ function IASanctionProfile() {
                     </div>
                     <div>
                         <h1 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc' }}>{profile.nombre} {profile.apellido}</h1>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Badge Number: <span style={{ color: 'var(--accent-gold)' }}>{profile.no_placa}</span></div>
-                        <div style={{ color: '#f87171', fontWeight: 'bold' }}>Total Sanctions: {sanctions.length}</div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: '0.5rem' }}>{language === 'es' ? 'Número de Placa: ' : 'Badge Number: '}<span style={{ color: 'var(--accent-gold)' }}>{profile.no_placa}</span></div>
+                        <div style={{ color: '#f87171', fontWeight: 'bold' }}>{language === 'es' ? 'Sanciones Totales: ' : 'Total Sanctions: '}{sanctions.length}</div>
                     </div>
                     <div style={{ marginLeft: 'auto' }}>
                         <button className="login-button" style={{ width: 'auto' }} onClick={openForCreate}>
-                            + Register Sanction
+                            {language === 'es' ? '+ Registrar Sanción' : '+ Register Sanction'}
                         </button>
                     </div>
                 </div>
             </div>
 
             {/* Sanctions History */}
-            <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem', marginBottom: '1.5rem', color: '#f8fafc' }}>Disciplinary History</h3>
+            <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem', marginBottom: '1.5rem', color: '#f8fafc' }}>{language === 'es' ? 'Historial Disciplinario' : 'Disciplinary History'}</h3>
 
             <div className="sanctions-timeline">
                 {sanctions.length === 0 ? (
-                    <div className="empty-list">No disciplinary records found for this officer.</div>
+                    <div className="empty-list">{language === 'es' ? 'No se encontraron expedientes disciplinarios para este oficial.' : 'No disciplinary records found for this officer.'}</div>
                 ) : (
                     sanctions.map(item => (
                         <div key={item.id} style={{
@@ -179,17 +181,17 @@ function IASanctionProfile() {
                                             fontSize: '0.9rem',
                                             letterSpacing: '1px'
                                         }}>
-                                            {item.type} Fault
+                                            {language === 'es' ? `Falta ${item.type === 'Grave' ? 'Grave' : item.type === 'Media' ? 'Media' : 'Leve'}` : `${item.type} Fault`}
                                         </span>
                                         <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{item.date}</span>
                                     </div>
                                     <div className="int-actions" style={{ marginLeft: '1rem', display: 'flex', gap: '0.5rem' }}>
-                                        <button onClick={() => openForEdit(item)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }} title="Edit">✏️</button>
-                                        <button onClick={() => handleDelete(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }} title="Delete">🗑️</button>
+                                        <button onClick={() => openForEdit(item)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }} title={language === 'es' ? 'Editar' : 'Edit'}>✏️</button>
+                                        <button onClick={() => handleDelete(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }} title={language === 'es' ? 'Eliminar' : 'Delete'}>🗑️</button>
                                     </div>
                                 </div>
                                 <div style={{ color: '#e2e8f0', marginBottom: '1rem', whiteSpace: 'pre-line' }}>
-                                    {item.description || "No description provided."}
+                                    {item.description || (language === 'es' ? "No se proporcionó descripción." : "No description provided.")}
                                 </div>
 
                                 {item.case_id && (
@@ -199,14 +201,14 @@ function IASanctionProfile() {
                                     }} onClick={() => navigate(`/internal-affairs/cases/${item.case_id}`)}>
                                         <span style={{ fontSize: '1.2rem' }}>📁</span>
                                         <div>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Related Case</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{language === 'es' ? 'Caso Relacionado' : 'Related Case'}</div>
                                             <div style={{ fontSize: '0.9rem', color: 'var(--accent-gold)' }}>IA-#{String(item.case_number).padStart(3, '0')} {item.case_title}</div>
                                         </div>
                                     </div>
                                 )}
 
                                 <div style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'right' }}>
-                                    Registered by: {item.created_by_name}
+                                    {language === 'es' ? 'Registrado por:' : 'Registered by:'} {item.created_by_name}
                                 </div>
                             </div>
                         </div>
@@ -218,31 +220,31 @@ function IASanctionProfile() {
             {showModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '500px' }}>
-                        <h3 style={{ marginBottom: '1rem', color: '#f87171' }}>{modalMode === 'create' ? 'Register Sanction' : 'Edit Sanction'}</h3>
+                        <h3 style={{ marginBottom: '1rem', color: '#f87171' }}>{modalMode === 'create' ? (language === 'es' ? 'Registrar Sanción' : 'Register Sanction') : (language === 'es' ? 'Editar Sanción' : 'Edit Sanction')}</h3>
                         <form onSubmit={handleAction}>
                             <div className="form-group">
-                                <label className="form-label">Sanction Type</label>
+                                <label className="form-label">{language === 'es' ? 'Tipo de Sanción' : 'Sanction Type'}</label>
                                 <select className="form-input" style={{ backgroundColor: '#0f172a' }} value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
-                                    <option value="Leve">Leve (Minor)</option>
-                                    <option value="Media">Media (Moderate)</option>
-                                    <option value="Grave">Grave (Severe)</option>
+                                    <option value="Leve">{language === 'es' ? 'Leve' : 'Leve (Minor)'}</option>
+                                    <option value="Media">{language === 'es' ? 'Media' : 'Media (Moderate)'}</option>
+                                    <option value="Grave">{language === 'es' ? 'Grave' : 'Grave (Severe)'}</option>
                                 </select>
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Date of Incident</label>
+                                <label className="form-label">{language === 'es' ? 'Fecha del Incidente' : 'Date of Incident'}</label>
                                 <input type="date" className="form-input" required value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Description / Reason (Optional)</label>
+                                <label className="form-label">{language === 'es' ? 'Descripción / Motivo (Opcional)' : 'Description / Reason (Optional)'}</label>
                                 <textarea className="form-input" rows="4" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Link to IA Case (Optional)</label>
+                                <label className="form-label">{language === 'es' ? 'Vincular a Caso de IA (Opcional)' : 'Link to IA Case (Optional)'}</label>
                                 <select className="form-input" style={{ backgroundColor: '#0f172a' }} value={formData.caseId} onChange={e => setFormData({ ...formData, caseId: e.target.value })}>
-                                    <option value="">-- No Linked Case --</option>
+                                    <option value="">{language === 'es' ? '-- Sin Caso Vinculado --' : '-- No Linked Case --'}</option>
                                     {cases.map(c => (
                                         <option key={c.id} value={c.id}>
                                             IA-#{String(c.case_number).padStart(3, '0')} {c.title}
@@ -252,8 +254,8 @@ function IASanctionProfile() {
                             </div>
 
                             <div className="cropper-actions">
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                                <button type="submit" className="login-button" disabled={submitting}>{submitting ? 'Saving...' : 'Confirm'}</button>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                                <button type="submit" className="login-button" disabled={submitting}>{submitting ? (language === 'es' ? 'Guardando...' : 'Saving...') : (language === 'es' ? 'Confirmar' : 'Confirm')}</button>
                             </div>
                         </form>
                     </div>

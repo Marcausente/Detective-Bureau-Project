@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function IACases() {
     const navigate = useNavigate();
+    const { language } = useLanguage();
     const [cases, setCases] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('Open'); // Open, Closed, Archived
@@ -116,11 +118,11 @@ function IACases() {
         <div className="documentation-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
             <div className="doc-header" style={{ marginBottom: '2rem' }}>
                 <div>
-                    <button onClick={() => navigate('/internal-affairs')} style={{ display: 'block', marginBottom: '0.5rem', background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer' }}>← Back to Dashboard</button>
-                    <h2 className="page-title" style={{ color: '#f87171' }}>INTERNAL AFFAIRS DIVISION</h2>
+                    <button onClick={() => navigate('/internal-affairs')} style={{ display: 'block', marginBottom: '0.5rem', background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer' }}>{language === 'es' ? '← Volver al Panel' : '← Back to Dashboard'}</button>
+                    <h2 className="page-title" style={{ color: '#f87171' }}>{language === 'es' ? 'DIVISIÓN DE ASUNTOS INTERNOS' : 'INTERNAL AFFAIRS DIVISION'}</h2>
                 </div>
                 <button className="login-button" style={{ width: 'auto', backgroundColor: '#7f1d1d' }} onClick={() => setShowCreateModal(true)}>
-                    + New IA Investigation
+                    {language === 'es' ? '+ Nueva Investigación' : '+ New IA Investigation'}
                 </button>
             </div>
 
@@ -143,16 +145,16 @@ function IACases() {
                             borderBottom: filter === status ? '2px solid var(--accent-gold)' : 'none'
                         }}
                     >
-                        {status} Cases
+                        {language === 'es' ? (status === 'Open' ? 'Casos Abiertos' : status === 'Closed' ? 'Casos Cerrados' : 'Casos Archivados') : `${status} Cases`}
                     </button>
                 ))}
             </div>
 
             {/* Case Grid */}
             {loading ? (
-                <div className="loading-container">Loading Investigations...</div>
+                <div className="loading-container">{language === 'es' ? 'Cargando Investigaciones...' : 'Loading Investigations...'}</div>
             ) : cases.length === 0 ? (
-                <div className="empty-list">No {filter.toLowerCase()} investigations found.</div>
+                <div className="empty-list">{language === 'es' ? `No se encontraron investigaciones ${filter === 'Open' ? 'abiertas' : filter === 'Closed' ? 'cerradas' : 'archivadas'}.` : `No ${filter.toLowerCase()} investigations found.`}</div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', marginTop: '2rem' }}>
                     {cases.map(c => (
@@ -163,8 +165,8 @@ function IACases() {
                             onClick={() => navigate(`/internal-affairs/cases/${c.id}`)}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>IA-CASE #{String(c.case_number).padStart(3, '0')}</span>
-                                <span style={{ color: statusColors[c.status], fontWeight: 'bold', fontSize: '0.8rem', textTransform: 'uppercase' }}>{c.status}</span>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{language === 'es' ? 'CASO-IA #' : 'IA-CASE #'}{String(c.case_number).padStart(3, '0')}</span>
+                                <span style={{ color: statusColors[c.status], fontWeight: 'bold', fontSize: '0.8rem', textTransform: 'uppercase' }}>{c.status === 'Open' ? (language === 'es' ? 'ABIERTO' : 'OPEN') : c.status === 'Closed' ? (language === 'es' ? 'CERRADO' : 'CLOSED') : (language === 'es' ? 'ARCHIVADO' : 'ARCHIVED')}</span>
                             </div>
 
                             <h3 style={{ margin: '0.5rem 0', color: 'var(--text-primary)', fontSize: '1.2rem' }}>{c.title}</h3>
@@ -187,7 +189,7 @@ function IACases() {
                                         />
                                     ))}
                                 </div>
-                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Agents Assigned</span>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{language === 'es' ? 'Agentes Asignados' : 'Agents Assigned'}</span>
                             </div>
                         </div>
                     ))}
@@ -198,37 +200,37 @@ function IACases() {
             {showCreateModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '700px', textAlign: 'left', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3 className="section-title">Open New IA Investigation</h3>
+                        <h3 className="section-title">{language === 'es' ? 'Abrir Nueva Investigación de IA' : 'Open New IA Investigation'}</h3>
                         <form onSubmit={handleCreateCase}>
                             <div className="form-group">
-                                <label className="form-label">Case Title</label>
+                                <label className="form-label">{language === 'es' ? 'Título del Caso' : 'Case Title'}</label>
                                 <input type="text" className="form-input" required
-                                    value={newCase.title} onChange={e => setNewCase({ ...newCase, title: e.target.value })} placeholder="e.g. Officer Misconduct - 418" />
+                                    value={newCase.title} onChange={e => setNewCase({ ...newCase, title: e.target.value })} placeholder={language === 'es' ? 'Ej. Mala conducta de oficial - 418' : 'e.g. Officer Misconduct - 418'} />
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <div className="form-group">
-                                    <label className="form-label">Location</label>
+                                    <label className="form-label">{language === 'es' ? 'Ubicación' : 'Location'}</label>
                                     <input type="text" className="form-input" required
-                                        value={newCase.location} onChange={e => setNewCase({ ...newCase, location: e.target.value })} placeholder="e.g. Mission Row PD" />
+                                        value={newCase.location} onChange={e => setNewCase({ ...newCase, location: e.target.value })} placeholder={language === 'es' ? 'Ej. Comisaría Mission Row' : 'e.g. Mission Row PD'} />
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label">Date & Time</label>
+                                    <label className="form-label">{language === 'es' ? 'Fecha y Hora' : 'Date & Time'}</label>
                                     <input type="datetime-local" className="form-input" required
                                         value={newCase.occurred_at} onChange={e => setNewCase({ ...newCase, occurred_at: e.target.value })} />
                                 </div>
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Initial Report / Description</label>
+                                <label className="form-label">{language === 'es' ? 'Reporte Inicial / Descripción' : 'Initial Report / Description'}</label>
                                 <textarea className="eval-textarea" rows="5" required
-                                    value={newCase.description} onChange={e => setNewCase({ ...newCase, description: e.target.value })} placeholder="Describe the incident details..." />
+                                    value={newCase.description} onChange={e => setNewCase({ ...newCase, description: e.target.value })} placeholder={language === 'es' ? 'Describa los detalles del incidente...' : 'Describe the incident details...'} />
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Evidence / Scene Photo (Optional)</label>
+                                <label className="form-label">{language === 'es' ? 'Foto de Evidencia / Escena (Opcional)' : 'Evidence / Scene Photo (Optional)'}</label>
                                 <label className="login-button btn-secondary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', textAlign: 'center', height: '50px', borderStyle: 'dashed' }}>
-                                    📷 Add Photo
+                                    {language === 'es' ? '📷 Añadir Foto' : '📷 Add Photo'}
                                     <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
                                 </label>
                                 {newCase.initialImage && (
@@ -240,9 +242,9 @@ function IACases() {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Assign IA Agents</label>
+                                <label className="form-label">{language === 'es' ? 'Asignar Agentes de IA' : 'Assign IA Agents'}</label>
                                 <div style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--glass-border)' }}>
-                                    {users.length === 0 ? <div style={{ color: '#aaa', padding: '1rem' }}>No Internal Affairs agents found.</div> :
+                                    {users.length === 0 ? <div style={{ color: '#aaa', padding: '1rem' }}>{language === 'es' ? 'No se encontraron agentes de Asuntos Internos.' : 'No Internal Affairs agents found.'}</div> :
                                         users.map(u => (
                                             <div key={u.id}
                                                 onClick={() => toggleAssignment(u.id)}
@@ -260,8 +262,8 @@ function IACases() {
                             </div>
 
                             <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '2rem' }}>
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowCreateModal(false)} style={{ width: 'auto' }}>Cancel</button>
-                                <button type="submit" className="login-button" disabled={submitting} style={{ width: 'auto' }}>{submitting ? 'Creating...' : 'Create Case'}</button>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowCreateModal(false)} style={{ width: 'auto' }}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                                <button type="submit" className="login-button" disabled={submitting} style={{ width: 'auto' }}>{submitting ? (language === 'es' ? 'Creando...' : 'Creating...') : (language === 'es' ? 'Crear Caso' : 'Create Case')}</button>
                             </div>
                         </form>
                     </div>

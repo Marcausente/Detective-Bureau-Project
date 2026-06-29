@@ -1,10 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function InternalAffairs() {
     const navigate = useNavigate();
     const { isLSSD } = useTheme();
+    const { language } = useLanguage();
 
     return (
         <div className="documentation-container" style={{
@@ -37,7 +39,7 @@ function InternalAffairs() {
                     marginBottom: '0.2rem',
                     textShadow: '0 4px 10px rgba(0,0,0,0.5)'
                 }}>
-                    INTERNAL AFFAIRS
+                    {language === 'es' ? 'ASUNTOS INTERNOS' : 'INTERNAL AFFAIRS'}
                 </h1>
                 <h2 style={{
                     fontSize: '0.9rem', // Smaller subtitle
@@ -50,7 +52,7 @@ function InternalAffairs() {
                     padding: '0.3rem 1.5rem',
                     background: 'rgba(0,0,0,0.2)'
                 }}>
-                    Authorized Personnel Only
+                    {language === 'es' ? 'Solo Personal Autorizado' : 'Authorized Personnel Only'}
                 </h2>
             </div>
 
@@ -105,8 +107,8 @@ function InternalAffairs() {
                     }}>
                         📁
                     </div>
-                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>Internal Investigations</h3>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>Manage case files and active inquiries.</p>
+                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>{language === 'es' ? 'Investigaciones Internas' : 'Internal Investigations'}</h3>
+                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>{language === 'es' ? 'Gestionar archivos de casos e indagaciones activas.' : 'Manage case files and active inquiries.'}</p>
                 </div>
 
                 {/* Active Module: Documentation */}
@@ -152,8 +154,8 @@ function InternalAffairs() {
                     }}>
                         🗄️
                     </div>
-                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>IA Documentation</h3>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>Classified protocols and resources.</p>
+                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>{language === 'es' ? 'Documentación de IA' : 'IA Documentation'}</h3>
+                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>{language === 'es' ? 'Protocolos y recursos clasificados.' : 'Classified protocols and resources.'}</p>
                 </div>
 
                 {/* Active Module: Interrogations */}
@@ -199,8 +201,8 @@ function InternalAffairs() {
                     }}>
                         📝
                     </div>
-                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>Interrogations</h3>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>Subject interviews registry.</p>
+                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>{language === 'es' ? 'Interrogatorios' : 'Interrogations'}</h3>
+                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>{language === 'es' ? 'Registro de entrevistas a sospechosos.' : 'Subject interviews registry.'}</p>
                 </div>
 
                 {/* Active Module: Sanctions */}
@@ -246,8 +248,8 @@ function InternalAffairs() {
                     }}>
                         ⚖️
                     </div>
-                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>Sanctions</h3>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>Disciplinary actions log.</p>
+                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>{language === 'es' ? 'Sanciones' : 'Sanctions'}</h3>
+                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>{language === 'es' ? 'Registro de acciones disciplinarias.' : 'Disciplinary actions log.'}</p>
                 </div>
 
                 {/* Active Module: Receptor de denuncias */}
@@ -293,8 +295,8 @@ function InternalAffairs() {
                     }}>
                         📥
                     </div>
-                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>Receptor de denuncias</h3>
-                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>Receive and manage Internal Affairs complaints.</p>
+                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>{language === 'es' ? 'Receptor de denuncias' : 'Receptor de denuncias'}</h3>
+                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>{language === 'es' ? 'Recibir y gestionar denuncias de Asuntos Internos.' : 'Receive and manage Internal Affairs complaints.'}</p>
                 </div>
 
             </div>

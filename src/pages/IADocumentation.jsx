@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function IADocumentation() {
     const navigate = useNavigate();
+    const { language } = useLanguage();
     const [docs, setDocs] = useState([]);
     const [resources, setResources] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -137,7 +139,7 @@ function IADocumentation() {
             <div className="doc-header" style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
                 <h3 style={{ color: 'var(--text-primary)', fontSize: '1.5rem' }}>{title}</h3>
                 <button className="login-button" style={{ width: 'auto', backgroundColor: '#7f1d1d', padding: '0.5rem 1rem', fontSize: '0.9rem' }} onClick={() => openCreate(category)}>
-                    + Add {category === 'resource' ? 'Resource' : 'Document'}
+                    {language === 'es' ? `+ Añadir ${category === 'resource' ? 'Recurso' : 'Documento'}` : `+ Add ${category === 'resource' ? 'Resource' : 'Document'}`}
                 </button>
             </div>
 
@@ -184,19 +186,19 @@ function IADocumentation() {
     return (
         <div className="documentation-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
             <div style={{ marginBottom: '2rem' }}>
-                <button onClick={() => navigate('/internal-affairs')} style={{ display: 'block', marginBottom: '1rem', background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer' }}>← Back to Dashboard</button>
+                <button onClick={() => navigate('/internal-affairs')} style={{ display: 'block', marginBottom: '1rem', background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer' }}>{language === 'es' ? '← Volver al Panel' : '← Back to Dashboard'}</button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <h2 className="page-title" style={{ color: '#f87171', margin: 0 }}>IA CLASSIFIED RECORDS</h2>
-                    <span style={{ background: '#7f1d1d', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>TOP SECRET</span>
+                    <h2 className="page-title" style={{ color: '#f87171', margin: 0 }}>{language === 'es' ? 'REGISTROS CLASIFICADOS DE IA' : 'IA CLASSIFIED RECORDS'}</h2>
+                    <span style={{ background: '#7f1d1d', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>{language === 'es' ? 'SECRETO' : 'TOP SECRET'}</span>
                 </div>
             </div>
 
             {loading ? (
-                <div className="loading-container">Loading Classified Records...</div>
+                <div className="loading-container">{language === 'es' ? 'Cargando Registros Clasificados...' : 'Loading Classified Records...'}</div>
             ) : (
                 <>
-                    {renderSection(docs, "Documentation", "documentation", "No classified documents found.")}
-                    {renderSection(resources, "Resources", "resource", "No classified resources found.")}
+                    {renderSection(docs, language === 'es' ? "Documentación" : "Documentation", "documentation", language === 'es' ? "No se encontraron documentos clasificados." : "No classified documents found.")}
+                    {renderSection(resources, language === 'es' ? "Recursos" : "Resources", "resource", language === 'es' ? "No se encontraron recursos clasificados." : "No classified resources found.")}
                 </>
             )}
 
@@ -235,7 +237,7 @@ function IADocumentation() {
                             }}
                             onClick={() => setViewImage(null)}
                         >
-                            Close ✕
+                            {language === 'es' ? 'Cerrar ✕' : 'Close ✕'}
                         </button>
                     </div>
                 </div>
@@ -244,32 +246,32 @@ function IADocumentation() {
             {showModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '500px' }}>
-                        <h3>{modalMode === 'create' ? `New ${targetCategory === 'resource' ? 'Resource' : 'Document'}` : 'Edit Item'}</h3>
+                        <h3>{modalMode === 'create' ? (language === 'es' ? `Nuevo ${targetCategory === 'resource' ? 'Recurso' : 'Documento'}` : `New ${targetCategory === 'resource' ? 'Resource' : 'Document'}`) : (language === 'es' ? 'Editar Elemento' : 'Edit Item')}</h3>
                         <form onSubmit={handleAction} style={{ textAlign: 'left', marginTop: '1rem' }}>
                             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                                <button type="button" className={`login-button ${inputType === 'url' ? '' : 'btn-secondary'}`} style={{ padding: '0.5rem', fontSize: '0.9rem' }} onClick={() => setInputType('url')}>External URL</button>
-                                <button type="button" className={`login-button ${inputType === 'file' ? '' : 'btn-secondary'}`} style={{ padding: '0.5rem', fontSize: '0.9rem' }} onClick={() => setInputType('file')}>Upload Image</button>
+                                <button type="button" className={`login-button ${inputType === 'url' ? '' : 'btn-secondary'}`} style={{ padding: '0.5rem', fontSize: '0.9rem' }} onClick={() => setInputType('url')}>{language === 'es' ? 'URL Externa' : 'External URL'}</button>
+                                <button type="button" className={`login-button ${inputType === 'file' ? '' : 'btn-secondary'}`} style={{ padding: '0.5rem', fontSize: '0.9rem' }} onClick={() => setInputType('file')}>{language === 'es' ? 'Subir Imagen' : 'Upload Image'}</button>
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Title</label>
+                                <label className="form-label">{language === 'es' ? 'Título' : 'Title'}</label>
                                 <input className="form-input" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
                             </div>
                             <div className="form-group">
-                                <label className="form-label">Description (Optional)</label>
+                                <label className="form-label">{language === 'es' ? 'Descripción (Opcional)' : 'Description (Optional)'}</label>
                                 <textarea className="form-input" rows="3" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">{inputType === 'file' ? 'Image File' : 'External URL'}</label>
+                                <label className="form-label">{inputType === 'file' ? (language === 'es' ? 'Archivo de Imagen' : 'Image File') : (language === 'es' ? 'URL Externa' : 'External URL')}</label>
                                 {inputType === 'file' ? (
                                     <>
                                         <label className="custom-file-upload">
                                             <input type="file" accept="image/*" onChange={handleFileChange} />
-                                            {formData.url && formData.url.startsWith('data:') ? 'Change Image' : 'Select Image'}
+                                            {formData.url && formData.url.startsWith('data:') ? (language === 'es' ? 'Cambiar Imagen' : 'Change Image') : (language === 'es' ? 'Seleccionar Imagen' : 'Select Image')}
                                         </label>
                                         {formData.url && formData.url.startsWith('data:') && (
-                                            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#4ade80' }}>✓ Image Selected</div>
+                                            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#4ade80' }}>{language === 'es' ? '✓ Imagen Seleccionada' : '✓ Image Selected'}</div>
                                         )}
                                     </>
                                 ) : (
@@ -278,8 +280,8 @@ function IADocumentation() {
                             </div>
 
                             <div className="cropper-actions">
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                                <button type="submit" className="login-button" disabled={submitLoading}>{submitLoading ? 'Saving...' : 'Save'}</button>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                                <button type="submit" className="login-button" disabled={submitLoading}>{submitLoading ? (language === 'es' ? 'Guardando...' : 'Saving...') : (language === 'es' ? 'Guardar' : 'Save')}</button>
                             </div>
                         </form>
                     </div>

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function IAInterrogations() {
     const [searchParams, setSearchParams] = useSearchParams();
+    const { language } = useLanguage();
     const [interrogations, setInterrogations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -196,30 +198,30 @@ function IAInterrogations() {
         <div className="documentation-container" style={{ padding: '2rem' }}>
             <div className="doc-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <h2 className="page-title" style={{ margin: 0, color: '#f87171' }}>IA Interrogations</h2>
-                    <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Restricted Access • Internal Affairs Division</p>
+                    <h2 className="page-title" style={{ margin: 0, color: '#f87171' }}>{language === 'es' ? 'Interrogatorios de IA' : 'IA Interrogations'}</h2>
+                    <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{language === 'es' ? 'Acceso Restringido • División de Asuntos Internos' : 'Restricted Access • Internal Affairs Division'}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <input
                         type="text"
-                        placeholder="Search logs..."
+                        placeholder={language === 'es' ? 'Buscar registros...' : 'Search logs...'}
                         className="form-input"
                         style={{ width: '250px' }}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={openCreate}>
-                        + New Entry
+                        {language === 'es' ? '+ Nueva Entrada' : '+ New Entry'}
                     </button>
                 </div>
             </div>
 
             {loading ? (
-                <div className="loading-container">Loading Logs...</div>
+                <div className="loading-container">{language === 'es' ? 'Cargando Registros...' : 'Loading Logs...'}</div>
             ) : (
                 <div className="interrogations-list">
                     {filteredItems.length === 0 ? (
-                        <div className="empty-list">No interrogations found.</div>
+                        <div className="empty-list">{language === 'es' ? 'No se encontraron interrogatorios.' : 'No interrogations found.'}</div>
                     ) : (
                         filteredItems.map(item => (
                             <div key={item.id} className="interrogation-card" style={{ borderLeft: '4px solid #f87171' }}>
@@ -233,29 +235,29 @@ function IAInterrogations() {
                                 <h3 className="int-title">{item.title}</h3>
                                 {item.linked_case_number && (
                                     <div style={{ fontSize: '0.8rem', color: '#f87171', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                                        🔗 Linked to Case IA-#{String(item.linked_case_number).padStart(3, '0')}
+                                        🔗 {language === 'es' ? 'Vinculado al Caso IA-' : 'Linked to Case IA-'}{String(item.linked_case_number).padStart(3, '0')}
                                     </div>
                                 )}
                                 <div className="int-details-grid">
                                     <div className="int-detail">
-                                        <label>Agents:</label>
+                                        <label>{language === 'es' ? 'Agentes:' : 'Agents:'}</label>
                                         <span>{item.agents_present || 'N/A'}</span>
                                     </div>
                                     <div className="int-detail">
-                                        <label>Subjects:</label>
+                                        <label>{language === 'es' ? 'Sujetos:' : 'Subjects:'}</label>
                                         <span>{item.subjects || 'N/A'}</span>
                                     </div>
                                 </div>
                                 <div className="int-transcription-preview">
-                                    <label>Summary / Notes:</label>
+                                    <label>{language === 'es' ? 'Resumen / Notas:' : 'Summary / Notes:'}</label>
                                     <p>{item.transcription}</p>
                                 </div>
                                 {item.media_url && (
                                     <a href={item.media_url} target="_blank" rel="noopener noreferrer" className="int-link-btn">
-                                        ▶ View Recording / Evidence
+                                        {language === 'es' ? '▶ Ver Grabación / Evidencia' : '▶ View Recording / Evidence'}
                                     </a>
                                 )}
-                                <div className="int-author-footer">Filed by: {item.author_name}</div>
+                                <div className="int-author-footer">{language === 'es' ? 'Registrado por:' : 'Filed by:'} {item.author_name}</div>
                             </div>
                         ))
                     )}
@@ -266,23 +268,23 @@ function IAInterrogations() {
             {showModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3 style={{ color: '#f87171' }}>{modalMode === 'create' ? 'New IA Interrogation' : 'Edit IA Log'}</h3>
+                        <h3 style={{ color: '#f87171' }}>{modalMode === 'create' ? (language === 'es' ? 'Nuevo Interrogatorio de IA' : 'New IA Interrogation') : (language === 'es' ? 'Editar Registro de IA' : 'Edit IA Log')}</h3>
                         <form onSubmit={handleAction} style={{ textAlign: 'left', marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
                             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                                 <div className="form-group" style={{ flex: '1 1 200px' }}>
-                                    <label className="form-label">Date</label>
+                                    <label className="form-label">{language === 'es' ? 'Fecha' : 'Date'}</label>
                                     <input type="date" className="form-input" required value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
                                 </div>
                                 <div className="form-group" style={{ flex: '2 1 300px' }}>
-                                    <label className="form-label">Title (Template: DD/MM/YYYY - Name)</label>
+                                    <label className="form-label">{language === 'es' ? 'Título (Plantilla: DD/MM/AAAA - Nombre)' : 'Title (Template: DD/MM/YYYY - Name)'}</label>
                                     <input className="form-input" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
                                 </div>
                             </div>
 
                             {/* Custom Agent Selector */}
                             <div className="form-group">
-                                <label className="form-label">Agents Present (Select multiple)</label>
+                                <label className="form-label">{language === 'es' ? 'Agentes Presentes (Seleccionar varios)' : 'Agents Present (Select multiple)'}</label>
                                 <div className="agent-selector-container" style={{
                                     border: '1px solid var(--glass-border)',
                                     borderRadius: '8px',
@@ -329,34 +331,34 @@ function IAInterrogations() {
                                     })}
                                 </div>
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-                                    Selected: {selectedAgents.length > 0 ? selectedAgents.join(', ') : 'None'}
+                                    {language === 'es' ? 'Seleccionados: ' : 'Selected: '}{selectedAgents.length > 0 ? selectedAgents.join(', ') : (language === 'es' ? 'Ninguno' : 'None')}
                                 </div>
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Subject(s) Interrogated</label>
-                                <input className="form-input" placeholder="e.g. John Doe, Jane Smith" value={formData.subjects} onChange={e => setFormData({ ...formData, subjects: e.target.value })} />
+                                <label className="form-label">{language === 'es' ? 'Sujeto(s) Interrogado(s)' : 'Subject(s) Interrogated'}</label>
+                                <input className="form-input" placeholder={language === 'es' ? 'Ej. John Doe, Jane Smith' : 'e.g. John Doe, Jane Smith'} value={formData.subjects} onChange={e => setFormData({ ...formData, subjects: e.target.value })} />
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Relevant Information / Transcription</label>
+                                <label className="form-label">{language === 'es' ? 'Información Relevante / Transcripción' : 'Relevant Information / Transcription'}</label>
                                 <textarea
                                     className="form-input"
                                     rows="10"
-                                    placeholder="Enter detailed notes here..."
+                                    placeholder={language === 'es' ? 'Ingrese notas detalladas aquí...' : 'Enter detailed notes here...'}
                                     value={formData.transcription}
                                     onChange={e => setFormData({ ...formData, transcription: e.target.value })}
                                 />
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Recording / Evidence Link (YouTube/Drive)</label>
+                                <label className="form-label">{language === 'es' ? 'Enlace de Grabación / Evidencia (YouTube/Drive)' : 'Recording / Evidence Link (YouTube/Drive)'}</label>
                                 <input type="url" className="form-input" placeholder="https://..." value={formData.url} onChange={e => setFormData({ ...formData, url: e.target.value })} />
                             </div>
 
                             <div className="cropper-actions">
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                                <button type="submit" className="login-button" disabled={submitLoading}>{submitLoading ? 'Saving...' : 'Save Log'}</button>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                                <button type="submit" className="login-button" disabled={submitLoading}>{submitLoading ? (language === 'es' ? 'Guardando...' : 'Saving...') : (language === 'es' ? 'Guardar Registro' : 'Save Log')}</button>
                             </div>
                         </form>
                     </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 import IACaseTodoList from '../components/IACaseTodoList';
 import ReactQuill from 'react-quill';
@@ -10,6 +11,7 @@ import { makeQuillModules, quillFormats } from '../utils/quillConfig';
 function IACaseDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { language } = useLanguage();
     const [caseData, setCaseData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('updates');
@@ -272,7 +274,7 @@ function IACaseDetail() {
     };
 
     const handleDeleteUpdate = async (updateId) => {
-        if (!window.confirm("Are you sure you want to delete this message?")) return;
+        if (!window.confirm(language === 'es' ? '¿Está seguro de que desea eliminar este mensaje?' : 'Are you sure you want to delete this message?')) return;
         try {
             const { error } = await supabase.rpc('delete_ia_case_update', { p_update_id: updateId });
             if (error) throw error;
@@ -282,8 +284,8 @@ function IACaseDetail() {
         }
     };
 
-    if (loading) return <div className="loading-screen">Loading Investigation...</div>;
-    if (!caseData) return <div className="loading-screen" style={{ color: '#f87171' }}>Investigation Not Found.</div>;
+    if (loading) return <div className="loading-screen">{language === 'es' ? 'Cargando Investigación...' : 'Loading Investigation...'}</div>;
+    if (!caseData) return <div className="loading-screen" style={{ color: '#f87171' }}>{language === 'es' ? 'Investigación no encontrada.' : 'Investigation Not Found.'}</div>;
 
     const { info, assignments, updates, interrogations } = caseData;
 
@@ -292,7 +294,7 @@ function IACaseDetail() {
             <div className="case-detail-header" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem', marginBottom: '2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <button onClick={() => navigate('/internal-affairs/cases')} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', marginBottom: '1rem' }}>
-                        ← Back to IA Cases
+                        {language === 'es' ? '← Volver a Casos de IA' : '← Back to IA Cases'}
                     </button>
                 </div>
 
@@ -303,7 +305,7 @@ function IACaseDetail() {
                             {info.title}
                         </h1>
                         <div style={{ color: 'var(--text-secondary)' }}>
-                            Located at <strong>{info.location}</strong> • Occurred on {new Date(info.occurred_at).toLocaleString()}
+                            {language === 'es' ? 'Ubicado en ' : 'Located at '}<strong>{info.location}</strong> • {language === 'es' ? 'Ocurrió el ' : 'Occurred on '}{new Date(info.occurred_at).toLocaleString()}
                         </div>
                     </div>
                     <div className={`status-badge ${info.status.toLowerCase()}`}
@@ -313,12 +315,12 @@ function IACaseDetail() {
                             color: info.status === 'Open' ? '#4ade80' : '#94a3b8',
                             border: `1px solid ${info.status === 'Open' ? '#4ade80' : '#94a3b8'}`
                         }}>
-                        {info.status}
+                        {info.status === 'Open' ? (language === 'es' ? 'ABIERTO' : 'OPEN') : info.status === 'Closed' ? (language === 'es' ? 'CERRADO' : 'CLOSED') : (language === 'es' ? 'ARCHIVADO' : 'ARCHIVED')}
                     </div>
                 </div>
 
                 <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', borderLeft: '4px solid var(--accent-gold)' }}>
-                    <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-gold)' }}>INITIAL REPORT</h4>
+                    <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-gold)' }}>{language === 'es' ? 'REPORTE INICIAL' : 'INITIAL REPORT'}</h4>
                     {info.initial_image_url && (
                         <div style={{ marginBottom: '1rem', borderRadius: '4px', overflow: 'hidden', cursor: 'pointer', maxWidth: '400px', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => setExpandedImage(info.initial_image_url)}>
                             <img src={info.initial_image_url} alt="Initial Evidence" style={{ width: '100%', display: 'block' }} />
@@ -339,7 +341,7 @@ function IACaseDetail() {
                                 color: activeTab === 'updates' ? 'var(--accent-gold)' : 'var(--text-secondary)',
                                 padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer'
                             }}>
-                            Investigation Log
+                            {language === 'es' ? 'Bitácora de Investigación' : 'Investigation Log'}
                         </button>
                         <button
                             onClick={() => setActiveTab('todo')}
@@ -349,7 +351,7 @@ function IACaseDetail() {
                                 color: activeTab === 'todo' ? 'var(--accent-gold)' : 'var(--text-secondary)',
                                 padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer'
                             }}>
-                            To-Do List
+                            {language === 'es' ? 'Lista de Tareas' : 'To-Do List'}
                         </button>
                     </div>
 
@@ -364,7 +366,7 @@ function IACaseDetail() {
                                             theme="snow"
                                             modules={quillModules}
                                             formats={quillFormats}
-                                            placeholder="Log a new finding, evidence or statement..."
+                                            placeholder={language === 'es' ? 'Registrar un nuevo hallazgo, evidencia o declaración...' : 'Log a new finding, evidence or statement...'}
                                             value={newUpdateContent}
                                             onChange={setNewUpdateContent}
                                             style={{ marginBottom: '1rem' }}
@@ -382,10 +384,10 @@ function IACaseDetail() {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <label className="custom-file-upload" style={{ margin: 0, fontSize: '0.9rem', padding: '0.4rem 1rem', width: 'auto' }}>
                                                 <input type="file" accept="image/*" multiple onChange={handleImageUpload} />
-                                                📸 Add Evidence
+                                                {language === 'es' ? '📸 Añadir Evidencia' : '📸 Add Evidence'}
                                             </label>
                                             <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submittingUpdate}>
-                                                {submittingUpdate ? 'Posting...' : 'Post Update'}
+                                                {submittingUpdate ? (language === 'es' ? 'Publicando...' : 'Posting...') : (language === 'es' ? 'Publicar Actualización' : 'Post Update')}
                                             </button>
                                         </div>
                                     </form>
@@ -393,7 +395,7 @@ function IACaseDetail() {
                             )}
 
                             <div className="updates-feed">
-                                {updates.length === 0 ? <div className="empty-list">No updates or developments recorded yet.</div> : (
+                                {updates.length === 0 ? <div className="empty-list">{language === 'es' ? 'Aún no se han registrado actualizaciones o novedades.' : 'No updates or developments recorded yet.'}</div> : (
                                     updates.map(update => {
                                         const isAuthor = currentUser && currentUser.id === update.user_id;
                                         const isHighCommand = currentUser && (
@@ -441,8 +443,8 @@ function IACaseDetail() {
                                                         style={{ marginBottom: '0.5rem' }}
                                                     />
                                                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                        <button className="login-button btn-secondary" onClick={() => setEditingId(null)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Cancel</button>
-                                                        <button className="login-button" onClick={() => handleSaveEdit(update.id)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Save Changes</button>
+                                                        <button className="login-button btn-secondary" onClick={() => setEditingId(null)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                                                        <button className="login-button" onClick={() => handleSaveEdit(update.id)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>{language === 'es' ? 'Guardar Cambios' : 'Save Changes'}</button>
                                                     </div>
                                                 </div>
                                             ) : (
@@ -470,13 +472,13 @@ function IACaseDetail() {
                 <div className="case-sidebar">
                     <div className="sidebar-section">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>Assigned Agents</h4>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>{language === 'es' ? 'Agentes Asignados' : 'Assigned Agents'}</h4>
                             {info.status === 'Open' && (
-                                <button onClick={openAssignModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>Manage</button>
+                                <button onClick={openAssignModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>{language === 'es' ? 'Gestionar' : 'Manage'}</button>
                             )}
                         </div>
                         <div className="assigned-list">
-                            {assignments.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No agents assigned.</div> : (
+                            {assignments.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{language === 'es' ? 'Sin agentes asignados.' : 'No agents assigned.'}</div> : (
                                 assignments.map(user => (
                                     <div key={user.user_id} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '4px' }}>
                                         <img src={user.avatar || '/anon.png'} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', marginRight: '10px', border: '1px solid var(--accent-gold)' }} />
@@ -509,13 +511,13 @@ function IACaseDetail() {
 
                     <div className="sidebar-section" style={{ marginTop: '2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>Interrogations</h4>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>{language === 'es' ? 'Interrogatorios' : 'Interrogations'}</h4>
                             {info.status === 'Open' && (
-                                <button onClick={loadAvailableInterrogations} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>+ Link</button>
+                                <button onClick={loadAvailableInterrogations} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>{language === 'es' ? '+ Vincular' : '+ Link'}</button>
                             )}
                         </div>
                         <div className="assigned-list">
-                            {(!interrogations || interrogations.length === 0) ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No interrogations linked.</div> : (
+                            {(!interrogations || interrogations.length === 0) ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{language === 'es' ? 'Sin interrogatorios vinculados.' : 'No interrogations linked.'}</div> : (
                                 interrogations.map(int => (
                                     <div key={int.id} style={{ marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '4px', borderLeft: '3px solid #f87171' }}>
                                         <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>
@@ -529,7 +531,7 @@ function IACaseDetail() {
                                         {info.status === 'Open' && (
                                             <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
                                                 <button onClick={() => handleUnlinkInterrogation(int.id)} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer', opacity: 0.8 }}>
-                                                    Unlink
+                                                    {language === 'es' ? 'Desvincular' : 'Unlink'}
                                                 </button>
                                             </div>
                                         )}
@@ -542,10 +544,10 @@ function IACaseDetail() {
                     {/* Complaints Section */}
                     <div className="sidebar-section" style={{ marginTop: '2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>Linked Complaints</h4>
+                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>{language === 'es' ? 'Denuncias Vinculadas' : 'Linked Complaints'}</h4>
                         </div>
                         <div className="assigned-list">
-                            {complaints.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No complaints linked.</div> : (
+                            {complaints.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{language === 'es' ? 'Sin denuncias vinculadas.' : 'No complaints linked.'}</div> : (
                                 complaints.map(comp => (
                                     <div key={comp.id} style={{ marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '4px', borderLeft: '3px solid var(--accent-gold)' }}>
                                         <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>
@@ -562,7 +564,7 @@ function IACaseDetail() {
                                         {info.status === 'Open' && (
                                             <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
                                                 <button onClick={() => handleUnlinkComplaint(comp.id)} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer', opacity: 0.8 }}>
-                                                    Unlink
+                                                    {language === 'es' ? 'Desvincular' : 'Unlink'}
                                                 </button>
                                             </div>
                                         )}
@@ -578,7 +580,7 @@ function IACaseDetail() {
             {showAssignModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '400px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Manage Assignment</h3>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>{language === 'es' ? 'Gestionar Asignación' : 'Manage Assignment'}</h3>
                         <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', border: '1px solid var(--glass-border)', borderRadius: '4px' }}>
                             {users.map(u => (
                                 <div key={u.id}
@@ -595,8 +597,8 @@ function IACaseDetail() {
                             ))}
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                            <button className="login-button btn-secondary" onClick={() => setShowAssignModal(false)} style={{ width: 'auto' }}>Cancel</button>
-                            <button className="login-button" onClick={handleUpdateAssignments} style={{ width: 'auto' }}>Save Changes</button>
+                            <button className="login-button btn-secondary" onClick={() => setShowAssignModal(false)} style={{ width: 'auto' }}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                            <button className="login-button" onClick={handleUpdateAssignments} style={{ width: 'auto' }}>{language === 'es' ? 'Guardar Cambios' : 'Save Changes'}</button>
                         </div>
                     </div>
                 </div>
@@ -606,12 +608,12 @@ function IACaseDetail() {
             {showLinkModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '500px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-                        <h3 style={{ marginBottom: '1rem', color: '#f87171' }}>Link Interrogation</h3>
-                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>Select a loose interrogation to attach to this case file.</p>
+                        <h3 style={{ marginBottom: '1rem', color: '#f87171' }}>{language === 'es' ? 'Vincular Interrogatorio' : 'Link Interrogation'}</h3>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>{language === 'es' ? 'Seleccione un interrogatorio suelto para adjuntar a este expediente de caso.' : 'Select a loose interrogation to attach to this case file.'}</p>
 
                         <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', border: '1px solid var(--glass-border)', borderRadius: '4px' }}>
                             {availableInterrogations.length === 0 ? (
-                                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No unlinked interrogations found.</div>
+                                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>{language === 'es' ? 'No se encontraron interrogatorios sin vincular.' : 'No unlinked interrogations found.'}</div>
                             ) : (
                                 availableInterrogations.map(int => (
                                     <div key={int.id}
@@ -627,15 +629,15 @@ function IACaseDetail() {
                                         onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.2)'}
                                     >
                                         <div style={{ fontWeight: 'bold' }}>{int.title}</div>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Subject: {int.subjects}</div>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Date: {new Date(int.created_at).toLocaleDateString()}</div>
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{language === 'es' ? 'Sujeto: ' : 'Subject: '}{int.subjects}</div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{language === 'es' ? 'Fecha: ' : 'Date: '}{new Date(int.created_at).toLocaleDateString()}</div>
                                     </div>
                                 ))
                             )}
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <button className="login-button btn-secondary" onClick={() => setShowLinkModal(false)} style={{ width: 'auto' }}>Cancel</button>
+                            <button className="login-button btn-secondary" onClick={() => setShowLinkModal(false)} style={{ width: 'auto' }}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
                         </div>
                     </div>
                 </div>

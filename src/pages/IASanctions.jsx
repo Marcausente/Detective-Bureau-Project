@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function IASanctions() {
     const navigate = useNavigate();
+    const { language } = useLanguage();
     const [profiles, setProfiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -78,7 +80,7 @@ function IASanctions() {
 
     const handleDelete = async (e, id) => {
         e.stopPropagation();
-        if (!window.confirm("Are you sure? This will delete the officer profile and ALL their sanction history.")) return;
+        if (!window.confirm(language === 'es' ? '¿Está seguro? Esto eliminará el perfil del oficial y TODO su historial de sanciones.' : 'Are you sure? This will delete the officer profile and ALL their sanction history.')) return;
 
         try {
             const { error } = await supabase.rpc('delete_ia_subject_profile', { p_id: id });
@@ -98,30 +100,30 @@ function IASanctions() {
         <div className="documentation-container" style={{ padding: '2rem' }}>
             <div className="doc-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <h2 className="page-title" style={{ margin: 0, color: '#f87171' }}>Sanctioned Personnel Registry</h2>
-                    <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Database of officers with disciplinary records.</p>
+                    <h2 className="page-title" style={{ margin: 0, color: '#f87171' }}>{language === 'es' ? 'Registro de Personal Sancionado' : 'Sanctioned Personnel Registry'}</h2>
+                    <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{language === 'es' ? 'Base de datos de oficiales con expedientes disciplinarios.' : 'Database of officers with disciplinary records.'}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                     <input
                         type="text"
-                        placeholder="Search Name or Badge..."
+                        placeholder={language === 'es' ? 'Buscar Nombre o Placa...' : 'Search Name or Badge...'}
                         className="form-input"
                         style={{ width: '250px' }}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={openForCreate}>
-                        + New Profile
+                        {language === 'es' ? '+ Nuevo Perfil' : '+ New Profile'}
                     </button>
                 </div>
             </div>
 
             {loading ? (
-                <div className="loading-container">Loading Registry...</div>
+                <div className="loading-container">{language === 'es' ? 'Cargando Registro...' : 'Loading Registry...'}</div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
                     {filteredProfiles.length === 0 ? (
-                        <div className="empty-list" style={{ gridColumn: '1/-1' }}>No profiles found.</div>
+                        <div className="empty-list" style={{ gridColumn: '1/-1' }}>{language === 'es' ? 'No se encontraron perfiles.' : 'No profiles found.'}</div>
                     ) : (
                         filteredProfiles.map(profile => (
                             <div key={profile.id}
@@ -158,16 +160,16 @@ function IASanctions() {
                                 </div>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#f8fafc' }}>{profile.nombre} {profile.apellido}</div>
-                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Badge: {profile.no_placa}</div>
+                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{language === 'es' ? 'Placa: ' : 'Badge: '}{profile.no_placa}</div>
                                     <div style={{ fontSize: '0.8rem', color: profile.sanction_count > 0 ? '#f87171' : '#4ade80', marginTop: '0.2rem' }}>
-                                        {profile.sanction_count} Record{profile.sanction_count !== 1 ? 's' : ''}
+                                        {profile.sanction_count} {language === 'es' ? (profile.sanction_count !== 1 ? 'Registros' : 'Registro') : (profile.sanction_count !== 1 ? 'Records' : 'Record')}
                                     </div>
                                 </div>
                                 <div className="card-actions" style={{ display: 'flex', gap: '0.5rem' }}>
                                     <button
                                         onClick={(e) => openForEdit(e, profile)}
                                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '1.1rem' }}
-                                        title="Edit Profile"
+                                        title={language === 'es' ? 'Editar Perfil' : 'Edit Profile'}
                                         className="hover-text-white"
                                     >
                                         ✏️
@@ -175,7 +177,7 @@ function IASanctions() {
                                     <button
                                         onClick={(e) => handleDelete(e, profile.id)}
                                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '1.1rem' }}
-                                        title="Delete Profile"
+                                        title={language === 'es' ? 'Eliminar Perfil' : 'Delete Profile'}
                                     >
                                         🗑️
                                     </button>
@@ -191,11 +193,11 @@ function IASanctions() {
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '400px' }}>
                         <h3 style={{ marginBottom: '1rem', color: '#f87171' }}>
-                            {editingId ? 'Edit Officer Profile' : 'Register New Officer'}
+                            {editingId ? (language === 'es' ? 'Editar Perfil de Oficial' : 'Edit Officer Profile') : (language === 'es' ? 'Registrar Nuevo Oficial' : 'Register New Officer')}
                         </h3>
                         <form onSubmit={handleSave}>
                             <div style={{ marginBottom: '1rem' }}>
-                                <label className="form-label">Name</label>
+                                <label className="form-label">{language === 'es' ? 'Nombre' : 'Name'}</label>
                                 <input
                                     className="form-input"
                                     required
@@ -204,7 +206,7 @@ function IASanctions() {
                                 />
                             </div>
                             <div style={{ marginBottom: '1rem' }}>
-                                <label className="form-label">Surname</label>
+                                <label className="form-label">{language === 'es' ? 'Apellido' : 'Surname'}</label>
                                 <input
                                     className="form-input"
                                     required
@@ -213,7 +215,7 @@ function IASanctions() {
                                 />
                             </div>
                             <div style={{ marginBottom: '1rem' }}>
-                                <label className="form-label">Badge Number</label>
+                                <label className="form-label">{language === 'es' ? 'Número de Placa' : 'Badge Number'}</label>
                                 <input
                                     className="form-input"
                                     required
@@ -222,9 +224,9 @@ function IASanctions() {
                                 />
                             </div>
                             <div className="cropper-actions">
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)} disabled={loadingAction}>Cancel</button>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)} disabled={loadingAction}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
                                 <button type="submit" className="login-button" disabled={loadingAction}>
-                                    {loadingAction ? 'Saving...' : (editingId ? 'Save Changes' : 'Create Registry')}
+                                    {loadingAction ? (language === 'es' ? 'Guardando...' : 'Saving...') : (editingId ? (language === 'es' ? 'Guardar Cambios' : 'Save Changes') : (language === 'es' ? 'Crear Registro' : 'Create Registry'))}
                                 </button>
                             </div>
                         </form>
