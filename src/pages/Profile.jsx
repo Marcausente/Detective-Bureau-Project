@@ -352,7 +352,7 @@ function Profile() {
                                 <div style={{
                                     width: `${usagePercent}%`,
                                     height: '100%',
-                                    backgroundColor: usagePercent > 80 ? '#ef4444' : (usagePercent > 50 ? '#f59e0b' : '#3b82f6'),
+                                    backgroundColor: usagePercent > 80 ? '#ef4444' : (usagePercent > 50 ? '#f59e0b' : 'var(--color-blue)'),
                                     transition: 'width 0.5s ease'
                                 }} />
                             </div>

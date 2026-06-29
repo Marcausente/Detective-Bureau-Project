@@ -116,9 +116,9 @@ function DOJCases() {
             <div className="doc-header" style={{ marginBottom: '2rem' }}>
                 <div>
                     <button onClick={() => navigate('/doj')} style={{ display: 'block', marginBottom: '0.5rem', background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer' }}>← Back to Dashboard</button>
-                    <h2 className="page-title" style={{ color: '#3b82f6' }}>DEPARTMENT OF JUSTICE</h2>
+                    <h2 className="page-title" style={{ color: 'var(--color-blue)' }}>DEPARTMENT OF JUSTICE</h2>
                 </div>
-                <button className="login-button" style={{ width: 'auto', backgroundColor: '#1e3a8a' }} onClick={() => setShowCreateModal(true)}>
+                <button className="login-button" style={{ width: 'auto', backgroundColor: 'var(--color-blue-deep)' }} onClick={() => setShowCreateModal(true)}>
                     + New DOJ Investigation
                 </button>
             </div>

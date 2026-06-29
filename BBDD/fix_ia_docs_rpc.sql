@@ -1,17 +1,17 @@
--- Add category column if it doesn't exist
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='ia_documentation' AND column_name='category') THEN
-        ALTER TABLE public.ia_documentation ADD COLUMN category TEXT DEFAULT 'documentation';
-    END IF;
-END
-$$;
+-- Fix IA Documentation Ambiguity
+-- This script drops the old 5-argument function signature to resolve
+-- the "Could not choose the best candidate function" error.
 
--- Drop old function signature to avoid ambiguity
+BEGIN;
+
+-- 1. Drop the old function signature (5 parameters)
 DROP FUNCTION IF EXISTS public.manage_ia_documentation(text, uuid, text, text, text);
 
--- Update RPC to handle category
-CREATE OR REPLACE FUNCTION manage_ia_documentation(
+-- 2. Optionally drop the new one (6 parameters) and recreate it to be clean
+DROP FUNCTION IF EXISTS public.manage_ia_documentation(text, uuid, text, text, text, text);
+
+-- 3. Re-create the function with category parameter
+CREATE OR REPLACE FUNCTION public.manage_ia_documentation(
   p_action TEXT,
   p_id UUID DEFAULT NULL,
   p_title TEXT DEFAULT NULL,
@@ -33,3 +33,5 @@ BEGIN
   END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+COMMIT;

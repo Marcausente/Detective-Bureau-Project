@@ -230,7 +230,7 @@ function DOJCaseDetail() {
     };
 
     if (loading) return <div className="loading-screen">Loading Investigation...</div>;
-    if (!caseData) return <div className="loading-screen" style={{ color: '#3b82f6' }}>Investigation Not Found.</div>;
+    if (!caseData) return <div className="loading-screen" style={{ color: 'var(--color-blue)' }}>Investigation Not Found.</div>;
 
     const { info, assignments, updates, interrogations } = caseData;
 
@@ -245,7 +245,7 @@ function DOJCaseDetail() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                        <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#3b82f6' }}>
+                        <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: 'var(--color-blue)' }}>
                             <span style={{ color: 'var(--text-secondary)', marginRight: '1rem' }}>DOJ-#{String(info.case_number).padStart(3, '0')}</span>
                             {info.title}
                         </h1>
@@ -447,7 +447,7 @@ function DOJCaseDetail() {
                         <div className="assigned-list">
                             {(!interrogations || interrogations.length === 0) ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No interrogations linked.</div> : (
                                 interrogations.map(int => (
-                                    <div key={int.id} style={{ marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '4px', borderLeft: '3px solid #3b82f6' }}>
+                                    <div key={int.id} style={{ marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '4px', borderLeft: '3px solid var(--color-blue)' }}>
                                         <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>
                                             <a href={`/doj/interrogations?id=${int.id}`} onClick={(e) => { e.preventDefault(); navigate(`/doj/interrogations?search=${encodeURIComponent(int.title)}`); }} style={{ color: 'inherit', textDecoration: 'none' }}>
                                                 {int.title}
@@ -458,7 +458,7 @@ function DOJCaseDetail() {
                                         </div>
                                         {info.status === 'Open' && (
                                             <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
-                                                <button onClick={() => handleUnlinkInterrogation(int.id)} style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '0.75rem', cursor: 'pointer', opacity: 0.8 }}>
+                                                <button onClick={() => handleUnlinkInterrogation(int.id)} style={{ background: 'none', border: 'none', color: 'var(--color-blue)', fontSize: '0.75rem', cursor: 'pointer', opacity: 0.8 }}>
                                                     Unlink
                                                 </button>
                                             </div>
@@ -503,7 +503,7 @@ function DOJCaseDetail() {
             {showLinkModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '500px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-                        <h3 style={{ marginBottom: '1rem', color: '#3b82f6' }}>Link Interrogation</h3>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--color-blue)' }}>Link Interrogation</h3>
                         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>Select a loose interrogation to attach to this case file.</p>
 
                         <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', border: '1px solid var(--glass-border)', borderRadius: '4px' }}>

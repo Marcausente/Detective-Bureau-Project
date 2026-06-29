@@ -24,7 +24,7 @@ function DOJ() {
                         width: '120px',
                         height: 'auto',
                         marginBottom: '1rem',
-                        filter: 'drop-shadow(0 0 15px rgba(59, 130, 246, 0.4))'
+                        filter: 'drop-shadow(0 0 15px rgba(var(--color-blue-rgb), 0.4))'
                     }}
                 />
                 <h1 style={{
@@ -39,11 +39,11 @@ function DOJ() {
                 </h1>
                 <h2 style={{
                     fontSize: '0.9rem',
-                    color: '#3b82f6',
+                    color: 'var(--color-blue)',
                     textTransform: 'uppercase',
                     letterSpacing: '4px',
-                    borderTop: '1px solid #1e3a8a',
-                    borderBottom: '1px solid #1e3a8a',
+                    borderTop: '1px solid var(--color-blue-deep)',
+                    borderBottom: '1px solid var(--color-blue-deep)',
                     display: 'inline-block',
                     padding: '0.3rem 1.5rem',
                     background: 'rgba(0,0,0,0.2)'
@@ -80,8 +80,8 @@ function DOJ() {
                     }}
                     onMouseEnter={e => {
                         e.currentTarget.style.transform = 'translateY(-5px)';
-                        e.currentTarget.style.borderColor = '#3b82f6';
-                        e.currentTarget.style.boxShadow = '0 10px 30px -10px rgba(59, 130, 246, 0.3)';
+                        e.currentTarget.style.borderColor = 'var(--color-blue)';
+                        e.currentTarget.style.boxShadow = '0 10px 30px -10px rgba(var(--color-blue-rgb), 0.3)';
                     }}
                     onMouseLeave={e => {
                         e.currentTarget.style.transform = 'translateY(0)';
@@ -90,7 +90,7 @@ function DOJ() {
                     }}
                 >
                     <div style={{
-                        background: 'rgba(59, 130, 246, 0.1)',
+                        background: 'rgba(var(--color-blue-rgb), 0.1)',
                         borderRadius: '50%',
                         width: '70px',
                         height: '70px',
@@ -98,7 +98,7 @@ function DOJ() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginBottom: '1.5rem',
-                        color: '#3b82f6',
+                        color: 'var(--color-blue)',
                         fontSize: '2rem'
                     }}>
                         📁

@@ -176,7 +176,7 @@ function DOJLicenses() {
         <div className="documentation-container" style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h2 className="page-title" style={{ margin: 0, color: '#3b82f6' }}>DOJ Licenses Management</h2>
+                <h2 className="page-title" style={{ margin: 0, color: 'var(--color-blue)' }}>DOJ Licenses Management</h2>
                 <div style={{ display: 'flex', gap: '1rem' }}>
                     <button className="login-button btn-secondary" onClick={() => setShowLicenseTypesModal(true)}>
                         Manage License Types
@@ -292,7 +292,7 @@ function DOJLicenses() {
                                 licenseTypes.map(lt => (
                                     <div key={lt.id} style={{ padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
-                                            <div style={{ fontWeight: 'bold', color: '#3b82f6' }}>{lt.name}</div>
+                                            <div style={{ fontWeight: 'bold', color: 'var(--color-blue)' }}>{lt.name}</div>
                                             {lt.description && <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.2rem' }}>{lt.description}</div>}
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>

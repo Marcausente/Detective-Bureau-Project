@@ -176,7 +176,7 @@ function PublicIADenuncia() {
                             <button 
                                 onClick={handleReset} 
                                 className="login-button" 
-                                style={{ width: 'auto', padding: '0.8rem 1.5rem', backgroundColor: '#3b82f6' }}
+                                style={{ width: 'auto', padding: '0.8rem 1.5rem', backgroundColor: 'var(--color-blue)' }}
                             >
                                 Enviar Otra Denuncia
                             </button>

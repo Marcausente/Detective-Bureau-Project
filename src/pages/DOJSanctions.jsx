@@ -98,7 +98,7 @@ function DOJSanctions() {
         <div className="documentation-container" style={{ padding: '2rem' }}>
             <div className="doc-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <h2 className="page-title" style={{ margin: 0, color: '#3b82f6' }}>Sanctioned Personnel Registry</h2>
+                    <h2 className="page-title" style={{ margin: 0, color: 'var(--color-blue)' }}>Sanctioned Personnel Registry</h2>
                     <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Database of officers with disciplinary records.</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -140,7 +140,7 @@ function DOJSanctions() {
                                 }}
                                 onMouseEnter={e => {
                                     e.currentTarget.style.transform = 'translateY(-3px)';
-                                    e.currentTarget.style.borderColor = '#3b82f6';
+                                    e.currentTarget.style.borderColor = 'var(--color-blue)';
                                 }}
                                 onMouseLeave={e => {
                                     e.currentTarget.style.transform = 'translateY(0)';
@@ -150,7 +150,7 @@ function DOJSanctions() {
                                 <div style={{
                                     width: '50px', height: '50px', borderRadius: '50%',
                                     background: 'rgba(248, 113, 113, 0.1)',
-                                    color: '#3b82f6',
+                                    color: 'var(--color-blue)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     fontSize: '1.2rem', fontWeight: 'bold'
                                 }}>
@@ -159,7 +159,7 @@ function DOJSanctions() {
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#f8fafc' }}>{profile.nombre} {profile.apellido}</div>
                                     <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Badge: {profile.no_placa}</div>
-                                    <div style={{ fontSize: '0.8rem', color: profile.sanction_count > 0 ? '#3b82f6' : '#4ade80', marginTop: '0.2rem' }}>
+                                    <div style={{ fontSize: '0.8rem', color: profile.sanction_count > 0 ? 'var(--color-blue)' : '#4ade80', marginTop: '0.2rem' }}>
                                         {profile.sanction_count} Record{profile.sanction_count !== 1 ? 's' : ''}
                                     </div>
                                 </div>
@@ -190,7 +190,7 @@ function DOJSanctions() {
             {showModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '400px' }}>
-                        <h3 style={{ marginBottom: '1rem', color: '#3b82f6' }}>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--color-blue)' }}>
                             {editingId ? 'Edit Officer Profile' : 'Register New Officer'}
                         </h3>
                         <form onSubmit={handleSave}>

@@ -19,7 +19,7 @@ const getTagStyles = (tag) => {
         case 'FOXTROT':
             return {
                 backgroundColor: 'rgba(96, 165, 250, 0.15)',
-                color: '#60a5fa',
+                color: 'var(--color-blue-light)',
                 border: '1px solid rgba(96, 165, 250, 0.3)'
             };
         case 'MIKE':
@@ -1019,7 +1019,7 @@ function CaseDetail() {
                                         onClick={() => navigate(`/incidents?incident_id=${inc.id}`)}
                                         style={{
                                             padding: '0.8rem', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', cursor: 'pointer',
-                                            borderLeft: '2px solid #60a5fa',
+                                            borderLeft: '2px solid var(--color-blue-light)',
                                             position: 'relative'
                                         }}>
                                         <div style={{ paddingRight: '20px' }}>
@@ -1124,7 +1124,7 @@ function CaseDetail() {
                                         onClick={() => navigate(`/complaints?complaint_id=${comp.id}`)}
                                         style={{
                                             padding: '0.8rem', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', cursor: 'pointer',
-                                            borderLeft: '2px solid #60a5fa',
+                                            borderLeft: '2px solid var(--color-blue-light)',
                                             position: 'relative'
                                         }}>
                                         <div style={{ paddingRight: '20px' }}>

@@ -182,14 +182,14 @@ function DOJCaseTodoList({ caseId }) {
                                         autoFocus
                                     />
                                     <button onClick={saveEditCategory} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4ade80' }}>✓</button>
-                                    <button onClick={() => setEditingCatId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6' }}>✗</button>
+                                    <button onClick={() => setEditingCatId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-blue)' }}>✗</button>
                                 </div>
                             ) : (
                                 <>
                                     <h4 style={{ margin: 0, color: 'var(--accent-gold)', textTransform: 'uppercase', fontSize: '0.9rem', letterSpacing: '1px' }}>{cat.name}</h4>
                                     <div className="column-actions">
                                         <button onClick={() => startEditCategory(cat)} title="Rename" style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5, marginRight: '5px' }}>✎</button>
-                                        <button onClick={() => handleDeleteCategory(cat.id)} title="Delete List" style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5, color: '#3b82f6' }}>🗑️</button>
+                                        <button onClick={() => handleDeleteCategory(cat.id)} title="Delete List" style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5, color: 'var(--color-blue)' }}>🗑️</button>
                                     </div>
                                 </>
                             )}
@@ -225,7 +225,7 @@ function DOJCaseTodoList({ caseId }) {
                                     </span>
                                     <button
                                         onClick={() => handleDeleteTask(task.id)}
-                                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', opacity: 0.5, fontSize: '0.8rem' }}
+                                        style={{ background: 'none', border: 'none', color: 'var(--color-blue)', cursor: 'pointer', opacity: 0.5, fontSize: '0.8rem' }}
                                         title="Delete Task"
                                     >
                                         &times;

@@ -9,7 +9,7 @@ import { generateOrderPDF } from '../utils/orderPdfGenerator';
 const ORDER_TYPES = {
     'Orden de Registro (Casa)': {
         label: 'Orden de Registro (Casa)',
-        color: '#3b82f6', // Blue
+        color: 'var(--color-blue)', // Blue
         icon: '🏠',
         fields: [
             { name: 'request_date', label: 'Fecha Solicitud', type: 'readonly_date' },
@@ -127,7 +127,7 @@ const ORDER_TYPES = {
     },
     'Orden de Identificacion Telefono Movil': {
         label: 'Identificación Teléfono Móvil',
-        color: '#60a5fa', // Light Blue
+        color: 'var(--color-blue-light)', // Light Blue
         icon: '📞',
         fields: [
             { 

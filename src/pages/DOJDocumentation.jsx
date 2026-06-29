@@ -136,7 +136,7 @@ function DOJDocumentation() {
         <div className="doc-section" style={{ marginBottom: '4rem' }}>
             <div className="doc-header" style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
                 <h3 style={{ color: 'var(--text-primary)', fontSize: '1.5rem' }}>{title}</h3>
-                <button className="login-button" style={{ width: 'auto', backgroundColor: '#1e3a8a', padding: '0.5rem 1rem', fontSize: '0.9rem' }} onClick={() => openCreate(category)}>
+                <button className="login-button" style={{ width: 'auto', backgroundColor: 'var(--color-blue-deep)', padding: '0.5rem 1rem', fontSize: '0.9rem' }} onClick={() => openCreate(category)}>
                     + Add {category === 'resource' ? 'Resource' : 'Document'}
                 </button>
             </div>
@@ -186,8 +186,8 @@ function DOJDocumentation() {
             <div style={{ marginBottom: '2rem' }}>
                 <button onClick={() => navigate('/doj')} style={{ display: 'block', marginBottom: '1rem', background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer' }}>← Back to Dashboard</button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <h2 className="page-title" style={{ color: '#3b82f6', margin: 0 }}>DOJ CLASSIFIED RECORDS</h2>
-                    <span style={{ background: '#1e3a8a', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>TOP SECRET</span>
+                    <h2 className="page-title" style={{ color: 'var(--color-blue)', margin: 0 }}>DOJ CLASSIFIED RECORDS</h2>
+                    <span style={{ background: 'var(--color-blue-deep)', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>TOP SECRET</span>
                 </div>
             </div>
 

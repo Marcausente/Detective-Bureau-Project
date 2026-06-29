@@ -11,7 +11,7 @@ function IncidentCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
             padding: '1rem',
             wordWrap: 'break-word',
             overflowWrap: 'anywhere',
-            border: isHighlighted ? '2px solid #60a5fa' : '2px solid transparent',
+            border: isHighlighted ? '2px solid var(--color-blue-light)' : '2px solid transparent',
             borderRadius: '8px',
             boxShadow: isHighlighted ? '0 0 20px rgba(96, 165, 250, 0.3)' : 'none',
             transition: 'all 0.3s'
@@ -43,7 +43,7 @@ function IncidentCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
                     )}
                 </div>
                 <div style={{ display: 'flex', gap: '5px' }}>
-                    {onEdit && data.can_delete && <button onClick={() => onEdit(data)} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '1.2rem' }}>✏️</button>}
+                    {onEdit && data.can_delete && <button onClick={() => onEdit(data)} style={{ background: 'none', border: 'none', color: 'var(--color-blue-light)', cursor: 'pointer', fontSize: '1.2rem' }}>✏️</button>}
                     {data.can_delete && (
                         <button onClick={() => onDelete(data.record_id)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '1.2rem' }}>&times;</button>
                     )}

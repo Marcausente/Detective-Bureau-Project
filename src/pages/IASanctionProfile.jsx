@@ -162,7 +162,7 @@ function IASanctionProfile() {
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                 <div style={{
                                     width: '16px', height: '16px', borderRadius: '50%',
-                                    background: item.type === 'Grave' ? '#ef4444' : item.type === 'Media' ? '#f59e0b' : '#3b82f6',
+                                    background: item.type === 'Grave' ? '#ef4444' : item.type === 'Media' ? '#f59e0b' : 'var(--color-blue)',
                                     border: '2px solid rgba(255,255,255,0.2)'
                                 }}></div>
                                 <div style={{ width: '2px', flex: 1, background: 'rgba(255,255,255,0.1)', minHeight: '50px' }}></div>
@@ -174,7 +174,7 @@ function IASanctionProfile() {
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                                         <span style={{
                                             fontWeight: 'bold',
-                                            color: item.type === 'Grave' ? '#ef4444' : item.type === 'Media' ? '#f59e0b' : '#3b82f6',
+                                            color: item.type === 'Grave' ? '#ef4444' : item.type === 'Media' ? '#f59e0b' : 'var(--color-blue)',
                                             textTransform: 'uppercase',
                                             fontSize: '0.9rem',
                                             letterSpacing: '1px'

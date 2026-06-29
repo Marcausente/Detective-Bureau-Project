@@ -270,8 +270,8 @@ function InternalAffairs() {
                     }}
                     onMouseEnter={e => {
                         e.currentTarget.style.transform = 'translateY(-5px)';
-                        e.currentTarget.style.borderColor = '#3b82f6';
-                        e.currentTarget.style.boxShadow = '0 10px 30px -10px rgba(59, 130, 246, 0.3)';
+                        e.currentTarget.style.borderColor = 'var(--color-blue)';
+                        e.currentTarget.style.boxShadow = '0 10px 30px -10px rgba(var(--color-blue-rgb), 0.3)';
                     }}
                     onMouseLeave={e => {
                         e.currentTarget.style.transform = 'translateY(0)';
@@ -280,7 +280,7 @@ function InternalAffairs() {
                     }}
                 >
                     <div style={{
-                        background: 'rgba(59, 130, 246, 0.1)',
+                        background: 'rgba(var(--color-blue-rgb), 0.1)',
                         borderRadius: '50%',
                         width: '70px',
                         height: '70px',
@@ -288,7 +288,7 @@ function InternalAffairs() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginBottom: '1.5rem',
-                        color: '#3b82f6',
+                        color: 'var(--color-blue)',
                         fontSize: '2rem'
                     }}>
                         📥

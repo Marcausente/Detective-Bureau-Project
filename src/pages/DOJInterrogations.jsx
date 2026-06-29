@@ -196,7 +196,7 @@ function DOJInterrogations() {
         <div className="documentation-container" style={{ padding: '2rem' }}>
             <div className="doc-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <h2 className="page-title" style={{ margin: 0, color: '#3b82f6' }}>DOJ Interrogations</h2>
+                    <h2 className="page-title" style={{ margin: 0, color: 'var(--color-blue)' }}>DOJ Interrogations</h2>
                     <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Restricted Access • DOJ Division</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -222,7 +222,7 @@ function DOJInterrogations() {
                         <div className="empty-list">No interrogations found.</div>
                     ) : (
                         filteredItems.map(item => (
-                            <div key={item.id} className="interrogation-card" style={{ borderLeft: '4px solid #3b82f6' }}>
+                            <div key={item.id} className="interrogation-card" style={{ borderLeft: '4px solid var(--color-blue)' }}>
                                 <div className="int-card-header">
                                     <span className="int-date">{item.interrogation_date}</span>
                                     <div className="int-actions">
@@ -232,7 +232,7 @@ function DOJInterrogations() {
                                 </div>
                                 <h3 className="int-title">{item.title}</h3>
                                 {item.linked_case_number && (
-                                    <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--color-blue)', marginBottom: '0.5rem', fontWeight: 'bold' }}>
                                         🔗 Linked to Case DOJ-#{String(item.linked_case_number).padStart(3, '0')}
                                     </div>
                                 )}
@@ -266,7 +266,7 @@ function DOJInterrogations() {
             {showModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3 style={{ color: '#3b82f6' }}>{modalMode === 'create' ? 'New DOJ Interrogation' : 'Edit DOJ Log'}</h3>
+                        <h3 style={{ color: 'var(--color-blue)' }}>{modalMode === 'create' ? 'New DOJ Interrogation' : 'Edit DOJ Log'}</h3>
                         <form onSubmit={handleAction} style={{ textAlign: 'left', marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
                             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>

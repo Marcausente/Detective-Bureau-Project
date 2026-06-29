@@ -15,6 +15,13 @@
   --glass-border: rgba(255, 255, 255, 0.1);
   --content-overlay: rgba(var(--primary-rgb), 0.95);
   --font-family: "Inter", system-ui, -apple-system, sans-serif;
+
+  /* Theme-driven Blue Colors (Override to Green in LSSD) */
+  --color-blue: #3b82f6;
+  --color-blue-dark: #2563eb;
+  --color-blue-deep: #1e3a8a;
+  --color-blue-light: #60a5fa;
+  --color-blue-rgb: 59, 130, 246;
 }
 
 /* LSSD Theme Overrides */
@@ -26,6 +33,13 @@ body.theme-lssd {
   --accent-gold: #d4af37; /* Sheriff Gold */
   --glass-bg: rgba(var(--secondary-rgb), 0.7);
   --content-overlay: rgba(var(--primary-rgb), 0.95);
+
+  /* LSSD Accent Green overrides blue colors */
+  --color-blue: #10b981;       /* LSSD Emerald Green */
+  --color-blue-dark: #059669;  /* LSSD Darker Green */
+  --color-blue-deep: #064e3b;  /* LSSD Deep Green */
+  --color-blue-light: #34d399; /* LSSD Light Green */
+  --color-blue-rgb: 16, 185, 129;
 }
 body.theme-lssd .layout-content {
   background-image:
@@ -934,6 +948,48 @@ body {
   border-color: rgba(59, 130, 246, 0.4);
   color: #60a5fa;
   text-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+}
+
+body.theme-lssd .subdivision-dtp {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
+}
+
+/* LSSD Overrides for DTP (Training program) styles */
+body.theme-lssd .dtp-tab-btn.active {
+    background: rgba(16, 185, 129, 0.15) !important;
+    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.3) !important;
+}
+body.theme-lssd .dtp-glass-card:hover {
+    border-color: rgba(16, 185, 129, 0.3) !important;
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 15px rgba(16, 185, 129, 0.1) !important;
+}
+body.theme-lssd .dtp-doc-link {
+    color: #34d399 !important;
+    background: rgba(16, 185, 129, 0.1) !important;
+}
+body.theme-lssd .dtp-doc-link:hover {
+    background: rgba(16, 185, 129, 0.2) !important;
+    color: #6bf1b9 !important;
+}
+body.theme-lssd .dtp-btn-primary {
+    background: linear-gradient(135deg, #10b981 0%, #047857 100%) !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+body.theme-lssd .dtp-btn-primary:hover {
+    background: linear-gradient(135deg, #34d399 0%, #10b981 100%) !important;
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4) !important;
+}
+body.theme-lssd .dtp-input:focus {
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
+}
+body.theme-lssd .dtp-status-registered {
+    background: rgba(16, 185, 129, 0.15) !important;
+    color: #a7f3d0 !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
 }
 
 /* Subdivision Specialty Highlights */

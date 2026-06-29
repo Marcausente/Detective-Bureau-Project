@@ -139,7 +139,7 @@ function IAReceptorDenuncias() {
                     {linkPart && (
                         <div>
                             <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: '600' }}>Enlace de video/evidencia:</span><br />
-                            <a href={linkPart} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline', wordBreak: 'break-all', fontSize: '0.9rem' }}>{linkPart}</a>
+                            <a href={linkPart} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-blue)', textDecoration: 'underline', wordBreak: 'break-all', fontSize: '0.9rem' }}>{linkPart}</a>
                         </div>
                     )}
                     {imagePart && (
@@ -165,7 +165,7 @@ function IAReceptorDenuncias() {
             return (
                 <div style={{ marginTop: '0.5rem' }}>
                     <span style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: '600' }}>Enlace de video/evidencia:</span><br />
-                    <a href={pruebas} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline', wordBreak: 'break-all', fontSize: '0.9rem' }}>{pruebas}</a>
+                    <a href={pruebas} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-blue)', textDecoration: 'underline', wordBreak: 'break-all', fontSize: '0.9rem' }}>{pruebas}</a>
                 </div>
             );
         }
@@ -193,7 +193,7 @@ function IAReceptorDenuncias() {
                     position: 'relative'
                 }}
                 onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = complaint.status === 'Incoming' ? '#ef4444' : complaint.status === 'With Case' ? '#3b82f6' : '#10b981';
+                    e.currentTarget.style.borderColor = complaint.status === 'Incoming' ? '#ef4444' : complaint.status === 'With Case' ? 'var(--color-blue)' : '#10b981';
                     e.currentTarget.style.transform = 'translateY(-2px)';
                 }}
                 onMouseLeave={e => {
@@ -207,9 +207,9 @@ function IAReceptorDenuncias() {
                             fontSize: '0.75rem',
                             padding: '0.2rem 0.5rem',
                             borderRadius: '4px',
-                            background: complaint.status === 'Incoming' ? 'rgba(239, 68, 68, 0.1)' : complaint.status === 'With Case' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                            color: complaint.status === 'Incoming' ? '#ef4444' : complaint.status === 'With Case' ? '#3b82f6' : '#10b981',
-                            border: `1px solid ${complaint.status === 'Incoming' ? 'rgba(239, 68, 68, 0.2)' : complaint.status === 'With Case' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
+                            background: complaint.status === 'Incoming' ? 'rgba(239, 68, 68, 0.1)' : complaint.status === 'With Case' ? 'rgba(var(--color-blue-rgb), 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                            color: complaint.status === 'Incoming' ? '#ef4444' : complaint.status === 'With Case' ? 'var(--color-blue)' : '#10b981',
+                            border: `1px solid ${complaint.status === 'Incoming' ? 'rgba(239, 68, 68, 0.2)' : complaint.status === 'With Case' ? 'rgba(var(--color-blue-rgb), 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
                             fontWeight: '600'
                         }}>
                             {complaint.status === 'Incoming' ? 'Entrante' : complaint.status === 'With Case' ? 'Con Caso' : 'Cerrada'}
@@ -237,12 +237,12 @@ function IAReceptorDenuncias() {
 
                 {complaint.status === 'With Case' && complaint.case && (
                     <div style={{
-                        background: 'rgba(59, 130, 246, 0.08)',
-                        border: '1px solid rgba(59, 130, 246, 0.2)',
+                        background: 'rgba(var(--color-blue-rgb), 0.08)',
+                        border: '1px solid rgba(var(--color-blue-rgb), 0.2)',
                         borderRadius: '6px',
                         padding: '0.4rem 0.6rem',
                         fontSize: '0.8rem',
-                        color: '#60a5fa',
+                        color: 'var(--color-blue-light)',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.4rem'
@@ -268,7 +268,7 @@ function IAReceptorDenuncias() {
                         <button
                             onClick={(e) => openLinkCaseModal(e, complaint.id)}
                             className="login-button"
-                            style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem', width: 'auto', backgroundColor: '#2563eb' }}
+                            style={{ padding: '0.3rem 0.5rem', fontSize: '0.75rem', width: 'auto', backgroundColor: 'var(--color-blue-dark)' }}
                             title="Vincular con Caso IA"
                             disabled={updatingId === complaint.id}
                         >
@@ -341,7 +341,7 @@ function IAReceptorDenuncias() {
 
             {loading ? (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', flex: 1 }}>
-                    <div className="loading-container" style={{ fontSize: '1.2rem', color: '#3b82f6' }}>Cargando Denuncias...</div>
+                    <div className="loading-container" style={{ fontSize: '1.2rem', color: 'var(--color-blue)' }}>Cargando Denuncias...</div>
                 </div>
             ) : (
                 /* Kanban flex row */
@@ -411,7 +411,7 @@ function IAReceptorDenuncias() {
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            borderBottom: '2px solid #3b82f6',
+                            borderBottom: '2px solid var(--color-blue)',
                             paddingBottom: '0.5rem',
                             marginBottom: '0.5rem',
                             flexShrink: 0
@@ -419,7 +419,7 @@ function IAReceptorDenuncias() {
                             <h3 style={{ color: '#f8fafc', fontSize: '1.1rem', fontWeight: 'bold', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 📁 Denuncias con Caso
                             </h3>
-                            <span style={{ fontSize: '0.85rem', color: '#3b82f6', background: 'rgba(59, 130, 246, 0.1)', padding: '0.1rem 0.5rem', borderRadius: '10px', fontWeight: 'bold' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--color-blue)', background: 'rgba(var(--color-blue-rgb), 0.1)', padding: '0.1rem 0.5rem', borderRadius: '10px', fontWeight: 'bold' }}>
                                 {withCaseComplaints.length}
                             </span>
                         </div>
@@ -524,11 +524,11 @@ function IAReceptorDenuncias() {
                         {selectedComplaint.status === 'With Case' && selectedComplaint.case && (
                             <div style={{
                                 marginTop: '1rem',
-                                background: 'rgba(59, 130, 246, 0.08)',
-                                border: '1px solid rgba(59, 130, 246, 0.2)',
+                                background: 'rgba(var(--color-blue-rgb), 0.08)',
+                                border: '1px solid rgba(var(--color-blue-rgb), 0.2)',
                                 borderRadius: '6px',
                                 padding: '0.6rem',
-                                color: '#60a5fa',
+                                color: 'var(--color-blue-light)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.5rem',
@@ -551,7 +551,7 @@ function IAReceptorDenuncias() {
             {linkingComplaintId && (
                 <div className="cropper-modal-overlay" onClick={() => setLinkingComplaintId(null)}>
                     <div className="cropper-modal-content" style={{ maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
-                        <h3 style={{ marginBottom: '1rem', color: '#3b82f6' }}>Vincular con Caso Asuntos Internos</h3>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--color-blue)' }}>Vincular con Caso Asuntos Internos</h3>
                         <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '1rem' }}>
                             Seleccione el caso de Asuntos Internos con el que desea relacionar esta denuncia.
                         </p>
@@ -579,7 +579,7 @@ function IAReceptorDenuncias() {
                             </button>
                             <button
                                 className="login-button"
-                                style={{ backgroundColor: '#2563eb' }}
+                                style={{ backgroundColor: 'var(--color-blue-dark)' }}
                                 onClick={() => handleUpdateStatus(linkingComplaintId, 'With Case', selectedCaseId || null)}
                                 disabled={!selectedCaseId}
                             >

@@ -325,7 +325,7 @@ function DOJLicenseProfile() {
                     </div>
                     <div className="detail-title">
                         <h1 className="detail-name">{profile.nombre} {profile.apellido}</h1>
-                        <h2 className="detail-rank" style={{ color: '#3b82f6' }}>Civilian</h2>
+                        <h2 className="detail-rank" style={{ color: 'var(--color-blue)' }}>Civilian</h2>
                         <span className="detail-badge">ID: {profile.id_number}</span>
                         {profile.phone_number && <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginTop: '0.5rem' }}>📞 {profile.phone_number}</div>}
                     </div>
@@ -411,7 +411,7 @@ function DOJLicenseProfile() {
                                     }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                             <div>
-                                                <h4 style={{ color: '#3b82f6', marginBottom: '0.5rem', fontSize: '1.1rem' }}>{lic.license_name}</h4>
+                                                <h4 style={{ color: 'var(--color-blue)', marginBottom: '0.5rem', fontSize: '1.1rem' }}>{lic.license_name}</h4>
                                                 {lic.license_description && <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1rem' }}>{lic.license_description}</p>}
                                                 
                                                 <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem', color: '#94a3b8' }}>
@@ -506,7 +506,7 @@ function DOJLicenseProfile() {
                                     }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                             <div style={{ flex: 1 }}>
-                                                <h4 style={{ color: '#3b82f6', marginBottom: '0.5rem', fontSize: '1.1rem' }}>
+                                                <h4 style={{ color: 'var(--color-blue)', marginBottom: '0.5rem', fontSize: '1.1rem' }}>
                                                     {eq.equipment_name}
                                                 </h4>
                                                 {eq.equipment_description && (

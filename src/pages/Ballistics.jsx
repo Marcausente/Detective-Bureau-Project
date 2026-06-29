@@ -404,8 +404,8 @@ function Ballistics() {
                             style={{
                                 background: 'none',
                                 border: 'none',
-                                color: activeTab === 'bullets' ? '#60a5fa' : 'var(--text-secondary, #94a3b8)',
-                                borderBottom: activeTab === 'bullets' ? '2px solid #60a5fa' : 'none',
+                                color: activeTab === 'bullets' ? 'var(--color-blue-light)' : 'var(--text-secondary, #94a3b8)',
+                                borderBottom: activeTab === 'bullets' ? '2px solid var(--color-blue-light)' : 'none',
                                 padding: '0.75rem 1.5rem',
                                 cursor: 'pointer',
                                 fontSize: '1rem',
@@ -511,12 +511,12 @@ function Ballistics() {
                                                         {/* Expanded Bullet Relationships */}
                                                         {isExpanded && (
                                                             <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
-                                                                <h4 style={{ fontSize: '0.85rem', color: '#60a5fa', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>Casquillos Vinculados:</h4>
+                                                                <h4 style={{ fontSize: '0.85rem', color: 'var(--color-blue-light)', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>Casquillos Vinculados:</h4>
                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                                                     {group.bullets.map(bullet => {
                                                                         const isBulletNew = !seenMatchIds.includes(`${bullet.id}-${group.weapon.id}`);
                                                                         return (
-                                                                            <div key={bullet.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: '4px', fontSize: '0.8rem', borderLeft: isBulletNew ? '3px solid #eab308' : '3px solid #60a5fa' }}>
+                                                                            <div key={bullet.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: '4px', fontSize: '0.8rem', borderLeft: isBulletNew ? '3px solid #eab308' : '3px solid var(--color-blue-light)' }}>
                                                                                 <strong>Incidente:</strong> {bullet.incidente_relacionado}
                                                                                 <br />
                                                                                 <strong>Calibre:</strong> {bullet.calibre}
@@ -561,7 +561,7 @@ function Ballistics() {
 
                     {activeTab === 'bullets' && (
                         <div className="doc-section" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-                            <h3 className="section-title" style={{ borderBottom: '2px solid #60a5fa', paddingBottom: '0.5rem', color: '#60a5fa', marginBottom: '1.5rem' }}>
+                            <h3 className="section-title" style={{ borderBottom: '2px solid var(--color-blue-light)', paddingBottom: '0.5rem', color: 'var(--color-blue-light)', marginBottom: '1.5rem' }}>
                                 {t('bulletCasings')} ({bullets.length})
                             </h3>
                             <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '0.5rem' }}>

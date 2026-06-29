@@ -1300,7 +1300,7 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                 </div>
                 <div className="gang-list-content">
                     {gang.vehicles.map(v => (
-                        <div key={v.id} className="gang-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid #3b82f6', paddingLeft: '0.8rem' }}>
+                        <div key={v.id} className="gang-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid var(--color-blue)', paddingLeft: '0.8rem' }}>
                             <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{(v.model && v.model.trim()) ? v.model : <span style={{ fontStyle: 'italic', opacity: 0.5, fontWeight: 'normal', color: '#f59e0b' }}>{t('unknownModel')}</span>}</span>
                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -1682,7 +1682,7 @@ function PatrolMatrix({ logs, onSelectLog }) {
                     <span>1-2 personas</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: '20px', height: '20px', background: '#3b82f6', borderRadius: '3px' }}></div>
+                    <div style={{ width: '20px', height: '20px', background: 'var(--color-blue)', borderRadius: '3px' }}></div>
                     <span>3-5 personas</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1798,7 +1798,7 @@ function PatrolMatrix({ logs, onSelectLog }) {
                                                 background: log ? (
                                                     log.people_count > 10 ? '#dc2626' :
                                                         log.people_count > 5 ? '#f59e0b' :
-                                                            log.people_count > 2 ? '#3b82f6' :
+                                                            log.people_count > 2 ? 'var(--color-blue)' :
                                                                 '#10b981'
                                                 ) : 'transparent',
                                                 color: log ? 'white' : '#666',

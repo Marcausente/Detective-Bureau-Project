@@ -11,7 +11,7 @@ const getTagStyles = (tag) => {
         case 'FOXTROT':
             return {
                 backgroundColor: 'rgba(96, 165, 250, 0.15)',
-                color: '#60a5fa',
+                color: 'var(--color-blue-light)',
                 border: '1px solid rgba(96, 165, 250, 0.3)'
             };
         case 'MIKE':
@@ -120,7 +120,7 @@ function OutingCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
                     <strong style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>Linked Interrogations:</strong>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                         {data.interrogations.map(int => (
-                            <span key={int.id} style={{ fontSize: '0.75rem', background: '#2563eb', color: 'white', padding: '2px 8px', borderRadius: '12px' }}>
+                            <span key={int.id} style={{ fontSize: '0.75rem', background: 'var(--color-blue-dark)', color: 'white', padding: '2px 8px', borderRadius: '12px' }}>
                                 📄 {int.title}
                             </span>
                         ))}

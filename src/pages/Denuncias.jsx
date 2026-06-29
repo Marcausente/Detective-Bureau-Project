@@ -319,7 +319,7 @@ function Denuncias() {
                     
                     {/* Column 1: Denuncias Abiertas */}
                     <div className="column-container" style={{ minWidth: 0, width: '100%' }}>
-                        <h3 className="section-title" style={{ borderBottom: '2px solid #60a5fa', paddingBottom: '0.5rem', color: '#60a5fa' }}>
+                        <h3 className="section-title" style={{ borderBottom: '2px solid var(--color-blue-light)', paddingBottom: '0.5rem', color: 'var(--color-blue-light)' }}>
                             {t('openComplaintsCol')} ({openComplaints.length})
                         </h3>
                         <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>

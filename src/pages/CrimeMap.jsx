@@ -190,7 +190,7 @@ export default function CrimeMap() {
 
                 let popupHTML = `
                     <h3 style="margin: 0 0 5px 0; color: #cfb53b; text-transform: uppercase;">${zone.emoji ? zone.emoji + ' ' : ''}${zone.name}</h3>
-                    ${zone.is_surveillance ? `<div style="font-size: 0.8em; margin-bottom: 8px; color: #60a5fa; font-weight: bold; border: 1px solid #3b82f6; padding: 2px 5px; border-radius: 4px; display: inline-block;">🕵️ ZONA DE VIGILANCIA</div>` : ''}
+                    ${zone.is_surveillance ? `<div style="font-size: 0.8em; margin-bottom: 8px; color: var(--color-blue-light); font-weight: bold; border: 1px solid var(--color-blue); padding: 2px 5px; border-radius: 4px; display: inline-block;">🕵️ ZONA DE VIGILANCIA</div>` : ''}
                     <p style="margin: 0 0 10px 0; color: #ccc; font-size: 0.9em;">${zone.description || ''}</p>
                     ${zone.gang_name ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">${t('gangLabel')}</strong> ${zone.gang_name}</div>` : ''}
                     ${zone.case_title ? `<div style="font-size: 0.85em; margin-bottom: 2px;"><strong style="color: #fff;">${t('caseLabel')}</strong> ${authorized ? zone.case_title : `<span style="color: #ef4444; font-weight: bold;">${t('noAccessMap')}</span>`}</div>` : ''}
@@ -203,7 +203,7 @@ export default function CrimeMap() {
                         <div style="display: flex; gap: 5px; margin-top: 10px;">
                             <button class="edit-zone-btn" data-id="${zone.id}" style="
                                 flex: 1;
-                                background: #3b82f6; 
+                                background: var(--color-blue); 
                                 color: white; 
                                 border: none; 
                                 padding: 6px; 
@@ -497,13 +497,13 @@ export default function CrimeMap() {
                         </div>
 
                         {isGU && (
-                            <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '25px', marginBottom: '15px', padding: '12px', background: 'rgba(59, 130, 246, 0.15)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.4)' }}>
+                            <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '25px', marginBottom: '15px', padding: '12px', background: 'rgba(var(--color-blue-rgb), 0.15)', borderRadius: '8px', border: '1px solid rgba(var(--color-blue-rgb), 0.4)' }}>
                                 <input
                                     type="checkbox"
                                     id="isSurveillance"
                                     checked={tempZoneData.is_surveillance}
                                     onChange={e => setTempZoneData({ ...tempZoneData, is_surveillance: e.target.checked })}
-                                    style={{ width: '22px', height: '22px', cursor: 'pointer', accentColor: '#3b82f6' }}
+                                    style={{ width: '22px', height: '22px', cursor: 'pointer', accentColor: 'var(--color-blue)' }}
                                 />
                                 <label htmlFor="isSurveillance" style={{ color: '#fff', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>
                                     🕵️ Zona de vigilancia <span style={{ fontSize: '0.8em', color: '#93c5fd', marginLeft: '5px', fontWeight: 'normal' }}>(Exclusivo de la Gang Unit)</span>

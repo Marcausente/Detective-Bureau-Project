@@ -109,7 +109,7 @@ function DOJSanctionProfile() {
     };
 
     if (loading) return <div className="loading-screen">Loading Profile...</div>;
-    if (!profileData) return <div className="loading-screen" style={{ color: '#3b82f6' }}>Profile Not Found.</div>;
+    if (!profileData) return <div className="loading-screen" style={{ color: 'var(--color-blue)' }}>Profile Not Found.</div>;
 
     const { profile, sanctions } = profileData;
 
@@ -124,17 +124,17 @@ function DOJSanctionProfile() {
                     <div style={{
                         width: '100px', height: '100px', borderRadius: '50%',
                         background: 'rgba(248, 113, 113, 0.1)',
-                        color: '#3b82f6',
+                        color: 'var(--color-blue)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '2.5rem', fontWeight: 'bold',
-                        border: '2px solid #3b82f6'
+                        border: '2px solid var(--color-blue)'
                     }}>
                         {profile.nombre[0]}{profile.apellido[0]}
                     </div>
                     <div>
                         <h1 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc' }}>{profile.nombre} {profile.apellido}</h1>
                         <div style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Badge Number: <span style={{ color: 'var(--accent-gold)' }}>{profile.no_placa}</span></div>
-                        <div style={{ color: '#3b82f6', fontWeight: 'bold' }}>Total Sanctions: {sanctions.length}</div>
+                        <div style={{ color: 'var(--color-blue)', fontWeight: 'bold' }}>Total Sanctions: {sanctions.length}</div>
                     </div>
                     <div style={{ marginLeft: 'auto' }}>
                         <button className="login-button" style={{ width: 'auto' }} onClick={openForCreate}>
@@ -162,7 +162,7 @@ function DOJSanctionProfile() {
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                 <div style={{
                                     width: '16px', height: '16px', borderRadius: '50%',
-                                    background: item.type === 'Grave' ? '#ef4444' : item.type === 'Media' ? '#f59e0b' : '#3b82f6',
+                                    background: item.type === 'Grave' ? '#ef4444' : item.type === 'Media' ? '#f59e0b' : 'var(--color-blue)',
                                     border: '2px solid rgba(255,255,255,0.2)'
                                 }}></div>
                                 <div style={{ width: '2px', flex: 1, background: 'rgba(255,255,255,0.1)', minHeight: '50px' }}></div>
@@ -174,7 +174,7 @@ function DOJSanctionProfile() {
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                                         <span style={{
                                             fontWeight: 'bold',
-                                            color: item.type === 'Grave' ? '#ef4444' : item.type === 'Media' ? '#f59e0b' : '#3b82f6',
+                                            color: item.type === 'Grave' ? '#ef4444' : item.type === 'Media' ? '#f59e0b' : 'var(--color-blue)',
                                             textTransform: 'uppercase',
                                             fontSize: '0.9rem',
                                             letterSpacing: '1px'
@@ -218,7 +218,7 @@ function DOJSanctionProfile() {
             {showModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '500px' }}>
-                        <h3 style={{ marginBottom: '1rem', color: '#3b82f6' }}>{modalMode === 'create' ? 'Register Sanction' : 'Edit Sanction'}</h3>
+                        <h3 style={{ marginBottom: '1rem', color: 'var(--color-blue)' }}>{modalMode === 'create' ? 'Register Sanction' : 'Edit Sanction'}</h3>
                         <form onSubmit={handleAction}>
                             <div className="form-group">
                                 <label className="form-label">Sanction Type</label>

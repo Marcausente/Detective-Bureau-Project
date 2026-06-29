@@ -56,7 +56,7 @@ function ComplaintCard({
                 padding: '1rem',
                 wordWrap: 'break-word',
                 overflowWrap: 'anywhere',
-                border: isHighlighted ? '2px solid #60a5fa' : '1px solid rgba(255, 255, 255, 0.08)',
+                border: isHighlighted ? '2px solid var(--color-blue-light)' : '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '10px',
                 boxShadow: isHighlighted ? '0 0 20px rgba(96, 165, 250, 0.3)' : '0 2px 4px rgba(0, 0, 0, 0.1)',
                 transition: 'all 0.25s ease',
@@ -107,7 +107,7 @@ function ComplaintCard({
                         ) : (
                             <span style={{
                                 background: 'rgba(96, 165, 250, 0.15)',
-                                color: '#60a5fa',
+                                color: 'var(--color-blue-light)',
                                 padding: '2px 6px',
                                 borderRadius: '4px',
                                 fontSize: '0.7rem',
@@ -129,7 +129,7 @@ function ComplaintCard({
                     {onEdit && (
                         <button 
                             onClick={(e) => { e.stopPropagation(); onEdit(data); }} 
-                            style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '1rem', padding: '2px' }}
+                            style={{ background: 'none', border: 'none', color: 'var(--color-blue-light)', cursor: 'pointer', fontSize: '1rem', padding: '2px' }}
                             title={t('editItemTitle')}
                         >
                             ✏️
@@ -370,7 +370,7 @@ function ComplaintCard({
                         onClick={(e) => { e.stopPropagation(); onStatusChange(data.record_id, isClosed ? 'Open' : 'Closed'); }}
                         style={{
                             background: isClosed ? 'rgba(96, 165, 250, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                            color: isClosed ? '#60a5fa' : '#f87171',
+                            color: isClosed ? 'var(--color-blue-light)' : '#f87171',
                             border: isClosed ? '1px solid rgba(96, 165, 250, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
                             padding: '3px 8px',
                             borderRadius: '4px',
