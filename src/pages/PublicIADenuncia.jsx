@@ -137,7 +137,7 @@ function PublicIADenuncia() {
             {/* Header */}
             <header className="header" style={{ borderBottom: `1px solid ${accentColorRgb}` }}>
                 <img 
-                    src={isLSSD ? "/lssd/LSSDlogo.png" : "/ialogo.png"} 
+                    src={isLSSD ? "/lssd/IALSSD.png" : "/ialogo.png"} 
                     alt="Logo" 
                     className="header-logo" 
                     style={{ filter: `drop-shadow(0 0 10px ${isLSSD ? 'rgba(74, 222, 128, 0.4)' : 'rgba(185, 28, 28, 0.4)'})` }} 

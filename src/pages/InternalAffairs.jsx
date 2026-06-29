@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
 
 function InternalAffairs() {
     const navigate = useNavigate();
+    const { isLSSD } = useTheme();
 
     return (
         <div className="documentation-container" style={{
@@ -18,13 +20,13 @@ function InternalAffairs() {
             {/* Hero Section */}
             <div style={{ textAlign: 'center', marginBottom: '3rem', animation: 'fadeIn 1s ease-out' }}>
                 <img
-                    src="/ialogo.png"
+                    src={isLSSD ? "/lssd/IALSSD.png" : "/ialogo.png"}
                     alt="IA Logo"
                     style={{
                         width: '120px', // Smaller logo
                         height: 'auto',
                         marginBottom: '1rem',
-                        filter: 'drop-shadow(0 0 15px rgba(185, 28, 28, 0.4))'
+                        filter: `drop-shadow(0 0 15px ${isLSSD ? 'rgba(74, 222, 128, 0.4)' : 'rgba(185, 28, 28, 0.4)'})`
                     }}
                 />
                 <h1 style={{
