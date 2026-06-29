@@ -24,6 +24,7 @@ import IAInterrogations from './pages/IAInterrogations';
 import IASanctions from './pages/IASanctions';
 import IASanctionProfile from './pages/IASanctionProfile';
 import IAReceptorDenuncias from './pages/IAReceptorDenuncias';
+import PublicIADenuncia from './pages/PublicIADenuncia';
 import DOJ from './pages/DOJ'; // Import
 import DOJCases from './pages/DOJCases';
 import DOJCaseDetail from './pages/DOJCaseDetail';
@@ -53,6 +54,7 @@ function App() {
           {/* Public Route */}
           <Route path="/" element={<Login />} />
           <Route path="/public-map" element={<PublicGangMap />} />
+          <Route path="/denuncia-ia" element={<PublicIADenuncia />} />
 
           {/* Interstitial Route */}
           <Route path="/welcome" element={<Welcome />} />
