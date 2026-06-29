@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
 
 function PublicIADenuncia() {
     const navigate = useNavigate();
+    const { isLSSD } = useTheme();
 
     // Form fields
     const [nombreDenunciante, setNombreDenunciante] = useState('');
@@ -105,46 +107,106 @@ function PublicIADenuncia() {
         setErrorMsg('');
     };
 
+    // Color definitions based on LSSD Theme
+    const accentColor = isLSSD ? '#4ade80' : '#ef4444';
+    const accentColorRgb = isLSSD ? 'rgba(74, 222, 128, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+    const cardBg = isLSSD ? 'rgba(18, 30, 21, 0.95)' : 'rgba(15, 23, 42, 0.85)';
+    const cardBorder = isLSSD ? '1px solid rgba(74, 222, 128, 0.15)' : '1px solid rgba(255, 255, 255, 0.08)';
+
     return (
-        <div className="app-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div 
+            className="app-container" 
+            style={{ 
+                minHeight: '100vh', 
+                display: 'flex', 
+                flexDirection: 'column',
+                height: 'auto',
+                maxHeight: 'none',
+                overflowY: 'auto'
+            }}
+        >
             {/* Background image / style standard to the app */}
             <div className="background-container">
-                <img src="/indeximage.png" alt="Background" className="background-image" style={{ opacity: 0.15 }} />
+                <img 
+                    src={isLSSD ? "/lssd/fondolssd.jpg" : "/indeximage.png"} 
+                    alt="Background" 
+                    className="background-image" 
+                    style={{ opacity: isLSSD ? 0.25 : 0.15 }} 
+                />
             </div>
 
             {/* Header */}
-            <header className="header" style={{ borderBottom: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                <img src="/ialogo.png" alt="IA Logo" className="header-logo" style={{ filter: 'drop-shadow(0 0 10px rgba(185, 28, 28, 0.4))' }} />
+            <header className="header" style={{ borderBottom: `1px solid ${accentColorRgb}` }}>
+                <img 
+                    src={isLSSD ? "/lssd/LSSDlogo.png" : "/ialogo.png"} 
+                    alt="Logo" 
+                    className="header-logo" 
+                    style={{ filter: `drop-shadow(0 0 10px ${isLSSD ? 'rgba(74, 222, 128, 0.4)' : 'rgba(185, 28, 28, 0.4)'})` }} 
+                />
                 <div className="header-title-container">
-                    <h1 className="header-title" style={{ color: '#f8fafc', letterSpacing: '2px' }}>ASUNTOS INTERNOS</h1>
-                    <div className="header-subtitle" style={{ color: '#ef4444', letterSpacing: '1px' }}>FORMULARIO DE DENUNCIA CONFIDENCIAL</div>
+                    <h1 className="header-title" style={{ color: '#f8fafc', letterSpacing: '2px' }}>
+                        {isLSSD ? "LOS SANTOS SHERIFF DEPARTMENT" : "ASUNTOS INTERNOS"}
+                    </h1>
+                    <div className="header-subtitle" style={{ color: accentColor, letterSpacing: '1px' }}>
+                        FORMULARIO DE DENUNCIA CONFIDENCIAL
+                    </div>
                 </div>
-                <img src="/dblogo.png" alt="Bureau Logo" className="header-logo" />
+                <img src={isLSSD ? "/lssd/SCUB.png" : "/dblogo.png"} alt="Bureau Logo" className="header-logo" />
             </header>
 
             <main style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '3rem 1.5rem' }}>
                 {submitted ? (
-                    <div className="login-card" style={{ maxWidth: '600px', width: '100%', textAlign: 'center', padding: '3rem', border: '1px solid #10b981', background: 'rgba(15, 23, 42, 0.85)' }}>
-                        <div style={{ fontSize: '4rem', marginBottom: '1.5rem', color: '#10b981' }}>✓</div>
+                    <div 
+                        className="login-card" 
+                        style={{ 
+                            maxWidth: '600px', 
+                            width: '100%', 
+                            textAlign: 'center', 
+                            padding: '3rem', 
+                            border: `1px solid ${isLSSD ? '#4ade80' : '#10b981'}`, 
+                            background: cardBg 
+                        }}
+                    >
+                        <div style={{ fontSize: '4rem', marginBottom: '1.5rem', color: isLSSD ? '#4ade80' : '#10b981' }}>✓</div>
                         <h2 style={{ color: '#f8fafc', fontSize: '1.8rem', marginBottom: '1rem', fontWeight: 'bold' }}>Denuncia Enviada con Éxito</h2>
                         <p style={{ color: '#94a3b8', fontSize: '1.05rem', lineHeight: '1.6', marginBottom: '2rem' }}>
                             Su reporte ha sido recibido de forma segura por la división de Asuntos Internos. 
                             Toda la información proporcionada será tratada de manera estrictamente confidencial.
                         </p>
                         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                            <button onClick={handleReset} className="login-button" style={{ width: 'auto', padding: '0.8rem 1.5rem', backgroundColor: '#3b82f6' }}>
+                            <button 
+                                onClick={handleReset} 
+                                className="login-button" 
+                                style={{ width: 'auto', padding: '0.8rem 1.5rem', backgroundColor: '#3b82f6' }}
+                            >
                                 Enviar Otra Denuncia
                             </button>
-                            <button onClick={() => navigate('/')} className="login-button btn-secondary" style={{ width: 'auto', padding: '0.8rem 1.5rem' }}>
+                            <button 
+                                onClick={() => navigate('/')} 
+                                className="login-button btn-secondary" 
+                                style={{ width: 'auto', padding: '0.8rem 1.5rem' }}
+                            >
                                 Volver al Inicio
                             </button>
                         </div>
                     </div>
                 ) : (
-                    <div className="login-card" style={{ maxWidth: '750px', width: '100%', padding: '2.5rem', border: '1px solid rgba(255, 255, 255, 0.08)', background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(10px)' }}>
+                    <div 
+                        className="login-card" 
+                        style={{ 
+                            maxWidth: '750px', 
+                            width: '100%', 
+                            padding: '2.5rem', 
+                            background: cardBg, 
+                            backdropFilter: 'blur(10px)',
+                            border: '1px solid ' + (isLSSD ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255, 255, 255, 0.08)')
+                        }}
+                    >
                         <div className="login-header" style={{ marginBottom: '2rem', textAlign: 'center' }}>
                             <h2 style={{ color: '#f8fafc', fontSize: '1.6rem', fontWeight: 'bold' }}>Formulario de Denuncias</h2>
-                            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Use este formulario para reportar abusos de autoridad, corrupción o conductas inapropiadas de cualquier oficial de policía.</p>
+                            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
+                                Use este formulario para reportar abusos de autoridad, corrupción o conductas inapropiadas de cualquier oficial.
+                            </p>
                         </div>
 
                         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -159,6 +221,7 @@ function PublicIADenuncia() {
                                         placeholder="Ej: John Doe"
                                         value={nombreDenunciante}
                                         onChange={(e) => setNombreDenunciante(e.target.value)}
+                                        style={{ border: isLSSD ? '1px solid rgba(74, 222, 128, 0.15)' : '1px solid rgba(255, 255, 255, 0.1)' }}
                                     />
                                 </div>
                                 <div className="form-group">
@@ -170,6 +233,7 @@ function PublicIADenuncia() {
                                         placeholder="Ej: 555-0199"
                                         value={telefonoDenunciante}
                                         onChange={(e) => setTelefonoDenunciante(e.target.value)}
+                                        style={{ border: isLSSD ? '1px solid rgba(74, 222, 128, 0.15)' : '1px solid rgba(255, 255, 255, 0.1)' }}
                                     />
                                 </div>
                             </div>
@@ -181,9 +245,10 @@ function PublicIADenuncia() {
                                         type="text"
                                         className="form-input"
                                         required
-                                        placeholder="Ej: Sgt. Martinez (Placa 420)"
+                                        placeholder={isLSSD ? "Ej: Dep. Smith (Placa 304)" : "Ej: Sgt. Martinez (Placa 420)"}
                                         value={denunciadoNombrePlaca}
                                         onChange={(e) => setDenunciadoNombrePlaca(e.target.value)}
+                                        style={{ border: isLSSD ? '1px solid rgba(74, 222, 128, 0.15)' : '1px solid rgba(255, 255, 255, 0.1)' }}
                                     />
                                 </div>
                                 <div className="form-group">
@@ -194,6 +259,7 @@ function PublicIADenuncia() {
                                         required
                                         value={fechaHechos}
                                         onChange={(e) => setFechaHechos(e.target.value)}
+                                        style={{ border: isLSSD ? '1px solid rgba(74, 222, 128, 0.15)' : '1px solid rgba(255, 255, 255, 0.1)' }}
                                     />
                                 </div>
                             </div>
@@ -202,7 +268,11 @@ function PublicIADenuncia() {
                                 <label className="form-label">Motivo Principal</label>
                                 <select
                                     className="form-input"
-                                    style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', color: '#f8fafc' }}
+                                    style={{ 
+                                        background: isLSSD ? '#121e15' : '#1e293b', 
+                                        border: isLSSD ? '1px solid rgba(74, 222, 128, 0.2)' : '1px solid rgba(255,255,255,0.1)', 
+                                        color: '#f8fafc' 
+                                    }}
                                     value={motivoSelect}
                                     onChange={(e) => setMotivoSelect(e.target.value)}
                                 >
@@ -224,6 +294,7 @@ function PublicIADenuncia() {
                                         placeholder="Ej: Allanamiento ilegal, extorsión, etc."
                                         value={motivoOtro}
                                         onChange={(e) => setMotivoOtro(e.target.value)}
+                                        style={{ border: isLSSD ? '1px solid rgba(74, 222, 128, 0.15)' : '1px solid rgba(255, 255, 255, 0.1)' }}
                                     />
                                 </div>
                             )}
@@ -235,7 +306,10 @@ function PublicIADenuncia() {
                                     required
                                     rows="5"
                                     placeholder="Describa de manera detallada lo sucedido, incluyendo horas, lugares y cualquier testigo ocular..."
-                                    style={{ resize: 'vertical' }}
+                                    style={{ 
+                                        resize: 'vertical',
+                                        border: isLSSD ? '1px solid rgba(74, 222, 128, 0.15)' : '1px solid rgba(255, 255, 255, 0.1)'
+                                    }}
                                     value={declaracion}
                                     onChange={(e) => setDeclaracion(e.target.value)}
                                 />
@@ -249,6 +323,7 @@ function PublicIADenuncia() {
                                     placeholder="https://youtube.com/watch?v=... o enlace de descarga"
                                     value={enlacePrueba}
                                     onChange={(e) => setEnlacePrueba(e.target.value)}
+                                    style={{ border: isLSSD ? '1px solid rgba(74, 222, 128, 0.15)' : '1px solid rgba(255, 255, 255, 0.1)' }}
                                 />
                             </div>
 
@@ -256,16 +331,16 @@ function PublicIADenuncia() {
                                 <label className="form-label">Adjuntar Imágenes (Opcional)</label>
                                 <label className="custom-file-upload" style={{
                                     display: 'block',
-                                    border: '1px dashed rgba(255, 255, 255, 0.2)',
+                                    border: `1px dashed ${isLSSD ? 'rgba(74, 222, 128, 0.3)' : 'rgba(255, 255, 255, 0.2)'}`,
                                     borderRadius: '8px',
                                     padding: '1.5rem',
                                     textAlign: 'center',
                                     cursor: 'pointer',
-                                    background: 'rgba(30, 41, 59, 0.3)',
+                                    background: isLSSD ? 'rgba(18, 30, 21, 0.4)' : 'rgba(30, 41, 59, 0.3)',
                                     transition: 'all 0.2s'
                                 }}
-                                onMouseEnter={e => e.currentTarget.style.borderColor = '#ef4444'}
-                                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
+                                onMouseEnter={e => e.currentTarget.style.borderColor = accentColor}
+                                onMouseLeave={e => e.currentTarget.style.borderColor = isLSSD ? 'rgba(74, 222, 128, 0.3)' : 'rgba(255, 255, 255, 0.2)'}
                                 >
                                     <input
                                         type="file"
@@ -280,7 +355,11 @@ function PublicIADenuncia() {
                                         <img
                                             src={imagenBase64}
                                             alt="Preview"
-                                            style={{ maxHeight: '150px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                                            style={{ 
+                                                maxHeight: '150px', 
+                                                borderRadius: '6px', 
+                                                border: `1px solid ${isLSSD ? 'rgba(74, 222, 128, 0.3)' : 'rgba(255, 255, 255, 0.1)'}` 
+                                            }}
                                         />
                                     </div>
                                 )}
@@ -291,7 +370,7 @@ function PublicIADenuncia() {
                             <button
                                 type="submit"
                                 className="login-button"
-                                style={{ backgroundColor: '#ef4444', color: '#f8fafc', marginTop: '1rem' }}
+                                style={{ backgroundColor: accentColor, color: '#f8fafc', marginTop: '1rem' }}
                                 disabled={submitting}
                             >
                                 {submitting ? 'Enviando Reporte...' : 'Enviar Denuncia Confidencial'}
