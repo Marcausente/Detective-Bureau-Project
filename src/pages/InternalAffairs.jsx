@@ -248,6 +248,53 @@ function InternalAffairs() {
                     <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>Disciplinary actions log.</p>
                 </div>
 
+                {/* Active Module: Receptor de denuncias */}
+                <div
+                    className="ia-card"
+                    onClick={() => navigate('/internal-affairs/receptor-denuncias')}
+                    style={{
+                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6))',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: '12px',
+                        padding: '2rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        textAlign: 'center'
+                    }}
+                    onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'translateY(-5px)';
+                        e.currentTarget.style.borderColor = '#3b82f6';
+                        e.currentTarget.style.boxShadow = '0 10px 30px -10px rgba(59, 130, 246, 0.3)';
+                    }}
+                    onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
+                        e.currentTarget.style.boxShadow = 'none';
+                    }}
+                >
+                    <div style={{
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        borderRadius: '50%',
+                        width: '70px',
+                        height: '70px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: '1.5rem',
+                        color: '#3b82f6',
+                        fontSize: '2rem'
+                    }}>
+                        📥
+                    </div>
+                    <h3 style={{ color: '#f8fafc', fontSize: '1.2rem', marginBottom: '0.5rem', fontWeight: '600', letterSpacing: '1px' }}>Receptor de denuncias</h3>
+                    <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5' }}>Receive and manage Internal Affairs complaints.</p>
+                </div>
+
             </div>
         </div>
     );
