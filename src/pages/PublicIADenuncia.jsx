@@ -127,7 +127,7 @@ function PublicIADenuncia() {
             {/* Background image / style standard to the app */}
             <div className="background-container">
                 <img 
-                    src={isLSSD ? "/lssd/fondolssd.jpg" : "/indeximage.png"} 
+                    src="/lssd/fondoia.png" 
                     alt="Background" 
                     className="background-image" 
                     style={{ opacity: isLSSD ? 0.25 : 0.15 }} 
