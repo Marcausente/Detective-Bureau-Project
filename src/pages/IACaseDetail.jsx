@@ -284,10 +284,56 @@ function IACaseDetail() {
         }
     };
 
+    const handleStatusChange = async (newStatus) => {
+        const confirmMsg = language === 'es' 
+            ? `¿Está seguro de que desea cambiar el estado a ${newStatus === 'Closed' ? 'Cerrado' : newStatus === 'Archived' ? 'Archivado' : 'Abierto'}?`
+            : `Are you sure you want to change status to ${newStatus}?`;
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            const { error } = await supabase.rpc('set_ia_case_status', { p_case_id: id, p_status: newStatus });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error updating status: ' + err.message);
+        }
+    };
+
+    const handleDeleteCase = async () => {
+        const confirmMsg = language === 'es'
+            ? "🛑 ZONA DE PELIGRO 🛑\n\n¿Está seguro de que desea ELIMINAR PERMANENTEMENTE este caso de IA?\nEsto incluye todos los mensajes, imágenes de evidencia y asignaciones.\nLas denuncias e interrogatorios vinculados se conservarán pero se desvincularán.\n\nEsta acción NO se puede deshacer."
+            : "🛑 DANGER ZONE 🛑\n\nAre you sure you want to PERMANENTLY DELETE this IA case?\nThis includes all updates, evidence images, and assignments.\nLinked complaints and interrogations will be preserved but unlinked.\n\nThis action CANNOT be undone.";
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            setLoading(true);
+            const { data: result, error } = await supabase.rpc('delete_ia_case_fully', { p_case_id: id });
+            if (error) throw error;
+
+            if (result === 'NOT_FOUND') {
+                alert(language === 'es' ? "Caso no encontrado durante la eliminación." : "Case ID not found during deletion.");
+            }
+            navigate('/internal-affairs/cases');
+        } catch (err) {
+            alert('Error deleting case: ' + err.message);
+            setLoading(false);
+        }
+    };
+
     if (loading) return <div className="loading-screen">{language === 'es' ? 'Cargando Investigación...' : 'Loading Investigation...'}</div>;
     if (!caseData) return <div className="loading-screen" style={{ color: '#f87171' }}>{language === 'es' ? 'Investigación no encontrada.' : 'Investigation Not Found.'}</div>;
 
     const { info, assignments, updates, interrogations } = caseData;
+
+    const userIsHighCommand = currentUser && (
+        ['Coordinador', 'Administrador', 'Comisionado', 'Director', 'Fundador'].includes(currentUser.rol) ||
+        ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente'].includes(currentUser.rango)
+    );
+
+    const userIsIAUser = currentUser && (
+        (currentUser.divisions && currentUser.divisions.includes('Internal Affairs')) ||
+        currentUser.rol === 'Administrador'
+    );
 
     return (
         <div className="documentation-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
@@ -308,14 +354,48 @@ function IACaseDetail() {
                             {language === 'es' ? 'Ubicado en ' : 'Located at '}<strong>{info.location}</strong> • {language === 'es' ? 'Ocurrió el ' : 'Occurred on '}{new Date(info.occurred_at).toLocaleString()}
                         </div>
                     </div>
-                    <div className={`status-badge ${info.status.toLowerCase()}`}
-                        style={{
-                            display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase',
-                            backgroundColor: info.status === 'Open' ? 'rgba(74, 222, 128, 0.2)' : 'rgba(148, 163, 184, 0.2)',
-                            color: info.status === 'Open' ? '#4ade80' : '#94a3b8',
-                            border: `1px solid ${info.status === 'Open' ? '#4ade80' : '#94a3b8'}`
-                        }}>
-                        {info.status === 'Open' ? (language === 'es' ? 'ABIERTO' : 'OPEN') : info.status === 'Closed' ? (language === 'es' ? 'CERRADO' : 'CLOSED') : (language === 'es' ? 'ARCHIVADO' : 'ARCHIVED')}
+                    <div style={{ textAlign: 'right' }}>
+                        <div className={`status-badge ${info.status.toLowerCase()}`}
+                            style={{
+                                display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase',
+                                backgroundColor: info.status === 'Open' ? 'rgba(74, 222, 128, 0.2)' : info.status === 'Closed' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(148, 163, 184, 0.2)',
+                                color: info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#ef4444' : '#94a3b8',
+                                border: `1px solid ${info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#ef4444' : '#94a3b8'}`
+                            }}>
+                            {info.status === 'Open' ? (language === 'es' ? 'ABIERTO' : 'OPEN') : info.status === 'Closed' ? (language === 'es' ? 'CERRADO' : 'CLOSED') : (language === 'es' ? 'ARCHIVADO' : 'ARCHIVED')}
+                        </div>
+
+                        <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                            {info.status === 'Open' && userIsIAUser && (
+                                <>
+                                    <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Closed')}>
+                                        {language === 'es' ? 'Cerrar Caso' : 'Close Case'}
+                                    </button>
+                                    <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Archived')}>
+                                        {language === 'es' ? 'Archivar' : 'Archive'}
+                                    </button>
+                                </>
+                            )}
+                            {info.status !== 'Open' && userIsIAUser && (
+                                <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Open')}>
+                                    {language === 'es' ? 'Reabrir Caso' : 'Reopen Case'}
+                                </button>
+                            )}
+
+                            {/* DELETE BUTTON: Only for userIsHighCommand */}
+                            {userIsHighCommand && (
+                                <button
+                                    className="login-button"
+                                    style={{
+                                        width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444'
+                                    }}
+                                    onClick={handleDeleteCase}
+                                >
+                                    {language === 'es' ? 'Borrar Caso' : 'Delete Case'}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -359,7 +439,7 @@ function IACaseDetail() {
                         <>
 
                             {/* New Update Box */}
-                            {info.status !== 'Archived' && (
+                            {info.status === 'Open' && (
                                 <div className="new-update-box" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
                                     <form onSubmit={handlePostUpdate}>
                                         <ReactQuill 
