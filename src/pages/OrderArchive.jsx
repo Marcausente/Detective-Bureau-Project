@@ -245,6 +245,20 @@ const ORDER_TYPES = {
             { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
             { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
         ]
+    },
+    'Solicitud de informacion medica': {
+        label: 'Solicitud de Información Médica',
+        color: '#06b6d4', // Cyan
+        icon: '🏥',
+        fields: [
+            { name: 'requested_department', label: 'Departamento al que se solicita', type: 'text', defaultValue: 'SAED' },
+            { name: 'person_name', label: 'Nombre de la Persona', placeholder: 'Nombre Apellido', type: 'text' },
+            { name: 'person_id', label: 'ID de la Persona', placeholder: 'ej. 12345', type: 'text' },
+            { name: 'requested_document_type', label: 'Tipo de documento a solicitar', placeholder: 'ej. Historial clínico, autopsia, etc.', type: 'text' },
+            { name: 'order_reason', label: 'Motivo de la Orden', type: 'textarea' },
+            { name: 'linked_case_id', label: 'Vincular Caso (Opcional)', documentLabel: 'Caso Vinculado', type: 'select', options: '$$cases', optional: true },
+            { name: 'linked_gang_id', label: 'Vincular Banda (Opcional)', documentLabel: 'Banda Vinculada', type: 'select', options: '$$gangs', optional: true }
+        ]
     }
 };
 
@@ -756,6 +770,20 @@ function OrderArchive() {
     // Vehicle Seizure Repeater State
     const [tempSeizureVehicle, setTempSeizureVehicle] = useState({});
 
+    const selectOrderType = (type) => {
+        setSelectedType(type);
+        const defaults = {};
+        const config = ORDER_TYPES[type];
+        if (config && config.fields) {
+            config.fields.forEach(field => {
+                if (field.defaultValue !== undefined) {
+                    defaults[field.name] = field.defaultValue;
+                }
+            });
+        }
+        setFormData(defaults);
+    };
+
     useEffect(() => {
         loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -922,7 +950,6 @@ function OrderArchive() {
         setSubmitting(true);
         
         // Auto-Title Logic
-        const config = ORDER_TYPES[selectedType];
         
         let primaryValue = 'Sin Titulo';
         // Priority checks
@@ -998,6 +1025,7 @@ function OrderArchive() {
             primaryValue = `${sv.owner_name} - ${sv.vehicle}`;
             if (formData.seizure_vehicles.length > 1) primaryValue += ` +${formData.seizure_vehicles.length - 1} más`;
         }
+        else if (formData.person_name) primaryValue = formData.person_name;
         else if (formData.owner_name) primaryValue = formData.owner_name;
         else if (formData.camera_location) primaryValue = formData.camera_location;
         else if (formData.suspected_owner) primaryValue = formData.suspected_owner;
@@ -1108,7 +1136,7 @@ function OrderArchive() {
                     <button 
                         className="login-button" 
                         style={{ padding: '0.8rem 1.5rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 15px rgba(212,175,55,0.2)' }} 
-                        onClick={() => setShowCreateModal(true)}
+                        onClick={() => { selectOrderType('Orden de Registro (Casa)'); setShowCreateModal(true); }}
                     >
                         <span style={{ fontSize: '1.2rem' }}>+</span> 
                         GENERAR ORDEN
@@ -1209,7 +1237,7 @@ function OrderArchive() {
                                         <button
                                             key={key}
                                             type="button"
-                                            onClick={() => { setSelectedType(key); setFormData({}); }}
+                                            onClick={() => selectOrderType(key)}
                                             style={{
                                                 background: selectedType === key ? `${config.color}22` : 'rgba(255,255,255,0.05)',
                                                 border: selectedType === key ? `1px solid ${config.color}` : '1px solid transparent',
@@ -1671,6 +1699,6 @@ function OrderArchive() {
             />
         </div>
     );
-};
+}
 
 export default OrderArchive;

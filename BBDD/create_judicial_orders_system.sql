@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS public.judicial_orders (
       'Orden de Alejamiento', 
       'Orden de Precinto',
       'Ley Rico',
-      'Revision de Camaras'
+      'Revision de Camaras',
+      'Solicitud de informacion medica'
   )),
   title TEXT NOT NULL, -- e.g. "Arresto - Pepe Garcia"
   content JSONB NOT NULL DEFAULT '{}'::jsonb, -- Stores dynamic fields
