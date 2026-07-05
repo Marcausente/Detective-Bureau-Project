@@ -25,6 +25,14 @@ function IACaseDetail() {
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState('');
 
+    // Case Info Edit State
+    const [isEditingInfo, setIsEditingInfo] = useState(false);
+    const [editTitle, setEditTitle] = useState('');
+    const [editLocation, setEditLocation] = useState('');
+    const [editOccurredAt, setEditOccurredAt] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [editInitialImage, setEditInitialImage] = useState(null); // null = no change, '' = remove, base64 = new image
+
     // Quill config – memoized so the object reference is stable across renders
     const quillModules = useMemo(() => makeQuillModules(), []);
 
@@ -285,7 +293,7 @@ function IACaseDetail() {
     };
 
     const handleStatusChange = async (newStatus) => {
-        const confirmMsg = language === 'es' 
+        const confirmMsg = language === 'es'
             ? `¿Está seguro de que desea cambiar el estado a ${newStatus === 'Closed' ? 'Cerrado' : newStatus === 'Archived' ? 'Archivado' : 'Abierto'}?`
             : `Are you sure you want to change status to ${newStatus}?`;
         if (!window.confirm(confirmMsg)) return;
@@ -296,6 +304,44 @@ function IACaseDetail() {
             loadCaseDetails();
         } catch (err) {
             alert('Error updating status: ' + err.message);
+        }
+    };
+
+    const startEditingInfo = () => {
+        setEditTitle(info.title);
+        setEditLocation(info.location || '');
+        const dt = new Date(info.occurred_at);
+        dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+        setEditOccurredAt(dt.toISOString().slice(0, 16));
+        setEditDescription(info.description || '');
+        setEditInitialImage(null);
+        setIsEditingInfo(true);
+    };
+
+    const handleSaveInfo = async () => {
+        try {
+            const { error } = await supabase.rpc('update_ia_case_details', {
+                p_case_id: id,
+                p_title: editTitle,
+                p_location: editLocation,
+                p_occurred_at: editOccurredAt,
+                p_description: editDescription
+            });
+            if (error) throw error;
+
+            if (editInitialImage !== null) {
+                const { error: imgError } = await supabase
+                    .from('ia_cases')
+                    .update({ initial_image_url: editInitialImage || null })
+                    .eq('id', id);
+                if (imgError) throw imgError;
+            }
+
+            setIsEditingInfo(false);
+            setEditInitialImage(null);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error updating case details: ' + err.message);
         }
     };
 
@@ -335,6 +381,9 @@ function IACaseDetail() {
         currentUser.rol === 'Administrador'
     );
 
+    const isAssigned = currentUser && assignments && assignments.some(a => a.user_id === currentUser.id);
+    const canEditCase = userIsIAUser && (userIsHighCommand || info.created_by === currentUser?.id || isAssigned);
+
     return (
         <div className="documentation-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
             <div className="case-detail-header" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem', marginBottom: '2rem' }}>
@@ -342,72 +391,184 @@ function IACaseDetail() {
                     <button onClick={() => navigate('/internal-affairs/cases')} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', marginBottom: '1rem' }}>
                         {language === 'es' ? '← Volver a Casos de IA' : '← Back to IA Cases'}
                     </button>
-                </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                        <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#f87171' }}>
-                            <span style={{ color: 'var(--text-secondary)', marginRight: '1rem' }}>IA-#{String(info.case_number).padStart(3, '0')}</span>
-                            {info.title}
-                        </h1>
-                        <div style={{ color: 'var(--text-secondary)' }}>
-                            {language === 'es' ? 'Ubicado en ' : 'Located at '}<strong>{info.location}</strong> • {language === 'es' ? 'Ocurrió el ' : 'Occurred on '}{new Date(info.occurred_at).toLocaleString()}
-                        </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                        <div className={`status-badge ${info.status.toLowerCase()}`}
-                            style={{
-                                display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase',
-                                backgroundColor: info.status === 'Open' ? 'rgba(74, 222, 128, 0.2)' : info.status === 'Closed' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(148, 163, 184, 0.2)',
-                                color: info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#ef4444' : '#94a3b8',
-                                border: `1px solid ${info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#ef4444' : '#94a3b8'}`
-                            }}>
-                            {info.status === 'Open' ? (language === 'es' ? 'ABIERTO' : 'OPEN') : info.status === 'Closed' ? (language === 'es' ? 'CERRADO' : 'CLOSED') : (language === 'es' ? 'ARCHIVADO' : 'ARCHIVED')}
-                        </div>
-
-                        <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                            {info.status === 'Open' && userIsIAUser && (
-                                <>
-                                    <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Closed')}>
-                                        {language === 'es' ? 'Cerrar Caso' : 'Close Case'}
-                                    </button>
-                                    <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Archived')}>
-                                        {language === 'es' ? 'Archivar' : 'Archive'}
-                                    </button>
-                                </>
-                            )}
-                            {info.status !== 'Open' && userIsIAUser && (
-                                <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Open')}>
-                                    {language === 'es' ? 'Reabrir Caso' : 'Reopen Case'}
-                                </button>
-                            )}
-
-                            {/* DELETE BUTTON: Only for userIsHighCommand */}
-                            {userIsHighCommand && (
-                                <button
-                                    className="login-button"
-                                    style={{
-                                        width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem',
-                                        backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444'
-                                    }}
-                                    onClick={handleDeleteCase}
-                                >
-                                    {language === 'es' ? 'Borrar Caso' : 'Delete Case'}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', borderLeft: '4px solid var(--accent-gold)' }}>
-                    <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-gold)' }}>{language === 'es' ? 'REPORTE INICIAL' : 'INITIAL REPORT'}</h4>
-                    {info.initial_image_url && (
-                        <div style={{ marginBottom: '1rem', borderRadius: '4px', overflow: 'hidden', cursor: 'pointer', maxWidth: '400px', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => setExpandedImage(info.initial_image_url)}>
-                            <img src={info.initial_image_url} alt="Initial Evidence" style={{ width: '100%', display: 'block' }} />
-                        </div>
+                    {!isEditingInfo && canEditCase && (
+                        <button onClick={startEditingInfo} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline' }}>
+                            {language === 'es' ? 'Editar Detalles' : 'Edit Details'}
+                        </button>
                     )}
-                    <p style={{ margin: 0, whiteSpace: 'pre-line', color: 'var(--text-secondary)' }}>{info.description}</p>
                 </div>
+
+                {isEditingInfo ? (
+                    <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--accent-gold)' }}>
+                        <div style={{ display: 'grid', gap: '1rem', marginBottom: '1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                                    {language === 'es' ? 'Título del Caso' : 'Case Title'}
+                                </label>
+                                <input type="text" className="form-input" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                                        {language === 'es' ? 'Ubicación' : 'Location'}
+                                    </label>
+                                    <input type="text" className="form-input" value={editLocation} onChange={e => setEditLocation(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                                        {language === 'es' ? 'Fecha de los hechos' : 'Date of Occurrence'}
+                                    </label>
+                                    <input type="datetime-local" className="form-input" value={editOccurredAt} onChange={e => setEditOccurredAt(e.target.value)} />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                                    {language === 'es' ? 'Reporte Inicial / Descripción' : 'Initial Report / Description'}
+                                </label>
+                                <textarea
+                                    className="form-input"
+                                    rows="10"
+                                    value={editDescription}
+                                    onChange={e => setEditDescription(e.target.value)}
+                                    placeholder={language === 'es' ? 'Describa los detalles del incidente...' : 'Describe the incident details...'}
+                                />
+                            </div>
+
+                            {/* Initial Image section */}
+                            <div>
+                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                                    {language === 'es' ? 'Reporte Inicial — Imagen' : 'Initial Report — Image'}
+                                </label>
+
+                                {(editInitialImage || (editInitialImage === null && info.initial_image_url)) && (
+                                    <div style={{ position: 'relative', display: 'inline-block', marginBottom: '0.75rem' }}>
+                                        <img
+                                            src={editInitialImage || info.initial_image_url}
+                                            alt="Initial Evidence Preview"
+                                            style={{ maxHeight: '150px', borderRadius: '4px', border: '1px solid var(--accent-gold)' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditInitialImage('')}
+                                            style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            title={language === 'es' ? 'Eliminar imagen' : 'Remove image'}
+                                        >
+                                            &times;
+                                        </button>
+                                    </div>
+                                )}
+
+                                <label className="custom-file-upload" style={{ display: 'inline-block', width: 'auto', margin: 0, fontSize: '0.85rem', padding: '0.4rem 1rem' }}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (!file) return;
+                                            const reader = new FileReader();
+                                            reader.readAsDataURL(file);
+                                            reader.onload = (ev) => {
+                                                const img = new Image();
+                                                img.src = ev.target.result;
+                                                img.onload = () => {
+                                                    const canvas = document.createElement('canvas');
+                                                    const MAX_W = 800;
+                                                    const scale = img.width > MAX_W ? MAX_W / img.width : 1;
+                                                    canvas.width = img.width * scale;
+                                                    canvas.height = img.height * scale;
+                                                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                                                    setEditInitialImage(canvas.toDataURL('image/jpeg', 0.75));
+                                                };
+                                            };
+                                        }}
+                                    />
+                                    📸 {editInitialImage === null && info.initial_image_url
+                                        ? (language === 'es' ? 'Cambiar imagen' : 'Change image')
+                                        : (language === 'es' ? 'Subir imagen' : 'Upload image')}
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                            <button className="login-button btn-secondary" onClick={() => setIsEditingInfo(false)} style={{ width: 'auto' }}>
+                                {language === 'es' ? 'Cancelar' : 'Cancel'}
+                            </button>
+                            <button className="login-button" onClick={handleSaveInfo} style={{ width: 'auto' }}>
+                                {language === 'es' ? 'Guardar Cambios' : 'Save Changes'}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                                <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#f87171' }}>
+                                    <span style={{ color: 'var(--text-secondary)', marginRight: '1rem' }}>IA-#{String(info.case_number).padStart(3, '0')}</span>
+                                    {info.title}
+                                </h1>
+                                <div style={{ color: 'var(--text-secondary)' }}>
+                                    {language === 'es' ? 'Ubicado en ' : 'Located at '}<strong>{info.location}</strong> • {language === 'es' ? 'Ocurrió el ' : 'Occurred on '}{new Date(info.occurred_at).toLocaleString()}
+                                </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <div className={`status-badge ${info.status.toLowerCase()}`}
+                                    style={{
+                                        display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase',
+                                        backgroundColor: info.status === 'Open' ? 'rgba(74, 222, 128, 0.2)' : info.status === 'Closed' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(148, 163, 184, 0.2)',
+                                        color: info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#ef4444' : '#94a3b8',
+                                        border: `1px solid ${info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#ef4444' : '#94a3b8'}`
+                                    }}>
+                                    {info.status === 'Open' ? (language === 'es' ? 'ABIERTO' : 'OPEN') : info.status === 'Closed' ? (language === 'es' ? 'CERRADO' : 'CLOSED') : (language === 'es' ? 'ARCHIVADO' : 'ARCHIVED')}
+                                </div>
+
+                                <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                    {info.status === 'Open' && userIsIAUser && (
+                                        <>
+                                            <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Closed')}>
+                                                {language === 'es' ? 'Cerrar Caso' : 'Close Case'}
+                                            </button>
+                                            <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Archived')}>
+                                                {language === 'es' ? 'Archivar' : 'Archive'}
+                                            </button>
+                                        </>
+                                    )}
+                                    {info.status !== 'Open' && userIsIAUser && (
+                                        <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Open')}>
+                                            {language === 'es' ? 'Reabrir Caso' : 'Reopen Case'}
+                                        </button>
+                                    )}
+
+                                    {/* DELETE BUTTON: Only for userIsHighCommand */}
+                                    {userIsHighCommand && (
+                                        <button
+                                            className="login-button"
+                                            style={{
+                                                width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem',
+                                                backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444'
+                                            }}
+                                            onClick={handleDeleteCase}
+                                        >
+                                            {language === 'es' ? 'Borrar Caso' : 'Delete Case'}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', borderLeft: '4px solid var(--accent-gold)' }}>
+                            <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-gold)' }}>{language === 'es' ? 'REPORTE INICIAL' : 'INITIAL REPORT'}</h4>
+                            {info.initial_image_url && (
+                                <div style={{ marginBottom: '1rem', borderRadius: '4px', overflow: 'hidden', cursor: 'pointer', maxWidth: '400px', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => setExpandedImage(info.initial_image_url)}>
+                                    <img src={info.initial_image_url} alt="Initial Evidence" style={{ width: '100%', display: 'block' }} />
+                                </div>
+                            )}
+                            <p style={{ margin: 0, whiteSpace: 'pre-line', color: 'var(--text-secondary)' }}>{info.description}</p>
+                        </div>
+                    </>
+                )}
             </div>
 
             <div className="case-layout" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
@@ -442,7 +603,7 @@ function IACaseDetail() {
                             {info.status === 'Open' && (
                                 <div className="new-update-box" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
                                     <form onSubmit={handlePostUpdate}>
-                                        <ReactQuill 
+                                        <ReactQuill
                                             theme="snow"
                                             modules={quillModules}
                                             formats={quillFormats}
@@ -487,60 +648,61 @@ function IACaseDetail() {
                                         const isEditing = editingId === update.id;
 
                                         return (
-                                        <div key={update.id} className="case-update-card" style={{
-                                            background: 'rgba(var(--secondary-rgb), 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
-                                            borderLeft: '2px solid rgba(255,255,255,0.1)'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                    <img src={update.author_avatar || '/anon.png'} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px' }} />
-                                                    <div>
-                                                        <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{update.author_rank} {update.author_name}</div>
-                                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(update.created_at).toLocaleString()}</div>
+                                            <div key={update.id} className="case-update-card" style={{
+                                                background: 'rgba(var(--secondary-rgb), 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
+                                                borderLeft: '2px solid rgba(255,255,255,0.1)'
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                        <img src={update.author_avatar || '/anon.png'} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px' }} />
+                                                        <div>
+                                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{update.author_rank} {update.author_name}</div>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(update.created_at).toLocaleString()}</div>
+                                                        </div>
                                                     </div>
+
+                                                    {(canEdit || canDelete) && !isEditing && (
+                                                        <div style={{ display: 'flex', gap: '5px' }}>
+                                                            {canEdit && (
+                                                                <button onClick={() => handleStartEdit(update)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }} title="Edit Message">✏️</button>
+                                                            )}
+                                                            {canDelete && (
+                                                                <button onClick={() => handleDeleteUpdate(update.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }} title="Delete Message">🗑️</button>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
 
-                                                {(canEdit || canDelete) && !isEditing && (
-                                                    <div style={{ display: 'flex', gap: '5px' }}>
-                                                        {canEdit && (
-                                                            <button onClick={() => handleStartEdit(update)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }} title="Edit Message">✏️</button>
-                                                        )}
-                                                        {canDelete && (
-                                                            <button onClick={() => handleDeleteUpdate(update.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }} title="Delete Message">🗑️</button>
-                                                        )}
+                                                {isEditing ? (
+                                                    <div style={{ marginBottom: '1rem' }}>
+                                                        <ReactQuill
+                                                            theme="snow"
+                                                            modules={quillModules}
+                                                            formats={quillFormats}
+                                                            value={editContent}
+                                                            onChange={setEditContent}
+                                                            style={{ marginBottom: '0.5rem' }}
+                                                        />
+                                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                            <button className="login-button btn-secondary" onClick={() => setEditingId(null)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                                                            <button className="login-button" onClick={() => handleSaveEdit(update.id)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>{language === 'es' ? 'Guardar Cambios' : 'Save Changes'}</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ marginBottom: '1rem', color: 'var(--text-primary)' }} className="quill-content" dangerouslySetInnerHTML={{ __html: update.content }} />
+                                                )}
+                                                {(update.images && update.images.length > 0) && (
+                                                    <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                        {update.images.map((imgSrc, i) => (
+                                                            <div key={i} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }} onClick={() => setExpandedImage(imgSrc)}>
+                                                                <img src={imgSrc} alt="Evidence" style={{ display: 'block', maxHeight: '200px', maxWidth: '100%', objectFit: 'cover' }} />
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 )}
                                             </div>
-
-                                            {isEditing ? (
-                                                <div style={{ marginBottom: '1rem' }}>
-                                                    <ReactQuill 
-                                                        theme="snow"
-                                                        modules={quillModules}
-                                                        formats={quillFormats}
-                                                        value={editContent}
-                                                        onChange={setEditContent}
-                                                        style={{ marginBottom: '0.5rem' }}
-                                                    />
-                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                        <button className="login-button btn-secondary" onClick={() => setEditingId(null)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
-                                                        <button className="login-button" onClick={() => handleSaveEdit(update.id)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>{language === 'es' ? 'Guardar Cambios' : 'Save Changes'}</button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div style={{ marginBottom: '1rem', color: 'var(--text-primary)' }} className="quill-content" dangerouslySetInnerHTML={{ __html: update.content }} />
-                                            )}
-                                            {(update.images && update.images.length > 0) && (
-                                                <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                                                    {update.images.map((imgSrc, i) => (
-                                                        <div key={i} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }} onClick={() => setExpandedImage(imgSrc)}>
-                                                            <img src={imgSrc} alt="Evidence" style={{ display: 'block', maxHeight: '200px', maxWidth: '100%', objectFit: 'cover' }} />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )})
+                                        )
+                                    })
                                 )}
                             </div>
                         </>
@@ -730,7 +892,7 @@ function IACaseDetail() {
                         <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem', color: 'var(--accent-gold)', fontSize: '1.3rem' }}>
                             Detalle de Denuncia Confidencial
                         </h3>
-                        
+
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', margin: '1rem 0' }}>
                             <div>
                                 <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Denunciante:</span>
@@ -807,7 +969,7 @@ function IACaseDetail() {
                     </div>
                 </div>
             )}
-            
+
             {/* FULL SCREEN IMAGE VIEWER */}
             {expandedImage && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }} onClick={() => setExpandedImage(null)}>
