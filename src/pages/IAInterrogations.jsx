@@ -5,7 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function IAInterrogations() {
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { language } = useLanguage();
     const [interrogations, setInterrogations] = useState([]);
@@ -36,6 +36,21 @@ function IAInterrogations() {
         loadData();
         fetchPersonnel();
     }, []);
+
+    useEffect(() => {
+        const searchVal = searchParams.get('search');
+        const idVal = searchParams.get('id');
+        if (searchVal) {
+            setSearchTerm(searchVal);
+        } else if (idVal && interrogations.length > 0) {
+            const item = interrogations.find(i => String(i.id) === String(idVal));
+            if (item) {
+                setSearchTerm(item.title);
+            }
+        } else if (!searchVal && !idVal) {
+            setSearchTerm('');
+        }
+    }, [searchParams, interrogations]);
 
     const loadData = async () => {
         try {
