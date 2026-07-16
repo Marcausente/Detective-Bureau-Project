@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 import IACaseTodoList from '../components/IACaseTodoList';
+import IASanctionVoting from '../components/IASanctionVoting';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { makeQuillModules, quillFormats } from '../utils/quillConfig';
@@ -594,9 +595,19 @@ function IACaseDetail() {
                             }}>
                             {language === 'es' ? 'Lista de Tareas' : 'To-Do List'}
                         </button>
+                        <button
+                            onClick={() => setActiveTab('sanction_votes')}
+                            style={{
+                                background: 'none', border: 'none',
+                                borderBottom: activeTab === 'sanction_votes' ? '2px solid var(--accent-gold)' : '2px solid transparent',
+                                color: activeTab === 'sanction_votes' ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                                padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer'
+                            }}>
+                            {language === 'es' ? 'Votación de Sanciones' : 'Sanction Voting'}
+                        </button>
                     </div>
 
-                    {activeTab === 'updates' ? (
+                    {activeTab === 'updates' && (
                         <>
 
                             {/* New Update Box */}
@@ -706,8 +717,17 @@ function IACaseDetail() {
                                 )}
                             </div>
                         </>
-                    ) : (
+                    )}
+                    {activeTab === 'todo' && (
                         <IACaseTodoList caseId={id} />
+                    )}
+                    {activeTab === 'sanction_votes' && (
+                        <IASanctionVoting
+                            caseId={id}
+                            currentUser={currentUser}
+                            userIsIAUser={userIsIAUser}
+                            canEditCase={canEditCase}
+                        />
                     )}
                 </div>
 
