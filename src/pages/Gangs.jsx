@@ -35,6 +35,9 @@ function Gangs() {
     const [newName, setNewName] = useState('');
     const [newColor, setNewColor] = useState('#ffffff');
     const [zonesImage, setZonesImage] = useState(null);
+    const [detective1, setDetective1] = useState('');
+    const [detective2, setDetective2] = useState('');
+    const [users, setUsers] = useState([]);
 
     // Vehicle
     const [vehModel, setVehModel] = useState('');
@@ -89,6 +92,7 @@ function Gangs() {
     useEffect(() => {
         loadGangs();
         fetchUserRole();
+        fetchUsers();
     }, []);
 
     const fetchUserRole = async () => {
@@ -97,6 +101,12 @@ function Gangs() {
             const { data } = await supabase.from('users').select('rol').eq('id', user.id).single();
             if (data) setUserRole(data.rol);
         }
+    };
+
+    const fetchUsers = async () => {
+        const { data, error } = await supabase.from('users').select('id, nombre, apellido, rango').order('nombre');
+        if (error) console.error('Error fetching users:', error);
+        else setUsers(data || []);
     };
 
     const isVIP = () => {
@@ -216,7 +226,13 @@ function Gangs() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const { error } = await supabase.rpc('create_gang', { p_name: newName, p_color: newColor, p_zones_image: zonesImage });
+            const { error } = await supabase.rpc('create_gang', { 
+                p_name: newName, 
+                p_color: newColor, 
+                p_zones_image: zonesImage,
+                p_detective_in_charge_1: detective1 || null,
+                p_detective_in_charge_2: detective2 || null
+            });
             if (error) throw error;
             closeModal();
             loadGangs();
@@ -543,6 +559,8 @@ function Gangs() {
             setActiveGangId(gangId);
             setNewName(gang.name);
             setNewColor(gang.color || '#ffffff');
+            setDetective1(gang.detective_in_charge_1 || '');
+            setDetective2(gang.detective_in_charge_2 || '');
             setActiveModal('editGangName');
         }
     };
@@ -555,17 +573,30 @@ function Gangs() {
         }
         setSubmitting(true);
         try {
-            const { error } = await supabase.rpc('update_gang_name', {
+            const { error } = await supabase.rpc('update_gang_details', {
                 p_gang_id: activeGangId,
                 p_name: newName.trim(),
-                p_color: newColor
+                p_color: newColor,
+                p_detective_in_charge_1: detective1 || null,
+                p_detective_in_charge_2: detective2 || null
             });
             if (error) throw error;
+
+            const d1User = users.find(u => u.id === detective1);
+            const d2User = users.find(u => u.id === detective2);
 
             // Update local state
             setGangs(gangs.map(g =>
                 g.gang_id === activeGangId
-                    ? { ...g, name: newName.trim(), color: newColor }
+                    ? { 
+                        ...g, 
+                        name: newName.trim(), 
+                        color: newColor,
+                        detective_in_charge_1: detective1 || null,
+                        detective_in_charge_1_name: d1User ? `${d1User.nombre} ${d1User.apellido}` : null,
+                        detective_in_charge_2: detective2 || null,
+                        detective_in_charge_2_name: d2User ? `${d2User.nombre} ${d2User.apellido}` : null
+                      }
                     : g
             ));
 
@@ -606,6 +637,7 @@ function Gangs() {
 
     const resetFormFields = () => {
         setNewName(''); setNewColor('#ffffff'); setZonesImage(null);
+        setDetective1(''); setDetective2('');
         setVehModel(''); setVehPlate(''); setVehOwner(''); setVehNotes(''); setVehImages([]);
         setHomeOwner(''); setHomeNotes(''); setHomeImages([]);
         setMemName(''); setMemRole('Sospechoso'); setMemNotes(''); setMemPhoto(null);
@@ -736,6 +768,28 @@ function Gangs() {
                 <Modal title={t('trackNewSyndicateModal')} onClose={closeModal} onSubmit={handleCreateGang} submitting={submitting}>
                     <Input label={t('syndicateNameLabel')} value={newName} onChange={e => setNewName(e.target.value)} required />
                     <ColorPicker label={t('colorIdLabel')} value={newColor} onChange={e => setNewColor(e.target.value)} />
+                    <div className="form-group">
+                        <label>{t('detectiveInCharge1')}</label>
+                        <select className="form-input" value={detective1} onChange={e => setDetective1(e.target.value)}>
+                            <option value="">{t('noneOption')}</option>
+                            {users.map(u => (
+                                <option key={u.id} value={u.id}>
+                                    {u.rango ? `[${u.rango}] ` : ''}{u.nombre} {u.apellido}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>{t('detectiveInCharge2')}</label>
+                        <select className="form-input" value={detective2} onChange={e => setDetective2(e.target.value)}>
+                            <option value="">{t('noneOption')}</option>
+                            {users.map(u => (
+                                <option key={u.id} value={u.id}>
+                                    {u.rango ? `[${u.rango}] ` : ''}{u.nombre} {u.apellido}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                     <ImageUpload label={t('controlledZonesLabel')} image={zonesImage} onUpload={e => handleImageUpload(e, setZonesImage, true)} single />
                 </Modal>
             )}
@@ -745,6 +799,28 @@ function Gangs() {
                 <Modal title={t('editGangNameTitle')} onClose={closeModal} onSubmit={handleSaveGangName} submitting={submitting}>
                     <Input label={t('syndicateNameLabel')} value={newName} onChange={e => setNewName(e.target.value)} required />
                     <ColorPicker label={t('colorIdLabel')} value={newColor} onChange={e => setNewColor(e.target.value)} />
+                    <div className="form-group">
+                        <label>{t('detectiveInCharge1')}</label>
+                        <select className="form-input" value={detective1} onChange={e => setDetective1(e.target.value)}>
+                            <option value="">{t('noneOption')}</option>
+                            {users.map(u => (
+                                <option key={u.id} value={u.id}>
+                                    {u.rango ? `[${u.rango}] ` : ''}{u.nombre} {u.apellido}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label>{t('detectiveInCharge2')}</label>
+                        <select className="form-input" value={detective2} onChange={e => setDetective2(e.target.value)}>
+                            <option value="">{t('noneOption')}</option>
+                            {users.map(u => (
+                                <option key={u.id} value={u.id}>
+                                    {u.rango ? `[${u.rango}] ` : ''}{u.nombre} {u.apellido}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                 </Modal>
             )}
 
@@ -1204,6 +1280,22 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                             </button>
                         </div>
                     )}
+                </div>
+                {/* Detectives al cargo */}
+                <div style={{ padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem' }}>
+                    <div style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 'bold', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.2rem' }}>
+                        🕵️‍♂️ {t('detectivesInCharge')}
+                    </div>
+                    <div style={{ color: '#cbd5e1', fontWeight: '500' }}>
+                        {gang.detective_in_charge_1_name || gang.detective_in_charge_2_name ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                {gang.detective_in_charge_1_name && <div>• {gang.detective_in_charge_1_name}</div>}
+                                {gang.detective_in_charge_2_name && <div>• {gang.detective_in_charge_2_name}</div>}
+                            </div>
+                        ) : (
+                            <span style={{ fontStyle: 'italic', color: 'rgba(255,255,255,0.25)' }}>{t('noneSelected')}</span>
+                        )}
+                    </div>
                 </div>
                 <div className="gang-image-container" style={{ position: 'relative' }}>
                     {/* Edit Button for Map */}
