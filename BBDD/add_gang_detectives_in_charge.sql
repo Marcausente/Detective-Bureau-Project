@@ -84,7 +84,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION get_gangs_data TO authenticated;
 
--- 3. Redefine create_gang() to support detective_in_charge columns
+-- 3. Drop existing create_gang function overload and redefine to support detective_in_charge columns
+DROP FUNCTION IF EXISTS create_gang(TEXT, TEXT, TEXT);
+DROP FUNCTION IF EXISTS create_gang(TEXT, TEXT, TEXT, UUID, UUID);
+
 CREATE OR REPLACE FUNCTION create_gang(
     p_name TEXT,
     p_color TEXT,
