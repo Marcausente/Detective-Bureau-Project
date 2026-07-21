@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import IncidentCard from '../components/IncidentCard';
@@ -75,18 +75,43 @@ function Incidents() {
     const generalIncidents = incidents.filter(i => !i.gang_id);
 
     // Compute search matches in General Incidents
-    const searchMatches = typeof searchTerm === 'string' && searchTerm.trim() !== ''
-        ? generalIncidents.filter(inc => {
-            const term = searchTerm.toLowerCase().trim();
-            return (
-                (inc.title && inc.title.toLowerCase().includes(term)) ||
-                (inc.description && inc.description.toLowerCase().includes(term)) ||
-                (inc.tablet_incident_number && inc.tablet_incident_number.toString().toLowerCase().includes(term)) ||
-                (inc.location && inc.location.toLowerCase().includes(term)) ||
-                (inc.author_name && inc.author_name.toLowerCase().includes(term))
-            );
-        }).map(inc => inc.record_id)
-        : [];
+    const searchMatches = useMemo(() => {
+        if (!searchTerm || typeof searchTerm !== 'string' || searchTerm.trim() === '') return [];
+
+        const term = searchTerm.toLowerCase().trim();
+
+        // Check if the search term matches a gang name (case-insensitive)
+        const matchedGang = gangs.find(g => g.name && g.name.toLowerCase() === term);
+
+        // Build list of terms to search for
+        const searchTerms = [term];
+        if (matchedGang && matchedGang.gang_members) {
+            matchedGang.gang_members.forEach(m => {
+                if (m.name) {
+                    const nameLower = m.name.toLowerCase().trim();
+                    searchTerms.push(nameLower);
+
+                    // Extract ID inside brackets [] (e.g., [EBELT72G])
+                    const bracketMatch = m.name.match(/\[([^\]]+)\]/);
+                    if (bracketMatch && bracketMatch[1]) {
+                        searchTerms.push(bracketMatch[1].toLowerCase().trim());
+                    }
+                }
+            });
+        }
+
+        return generalIncidents.filter(inc => {
+            return searchTerms.some(sTerm => {
+                return (
+                    (inc.title && inc.title.toLowerCase().includes(sTerm)) ||
+                    (inc.description && inc.description.toLowerCase().includes(sTerm)) ||
+                    (inc.tablet_incident_number && inc.tablet_incident_number.toString().toLowerCase().includes(sTerm)) ||
+                    (inc.location && inc.location.toLowerCase().includes(sTerm)) ||
+                    (inc.author_name && inc.author_name.toLowerCase().includes(sTerm))
+                );
+            });
+        }).map(inc => inc.record_id);
+    }, [generalIncidents, searchTerm, gangs]);
 
     const goToNextMatch = () => {
         if (searchMatches.length === 0) return;
@@ -131,8 +156,11 @@ function Incidents() {
     };
 
     const fetchGangs = async () => {
-        // Simple fetch for dropdown
-        const { data } = await supabase.from('gangs').select('id, name').order('name');
+        // Fetch gangs and their members
+        const { data } = await supabase
+            .from('gangs')
+            .select('id, name, gang_members(name)')
+            .order('name');
         setGangs(data || []);
     };
 
