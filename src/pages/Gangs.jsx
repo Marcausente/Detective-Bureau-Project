@@ -53,6 +53,7 @@ function Gangs() {
 
     // Member
     const [memName, setMemName] = useState('');
+    const [memId, setMemId] = useState('');
     const [memRole, setMemRole] = useState('Sospechoso');
     const [memNotes, setMemNotes] = useState('');
     const [memPhoto, setMemPhoto] = useState(null);
@@ -205,7 +206,17 @@ function Gangs() {
             setHomeNotes(item.notes || ''); 
             setHomeImages(item.images || []);
         } else if (type === 'member') {
-            setMemName(item.name || ''); 
+            const name = item.name || '';
+            const match = name.match(/\[([^\]]+)\]/);
+            if (match) {
+                const extractedId = match[1];
+                const extractedName = name.replace(`[${extractedId}]`, '').replace(/\s+/g, ' ').trim();
+                setMemName(extractedName);
+                setMemId(extractedId);
+            } else {
+                setMemName(name);
+                setMemId('');
+            }
             setMemRole(item.role || 'Sospechoso'); 
             setMemNotes(item.notes || ''); 
             setMemPhoto(item.photo || null);
@@ -306,14 +317,15 @@ function Gangs() {
         e.preventDefault();
         setSubmitting(true);
         try {
+            const finalName = memId.trim() ? `${memName.trim()} [${memId.trim()}]` : memName.trim();
             if (editingItemId) {
                 const { error } = await supabase.rpc('update_gang_member', {
-                    p_member_id: editingItemId, p_name: memName, p_role: memRole, p_photo: memPhoto, p_notes: memNotes
+                    p_member_id: editingItemId, p_name: finalName, p_role: memRole, p_photo: memPhoto, p_notes: memNotes
                 });
                 if (error) throw error;
             } else {
                 const { error } = await supabase.rpc('add_gang_member', {
-                    p_gang_id: activeGangId, p_name: memName, p_role: memRole, p_photo: memPhoto, p_notes: memNotes
+                    p_gang_id: activeGangId, p_name: finalName, p_role: memRole, p_photo: memPhoto, p_notes: memNotes
                 });
                 if (error) throw error;
             }
@@ -640,7 +652,7 @@ function Gangs() {
         setDetective1(''); setDetective2('');
         setVehModel(''); setVehPlate(''); setVehOwner(''); setVehNotes(''); setVehImages([]);
         setHomeOwner(''); setHomeNotes(''); setHomeImages([]);
-        setMemName(''); setMemRole('Sospechoso'); setMemNotes(''); setMemPhoto(null);
+        setMemName(''); setMemId(''); setMemRole('Sospechoso'); setMemNotes(''); setMemPhoto(null);
         setInfoType('info'); setInfoContent(''); setInfoImages([]);
         setGraffitiImage(null); setGpsImage(null); setGraffitiNotes('');
         setShowActivity(false);
@@ -855,6 +867,7 @@ function Gangs() {
             {activeModal === 'member' && (
                 <Modal title={editingItemId ? t('editMemberTitle') : t('identifyMemberTitle')} onClose={closeModal} onSubmit={handleAddMember} submitting={submitting}>
                     <Input label={t('fullNameAliasLabel')} value={memName} onChange={e => setMemName(e.target.value)} required />
+                    <Input label="ID" value={memId} onChange={e => setMemId(e.target.value)} placeholder="Ej: EBELT72G" />
                     <div className="form-group">
                         <label>{t('roleHierarchyLabel')}</label>
                         <select className="form-input" value={memRole} onChange={e => setMemRole(e.target.value)}>
