@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import '../index.css';
 
 function IncidentCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
     const [isExpanded, setIsExpanded] = useState(false);
+
+    useEffect(() => {
+        if (isHighlighted) {
+            setIsExpanded(true);
+        }
+    }, [isHighlighted]);
 
     return (
         <div className="announcement-card" style={{

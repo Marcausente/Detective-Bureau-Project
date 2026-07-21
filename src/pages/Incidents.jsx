@@ -14,6 +14,10 @@ function Incidents() {
     const [searchParams, setSearchParams] = useSearchParams();
     const highlightedRef = useRef(null);
 
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+    const searchHighlightedRef = useRef(null);
+
     // Modals
     const [showIncidentModal, setShowIncidentModal] = useState(false);
     const [showEditIncidentModal, setShowEditIncidentModal] = useState(false);
@@ -66,6 +70,44 @@ function Incidents() {
             }, 150);
         }
     }, [loading]);
+
+    // Filter to only Informes Generales (unlinked incidents)
+    const generalIncidents = incidents.filter(i => !i.gang_id);
+
+    // Compute search matches in General Incidents
+    const searchMatches = typeof searchTerm === 'string' && searchTerm.trim() !== ''
+        ? generalIncidents.filter(inc => {
+            const term = searchTerm.toLowerCase().trim();
+            return (
+                (inc.title && inc.title.toLowerCase().includes(term)) ||
+                (inc.description && inc.description.toLowerCase().includes(term)) ||
+                (inc.tablet_incident_number && inc.tablet_incident_number.toString().toLowerCase().includes(term)) ||
+                (inc.location && inc.location.toLowerCase().includes(term)) ||
+                (inc.author_name && inc.author_name.toLowerCase().includes(term))
+            );
+        }).map(inc => inc.record_id)
+        : [];
+
+    const goToNextMatch = () => {
+        if (searchMatches.length === 0) return;
+        setCurrentMatchIndex(prev => (prev + 1) % searchMatches.length);
+    };
+
+    const goToPrevMatch = () => {
+        if (searchMatches.length === 0) return;
+        setCurrentMatchIndex(prev => (prev - 1 + searchMatches.length) % searchMatches.length);
+    };
+
+    // Scroll to search highlighted element
+    useEffect(() => {
+        if (searchMatches.length > 0 && searchHighlightedRef.current) {
+            const el = searchHighlightedRef.current;
+            const timer = setTimeout(() => {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 50);
+            return () => clearTimeout(timer);
+        }
+    }, [searchTerm, currentMatchIndex]);
 
     const loadData = async () => {
         setLoading(true);
@@ -529,12 +571,167 @@ function Incidents() {
                     {/* COLUMN 1: UNLINKED INCIDENTS */}
                     <div className="column-container">
                         <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{t('generalIncidentsCol')}</h3>
+                        
+                        {/* SEARCH COMPONENT FOR GENERAL REPORTS */}
+                        <div style={{
+                            margin: '0.8rem 0',
+                            padding: '0.8rem',
+                            background: 'rgba(255, 255, 255, 0.03)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '10px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.6rem',
+                            boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.05)'
+                        }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <div style={{ position: 'relative', flex: 1 }}>
+                                    <input
+                                        type="text"
+                                        placeholder="🔍 Buscar palabra..."
+                                        value={searchTerm}
+                                        onChange={(e) => {
+                                            setSearchTerm(e.target.value);
+                                            setCurrentMatchIndex(0);
+                                        }}
+                                        className="form-input"
+                                        style={{
+                                            margin: 0,
+                                            padding: '0.4rem 2.2rem 0.4rem 0.8rem',
+                                            fontSize: '0.85rem',
+                                            width: '100%',
+                                            boxSizing: 'border-box',
+                                            borderRadius: '6px',
+                                            background: 'rgba(0,0,0,0.2)',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            color: '#fff'
+                                        }}
+                                    />
+                                    {searchTerm && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSearchTerm('');
+                                                setCurrentMatchIndex(0);
+                                            }}
+                                            style={{
+                                                position: 'absolute',
+                                                right: '6px',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                background: 'none',
+                                                border: 'none',
+                                                color: 'rgba(255,255,255,0.4)',
+                                                cursor: 'pointer',
+                                                fontSize: '0.9rem',
+                                                padding: '2px 4px'
+                                            }}
+                                        >
+                                            ×
+                                        </button>
+                                    )}
+                                </div>
+
+                                <select
+                                    className="form-input"
+                                    style={{
+                                        margin: 0,
+                                        padding: '0.4rem 0.8rem',
+                                        fontSize: '0.85rem',
+                                        width: 'auto',
+                                        minWidth: '130px',
+                                        borderRadius: '6px',
+                                        background: 'rgba(0,0,0,0.2)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        color: '#fff'
+                                    }}
+                                    value={searchTerm}
+                                    onChange={(e) => {
+                                        setSearchTerm(e.target.value);
+                                        setCurrentMatchIndex(0);
+                                    }}
+                                >
+                                    <option value="" style={{ background: '#222', color: '#888' }}>-- Buscar por banda --</option>
+                                    {gangs.map(g => (
+                                        <option key={g.id} value={g.name} style={{ background: '#222', color: '#fff' }}>
+                                            🏴 {g.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {searchMatches.length > 0 ? (
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '0.2rem 0.4rem',
+                                    background: 'rgba(56, 189, 248, 0.08)',
+                                    borderRadius: '6px',
+                                    border: '1px solid rgba(56, 189, 248, 0.15)'
+                                }}>
+                                    <span style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: '500' }}>
+                                        Coincidencia {currentMatchIndex + 1} de {searchMatches.length}
+                                    </span>
+                                    <div style={{ display: 'flex', gap: '0.3rem' }}>
+                                        <button
+                                            type="button"
+                                            onClick={goToPrevMatch}
+                                            className="login-button btn-secondary"
+                                            style={{
+                                                width: 'auto',
+                                                padding: '0.2rem 0.5rem',
+                                                margin: 0,
+                                                fontSize: '0.75rem',
+                                                background: 'rgba(255,255,255,0.05)',
+                                                border: '1px solid rgba(255,255,255,0.1)'
+                                            }}
+                                        >
+                                            ▲ Anterior
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={goToNextMatch}
+                                            className="login-button btn-secondary"
+                                            style={{
+                                                width: 'auto',
+                                                padding: '0.2rem 0.5rem',
+                                                margin: 0,
+                                                fontSize: '0.75rem',
+                                                background: 'rgba(255,255,255,0.05)',
+                                                border: '1px solid rgba(255,255,255,0.1)'
+                                            }}
+                                        >
+                                            Siguiente ▼
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : searchTerm.trim() !== '' ? (
+                                <div style={{
+                                    padding: '0.3rem 0.4rem',
+                                    background: 'rgba(239, 68, 68, 0.08)',
+                                    borderRadius: '6px',
+                                    border: '1px solid rgba(239, 68, 68, 0.15)',
+                                    fontSize: '0.8rem',
+                                    color: '#f87171',
+                                    textAlign: 'center'
+                                }}>
+                                    ⚠️ Ningún informe coincide
+                                </div>
+                            ) : null}
+                        </div>
+
                         <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                            {incidents.filter(i => !i.gang_id).length === 0 ? <div className="empty-list">{t('noIncidents')}</div> :
-                                incidents.filter(i => !i.gang_id).map(inc => {
-                                    const isHighlighted = searchParams.get('incident_id') === inc.record_id;
+                            {generalIncidents.length === 0 ? <div className="empty-list">{t('noIncidents')}</div> :
+                                generalIncidents.map(inc => {
+                                    const isUrlHighlighted = searchParams.get('incident_id') === inc.record_id;
+                                    const isSearchHighlighted = searchMatches.length > 0 && searchMatches[currentMatchIndex] === inc.record_id;
+                                    const isHighlighted = isUrlHighlighted || isSearchHighlighted;
                                     return (
-                                        <div key={inc.record_id} ref={isHighlighted ? highlightedRef : null}>
+                                        <div 
+                                            key={inc.record_id} 
+                                            ref={isUrlHighlighted ? highlightedRef : (isSearchHighlighted ? searchHighlightedRef : null)}
+                                        >
                                             <IncidentCard
                                                 data={inc}
                                                 onExpand={setExpandedImage}
