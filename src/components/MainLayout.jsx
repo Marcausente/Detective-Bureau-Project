@@ -113,6 +113,7 @@ function MainLayout() {
         { name: t('personnel'), path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ'] },
         { name: t('internalAffairs'), path: '/internal-affairs', divisions: ['Internal Affairs'] },
         { name: t('doj'), path: '/doj', divisions: ['DOJ'] },
+        { name: t('coordination'), path: '/coordination', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ'], roles: ['coordinador', 'comisionado', 'administrador', 'superadmin'] },
         { name: t('adminPanel'), path: '/admin', divisions: ['SysAdmin'] }, // Only accessible via Administrator bypass
     ];
 
