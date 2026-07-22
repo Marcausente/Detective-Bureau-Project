@@ -162,20 +162,10 @@ function CoordinationSanctions() {
                 <div style={{ flex: 1, minWidth: '280px' }}>
                     <input
                         type="text"
+                        className="coordination-input"
                         placeholder="🔍 Buscar por nombre de agente, placa, tipo de sanción o motivo..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{
-                            width: '100%',
-                            background: 'rgba(15, 23, 42, 0.8)',
-                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                            color: '#fff',
-                            padding: '0.75rem 1.25rem',
-                            borderRadius: '10px',
-                            fontSize: '0.95rem',
-                            outline: 'none',
-                            boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
-                        }}
                     />
                 </div>
                 <button
@@ -206,19 +196,12 @@ function CoordinationSanctions() {
                     ⏳ Cargando registro de sanciones de Coordinación...
                 </div>
             ) : filteredSanctions.length === 0 ? (
-                <div style={{
-                    textAlign: 'center',
-                    padding: '4rem 2rem',
-                    background: 'rgba(15, 23, 42, 0.7)',
-                    borderRadius: '14px',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    color: 'var(--text-secondary)'
-                }}>
+                <div className="coordination-card" style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--text-secondary)' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚖️</div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '0.5rem' }}>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
                         No hay sanciones registradas en este momento.
                     </div>
-                    <div style={{ fontSize: '0.95rem', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
                         Haz clic en "Registrar Sanción" para registrar una sanción a un agente de la Detective Bureau.
                     </div>
                 </div>
@@ -227,33 +210,19 @@ function CoordinationSanctions() {
                     {filteredSanctions.map(sanc => {
                         const style = getSanctionBadgeStyle(sanc.sanction_type);
                         return (
-                            <div
-                                key={sanc.id}
-                                style={{
-                                    background: 'rgba(15, 23, 42, 0.8)',
-                                    border: `1px solid ${style.border}`,
-                                    borderRadius: '12px',
-                                    padding: '1.5rem',
-                                    boxShadow: '0 8px 25px rgba(0,0,0,0.3)',
-                                    backdropFilter: 'blur(8px)',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justify: 'space-between',
-                                    position: 'relative'
-                                }}
-                            >
+                            <div key={sanc.id} className="coordination-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', marginBottom: 0 }}>
                                 <div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem', gap: '0.5rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                             {sanc.agent_avatar ? (
                                                 <img src={sanc.agent_avatar} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--accent-gold)' }} />
                                             ) : (
-                                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', border: '1px solid var(--glass-border)' }}>
                                                     👮
                                                 </div>
                                             )}
                                             <div>
-                                                <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '1.1rem', fontWeight: '700' }}>
+                                                <h4 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: '700' }}>
                                                     {sanc.agent_name}
                                                 </h4>
                                                 {sanc.badge_no && (
@@ -266,7 +235,7 @@ function CoordinationSanctions() {
 
                                         <button
                                             onClick={() => handleDeleteSanction(sanc.id)}
-                                            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '1rem', padding: '2px' }}
+                                            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1rem', padding: '2px' }}
                                             title="Eliminar Sanción"
                                         >
                                             🗑️
@@ -291,20 +260,21 @@ function CoordinationSanctions() {
 
                                     <div style={{
                                         fontSize: '0.92rem',
-                                        color: '#cbd5e1',
-                                        background: 'rgba(0, 0, 0, 0.35)',
+                                        color: 'var(--text-primary)',
+                                        background: 'rgba(0, 0, 0, 0.25)',
                                         padding: '0.8rem 1rem',
                                         borderRadius: '8px',
-                                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                                        border: '1px solid var(--glass-border)',
                                         lineHeight: '1.5',
                                         marginBottom: '1rem',
-                                        whiteSpace: 'pre-wrap'
+                                        whiteSpace: 'pre-wrap',
+                                        opacity: 0.95
                                     }}>
                                         {sanc.reason}
                                     </div>
                                 </div>
 
-                                <div style={{ fontSize: '0.78rem', color: '#64748b', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.6rem' }}>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--glass-border)', paddingTop: '0.6rem' }}>
                                     <span>Por: {sanc.creator_name || 'Coordinación'}</span>
                                     <span>{new Date(sanc.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                                 </div>
@@ -321,43 +291,33 @@ function CoordinationSanctions() {
                     background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(8px)',
                     display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
                 }}>
-                    <div style={{
-                        background: '#0f172a',
+                    <div className="coordination-card" style={{
                         border: '1px solid rgba(239, 68, 68, 0.4)',
-                        borderRadius: '16px',
                         padding: '2rem',
                         width: '90%',
                         maxWidth: '540px',
-                        boxShadow: '0 20px 40px rgba(0,0,0,0.6)'
+                        boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+                        marginBottom: 0
                     }}>
                         <h3 style={{ margin: '0 0 1.25rem 0', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.3rem' }}>
                             ⚖️ Registrar Nueva Sanción de Coordinación
                         </h3>
                         <form onSubmit={handleCreateSanction} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                             <div>
-                                <label style={{ display: 'block', fontSize: '0.88rem', color: '#94a3b8', marginBottom: '0.4rem', fontWeight: '600' }}>
+                                <label style={{ display: 'block', fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '0.4rem', fontWeight: '600' }}>
                                     Agente de la Detective Bureau *
                                 </label>
                                 <select
+                                    className="coordination-select"
                                     value={selectedUserId}
                                     onChange={(e) => setSelectedUserId(e.target.value)}
                                     required
-                                    style={{
-                                        width: '100%',
-                                        background: 'rgba(0,0,0,0.5)',
-                                        border: '1px solid rgba(255,255,255,0.18)',
-                                        color: '#fff',
-                                        padding: '0.75rem 1rem',
-                                        borderRadius: '8px',
-                                        outline: 'none',
-                                        fontSize: '0.95rem'
-                                    }}
                                 >
-                                    <option value="" style={{ background: '#0f172a', color: '#94a3b8' }}>
+                                    <option value="" style={{ color: 'var(--text-secondary)' }}>
                                         -- Selecciona un Agente --
                                     </option>
                                     {agents.map(ag => (
-                                        <option key={ag.id} value={ag.id} style={{ background: '#0f172a', color: '#fff' }}>
+                                        <option key={ag.id} value={ag.id}>
                                             {ag.rango ? ag.rango + ' ' : ''}{ag.nombre} {ag.apellido} {ag.no_placa ? `(Placa #${ag.no_placa})` : ''}
                                         </option>
                                     ))}
@@ -365,53 +325,35 @@ function CoordinationSanctions() {
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', fontSize: '0.88rem', color: '#94a3b8', marginBottom: '0.4rem', fontWeight: '600' }}>
+                                <label style={{ display: 'block', fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '0.4rem', fontWeight: '600' }}>
                                     Tipo de Sanción *
                                 </label>
                                 <select
+                                    className="coordination-select"
                                     value={sanctionType}
                                     onChange={(e) => setSanctionType(e.target.value)}
                                     required
-                                    style={{
-                                        width: '100%',
-                                        background: 'rgba(0,0,0,0.5)',
-                                        border: '1px solid rgba(255,255,255,0.18)',
-                                        color: '#fff',
-                                        padding: '0.75rem 1rem',
-                                        borderRadius: '8px',
-                                        outline: 'none',
-                                        fontSize: '0.95rem'
-                                    }}
                                 >
-                                    <option value="Aviso" style={{ background: '#0f172a', color: '#fbbf24' }}>Aviso</option>
-                                    <option value="Sanción Leve" style={{ background: '#0f172a', color: '#f97316' }}>Sanción Leve</option>
-                                    <option value="Sanción Media" style={{ background: '#0f172a', color: '#fb923c' }}>Sanción Media</option>
-                                    <option value="Sanción Grave" style={{ background: '#0f172a', color: '#f87171' }}>Sanción Grave</option>
-                                    <option value="Expulsión" style={{ background: '#0f172a', color: '#ef4444' }}>Expulsión</option>
+                                    <option value="Aviso">Aviso</option>
+                                    <option value="Sanción Leve">Sanción Leve</option>
+                                    <option value="Sanción Media">Sanción Media</option>
+                                    <option value="Sanción Grave">Sanción Grave</option>
+                                    <option value="Expulsión">Expulsión</option>
                                 </select>
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', fontSize: '0.88rem', color: '#94a3b8', marginBottom: '0.4rem', fontWeight: '600' }}>
+                                <label style={{ display: 'block', fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '0.4rem', fontWeight: '600' }}>
                                     Motivo u Observaciones *
                                 </label>
                                 <textarea
+                                    className="coordination-input"
                                     placeholder="Escribe el motivo detallado de la sanción..."
                                     value={reason}
                                     onChange={(e) => setReason(e.target.value)}
                                     rows={4}
                                     required
-                                    style={{
-                                        width: '100%',
-                                        background: 'rgba(0,0,0,0.5)',
-                                        border: '1px solid rgba(255,255,255,0.18)',
-                                        color: '#fff',
-                                        padding: '0.75rem 1rem',
-                                        borderRadius: '8px',
-                                        outline: 'none',
-                                        resize: 'vertical',
-                                        fontSize: '0.95rem'
-                                    }}
+                                    style={{ resize: 'vertical' }}
                                 />
                             </div>
 
@@ -421,7 +363,7 @@ function CoordinationSanctions() {
                                     onClick={() => setShowModal(false)}
                                     style={{
                                         background: 'rgba(255,255,255,0.1)',
-                                        color: '#cbd5e1',
+                                        color: 'var(--text-secondary)',
                                         border: 'none',
                                         padding: '0.75rem 1.5rem',
                                         borderRadius: '8px',
