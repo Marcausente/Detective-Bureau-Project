@@ -175,56 +175,76 @@ function CoordinationTodoList() {
 
     if (loading && lists.length === 0) {
         return (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                 ⏳ Cargando Tareas Pendientes de Coordinación...
             </div>
         );
     }
 
     return (
-        <div className="coordination-todo-container" style={{ maxWidth: '1100px', margin: '0 auto' }}>
+        <div style={{ width: '100%' }}>
             {/* Create New List Header Card */}
-            <div className="dashboard-card" style={{ marginBottom: '2rem', background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(217, 119, 6, 0.3)', borderRadius: '12px', padding: '1.5rem' }}>
-                <h3 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-gold)', fontSize: '1.2rem' }}>
+            <div style={{
+                background: 'rgba(15, 23, 42, 0.85)',
+                border: '1px solid rgba(217, 119, 6, 0.35)',
+                borderRadius: '14px',
+                padding: '1.75rem',
+                marginBottom: '2.5rem',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
+                backdropFilter: 'blur(10px)'
+            }}>
+                <h3 style={{ margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--accent-gold)', fontSize: '1.2rem', fontWeight: '700' }}>
                     📌 Crear Nueva Lista de Tareas Pendientes
                 </h3>
                 <form onSubmit={handleCreateList} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                        <input
-                            type="text"
-                            placeholder="Nombre de la lista (ej: Pendientes Semana 30 - Julio)"
-                            value={newListTitle}
-                            onChange={(e) => setNewListTitle(e.target.value)}
-                            style={{
-                                flex: 2,
-                                minWidth: '260px',
-                                background: 'rgba(0,0,0,0.4)',
-                                border: '1px solid rgba(255,255,255,0.15)',
-                                color: '#fff',
-                                padding: '0.75rem 1rem',
-                                borderRadius: '8px',
-                                fontSize: '0.95rem',
-                                outline: 'none'
-                            }}
-                            required
-                        />
-                        <input
-                            type="text"
-                            placeholder="Descripción u observaciones (opcional)"
-                            value={newListDesc}
-                            onChange={(e) => setNewListDesc(e.target.value)}
-                            style={{
-                                flex: 3,
-                                minWidth: '260px',
-                                background: 'rgba(0,0,0,0.4)',
-                                border: '1px solid rgba(255,255,255,0.15)',
-                                color: '#fff',
-                                padding: '0.75rem 1rem',
-                                borderRadius: '8px',
-                                fontSize: '0.95rem',
-                                outline: 'none'
-                            }}
-                        />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.4rem', fontWeight: '600' }}>
+                                Nombre / Título de la Lista *
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Ej: Pendientes Semana 30 - Julio"
+                                value={newListTitle}
+                                onChange={(e) => setNewListTitle(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    background: 'rgba(0,0,0,0.45)',
+                                    border: '1px solid rgba(255,255,255,0.15)',
+                                    color: '#fff',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: '8px',
+                                    fontSize: '0.95rem',
+                                    outline: 'none',
+                                    boxSizing: 'border-box'
+                                }}
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '0.4rem', fontWeight: '600' }}>
+                                Descripción u Observaciones
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Ej: Revisión de expedientes, denuncias e informes"
+                                value={newListDesc}
+                                onChange={(e) => setNewListDesc(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    background: 'rgba(0,0,0,0.45)',
+                                    border: '1px solid rgba(255,255,255,0.15)',
+                                    color: '#fff',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: '8px',
+                                    fontSize: '0.95rem',
+                                    outline: 'none',
+                                    boxSizing: 'border-box'
+                                }}
+                            />
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
                         <button
                             type="submit"
                             disabled={creatingList}
@@ -232,12 +252,13 @@ function CoordinationTodoList() {
                                 background: 'linear-gradient(135deg, #d97706, #b45309)',
                                 color: '#fff',
                                 border: 'none',
-                                padding: '0.75rem 1.5rem',
+                                padding: '0.75rem 1.8rem',
                                 borderRadius: '8px',
-                                fontWeight: 'bold',
+                                fontWeight: '700',
+                                fontSize: '0.95rem',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
-                                whiteSpace: 'nowrap'
+                                boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)'
                             }}
                         >
                             {creatingList ? 'Creando...' : '➕ Crear Lista'}
@@ -248,15 +269,24 @@ function CoordinationTodoList() {
 
             {/* To-Do Lists Display (Ordered Newest First) */}
             {lists.length === 0 ? (
-                <div className="dashboard-card" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
-                    <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>📝</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#e2e8f0', marginBottom: '0.5rem' }}>
+                <div style={{
+                    textAlign: 'center',
+                    padding: '4rem 2rem',
+                    background: 'rgba(15, 23, 42, 0.7)',
+                    borderRadius: '14px',
+                    border: '1px border rgba(255,255,255,0.08)',
+                    color: 'var(--text-secondary)'
+                }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📝</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#f8fafc', marginBottom: '0.5rem' }}>
                         No hay listas de tareas de coordinación creadas.
                     </div>
-                    <div>Crea una nueva lista arriba para empezar a organizar los pendientes de coordinación.</div>
+                    <div style={{ fontSize: '0.95rem', color: '#94a3b8' }}>
+                        Crea una nueva lista en el formulario de arriba para empezar a organizar los pendientes.
+                    </div>
                 </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.8rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     {lists.map(list => {
                         const tasks = list.tasks || [];
                         const completedCount = tasks.filter(t => t.is_completed).length;
@@ -267,21 +297,21 @@ function CoordinationTodoList() {
                         return (
                             <div
                                 key={list.id}
-                                className="dashboard-card"
                                 style={{
-                                    background: 'rgba(15, 23, 42, 0.65)',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    borderRadius: '12px',
-                                    padding: '1.5rem',
-                                    boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                                    background: 'rgba(15, 23, 42, 0.8)',
+                                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                                    borderRadius: '14px',
+                                    padding: '1.75rem',
+                                    boxShadow: '0 8px 25px rgba(0,0,0,0.35)',
+                                    backdropFilter: 'blur(8px)',
                                     position: 'relative'
                                 }}
                             >
                                 {/* List Header */}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', gap: '1rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', gap: '1rem' }}>
                                     <div style={{ flex: 1 }}>
                                         {isEditingThisList ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.5rem', maxWidth: '600px' }}>
                                                 <input
                                                     type="text"
                                                     value={editTitle}
@@ -290,7 +320,7 @@ function CoordinationTodoList() {
                                                         background: 'rgba(0,0,0,0.6)',
                                                         border: '1px solid var(--accent-gold)',
                                                         color: '#fff',
-                                                        padding: '0.5rem',
+                                                        padding: '0.6rem 0.8rem',
                                                         borderRadius: '6px',
                                                         fontSize: '1.1rem',
                                                         fontWeight: 'bold'
@@ -305,33 +335,33 @@ function CoordinationTodoList() {
                                                         background: 'rgba(0,0,0,0.6)',
                                                         border: '1px solid rgba(255,255,255,0.2)',
                                                         color: '#94a3b8',
-                                                        padding: '0.4rem',
+                                                        padding: '0.5rem 0.8rem',
                                                         borderRadius: '6px',
-                                                        fontSize: '0.85rem'
+                                                        fontSize: '0.88rem'
                                                     }}
                                                 />
-                                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
-                                                    <button onClick={() => handleSaveEditList(list.id)} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Guardar</button>
-                                                    <button onClick={() => setEditingListId(null)} style={{ background: '#64748b', color: '#fff', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Cancelar</button>
+                                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.3rem' }}>
+                                                    <button onClick={() => handleSaveEditList(list.id)} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '0.4rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}>Guardar</button>
+                                                    <button onClick={() => setEditingListId(null)} style={{ background: '#64748b', color: '#fff', border: 'none', padding: '0.4rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Cancelar</button>
                                                 </div>
                                             </div>
                                         ) : (
                                             <>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                                                    <h4 style={{ margin: 0, fontSize: '1.25rem', color: '#f8fafc', fontWeight: '700' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                                                    <h3 style={{ margin: 0, fontSize: '1.35rem', color: '#f8fafc', fontWeight: '800' }}>
                                                         {list.title}
-                                                    </h4>
-                                                    <span style={{ fontSize: '0.75rem', color: 'var(--accent-gold)', background: 'rgba(217, 119, 6, 0.15)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(217, 119, 6, 0.3)' }}>
-                                                        {new Date(list.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    </h3>
+                                                    <span style={{ fontSize: '0.78rem', color: 'var(--accent-gold)', background: 'rgba(217, 119, 6, 0.15)', padding: '3px 10px', borderRadius: '12px', border: '1px solid rgba(217, 119, 6, 0.3)', fontWeight: '600' }}>
+                                                        📅 {new Date(list.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                     </span>
                                                 </div>
                                                 {list.description && (
-                                                    <div style={{ color: '#94a3b8', fontSize: '0.88rem', marginTop: '0.3rem' }}>
+                                                    <div style={{ color: '#cbd5e1', fontSize: '0.92rem', marginTop: '0.4rem' }}>
                                                         {list.description}
                                                     </div>
                                                 )}
-                                                <div style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '0.3rem' }}>
-                                                    Creado por: <span style={{ color: '#cbd5e1' }}>{list.author_name}</span>
+                                                <div style={{ color: '#64748b', fontSize: '0.78rem', marginTop: '0.4rem' }}>
+                                                    Creado por: <span style={{ color: '#94a3b8', fontWeight: '600' }}>{list.author_name}</span>
                                                 </div>
                                             </>
                                         )}
@@ -342,31 +372,31 @@ function CoordinationTodoList() {
                                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                             <button
                                                 onClick={() => startEditList(list)}
-                                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem', padding: '4px' }}
+                                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#cbd5e1', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}
                                                 title="Editar Lista"
                                             >
-                                                ✏️
+                                                ✏️ Editar
                                             </button>
                                             <button
                                                 onClick={() => handleDeleteList(list.id)}
-                                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '1rem', padding: '4px' }}
+                                                style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}
                                                 title="Eliminar Lista"
                                             >
-                                                🗑️
+                                                🗑️ Eliminar
                                             </button>
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Progress Bar */}
-                                <div style={{ marginBottom: '1.2rem', background: 'rgba(0,0,0,0.3)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', fontSize: '0.82rem' }}>
-                                        <span style={{ color: '#94a3b8' }}>Progreso de la lista</span>
+                                <div style={{ marginBottom: '1.5rem', background: 'rgba(0,0,0,0.35)', padding: '0.9rem 1.1rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
+                                        <span style={{ color: '#94a3b8', fontWeight: '600' }}>Estado de avance</span>
                                         <span style={{ fontWeight: 'bold', color: percent === 100 ? '#4ade80' : 'var(--accent-gold)' }}>
-                                            {completedCount} / {totalCount} completadas ({percent}%)
+                                            {completedCount} de {totalCount} tareas completadas ({percent}%)
                                         </span>
                                     </div>
-                                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                                    <div style={{ width: '100%', height: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '5px', overflow: 'hidden' }}>
                                         <div
                                             style={{
                                                 width: `${percent}%`,
@@ -379,10 +409,10 @@ function CoordinationTodoList() {
                                 </div>
 
                                 {/* Tasks List */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.2rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.5rem' }}>
                                     {tasks.length === 0 ? (
-                                        <div style={{ color: '#64748b', fontSize: '0.88rem', fontStyle: 'italic', padding: '0.5rem 0' }}>
-                                            No hay tareas en esta lista. Añade la primera tarea abajo.
+                                        <div style={{ color: '#64748b', fontSize: '0.9rem', fontStyle: 'italic', padding: '0.75rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                                            No hay tareas en esta lista. Añade la primera tarea a continuación.
                                         </div>
                                     ) : (
                                         tasks.map(task => {
@@ -393,11 +423,11 @@ function CoordinationTodoList() {
                                                     style={{
                                                         display: 'flex',
                                                         alignItems: 'center',
-                                                        gap: '0.75rem',
-                                                        background: task.is_completed ? 'rgba(34, 197, 94, 0.08)' : 'rgba(0, 0, 0, 0.25)',
-                                                        border: task.is_completed ? '1px solid rgba(34, 197, 94, 0.2)' : '1px solid rgba(255, 255, 255, 0.08)',
-                                                        padding: '0.6rem 0.8rem',
-                                                        borderRadius: '6px',
+                                                        gap: '0.85rem',
+                                                        background: task.is_completed ? 'rgba(34, 197, 94, 0.08)' : 'rgba(0, 0, 0, 0.3)',
+                                                        border: task.is_completed ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                                        padding: '0.75rem 1rem',
+                                                        borderRadius: '8px',
                                                         transition: 'all 0.2s ease'
                                                     }}
                                                 >
@@ -405,7 +435,7 @@ function CoordinationTodoList() {
                                                         type="checkbox"
                                                         checked={task.is_completed}
                                                         onChange={() => handleToggleTask(task.id, task.is_completed)}
-                                                        style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-gold)' }}
+                                                        style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--accent-gold)' }}
                                                     />
 
                                                     {isEditingTask ? (
@@ -419,24 +449,25 @@ function CoordinationTodoList() {
                                                                     background: 'rgba(0,0,0,0.6)',
                                                                     border: '1px solid var(--accent-gold)',
                                                                     color: '#fff',
-                                                                    padding: '0.3rem 0.5rem',
-                                                                    borderRadius: '4px',
-                                                                    fontSize: '0.9rem'
+                                                                    padding: '0.4rem 0.6rem',
+                                                                    borderRadius: '6px',
+                                                                    fontSize: '0.92rem'
                                                                 }}
                                                             />
-                                                            <button onClick={() => handleSaveEditTask(task.id)} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '0.2rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Guardar</button>
-                                                            <button onClick={() => setEditingTaskId(null)} style={{ background: '#64748b', color: '#fff', border: 'none', padding: '0.2rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Cancelar</button>
+                                                            <button onClick={() => handleSaveEditTask(task.id)} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}>Guardar</button>
+                                                            <button onClick={() => setEditingTaskId(null)} style={{ background: '#64748b', color: '#fff', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>Cancelar</button>
                                                         </div>
                                                     ) : (
                                                         <span
                                                             onClick={() => handleToggleTask(task.id, task.is_completed)}
                                                             style={{
                                                                 flex: 1,
-                                                                fontSize: '0.92rem',
-                                                                color: task.is_completed ? '#94a3b8' : '#f1f5f9',
+                                                                fontSize: '0.95rem',
+                                                                color: task.is_completed ? '#94a3b8' : '#f8fafc',
                                                                 textDecoration: task.is_completed ? 'line-through' : 'none',
                                                                 cursor: 'pointer',
-                                                                wordBreak: 'break-word'
+                                                                wordBreak: 'break-word',
+                                                                fontWeight: task.is_completed ? 'normal' : '500'
                                                             }}
                                                         >
                                                             {task.content}
@@ -444,20 +475,20 @@ function CoordinationTodoList() {
                                                     )}
 
                                                     {!isEditingTask && (
-                                                        <div style={{ display: 'flex', gap: '0.3rem' }}>
+                                                        <div style={{ display: 'flex', gap: '0.4rem' }}>
                                                             <button
                                                                 onClick={() => startEditTask(task)}
-                                                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.85rem', padding: '2px' }}
+                                                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.9rem', padding: '4px' }}
                                                                 title="Editar Tarea"
                                                             >
                                                                 ✏️
                                                             </button>
                                                             <button
                                                                 onClick={() => handleDeleteTask(task.id)}
-                                                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem', padding: '2px' }}
+                                                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem', padding: '4px' }}
                                                                 title="Eliminar Tarea"
                                                             >
-                                                                &times;
+                                                                🗑️
                                                             </button>
                                                         </div>
                                                     )}
@@ -467,8 +498,8 @@ function CoordinationTodoList() {
                                     )}
                                 </div>
 
-                                {/* Add Task Input */}
-                                <form onSubmit={(e) => handleAddTask(e, list.id)} style={{ display: 'flex', gap: '0.5rem' }}>
+                                {/* Add Task Form */}
+                                <form onSubmit={(e) => handleAddTask(e, list.id)} style={{ display: 'flex', gap: '0.75rem' }}>
                                     <input
                                         type="text"
                                         placeholder="+ Añadir una nueva tarea a esta lista..."
@@ -476,12 +507,12 @@ function CoordinationTodoList() {
                                         onChange={(e) => setNewTaskInputs(prev => ({ ...prev, [list.id]: e.target.value }))}
                                         style={{
                                             flex: 1,
-                                            background: 'rgba(0,0,0,0.3)',
+                                            background: 'rgba(0,0,0,0.35)',
                                             border: '1px dashed rgba(255,255,255,0.2)',
                                             color: '#fff',
-                                            padding: '0.5rem 0.8rem',
-                                            borderRadius: '6px',
-                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 1rem',
+                                            borderRadius: '8px',
+                                            fontSize: '0.92rem',
                                             outline: 'none'
                                         }}
                                     />
@@ -491,14 +522,15 @@ function CoordinationTodoList() {
                                             background: 'rgba(217, 119, 6, 0.2)',
                                             border: '1px solid rgba(217, 119, 6, 0.4)',
                                             color: 'var(--accent-gold)',
-                                            padding: '0.5rem 1rem',
-                                            borderRadius: '6px',
-                                            fontSize: '0.85rem',
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer'
+                                            padding: '0.65rem 1.25rem',
+                                            borderRadius: '8px',
+                                            fontSize: '0.9rem',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap'
                                         }}
                                     >
-                                        Añadir
+                                        ➕ Añadir
                                     </button>
                                 </form>
                             </div>
