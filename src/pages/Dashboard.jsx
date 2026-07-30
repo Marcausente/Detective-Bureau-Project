@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+import { makeQuillModules, quillFormats } from '../utils/quillConfig';
 import '../index.css';
 
 function Dashboard() {
@@ -31,6 +34,9 @@ function Dashboard() {
 
     // Event Viewer Modal State
     const [selectedEvent, setSelectedEvent] = useState(null);
+
+    // Quill config – memoized so the object reference is stable across renders
+    const quillModules = useMemo(() => makeQuillModules(), []);
 
     useEffect(() => {
         loadDashboardData();
@@ -126,7 +132,8 @@ function Dashboard() {
 
     const handleSaveAnnouncement = async (e) => {
         e.preventDefault();
-        if (!newPost.title.trim() || !newPost.content.trim()) return;
+        const isContentEmpty = newPost.content.replace(/<[^>]*>/g, '').trim() === '';
+        if (!newPost.title.trim() || isContentEmpty) return;
 
         try {
             setSubmitting(true);
@@ -361,7 +368,7 @@ function Dashboard() {
                                         </div>
                                     </div>
 
-                                    <div className="ann-content">{ann.content}</div>
+                                    <div className="ann-content quill-content" dangerouslySetInnerHTML={{ __html: ann.content }} />
 
                                      {ann.images && ann.images.length > 0 && (
                                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', marginTop: '1rem', marginBottom: '1rem', width: '100%' }}>
@@ -522,12 +529,13 @@ function Dashboard() {
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Content</label>
-                                <textarea
-                                    className="eval-textarea"
-                                    rows="10"
+                                <ReactQuill
+                                    theme="snow"
+                                    modules={quillModules}
+                                    formats={quillFormats}
                                     value={newPost.content}
-                                    onChange={e => setNewPost({ ...newPost, content: e.target.value })}
-                                    required
+                                    onChange={content => setNewPost(prev => ({ ...prev, content }))}
+                                    style={{ marginBottom: '1rem' }}
                                 />
                             </div>
                             <div className="form-group">
