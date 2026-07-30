@@ -809,7 +809,7 @@ function CaseDetail() {
                             <div className="updates-feed">
                                 {updates.length === 0 ? <div className="empty-list">{t('noUpdatesRecorded')}</div> : (
                                     updates.map(update => {
-                                        const isAuthor = currentUser && currentUser.id === update.user_id;
+                                        const isAuthor = currentUser && (currentUser.id === update.user_id || currentUser.id === update.author_id);
 
                                         // Check permissions based on ROLE and RANK
                                         const isHighCommand = currentUser && (

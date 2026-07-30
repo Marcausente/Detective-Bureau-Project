@@ -342,7 +342,7 @@ function DOJCaseDetail() {
                             <div className="updates-feed">
                                 {updates.length === 0 ? <div className="empty-list">No updates or developments recorded yet.</div> : (
                                     updates.map(update => {
-                                        const isAuthor = currentUser && currentUser.id === update.user_id;
+                                        const isAuthor = currentUser && (currentUser.id === update.user_id || currentUser.id === update.author_id);
                                         const isHighCommand = currentUser && (
                                             ['Coordinador', 'Administrador', 'Comisionado', 'Director', 'Fundador'].includes(currentUser.rol) ||
                                             ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente'].includes(currentUser.rango)
