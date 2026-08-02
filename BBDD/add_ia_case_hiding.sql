@@ -72,7 +72,7 @@ DECLARE
   v_user_id UUID := auth.uid();
 BEGIN
   IF v_user_id IS NOT NULL THEN
-    SELECT rol::text INTO v_user_role_text FROM public.users WHERE id = v_user_id;
+    SELECT u.rol::text INTO v_user_role_text FROM public.users u WHERE u.id = v_user_id;
   END IF;
 
   RETURN QUERY
@@ -126,11 +126,11 @@ DECLARE
   v_user_id UUID := auth.uid();
 BEGIN
   IF v_user_id IS NOT NULL THEN
-    SELECT rol::text INTO v_user_role_text FROM public.users WHERE id = v_user_id;
+    SELECT u.rol::text INTO v_user_role_text FROM public.users u WHERE u.id = v_user_id;
   END IF;
 
   -- Get Case Data
-  SELECT * INTO v_case FROM public.ia_cases WHERE id = p_case_id;
+  SELECT * INTO v_case FROM public.ia_cases c WHERE c.id = p_case_id;
 
   IF v_case.id IS NULL THEN
     RETURN NULL;
@@ -203,11 +203,11 @@ CREATE OR REPLACE FUNCTION update_ia_case_privacy(
 )
 RETURNS VOID AS $$
 BEGIN
-  UPDATE public.ia_cases
+  UPDATE public.ia_cases c
   SET
     hidden_user_ids = COALESCE(p_hidden_user_ids, '{}'),
     is_hidden_from_all = COALESCE(p_is_hidden_from_all, FALSE)
-  WHERE id = p_case_id;
+  WHERE c.id = p_case_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -228,7 +228,7 @@ DECLARE
   v_user_id UUID := auth.uid();
 BEGIN
   IF v_user_id IS NOT NULL THEN
-    SELECT rol::text INTO v_user_role_text FROM public.users WHERE id = v_user_id;
+    SELECT u.rol::text INTO v_user_role_text FROM public.users u WHERE u.id = v_user_id;
   END IF;
 
   RETURN QUERY
