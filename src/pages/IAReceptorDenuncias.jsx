@@ -35,10 +35,7 @@ function IAReceptorDenuncias() {
             setComplaints(complaintsData || []);
 
             // Fetch IA cases for association dropdown
-            const { data: casesData, error: casesError } = await supabase
-                .from('ia_cases')
-                .select('id, title, case_number')
-                .order('case_number', { ascending: false });
+            const { data: casesData, error: casesError } = await supabase.rpc('get_ia_cases_dropdown');
 
             if (casesError) throw casesError;
             setIaCases(casesData || []);

@@ -19,7 +19,9 @@ function IACases() {
         occurred_at: '',
         description: '',
         assignments: [], // Array of user IDs
-        initialImage: null
+        initialImage: null,
+        hiddenUserIds: [],
+        isHiddenFromAll: false
     });
     const [users, setUsers] = useState([]); // IA Users for assignment
     const [submitting, setSubmitting] = useState(false);
@@ -62,7 +64,9 @@ function IACases() {
                 p_occurred_at: timestamp,
                 p_description: newCase.description,
                 p_assigned_ids: newCase.assignments,
-                p_image: newCase.initialImage
+                p_image: newCase.initialImage,
+                p_hidden_user_ids: newCase.hiddenUserIds || [],
+                p_is_hidden_from_all: newCase.isHiddenFromAll || false
             });
 
             if (error) throw error;
@@ -83,6 +87,15 @@ function IACases() {
             setNewCase({ ...newCase, assignments: current.filter(id => id !== userId) });
         } else {
             setNewCase({ ...newCase, assignments: [...current, userId] });
+        }
+    };
+
+    const toggleHiddenUser = (userId) => {
+        const current = newCase.hiddenUserIds || [];
+        if (current.includes(userId)) {
+            setNewCase({ ...newCase, hiddenUserIds: current.filter(id => id !== userId) });
+        } else {
+            setNewCase({ ...newCase, hiddenUserIds: [...current, userId] });
         }
     };
 
@@ -165,7 +178,14 @@ function IACases() {
                             onClick={() => navigate(`/internal-affairs/cases/${c.id}`)}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{language === 'es' ? 'CASO-IA #' : 'IA-CASE #'}{String(c.case_number).padStart(3, '0')}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{language === 'es' ? 'CASO-IA #' : 'IA-CASE #'}{String(c.case_number).padStart(3, '0')}</span>
+                                    {(c.is_hidden_from_all || (c.hidden_user_ids && c.hidden_user_ids.length > 0)) && (
+                                        <span style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(248, 113, 113, 0.2)', color: '#f87171', border: '1px solid rgba(248, 113, 113, 0.4)' }}>
+                                            🔒 {language === 'es' ? 'Oculto / Restringido' : 'Hidden / Restricted'}
+                                        </span>
+                                    )}
+                                </div>
                                 <span style={{ color: statusColors[c.status], fontWeight: 'bold', fontSize: '0.8rem', textTransform: 'uppercase' }}>{c.status === 'Open' ? (language === 'es' ? 'ABIERTO' : 'OPEN') : c.status === 'Closed' ? (language === 'es' ? 'CERRADO' : 'CLOSED') : (language === 'es' ? 'ARCHIVADO' : 'ARCHIVED')}</span>
                             </div>
 
@@ -259,6 +279,46 @@ function IACases() {
                                             </div>
                                         ))}
                                 </div>
+                            </div>
+
+                            <div className="form-group" style={{ border: '1px solid rgba(248, 113, 113, 0.3)', padding: '1rem', borderRadius: '8px', background: 'rgba(248, 113, 113, 0.05)', marginTop: '1.5rem' }}>
+                                <label className="form-label" style={{ color: '#f87171', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    🔒 {language === 'es' ? 'Ocultar Caso / Restringir Visibilidad' : 'Hide Case / Restrict Visibility'}
+                                </label>
+                                <div style={{ marginBottom: '0.8rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '0.9rem', color: '#f87171' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={newCase.isHiddenFromAll}
+                                            onChange={e => setNewCase({ ...newCase, isHiddenFromAll: e.target.checked })}
+                                            style={{ marginRight: '10px' }}
+                                        />
+                                        {language === 'es' ? 'Ocultar caso a todos los miembros de IA' : 'Hide case from all IA members'}
+                                    </label>
+                                </div>
+                                {!newCase.isHiddenFromAll && (
+                                    <>
+                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
+                                            {language === 'es' ? 'Ocultar caso a miembros específicos:' : 'Hide case from specific members:'}
+                                        </span>
+                                        <div style={{ maxHeight: '120px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--glass-border)' }}>
+                                            {users.length === 0 ? <div style={{ color: '#aaa', padding: '0.5rem' }}>{language === 'es' ? 'No hay agentes.' : 'No agents.'}</div> :
+                                                users.map(u => (
+                                                    <div key={u.id}
+                                                        onClick={() => toggleHiddenUser(u.id)}
+                                                        style={{
+                                                            display: 'flex', alignItems: 'center', padding: '0.4rem',
+                                                            cursor: 'pointer', background: newCase.hiddenUserIds.includes(u.id) ? 'rgba(248, 113, 113, 0.2)' : 'transparent',
+                                                            marginBottom: '2px', borderRadius: '4px'
+                                                        }}>
+                                                        <input type="checkbox" checked={newCase.hiddenUserIds.includes(u.id)} readOnly style={{ marginRight: '10px' }} />
+                                                        <img src={u.profile_image || '/anon.png'} alt="" style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '8px' }} />
+                                                        <span style={{ fontSize: '0.85rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    </>
+                                )}
                             </div>
 
                             <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '2rem' }}>

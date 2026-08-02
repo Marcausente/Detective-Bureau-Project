@@ -45,6 +45,12 @@ function IACaseDetail() {
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [selectedAssignments, setSelectedAssignments] = useState([]);
 
+    // Privacy Modal State
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+    const [selectedHiddenUsers, setSelectedHiddenUsers] = useState([]);
+    const [isHiddenFromAll, setIsHiddenFromAll] = useState(false);
+    const [savingPrivacy, setSavingPrivacy] = useState(false);
+
     const [currentUser, setCurrentUser] = useState(null);
 
     // Interrogations Linking State
@@ -166,6 +172,46 @@ function IACaseDetail() {
             setSelectedAssignments(caseData.assignments.map(a => a.user_id));
         }
         setShowAssignModal(true);
+    };
+
+    const openPrivacyModal = async () => {
+        if (users.length === 0) {
+            const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, profile_image, divisions').order('rango');
+            if (data) {
+                const iaUsers = data.filter(u =>
+                    (u.divisions && u.divisions.includes('Internal Affairs')) ||
+                    u.rol === 'Administrador'
+                );
+                setUsers(iaUsers);
+            }
+        }
+        setSelectedHiddenUsers(caseData?.info?.hidden_user_ids || []);
+        setIsHiddenFromAll(!!caseData?.info?.is_hidden_from_all);
+        setShowPrivacyModal(true);
+    };
+
+    const togglePrivacyHiddenUser = (userId) => {
+        setSelectedHiddenUsers(prev =>
+            prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+        );
+    };
+
+    const handleSavePrivacy = async () => {
+        setSavingPrivacy(true);
+        try {
+            const { error } = await supabase.rpc('update_ia_case_privacy', {
+                p_case_id: id,
+                p_hidden_user_ids: selectedHiddenUsers,
+                p_is_hidden_from_all: isHiddenFromAll
+            });
+            if (error) throw error;
+            setShowPrivacyModal(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error updating privacy settings: ' + err.message);
+        } finally {
+            setSavingPrivacy(false);
+        }
     };
 
     const handleUpdateRole = async (userId, newRole) => {
@@ -394,9 +440,14 @@ function IACaseDetail() {
                     </button>
 
                     {!isEditingInfo && canEditCase && (
-                        <button onClick={startEditingInfo} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline' }}>
-                            {language === 'es' ? 'Editar Detalles' : 'Edit Details'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+                            <button onClick={openPrivacyModal} style={{ background: 'rgba(248, 113, 113, 0.15)', border: '1px solid rgba(248, 113, 113, 0.4)', color: '#f87171', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                                🔒 {language === 'es' ? 'Ocultar / Privacidad' : 'Hide / Privacy'}
+                            </button>
+                            <button onClick={startEditingInfo} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline' }}>
+                                {language === 'es' ? 'Editar Detalles' : 'Edit Details'}
+                            </button>
+                        </div>
                     )}
                 </div>
 
@@ -506,9 +557,14 @@ function IACaseDetail() {
                     <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div>
-                                <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#f87171' }}>
-                                    <span style={{ color: 'var(--text-secondary)', marginRight: '1rem' }}>IA-#{String(info.case_number).padStart(3, '0')}</span>
-                                    {info.title}
+                                <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#f87171', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>IA-#{String(info.case_number).padStart(3, '0')}</span>
+                                    <span>{info.title}</span>
+                                    {(info.is_hidden_from_all || (info.hidden_user_ids && info.hidden_user_ids.length > 0)) && (
+                                        <span style={{ fontSize: '0.8rem', padding: '4px 8px', borderRadius: '4px', background: 'rgba(248, 113, 113, 0.2)', color: '#f87171', border: '1px solid rgba(248, 113, 113, 0.4)', fontWeight: 'normal' }}>
+                                            🔒 {language === 'es' ? 'Caso Oculto / Restringido' : 'Hidden / Restricted Case'}
+                                        </span>
+                                    )}
                                 </h1>
                                 <div style={{ color: 'var(--text-secondary)' }}>
                                     {language === 'es' ? 'Ubicado en ' : 'Located at '}<strong>{info.location}</strong> • {language === 'es' ? 'Ocurrió el ' : 'Occurred on '}{new Date(info.occurred_at).toLocaleString()}
@@ -984,6 +1040,65 @@ function IACaseDetail() {
                         <div className="cropper-actions" style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
                             <button className="login-button btn-secondary" onClick={() => setSelectedComplaint(null)}>
                                 Cerrar Detalles
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Privacy Management Modal */}
+            {showPrivacyModal && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content" style={{ maxWidth: '480px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+                        <h3 style={{ marginBottom: '1rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            🔒 {language === 'es' ? 'Ocultar Caso / Restringir Visibilidad' : 'Hide Case / Restrict Visibility'}
+                        </h3>
+
+                        <div style={{ marginBottom: '1rem', padding: '0.8rem', background: 'rgba(248, 113, 113, 0.1)', borderRadius: '6px', border: '1px solid rgba(248, 113, 113, 0.3)' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '0.95rem', color: '#f87171', fontWeight: 'bold' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={isHiddenFromAll}
+                                    onChange={e => setIsHiddenFromAll(e.target.checked)}
+                                    style={{ marginRight: '10px' }}
+                                />
+                                {language === 'es' ? 'Ocultar caso a todos los miembros de IA' : 'Hide case from all IA members'}
+                            </label>
+                        </div>
+
+                        {!isHiddenFromAll && (
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                                    {language === 'es' ? 'Seleccione los miembros de IA a los que desea ocultar este caso:' : 'Select IA members to hide this case from:'}
+                                </p>
+                                <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'rgba(0,0,0,0.2)' }}>
+                                    {users.length === 0 ? (
+                                        <div style={{ padding: '1rem', color: '#aaa' }}>{language === 'es' ? 'Cargando agentes...' : 'Loading agents...'}</div>
+                                    ) : (
+                                        users.map(u => (
+                                            <div key={u.id}
+                                                onClick={() => togglePrivacyHiddenUser(u.id)}
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', padding: '0.8rem',
+                                                    cursor: 'pointer', background: selectedHiddenUsers.includes(u.id) ? 'rgba(248, 113, 113, 0.2)' : 'transparent',
+                                                    borderBottom: '1px solid rgba(255,255,255,0.05)'
+                                                }}>
+                                                <input type="checkbox" checked={selectedHiddenUsers.includes(u.id)} readOnly style={{ marginRight: '10px', pointerEvents: 'none' }} />
+                                                <img src={u.profile_image || '/anon.png'} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', marginRight: '10px' }} />
+                                                <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+                            <button className="login-button btn-secondary" onClick={() => setShowPrivacyModal(false)} style={{ width: 'auto' }}>
+                                {language === 'es' ? 'Cancelar' : 'Cancel'}
+                            </button>
+                            <button className="login-button" onClick={handleSavePrivacy} disabled={savingPrivacy} style={{ width: 'auto', backgroundColor: '#7f1d1d' }}>
+                                {savingPrivacy ? (language === 'es' ? 'Guardando...' : 'Saving...') : (language === 'es' ? 'Guardar Cambios' : 'Save Changes')}
                             </button>
                         </div>
                     </div>
