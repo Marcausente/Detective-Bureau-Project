@@ -6,8 +6,8 @@
 ALTER TABLE public.ia_cases ADD COLUMN IF NOT EXISTS hidden_user_ids UUID[] DEFAULT '{}';
 ALTER TABLE public.ia_cases ADD COLUMN IF NOT EXISTS is_hidden_from_all BOOLEAN DEFAULT FALSE;
 
--- Ensure default values for existing rows
-UPDATE public.ia_cases SET hidden_user_ids = '{}' WHERE hidden_user_ids IS NULL;
+-- Ensure default values for all existing rows (IMPORTANT: Run this so existing cases are visible)
+UPDATE public.ia_cases SET hidden_user_ids = '{}'::UUID[] WHERE hidden_user_ids IS NULL;
 UPDATE public.ia_cases SET is_hidden_from_all = FALSE WHERE is_hidden_from_all IS NULL;
 
 -- 2. Update create_ia_case function to support privacy parameters
@@ -68,11 +68,11 @@ RETURNS TABLE (
   is_hidden_from_all BOOLEAN
 ) AS $$
 DECLARE
-  v_user_role TEXT;
+  v_user_role TEXT := '';
   v_user_id UUID := auth.uid();
 BEGIN
   IF v_user_id IS NOT NULL THEN
-    SELECT rol INTO v_user_role FROM public.users WHERE id = v_user_id;
+    SELECT COALESCE(rol, '') INTO v_user_role FROM public.users WHERE id = v_user_id;
   END IF;
 
   RETURN QUERY
@@ -96,12 +96,11 @@ BEGIN
   FROM public.ia_cases c
   WHERE (p_status_filter IS NULL OR c.status = p_status_filter)
     AND (
-      LOWER(COALESCE(v_user_role, '')) IN ('administrador', 'superadmin', 'admin')
+      LOWER(v_user_role) IN ('administrador', 'superadmin', 'admin')
       OR (
-        COALESCE(c.is_hidden_from_all, FALSE) = FALSE
+        c.is_hidden_from_all IS NOT TRUE
         AND (
           c.hidden_user_ids IS NULL
-          OR CARDINALITY(c.hidden_user_ids) = 0
           OR v_user_id IS NULL
           OR NOT (c.hidden_user_ids @> ARRAY[v_user_id])
         )
@@ -123,11 +122,11 @@ DECLARE
   v_assignments JSON;
   v_updates JSON;
   v_interrogations JSON;
-  v_user_role TEXT;
+  v_user_role TEXT := '';
   v_user_id UUID := auth.uid();
 BEGIN
   IF v_user_id IS NOT NULL THEN
-    SELECT rol INTO v_user_role FROM public.users WHERE id = v_user_id;
+    SELECT COALESCE(rol, '') INTO v_user_role FROM public.users WHERE id = v_user_id;
   END IF;
 
   -- Get Case Data
@@ -139,8 +138,8 @@ BEGIN
 
   -- Visibility check: Administrators can see everything unconditionally.
   -- Non-admins cannot see cases hidden from all or hidden specifically from them.
-  IF LOWER(COALESCE(v_user_role, '')) NOT IN ('administrador', 'superadmin', 'admin') THEN
-    IF COALESCE(v_case.is_hidden_from_all, FALSE) = TRUE OR (v_user_id IS NOT NULL AND v_case.hidden_user_ids IS NOT NULL AND v_case.hidden_user_ids @> ARRAY[v_user_id]) THEN
+  IF LOWER(v_user_role) NOT IN ('administrador', 'superadmin', 'admin') THEN
+    IF v_case.is_hidden_from_all IS TRUE OR (v_user_id IS NOT NULL AND v_case.hidden_user_ids IS NOT NULL AND v_case.hidden_user_ids @> ARRAY[v_user_id]) THEN
       RETURN NULL;
     END IF;
   END IF;
@@ -225,23 +224,22 @@ RETURNS TABLE (
   status TEXT
 ) AS $$
 DECLARE
-  v_user_role TEXT;
+  v_user_role TEXT := '';
   v_user_id UUID := auth.uid();
 BEGIN
   IF v_user_id IS NOT NULL THEN
-    SELECT rol INTO v_user_role FROM public.users WHERE id = v_user_id;
+    SELECT COALESCE(rol, '') INTO v_user_role FROM public.users WHERE id = v_user_id;
   END IF;
 
   RETURN QUERY
   SELECT i.id, i.title, i.case_number, i.status
   FROM public.ia_cases i
   WHERE (
-    LOWER(COALESCE(v_user_role, '')) IN ('administrador', 'superadmin', 'admin')
+    LOWER(v_user_role) IN ('administrador', 'superadmin', 'admin')
     OR (
-      COALESCE(i.is_hidden_from_all, FALSE) = FALSE
+      i.is_hidden_from_all IS NOT TRUE
       AND (
         i.hidden_user_ids IS NULL
-        OR CARDINALITY(i.hidden_user_ids) = 0
         OR v_user_id IS NULL
         OR NOT (i.hidden_user_ids @> ARRAY[v_user_id])
       )
