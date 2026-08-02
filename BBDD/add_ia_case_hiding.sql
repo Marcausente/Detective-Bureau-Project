@@ -68,11 +68,11 @@ RETURNS TABLE (
   is_hidden_from_all BOOLEAN
 ) AS $$
 DECLARE
-  v_user_role TEXT := '';
+  v_user_role_text TEXT := NULL;
   v_user_id UUID := auth.uid();
 BEGIN
   IF v_user_id IS NOT NULL THEN
-    SELECT COALESCE(rol, '') INTO v_user_role FROM public.users WHERE id = v_user_id;
+    SELECT rol::text INTO v_user_role_text FROM public.users WHERE id = v_user_id;
   END IF;
 
   RETURN QUERY
@@ -96,7 +96,7 @@ BEGIN
   FROM public.ia_cases c
   WHERE (p_status_filter IS NULL OR c.status = p_status_filter)
     AND (
-      LOWER(v_user_role) IN ('administrador', 'superadmin', 'admin')
+      LOWER(COALESCE(v_user_role_text, '')) IN ('administrador', 'superadmin', 'admin')
       OR (
         c.is_hidden_from_all IS NOT TRUE
         AND (
@@ -122,11 +122,11 @@ DECLARE
   v_assignments JSON;
   v_updates JSON;
   v_interrogations JSON;
-  v_user_role TEXT := '';
+  v_user_role_text TEXT := NULL;
   v_user_id UUID := auth.uid();
 BEGIN
   IF v_user_id IS NOT NULL THEN
-    SELECT COALESCE(rol, '') INTO v_user_role FROM public.users WHERE id = v_user_id;
+    SELECT rol::text INTO v_user_role_text FROM public.users WHERE id = v_user_id;
   END IF;
 
   -- Get Case Data
@@ -138,7 +138,7 @@ BEGIN
 
   -- Visibility check: Administrators can see everything unconditionally.
   -- Non-admins cannot see cases hidden from all or hidden specifically from them.
-  IF LOWER(v_user_role) NOT IN ('administrador', 'superadmin', 'admin') THEN
+  IF LOWER(COALESCE(v_user_role_text, '')) NOT IN ('administrador', 'superadmin', 'admin') THEN
     IF v_case.is_hidden_from_all IS TRUE OR (v_user_id IS NOT NULL AND v_case.hidden_user_ids IS NOT NULL AND v_case.hidden_user_ids @> ARRAY[v_user_id]) THEN
       RETURN NULL;
     END IF;
@@ -224,18 +224,18 @@ RETURNS TABLE (
   status TEXT
 ) AS $$
 DECLARE
-  v_user_role TEXT := '';
+  v_user_role_text TEXT := NULL;
   v_user_id UUID := auth.uid();
 BEGIN
   IF v_user_id IS NOT NULL THEN
-    SELECT COALESCE(rol, '') INTO v_user_role FROM public.users WHERE id = v_user_id;
+    SELECT rol::text INTO v_user_role_text FROM public.users WHERE id = v_user_id;
   END IF;
 
   RETURN QUERY
   SELECT i.id, i.title, i.case_number, i.status
   FROM public.ia_cases i
   WHERE (
-    LOWER(v_user_role) IN ('administrador', 'superadmin', 'admin')
+    LOWER(COALESCE(v_user_role_text, '')) IN ('administrador', 'superadmin', 'admin')
     OR (
       i.is_hidden_from_all IS NOT TRUE
       AND (
