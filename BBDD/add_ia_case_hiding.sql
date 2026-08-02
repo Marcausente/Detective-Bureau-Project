@@ -7,6 +7,9 @@ ALTER TABLE public.ia_cases ADD COLUMN IF NOT EXISTS hidden_user_ids UUID[] DEFA
 ALTER TABLE public.ia_cases ADD COLUMN IF NOT EXISTS is_hidden_from_all BOOLEAN DEFAULT FALSE;
 
 -- 2. Update create_ia_case function to support privacy parameters
+DROP FUNCTION IF EXISTS create_ia_case(TEXT, TEXT, TIMESTAMP WITH TIME ZONE, TEXT, UUID[], TEXT);
+DROP FUNCTION IF EXISTS create_ia_case(TEXT, TEXT, TIMESTAMP WITH TIME ZONE, TEXT, UUID[], TEXT, UUID[], BOOLEAN);
+
 CREATE OR REPLACE FUNCTION create_ia_case(
   p_title TEXT,
   p_location TEXT,
@@ -44,6 +47,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION create_ia_case(TEXT, TEXT, TIMESTAMP WITH TIME ZONE, TEXT, UUID[], TEXT, UUID[], BOOLEAN) TO authenticated;
 
 -- 3. Update get_ia_cases function to filter out hidden cases for non-admins
+DROP FUNCTION IF EXISTS get_ia_cases();
+DROP FUNCTION IF EXISTS get_ia_cases(TEXT);
+
 CREATE OR REPLACE FUNCTION get_ia_cases(p_status_filter TEXT DEFAULT NULL)
 RETURNS TABLE (
   id UUID,
@@ -97,6 +103,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION get_ia_cases(TEXT) TO authenticated;
 
 -- 4. Update get_ia_case_details function
+DROP FUNCTION IF EXISTS get_ia_case_details(UUID);
+
 CREATE OR REPLACE FUNCTION get_ia_case_details(p_case_id UUID)
 RETURNS JSON AS $$
 DECLARE
@@ -174,6 +182,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION get_ia_case_details(UUID) TO authenticated;
 
 -- 5. New function to update case privacy settings
+DROP FUNCTION IF EXISTS update_ia_case_privacy(UUID, UUID[], BOOLEAN);
+
 CREATE OR REPLACE FUNCTION update_ia_case_privacy(
   p_case_id UUID,
   p_hidden_user_ids UUID[],
