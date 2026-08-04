@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import '../index.css';
 import CaseTodoList from '../components/CaseTodoList';
 import CaseWhiteboard from '../components/cases/CaseWhiteboard';
@@ -57,6 +58,7 @@ function CaseDetail() {
     const [newUpdateContent, setNewUpdateContent] = useState('');
     const [newUpdateImages, setNewUpdateImages] = useState([]); // Array of Base64 strings
     const [submittingUpdate, setSubmittingUpdate] = useState(false);
+    const [feedbackNotice, setFeedbackNotice] = useState(null);
 
     // Image Viewer Modal State
     const [expandedImage, setExpandedImage] = useState(null);
@@ -402,11 +404,26 @@ function CaseDetail() {
         }
 
         setSubmittingUpdate(true);
+        setFeedbackNotice(null);
         try {
+            let uploadedImages = [];
+            let usedBucket = false;
+            if (newUpdateImages.length > 0) {
+                uploadedImages = await Promise.all(
+                    newUpdateImages.map(async img => {
+                        if (img && img.startsWith('data:')) {
+                            usedBucket = true;
+                            return await uploadImageToStorage(img, 'cases');
+                        }
+                        return img;
+                    })
+                );
+            }
+
             const { error } = await supabase.rpc('add_case_update', {
                 p_case_id: id,
                 p_content: newUpdateContent,
-                p_images: newUpdateImages // Send array
+                p_images: uploadedImages
             });
 
             if (error) throw error;
@@ -414,6 +431,12 @@ function CaseDetail() {
             setNewUpdateContent('');
             setNewUpdateImages([]);
             loadCaseDetails();
+
+            const msg = usedBucket
+                ? "✅ Novedad publicada con éxito. Las imágenes adjuntas se han subido al Bucket de Supabase Storage ☁️"
+                : "✅ Novedad publicada con éxito en el informe.";
+            setFeedbackNotice(msg);
+            setTimeout(() => setFeedbackNotice(null), 6000);
         } catch (err) {
             alert('Error posting update: ' + err.message);
         } finally {
@@ -795,6 +818,20 @@ function CaseDetail() {
                             {/* New Update Box */}
                             {info.status !== 'Archived' && (
                                 <div className="new-update-box" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
+                                    {feedbackNotice && (
+                                        <div style={{
+                                            padding: '0.8rem 1rem',
+                                            marginBottom: '1rem',
+                                            borderRadius: '6px',
+                                            background: 'rgba(74, 222, 128, 0.15)',
+                                            border: '1px solid #4ade80',
+                                            color: '#4ade80',
+                                            fontSize: '0.9rem',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {feedbackNotice}
+                                        </div>
+                                    )}
                                     <form onSubmit={handlePostUpdate}>
                                         <ReactQuill 
                                             theme="snow"
@@ -851,7 +888,7 @@ function CaseDetail() {
                                             ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente'].includes(currentUser.rango)
                                         );
 
-                                        const canEdit = isAuthor;
+                                        const canEdit = isAuthor || isHighCommand || (currentUser && ['Administrador', 'Coordinador', 'Comisionado'].includes(currentUser.rol));
                                         const canDelete = isAuthor || isHighCommand;
                                         const isEditing = editingId === update.id;
 

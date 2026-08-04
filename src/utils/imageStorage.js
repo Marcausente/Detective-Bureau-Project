@@ -40,7 +40,68 @@ export function dataURLtoBlob(dataurl) {
 }
 
 /**
- * Uploads an image (File, Blob, or Base64 DataURL) to Supabase Storage
+ * Compresses and resizes an image Blob or File using Canvas
+ * @param {Blob|File} file 
+ * @param {number} maxWidth Maximum width/height in pixels (default 600px for avatars)
+ * @param {number} quality JPEG compression quality (default 0.75)
+ * @returns {Promise<Blob>} Compressed JPEG Blob
+ */
+export async function compressImage(file, maxWidth = 600, quality = 0.75) {
+    if (!file || !(file instanceof Blob || file instanceof File)) {
+        return file;
+    }
+
+    // Only compress in browser environment
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+        return file;
+    }
+
+    return new Promise((resolve) => {
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+
+        img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            let { width, height } = img;
+
+            // Downscale if larger than maxWidth
+            if (width > maxWidth || height > maxWidth) {
+                if (width > height) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                } else {
+                    width = Math.round((width * maxWidth) / height);
+                    height = maxWidth;
+                }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            canvas.toBlob(
+                (compressedBlob) => {
+                    resolve(compressedBlob || file);
+                },
+                'image/jpeg',
+                quality
+            );
+        };
+
+        img.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(file);
+        };
+
+        img.src = objectUrl;
+    });
+}
+
+/**
+ * Uploads an image (File, Blob, or Base64 DataURL) to Supabase Storage after compression
  * @param {File | Blob | string} imageInput - Image to upload
  * @param {string} folder - Folder within the 'uploads' bucket (e.g. 'avatars')
  * @returns {Promise<string>} Public URL of the uploaded image
@@ -54,32 +115,33 @@ export async function uploadImageToStorage(imageInput, folder = 'avatars') {
     }
 
     let fileToUpload = imageInput;
-    let fileExt = 'jpg';
 
     if (typeof imageInput === 'string' && imageInput.startsWith('data:')) {
         fileToUpload = dataURLtoBlob(imageInput);
-        const match = imageInput.match(/data:image\/(.*?);/);
-        if (match && match[1]) {
-            fileExt = match[1] === 'jpeg' ? 'jpg' : match[1];
-        }
-    } else if (imageInput instanceof File) {
-        fileExt = imageInput.name.split('.').pop() || 'jpg';
     }
 
     if (!fileToUpload) return imageInput;
 
-    const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+    // Compress image before uploading (Max 600px for avatars, 1000px for general uploads)
+    const maxDimension = folder === 'avatars' ? 500 : 1000;
+    try {
+        fileToUpload = await compressImage(fileToUpload, maxDimension, 0.75);
+    } catch (compressErr) {
+        console.warn('Compresión previa omitida:', compressErr);
+    }
+
+    const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.jpg`;
 
     const { data, error } = await supabase.storage
         .from('uploads')
         .upload(fileName, fileToUpload, {
-            contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-            cacheControl: '3600',
+            contentType: 'image/jpeg',
+            cacheControl: '31536000', // 1 year browser cache
             upsert: true
         });
 
     if (error) {
-        console.error('Supabase Storage upload failed. Make sure the "uploads" bucket exists and is public in Supabase Dashboard.', error);
+        console.error('Supabase Storage upload failed:', error);
         throw new Error(`Storage upload error: ${error.message}. Ensure "uploads" bucket exists and is set to Public.`);
     }
 

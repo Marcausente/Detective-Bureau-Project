@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -209,13 +210,20 @@ function Incidents() {
             // Format title with tablet number if present
             const finalTitle = incTablet ? `[${incTablet}] ${incTitle}` : incTitle;
 
+            let uploadedImages = [];
+            if (incImages && incImages.length > 0) {
+                uploadedImages = await Promise.all(
+                    incImages.map(img => (img && img.startsWith('data:')) ? uploadImageToStorage(img, 'incidents') : Promise.resolve(img))
+                );
+            }
+
             const { data: newId, error } = await supabase.rpc('create_incident_v2', {
                 p_title: finalTitle,
                 p_location: incLocation,
                 p_occurred_at: new Date(incDate).toISOString(),
                 p_tablet_number: incTablet,
                 p_description: incDesc,
-                p_images: incImages
+                p_images: uploadedImages
             });
             if (error) throw error;
 

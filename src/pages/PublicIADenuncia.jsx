@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
 
@@ -62,14 +63,21 @@ function PublicIADenuncia() {
                 throw new Error("Por favor, especifica el motivo.");
             }
 
-            // Combine video link and uploaded image base64 into a unified pruebas text
+            let uploadedImageUrl = '';
+            if (imagenBase64 && imagenBase64.startsWith('data:')) {
+                uploadedImageUrl = await uploadImageToStorage(imagenBase64, 'complaints');
+            } else if (imagenBase64) {
+                uploadedImageUrl = imagenBase64;
+            }
+
+            // Combine video link and uploaded image URL into a unified pruebas text
             let finalPruebas = '';
-            if (enlacePrueba && imagenBase64) {
-                finalPruebas = `Enlace: ${enlacePrueba}\nImagen adjunta: ${imagenBase64}`;
+            if (enlacePrueba && uploadedImageUrl) {
+                finalPruebas = `Enlace: ${enlacePrueba}\nImagen adjunta: ${uploadedImageUrl}`;
             } else if (enlacePrueba) {
                 finalPruebas = enlacePrueba;
-            } else if (imagenBase64) {
-                finalPruebas = imagenBase64;
+            } else if (uploadedImageUrl) {
+                finalPruebas = uploadedImageUrl;
             }
 
             const { error } = await supabase.from('ia_complaints').insert({

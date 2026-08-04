@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
@@ -60,13 +61,18 @@ function Cases() {
             // Need a proper timestamp
             const timestamp = new Date(newCase.occurred_at).toISOString();
 
+            let imageUrl = newCase.initialImage;
+            if (imageUrl && imageUrl.startsWith('data:')) {
+                imageUrl = await uploadImageToStorage(imageUrl, 'cases');
+            }
+
             const { data: newId, error } = await supabase.rpc('create_new_case', {
                 p_title: newCase.title,
                 p_location: newCase.location,
                 p_occurred_at: timestamp,
                 p_description: newCase.description,
                 p_assigned_ids: newCase.assignments,
-                p_image: newCase.initialImage
+                p_image: imageUrl
             });
 
             if (error) throw error;

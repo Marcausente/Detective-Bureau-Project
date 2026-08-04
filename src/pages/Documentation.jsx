@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
@@ -60,12 +61,17 @@ function Documentation() {
         setSubmitLoading(true);
 
         try {
+            let docUrl = formData.url;
+            if (docUrl && docUrl.startsWith('data:')) {
+                docUrl = await uploadImageToStorage(docUrl, 'documentation');
+            }
+
             const { error } = await supabase.rpc('manage_documentation', {
                 p_action: modalMode,
                 p_id: editingId,
                 p_title: formData.title,
                 p_description: formData.description,
-                p_url: formData.url,
+                p_url: docUrl,
                 p_category: targetCategory
             });
 

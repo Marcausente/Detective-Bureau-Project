@@ -347,7 +347,7 @@ function DOJCaseDetail() {
                                             ['Coordinador', 'Administrador', 'Comisionado', 'Director', 'Fundador'].includes(currentUser.rol) ||
                                             ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente'].includes(currentUser.rango)
                                         );
-                                        const canEdit = isAuthor;
+                                        const canEdit = isAuthor || isHighCommand || (currentUser && ['Administrador', 'Coordinador', 'Comisionado'].includes(currentUser.rol));
                                         const canDelete = isAuthor || isHighCommand;
                                         const isEditing = editingId === update.id;
 
