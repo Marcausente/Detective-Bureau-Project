@@ -109,7 +109,7 @@ function DOJCaseDetail() {
 
     const openAssignModal = async () => {
         if (users.length === 0) {
-            const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, profile_image, divisions').order('rango');
+            const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, divisions').order('rango');
             if (data) {
                 const iaUsers = data.filter(u =>
                     (u.divisions && u.divisions.includes('DOJ')) ||

@@ -49,7 +49,7 @@ function Cases() {
     };
 
     const fetchUsers = async () => {
-        const { data } = await supabase.from('users').select('id, nombre, apellido, rango, profile_image').order('rango');
+        const { data } = await supabase.from('users').select('id, nombre, apellido, rango').order('rango');
         setUsers(data || []);
     };
 

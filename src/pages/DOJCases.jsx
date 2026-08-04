@@ -37,7 +37,7 @@ function DOJCases() {
 
     const fetchDOJUsers = async () => {
         // Fetch ALL users then filter client-side for "DOJ" division
-        const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, profile_image, divisions').order('rango');
+        const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, divisions').order('rango');
         if (data) {
             const dojUsers = data.filter(u =>
                 (u.divisions && u.divisions.includes('DOJ')) ||

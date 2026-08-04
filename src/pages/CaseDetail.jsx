@@ -125,7 +125,7 @@ function CaseDetail() {
     const openAssignModal = async () => {
         // Fetch users if not loaded
         if (users.length === 0) {
-            const { data } = await supabase.from('users').select('id, nombre, apellido, rango, profile_image').order('rango');
+            const { data } = await supabase.from('users').select('id, nombre, apellido, rango').order('rango');
             setUsers(data || []);
         }
         // Sync current selections
