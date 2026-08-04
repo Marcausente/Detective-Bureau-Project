@@ -44,7 +44,7 @@ function MainLayout() {
             try {
                 const { data, error } = await supabase
                     .from('users')
-                    .select('id, nombre, apellido, no_placa, rango, rol, active_duty, profile_image, created_at')
+                    .select('*')
                     .eq('id', session.user.id)
                     .single();
 

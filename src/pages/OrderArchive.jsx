@@ -930,7 +930,7 @@ function OrderArchive() {
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-            const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, profile_image').eq('id', user.id).single();
+            const { data } = await supabase.from('users').select('*').eq('id', user.id).single();
             setCurrentUser(data);
         }
 

@@ -184,7 +184,7 @@ function PersonnelDetail() {
 
             const { data: viewerData, error: viewerError } = await supabase
                 .from('users')
-                .select('id, nombre, apellido, no_placa, rango, rol, divisions')
+                .select('*')
                 .eq('id', authUser.id)
                 .single();
 
