@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
 import GangTodoList from '../components/GangTodoList';
@@ -13,6 +14,7 @@ function Gangs() {
     const [loading, setLoading] = useState(true);
     const [accessDenied, setAccessDenied] = useState(false);
     const [userRole, setUserRole] = useState(null);
+    const [feedbackNotice, setFeedbackNotice] = useState(null);
     const { isLSSD } = useTheme();
     const { t } = useLanguage();
 
@@ -287,14 +289,28 @@ function Gangs() {
 
         setSubmitting(true);
         try {
+            let uploadedImages = [];
+            let usedBucket = false;
+            if (vehImages && vehImages.length > 0) {
+                uploadedImages = await Promise.all(
+                    vehImages.map(async img => {
+                        if (img && img.startsWith('data:')) {
+                            usedBucket = true;
+                            return await uploadImageToStorage(img, 'gangs');
+                        }
+                        return img;
+                    })
+                );
+            }
+
             if (editingItemId) {
                 const { error } = await supabase.rpc('update_gang_vehicle', {
-                    p_vehicle_id: editingItemId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: vehImages
+                    p_vehicle_id: editingItemId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
             } else {
                 const { error } = await supabase.rpc('add_gang_vehicle', {
-                    p_gang_id: activeGangId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: vehImages
+                    p_gang_id: activeGangId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
 
@@ -304,11 +320,16 @@ function Gangs() {
                     'Propietario: ' + (owner || 'Desconocido') + (notes ? '\n' + notes : ''),
                     'vehicle',
                     'purple',
-                    vehImages && vehImages.length > 0 ? vehImages[0] : null
+                    uploadedImages && uploadedImages.length > 0 ? uploadedImages[0] : null
                 );
             }
             closeModal();
             loadGangs();
+            setFeedbackNotice(usedBucket
+                ? "✅ Vehículo guardado con éxito. Imagen(es) subida(s) al Bucket de Supabase Storage ☁️"
+                : "✅ Vehículo guardado con éxito 📝"
+            );
+            setTimeout(() => setFeedbackNotice(null), 6000);
         } catch (err) { alert(err.message); } finally { setSubmitting(false); }
     };
 
@@ -326,14 +347,28 @@ function Gangs() {
 
         setSubmitting(true);
         try {
+            let uploadedImages = [];
+            let usedBucket = false;
+            if (homeImages && homeImages.length > 0) {
+                uploadedImages = await Promise.all(
+                    homeImages.map(async img => {
+                        if (img && img.startsWith('data:')) {
+                            usedBucket = true;
+                            return await uploadImageToStorage(img, 'gangs');
+                        }
+                        return img;
+                    })
+                );
+            }
+
             if (editingItemId) {
                 const { error } = await supabase.rpc('update_gang_home', {
-                    p_home_id: editingItemId, p_owner: owner, p_notes: notes, p_images: homeImages
+                    p_home_id: editingItemId, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
             } else {
                 const { error } = await supabase.rpc('add_gang_home', {
-                    p_gang_id: activeGangId, p_owner: owner, p_notes: notes, p_images: homeImages
+                    p_gang_id: activeGangId, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
 
@@ -343,11 +378,16 @@ function Gangs() {
                     notes || 'Sin detalles de dirección',
                     'location',
                     'green',
-                    homeImages && homeImages.length > 0 ? homeImages[0] : null
+                    uploadedImages && uploadedImages.length > 0 ? uploadedImages[0] : null
                 );
             }
             closeModal();
             loadGangs();
+            setFeedbackNotice(usedBucket
+                ? "✅ Inmueble/Propiedad guardada con éxito. Imagen(es) subida(s) al Bucket de Supabase Storage ☁️"
+                : "✅ Inmueble/Propiedad guardada con éxito 📝"
+            );
+            setTimeout(() => setFeedbackNotice(null), 6000);
         } catch (err) { alert(err.message); } finally { setSubmitting(false); }
     };
 
@@ -356,14 +396,22 @@ function Gangs() {
         setSubmitting(true);
         try {
             const finalName = memId.trim() ? `${memName.trim()} [${memId.trim()}]` : memName.trim();
+
+            let uploadedPhoto = memPhoto;
+            let usedBucket = false;
+            if (uploadedPhoto && uploadedPhoto.startsWith('data:')) {
+                usedBucket = true;
+                uploadedPhoto = await uploadImageToStorage(uploadedPhoto, 'gangs');
+            }
+
             if (editingItemId) {
                 const { error } = await supabase.rpc('update_gang_member', {
-                    p_member_id: editingItemId, p_name: finalName, p_role: memRole, p_photo: memPhoto, p_notes: memNotes
+                    p_member_id: editingItemId, p_name: finalName, p_role: memRole, p_photo: uploadedPhoto, p_notes: memNotes
                 });
                 if (error) throw error;
             } else {
                 const { error } = await supabase.rpc('add_gang_member', {
-                    p_gang_id: activeGangId, p_name: finalName, p_role: memRole, p_photo: memPhoto, p_notes: memNotes
+                    p_gang_id: activeGangId, p_name: finalName, p_role: memRole, p_photo: uploadedPhoto, p_notes: memNotes
                 });
                 if (error) throw error;
 
@@ -373,11 +421,16 @@ function Gangs() {
                     'Rol: ' + memRole + (memNotes ? '\n' + memNotes : ''),
                     memRole === 'Lider' || memRole === 'Sublider' ? 'suspect' : 'suspect',
                     memRole === 'Lider' ? 'red' : memRole === 'Sublider' ? 'yellow' : 'blue',
-                    memPhoto || null
+                    uploadedPhoto || null
                 );
             }
             closeModal();
             loadGangs();
+            setFeedbackNotice(usedBucket
+                ? "✅ Miembro guardado con éxito. Foto subida al Bucket de Supabase Storage ☁️"
+                : "✅ Miembro guardado con éxito 📝"
+            );
+            setTimeout(() => setFeedbackNotice(null), 6000);
         } catch (err) { alert(err.message); } finally { setSubmitting(false); }
     };
 
@@ -392,14 +445,28 @@ function Gangs() {
 
         setSubmitting(true);
         try {
+            let uploadedImages = [];
+            let usedBucket = false;
+            if (infoImages && infoImages.length > 0) {
+                uploadedImages = await Promise.all(
+                    infoImages.map(async img => {
+                        if (img && img.startsWith('data:')) {
+                            usedBucket = true;
+                            return await uploadImageToStorage(img, 'gangs');
+                        }
+                        return img;
+                    })
+                );
+            }
+
             if (editingItemId) {
                 const { error } = await supabase.rpc('update_gang_info', {
-                    p_info_id: editingItemId, p_type: infoType, p_content: content, p_images: infoImages
+                    p_info_id: editingItemId, p_type: infoType, p_content: content, p_images: uploadedImages
                 });
                 if (error) throw error;
             } else {
                 const { error } = await supabase.rpc('add_gang_info', {
-                    p_gang_id: activeGangId, p_type: infoType, p_content: content, p_images: infoImages
+                    p_gang_id: activeGangId, p_type: infoType, p_content: content, p_images: uploadedImages
                 });
                 if (error) throw error;
 
@@ -409,11 +476,16 @@ function Gangs() {
                     content,
                     infoType === 'characteristic' ? 'evidence' : 'note',
                     infoType === 'characteristic' ? 'yellow' : 'dark',
-                    infoImages && infoImages.length > 0 ? infoImages[0] : null
+                    uploadedImages && uploadedImages.length > 0 ? uploadedImages[0] : null
                 );
             }
             closeModal();
             loadGangs();
+            setFeedbackNotice(usedBucket
+                ? "✅ Registro de Inteligencia guardado con éxito. Imagen(es) subida(s) al Bucket de Supabase Storage ☁️"
+                : "✅ Registro de Inteligencia guardado con éxito 📝"
+            );
+            setTimeout(() => setFeedbackNotice(null), 6000);
         } catch (err) { alert(err.message); } finally { setSubmitting(false); }
     };
 
@@ -431,19 +503,32 @@ function Gangs() {
 
         setSubmitting(true);
         try {
+            let uploadedGraffiti = graffitiImage;
+            let uploadedGps = gpsImage;
+            let usedBucket = false;
+
+            if (uploadedGraffiti && uploadedGraffiti.startsWith('data:')) {
+                usedBucket = true;
+                uploadedGraffiti = await uploadImageToStorage(uploadedGraffiti, 'gangs');
+            }
+            if (uploadedGps && uploadedGps.startsWith('data:')) {
+                usedBucket = true;
+                uploadedGps = await uploadImageToStorage(uploadedGps, 'gangs');
+            }
+
             if (editingItemId) {
                 const { error } = await supabase.rpc('update_gang_graffiti', {
                     p_graffiti_id: editingItemId,
-                    p_graffiti_image: graffitiImage,
-                    p_gps_image: gpsImage,
+                    p_graffiti_image: uploadedGraffiti,
+                    p_gps_image: uploadedGps,
                     p_notes: graffitiNotes.trim()
                 });
                 if (error) throw error;
             } else {
                 const { error } = await supabase.rpc('add_gang_graffiti', {
                     p_gang_id: activeGangId,
-                    p_graffiti_image: graffitiImage,
-                    p_gps_image: gpsImage,
+                    p_graffiti_image: uploadedGraffiti,
+                    p_gps_image: uploadedGps,
                     p_notes: graffitiNotes.trim()
                 });
                 if (error) throw error;
@@ -454,11 +539,16 @@ function Gangs() {
                     graffitiNotes.trim() || 'Evidencia de grafiti registrado',
                     'evidence',
                     'purple',
-                    graffitiImage || gpsImage || null
+                    uploadedGraffiti || uploadedGps || null
                 );
             }
             closeModal();
             loadGangs();
+            setFeedbackNotice(usedBucket
+                ? "✅ Grafiti guardado con éxito. Imagen(es) subida(s) al Bucket de Supabase Storage ☁️"
+                : "✅ Grafiti guardado con éxito 📝"
+            );
+            setTimeout(() => setFeedbackNotice(null), 6000);
         } catch (err) {
             alert(err.message);
         } finally {
@@ -471,12 +561,24 @@ function Gangs() {
         if (!zonesImage) { alert("Please upload a map image."); return; }
         setSubmitting(true);
         try {
+            let uploadedZone = zonesImage;
+            let usedBucket = false;
+            if (uploadedZone && uploadedZone.startsWith('data:')) {
+                usedBucket = true;
+                uploadedZone = await uploadImageToStorage(uploadedZone, 'gangs');
+            }
+
             const { error } = await supabase.rpc('update_gang_zone', {
-                p_gang_id: activeGangId, p_image: zonesImage
+                p_gang_id: activeGangId, p_image: uploadedZone
             });
             if (error) throw error;
             closeModal();
             loadGangs();
+            setFeedbackNotice(usedBucket
+                ? "✅ Zona/Mapa de influencia actualizado con éxito. Imagen subida al Bucket de Supabase Storage ☁️"
+                : "✅ Zona/Mapa de influencia actualizado con éxito 📝"
+            );
+            setTimeout(() => setFeedbackNotice(null), 6000);
         } catch (err) { alert(err.message); } finally { setSubmitting(false); }
     };
 
@@ -793,8 +895,22 @@ function Gangs() {
                         {/* DEBUG ROLE */}
                         <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 5px', borderRadius: '4px' }}>{t('roleLabel')} {userRole || 'Loading...'}</span>
 
-                        {viewMode === 'active' && <button className="login-button" style={{ width: 'auto', padding: '0.6rem 1.2rem', fontSize: '0.9rem' }} onClick={() => openModal('createGang', null)}>{t('trackNewSyndicateBtn')}</button>}
-                    </div>
+                </div>
+            )}
+
+            {feedbackNotice && (
+                <div style={{
+                    margin: '0.5rem 1.5rem',
+                    padding: '0.8rem 1.2rem',
+                    borderRadius: '6px',
+                    background: 'rgba(74, 222, 128, 0.15)',
+                    border: '1px solid #4ade80',
+                    color: '#4ade80',
+                    fontSize: '0.9rem',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                }}>
+                    {feedbackNotice}
                 </div>
             )}
 
