@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { getProfileImage } from '../utils/imageStorage';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import MinesweeperModal from './MinesweeperModal';
@@ -178,8 +179,8 @@ function MainLayout() {
                     {profile && (
                         <div className="user-profile-summary">
                             <div className="user-avatar-small">
-                                {profile.profile_image ? (
-                                    <img src={profile.profile_image} alt="Profile" />
+                                {getProfileImage(profile.profile_image) ? (
+                                    <img src={getProfileImage(profile.profile_image)} alt="Profile" />
                                 ) : (
                                     <img src="/anon.png" alt="Profile" />
                                 )}

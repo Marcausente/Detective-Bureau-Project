@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
-import { uploadImageToStorage } from '../utils/imageStorage';
+import { uploadImageToStorage, getProfileImage } from '../utils/imageStorage';
 import { usePresence } from '../contexts/PresenceContext';
 import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
@@ -309,8 +309,8 @@ function Personnel() {
                 )}
 
                 <div className="personnel-image-container">
-                    {user.profile_image ? (
-                        <img src={user.profile_image} alt={`${user.nombre} ${user.apellido} `} className="personnel-image" />
+                    {getProfileImage(user.profile_image) ? (
+                        <img src={getProfileImage(user.profile_image)} alt={`${user.nombre} ${user.apellido} `} className="personnel-image" />
                     ) : (
                         <img src="/anon.png" alt="Anon" className="personnel-image" />
                     )}

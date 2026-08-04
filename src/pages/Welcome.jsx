@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { getProfileImage } from '../utils/imageStorage';
 import '../index.css';
 
 function Welcome() {
@@ -42,8 +43,8 @@ function Welcome() {
         <div className="welcome-container">
             <div className="welcome-content">
                 <div className="welcome-avatar">
-                    {profile.profile_image ? (
-                        <img src={profile.profile_image} alt="Profile" />
+                    {getProfileImage(profile.profile_image) ? (
+                        <img src={getProfileImage(profile.profile_image)} alt="Profile" />
                     ) : (
                         // Fallback avatar using initial
                         <div className="welcome-initial">{profile.nombre[0]}</div>

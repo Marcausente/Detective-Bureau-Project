@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { getProfileImage } from '../utils/imageStorage';
 import '../index.css';
 
 // Rank Hierarchy Helper
@@ -391,8 +392,8 @@ function PersonnelDetail() {
             <div className="detail-card">
                 <div className="detail-header">
                     <div className="detail-image-wrapper">
-                        {user.profile_image ? (
-                            <img src={user.profile_image} alt={`${user.nombre} ${user.apellido}`} className="detail-image" />
+                        {getProfileImage(user.profile_image) ? (
+                            <img src={getProfileImage(user.profile_image)} alt={`${user.nombre} ${user.apellido}`} className="detail-image" />
                         ) : (
                             <img src="/anon.png" alt="Anon" className="detail-image" />
                         )}

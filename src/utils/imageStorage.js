@@ -1,6 +1,22 @@
 import { supabase } from '../supabaseClient';
 
 /**
+ * Returns the avatar URL ONLY if it's a valid Storage / HTTP URL or relative path.
+ * Ignores old base64 data URLs ('data:image...') to avoid loading heavy base64 strings.
+ * @param {string} url 
+ * @param {string|null} fallback Optional fallback URL (e.g. '/anon.png')
+ * @returns {string|null} Public URL or fallback
+ */
+export function getProfileImage(url, fallback = null) {
+    if (!url || typeof url !== 'string') return fallback;
+    if (url.startsWith('data:')) return fallback; // Ignore old base64 strings
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) {
+        return url;
+    }
+    return fallback;
+}
+
+/**
  * Converts a base64 data URL to a Blob object
  */
 export function dataURLtoBlob(dataurl) {

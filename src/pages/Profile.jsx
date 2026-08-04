@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
-import { uploadImageToStorage } from '../utils/imageStorage';
+import { uploadImageToStorage, getProfileImage } from '../utils/imageStorage';
 import '../index.css';
 
 function Profile() {
@@ -381,7 +381,7 @@ function Profile() {
                     />
 
                     <div className="profile-image-uploader" onClick={handleImageClick}>
-                        {formData.profile_image ? (
+                        {(formData.profile_image && formData.profile_image.startsWith('data:')) || getProfileImage(formData.profile_image) ? (
                             <img src={formData.profile_image} alt="Profile" />
                         ) : (
                             <img src="/anon.png" alt="Default Profile" />
