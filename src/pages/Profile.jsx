@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import '../index.css';
 
 function Profile() {
@@ -143,6 +144,12 @@ function Profile() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('No user found');
 
+            let imageUrl = formData.profile_image;
+            if (imageUrl && imageUrl.startsWith('data:')) {
+                imageUrl = await uploadImageToStorage(imageUrl, 'avatars');
+                setFormData(prev => ({ ...prev, profile_image: imageUrl }));
+            }
+
             // Update Profile Data
             const { error: profileError } = await supabase
                 .from('users')
@@ -151,7 +158,7 @@ function Profile() {
                     apellido: formData.apellido,
                     no_placa: formData.no_placa,
                     rango: formData.rango,
-                    profile_image: formData.profile_image,
+                    profile_image: imageUrl,
                     updated_at: new Date()
                 })
                 .eq('id', user.id);

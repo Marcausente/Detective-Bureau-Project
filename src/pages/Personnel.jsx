@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import { usePresence } from '../contexts/PresenceContext';
 import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
@@ -217,6 +218,12 @@ function Personnel() {
         setMessage(null);
 
         try {
+            let imageUrl = formData.profile_image;
+            if (imageUrl && imageUrl.startsWith('data:')) {
+                imageUrl = await uploadImageToStorage(imageUrl, 'avatars');
+                setFormData(prev => ({ ...prev, profile_image: imageUrl }));
+            }
+
             if (modalMode === 'create') {
                 console.log("Creating User Payload:", {
                     email: formData.email,
@@ -236,7 +243,7 @@ function Personnel() {
                     p_rol: formData.rol,
                     p_fecha_ingreso: formData.fecha_ingreso || null,
                     p_fecha_ultimo_ascenso: null,
-                    p_profile_image: formData.profile_image || null,
+                    p_profile_image: imageUrl || null,
                     p_divisions: formData.divisions
                 });
                 if (error) throw error;
@@ -254,7 +261,7 @@ function Personnel() {
                     p_rol: formData.rol,
                     p_fecha_ingreso: formData.fecha_ingreso || null,
                     p_fecha_ultimo_ascenso: null,
-                    p_profile_image: formData.profile_image || null,
+                    p_profile_image: imageUrl || null,
                     p_divisions: formData.divisions
                 });
                 if (error) throw error;
