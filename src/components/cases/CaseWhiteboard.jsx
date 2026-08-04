@@ -21,7 +21,7 @@ const COLOR_SCHEMES = {
     dark: { bg: '#18181b', border: '#3f3f46', header: '#27272a', text: '#e4e4e7' }
 };
 
-export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, onGoToUpdate = null }) {
+export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = false, gangId = null, caseData = null, onGoToUpdate = null }) {
     const { t, language } = useLanguage();
     const [nodes, setNodes] = useState([]);
     const [links, setLinks] = useState([]);
@@ -65,13 +65,16 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
     // Debounce save for node positions
     const positionSaveTimeoutsRef = useRef({});
 
+    const targetId = isGang ? gangId : caseId;
+
     // Load Board Data
     const loadBoardData = useCallback(async () => {
         try {
             setLoading(true);
             const { data, error } = await supabase.rpc('get_case_board_data', {
-                p_case_id: caseId,
-                p_is_ia: isIA
+                p_case_id: isGang ? null : caseId,
+                p_is_ia: isIA,
+                p_gang_id: isGang ? gangId : null
             });
 
             if (error) throw error;
@@ -84,9 +87,9 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
             console.error('Error loading whiteboard data:', err);
             // Fallback direct query if RPC fails
             try {
-                const column = isIA ? 'ia_case_id' : 'case_id';
-                const { data: nData } = await supabase.from('case_board_nodes').select('*').eq(column, caseId);
-                const { data: lData } = await supabase.from('case_board_links').select('*').eq(column, caseId);
+                const column = isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id';
+                const { data: nData } = await supabase.from('case_board_nodes').select('*').eq(column, targetId);
+                const { data: lData } = await supabase.from('case_board_links').select('*').eq(column, targetId);
                 setNodes(nData || []);
                 setLinks(lData || []);
             } catch (fallbackErr) {
@@ -95,11 +98,11 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
         } finally {
             setLoading(false);
         }
-    }, [caseId, isIA]);
+    }, [caseId, isIA, isGang, gangId, targetId]);
 
     useEffect(() => {
-        if (caseId) loadBoardData();
-    }, [caseId, loadBoardData]);
+        if (targetId) loadBoardData();
+    }, [targetId, loadBoardData]);
 
     // Save Node Position in Database (Debounced)
     const saveNodePosition = (nodeId, x, y) => {
@@ -265,7 +268,9 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
                 created_by: user ? user.id : null
             };
 
-            if (isIA) {
+            if (isGang) {
+                payload.gang_id = gangId;
+            } else if (isIA) {
                 payload.ia_case_id = caseId;
             } else {
                 payload.case_id = caseId;
@@ -322,7 +327,9 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
                 color: '#ef4444'
             };
 
-            if (isIA) {
+            if (isGang) {
+                payload.gang_id = gangId;
+            } else if (isIA) {
                 payload.ia_case_id = caseId;
             } else {
                 payload.case_id = caseId;
@@ -352,9 +359,9 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
         }
     };
 
-    // Import Evidence & Updates from caseData
+    // Import Evidence & Updates from caseData or Gang Data
     const handleImportCaseEvidence = async () => {
-        if (!caseData) return alert("Case data not available.");
+        if (!caseData) return alert("Data not available.");
 
         const existingTitles = new Set(nodes.map(n => n.title.toLowerCase()));
         const itemsToInsert = [];
@@ -363,71 +370,182 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
         let posX = 100;
         let posY = 100;
 
-        // 1. Initial report image if available
-        if (caseData.info?.initial_image_url && !existingTitles.has('escena inicial / foto clave')) {
-            itemsToInsert.push({
-                [isIA ? 'ia_case_id' : 'case_id']: caseId,
-                title: 'Escena Inicial / Foto Clave',
-                content: caseData.info.title || 'Evidencia principal registrada al abrir el caso.',
-                category: 'evidence',
-                color: 'red',
-                image_url: caseData.info.initial_image_url,
-                pos_x: posX,
-                pos_y: posY,
-                created_by: user ? user.id : null
-            });
-            posX += 280;
-        }
-
-        // 2. Updates with images or key info
-        if (caseData.updates && caseData.updates.length > 0) {
-            caseData.updates.forEach((upd, idx) => {
-                const titleStr = `Novedad #${idx + 1} (${upd.author_name || 'Agente'})`;
-                if (!existingTitles.has(titleStr.toLowerCase())) {
-                    const img = (upd.images && upd.images.length > 0) ? upd.images[0] : upd.image || null;
-                    itemsToInsert.push({
-                        [isIA ? 'ia_case_id' : 'case_id']: caseId,
-                        title: titleStr,
-                        content: upd.content ? upd.content.replace(/<[^>]*>?/gm, '').slice(0, 150) : '',
-                        category: img ? 'evidence' : 'note',
-                        color: img ? 'yellow' : 'blue',
-                        image_url: img,
-                        pos_x: posX,
-                        pos_y: posY,
-                        linked_update_ids: [upd.id], // Auto-link to update!
-                        created_by: user ? user.id : null
-                    });
-                    posX += 280;
-                    if (posX > 900) {
-                        posX = 100;
-                        posY += 280;
+        if (isGang) {
+            // Import Gang Data (Members, Vehicles, Homes, Intel, Graffiti)
+            if (caseData.members && caseData.members.length > 0) {
+                caseData.members.forEach(m => {
+                    const titleStr = `${m.name} (${m.role || 'Miembro'})`;
+                    if (!existingTitles.has(titleStr.toLowerCase())) {
+                        itemsToInsert.push({
+                            gang_id: gangId,
+                            title: titleStr,
+                            content: `Rol: ${m.role || 'Miembro'}${m.id_card ? '\nID: ' + m.id_card : ''}\n${m.notes || ''}`,
+                            category: m.role === 'Lider' || m.role === 'Sublider' ? 'suspect' : 'suspect',
+                            color: m.role === 'Lider' ? 'red' : m.role === 'Sublider' ? 'yellow' : 'blue',
+                            image_url: m.photo_url || m.photo || null,
+                            pos_x: posX,
+                            pos_y: posY,
+                            created_by: user ? user.id : null
+                        });
+                        posX += 280;
+                        if (posX > 900) { posX = 100; posY += 280; }
                     }
-                }
-            });
-        }
+                });
+            }
 
-        // 3. Interrogations
-        if (caseData.interrogations && caseData.interrogations.length > 0) {
-            caseData.interrogations.forEach((inter) => {
-                const titleStr = `Interrogatorio: ${inter.suspect_name || inter.title || 'Declaración'}`;
-                if (!existingTitles.has(titleStr.toLowerCase())) {
-                    itemsToInsert.push({
-                        [isIA ? 'ia_case_id' : 'case_id']: caseId,
-                        title: titleStr,
-                        content: `Interrogado por ${inter.interrogator_name || 'Agente'}. Estado: ${inter.status || 'Completado'}`,
-                        category: 'suspect',
-                        color: 'red',
-                        pos_x: posX,
-                        pos_y: posY,
-                        created_by: user ? user.id : null
-                    });
-                    posX += 280;
-                }
-            });
-        }
+            if (caseData.vehicles && caseData.vehicles.length > 0) {
+                caseData.vehicles.forEach(v => {
+                    const titleStr = `${v.model || 'Vehículo'} [${v.plate || 'SIN PLACA'}]`;
+                    if (!existingTitles.has(titleStr.toLowerCase())) {
+                        const img = (v.images && v.images.length > 0) ? v.images[0] : null;
+                        itemsToInsert.push({
+                            gang_id: gangId,
+                            title: titleStr,
+                            content: `Propietario: ${v.owner || 'Desconocido'}\n${v.notes || ''}`,
+                            category: 'vehicle',
+                            color: 'purple',
+                            image_url: img,
+                            pos_x: posX,
+                            pos_y: posY,
+                            created_by: user ? user.id : null
+                        });
+                        posX += 280;
+                        if (posX > 900) { posX = 100; posY += 280; }
+                    }
+                });
+            }
 
-        if (itemsToInsert.length === 0) {
-            return alert(language === 'es' ? "No hay nuevas evidencias disponibles para importar." : "No new evidence items available to import.");
+            if (caseData.homes && caseData.homes.length > 0) {
+                caseData.homes.forEach(h => {
+                    const titleStr = `Propiedad: ${h.owner || 'Ubicación Banda'}`;
+                    if (!existingTitles.has(titleStr.toLowerCase())) {
+                        const img = (h.images && h.images.length > 0) ? h.images[0] : null;
+                        itemsToInsert.push({
+                            gang_id: gangId,
+                            title: titleStr,
+                            content: `Notas: ${h.notes || 'Sin notas'}`,
+                            category: 'location',
+                            color: 'green',
+                            image_url: img,
+                            pos_x: posX,
+                            pos_y: posY,
+                            created_by: user ? user.id : null
+                        });
+                        posX += 280;
+                        if (posX > 900) { posX = 100; posY += 280; }
+                    }
+                });
+            }
+
+            if (caseData.info && caseData.info.length > 0) {
+                caseData.info.forEach((i, idx) => {
+                    const titleStr = `Inteligencia #${idx + 1} (${i.type === 'characteristic' ? 'Característica' : 'Info'})`;
+                    if (!existingTitles.has(titleStr.toLowerCase())) {
+                        const img = (i.images && i.images.length > 0) ? i.images[0] : null;
+                        itemsToInsert.push({
+                            gang_id: gangId,
+                            title: titleStr,
+                            content: i.content || '',
+                            category: i.type === 'characteristic' ? 'evidence' : 'note',
+                            color: i.type === 'characteristic' ? 'yellow' : 'dark',
+                            image_url: img,
+                            pos_x: posX,
+                            pos_y: posY,
+                            created_by: user ? user.id : null
+                        });
+                        posX += 280;
+                        if (posX > 900) { posX = 100; posY += 280; }
+                    }
+                });
+            }
+
+            if (caseData.graffiti && caseData.graffiti.length > 0) {
+                caseData.graffiti.forEach((g, idx) => {
+                    const titleStr = `Grafiti / GPS #${idx + 1}`;
+                    if (!existingTitles.has(titleStr.toLowerCase())) {
+                        const img = g.graffiti_image || g.gps_image || null;
+                        itemsToInsert.push({
+                            gang_id: gangId,
+                            title: titleStr,
+                            content: g.notes || 'Sin detalles de grafiti',
+                            category: 'evidence',
+                            color: 'purple',
+                            image_url: img,
+                            pos_x: posX,
+                            pos_y: posY,
+                            created_by: user ? user.id : null
+                        });
+                        posX += 280;
+                        if (posX > 900) { posX = 100; posY += 280; }
+                    }
+                });
+            }
+
+            if (itemsToInsert.length === 0) {
+                return alert(language === 'es' ? "No hay nuevos elementos de la banda para importar." : "No new gang items to import.");
+            }
+        } else {
+            // Import Regular Case Data
+            if (caseData.info?.initial_image_url && !existingTitles.has('escena inicial / foto clave')) {
+                itemsToInsert.push({
+                    [isIA ? 'ia_case_id' : 'case_id']: caseId,
+                    title: 'Escena Inicial / Foto Clave',
+                    content: caseData.info.title || 'Evidencia principal registrada al abrir el caso.',
+                    category: 'evidence',
+                    color: 'red',
+                    image_url: caseData.info.initial_image_url,
+                    pos_x: posX,
+                    pos_y: posY,
+                    created_by: user ? user.id : null
+                });
+                posX += 280;
+            }
+
+            if (caseData.updates && caseData.updates.length > 0) {
+                caseData.updates.forEach((upd, idx) => {
+                    const titleStr = `Novedad #${idx + 1} (${upd.author_name || 'Agente'})`;
+                    if (!existingTitles.has(titleStr.toLowerCase())) {
+                        const img = (upd.images && upd.images.length > 0) ? upd.images[0] : upd.image || null;
+                        itemsToInsert.push({
+                            [isIA ? 'ia_case_id' : 'case_id']: caseId,
+                            title: titleStr,
+                            content: upd.content ? upd.content.replace(/<[^>]*>?/gm, '').slice(0, 150) : '',
+                            category: img ? 'evidence' : 'note',
+                            color: img ? 'yellow' : 'blue',
+                            image_url: img,
+                            pos_x: posX,
+                            pos_y: posY,
+                            linked_update_ids: [upd.id],
+                            created_by: user ? user.id : null
+                        });
+                        posX += 280;
+                        if (posX > 900) { posX = 100; posY += 280; }
+                    }
+                });
+            }
+
+            if (caseData.interrogations && caseData.interrogations.length > 0) {
+                caseData.interrogations.forEach((inter) => {
+                    const titleStr = `Interrogatorio: ${inter.suspect_name || inter.title || 'Declaración'}`;
+                    if (!existingTitles.has(titleStr.toLowerCase())) {
+                        itemsToInsert.push({
+                            [isIA ? 'ia_case_id' : 'case_id']: caseId,
+                            title: titleStr,
+                            content: `Interrogado por ${inter.interrogator_name || 'Agente'}. Estado: ${inter.status || 'Completado'}`,
+                            category: 'suspect',
+                            color: 'red',
+                            pos_x: posX,
+                            pos_y: posY,
+                            created_by: user ? user.id : null
+                        });
+                        posX += 280;
+                    }
+                });
+            }
+
+            if (itemsToInsert.length === 0) {
+                return alert(language === 'es' ? "No hay nuevas evidencias disponibles para importar." : "No new evidence items available to import.");
+            }
         }
 
         try {
@@ -440,6 +558,13 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
             setLoading(false);
         }
     };
+
+    // Auto Import on First Load for Gang Whiteboard if empty
+    useEffect(() => {
+        if (isGang && !loading && nodes.length === 0 && caseData) {
+            handleImportCaseEvidence();
+        }
+    }, [isGang, loading, nodes.length]);
 
     // Handle Image File Upload in Node Form
     const handleImageUpload = (e) => {
@@ -479,7 +604,7 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        📌 {t('whiteboardTab')}
+                        📌 {isGang ? `Pizarra: ${caseData?.name || 'Gang Unit'}` : t('whiteboardTab')}
                     </h3>
                     <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)' }}>
                         {savingStatus === 'saving' ? `⏳ ${t('savingBoardStatus')}` : savingStatus === 'saved' ? `✓ ${t('savedBoardStatus')}` : '⚠️ Error'}
@@ -499,7 +624,7 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
                         onClick={handleImportCaseEvidence}
                         className="login-button btn-secondary"
                         style={{ width: 'auto', padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}
-                        title="Importar evidencias y fotos registradas en el caso"
+                        title="Importar evidencias y fotos registradas"
                     >
                         {t('importEvidenceBtn')}
                     </button>
@@ -765,7 +890,7 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
                                     )}
 
                                     {/* Linked Updates / Entradas Badges */}
-                                    {node.linked_update_ids && Array.isArray(node.linked_update_ids) && node.linked_update_ids.length > 0 && (
+                                    {!isGang && node.linked_update_ids && Array.isArray(node.linked_update_ids) && node.linked_update_ids.length > 0 && (
                                         <div style={{ marginTop: '0.5rem', paddingTop: '0.4rem', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                             {node.linked_update_ids.map((updId) => {
                                                 const updObj = caseData?.updates?.find(u => u.id === updId);
@@ -878,39 +1003,41 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
                             </div>
 
                             {/* Section: Link Case Entries / Updates */}
-                            <div style={{ marginBottom: '1.2rem' }}>
-                                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--accent-gold)', fontWeight: 'bold', marginBottom: '0.4rem' }}>
-                                    {t('linkEntriesTitle')}
-                                </label>
-                                {caseData?.updates && caseData.updates.length > 0 ? (
-                                    <div style={{ maxHeight: '140px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                        {caseData.updates.map((upd, idx) => {
-                                            const isChecked = nodeLinkedUpdates.includes(upd.id);
-                                            const snippet = upd.content ? upd.content.replace(/<[^>]*>?/gm, '').slice(0, 50) : 'Sin contenido';
-                                            const numStr = caseData.updates.length - idx;
-                                            return (
-                                                <label key={upd.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isChecked}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) {
-                                                                setNodeLinkedUpdates(prev => [...prev, upd.id]);
-                                                            } else {
-                                                                setNodeLinkedUpdates(prev => prev.filter(id => id !== upd.id));
-                                                            }
-                                                        }}
-                                                    />
-                                                    <span style={{ fontWeight: 'bold', color: 'var(--accent-gold)' }}>Novedad #{numStr}:</span>
-                                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{snippet}...</span>
-                                                </label>
-                                            );
-                                        })}
-                                    </div>
-                                ) : (
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>No hay novedades registradas en este caso.</div>
-                                )}
-                            </div>
+                            {!isGang && (
+                                <div style={{ marginBottom: '1.2rem' }}>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--accent-gold)', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                                        {t('linkEntriesTitle')}
+                                    </label>
+                                    {caseData?.updates && caseData.updates.length > 0 ? (
+                                        <div style={{ maxHeight: '140px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                            {caseData.updates.map((upd, idx) => {
+                                                const isChecked = nodeLinkedUpdates.includes(upd.id);
+                                                const snippet = upd.content ? upd.content.replace(/<[^>]*>?/gm, '').slice(0, 50) : 'Sin contenido';
+                                                const numStr = caseData.updates.length - idx;
+                                                return (
+                                                    <label key={upd.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setNodeLinkedUpdates(prev => [...prev, upd.id]);
+                                                                } else {
+                                                                    setNodeLinkedUpdates(prev => prev.filter(id => id !== upd.id));
+                                                                }
+                                                            }}
+                                                        />
+                                                        <span style={{ fontWeight: 'bold', color: 'var(--accent-gold)' }}>Novedad #{numStr}:</span>
+                                                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{snippet}...</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>No hay novedades registradas en este caso.</div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Image upload / Base64 */}
                             <div style={{ marginBottom: '1.5rem' }}>
@@ -995,7 +1122,7 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, 
             )}
 
             {/* Modal: Linked Entry Preview */}
-            {selectedPreviewUpdate && (
+            {!isGang && selectedPreviewUpdate && (
                 <div
                     onClick={() => setSelectedPreviewUpdate(null)}
                     style={{

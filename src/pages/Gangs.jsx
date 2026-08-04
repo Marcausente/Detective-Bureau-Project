@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
 import GangTodoList from '../components/GangTodoList';
+import CaseWhiteboard from '../components/cases/CaseWhiteboard';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
@@ -17,6 +18,7 @@ function Gangs() {
 
     // --- VIEW STATE ---
     const [viewMode, setViewMode] = useState('active'); // 'active' | 'archived'
+    const [activeBoardGang, setActiveBoardGang] = useState(null); // Gang object for Whiteboard view
 
     // --- MODAL CONTROLS ---
     const [activeModal, setActiveModal] = useState(null); // 'createGang', 'vehicle', 'home', 'member', 'info', 'patrol', 'patrolTable'
@@ -162,6 +164,25 @@ function Gangs() {
 
     // --- ACTIONS ---
 
+    const createWhiteboardCardForGang = async (gangId, title, content, category, color, imageUrl) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            await supabase.from('case_board_nodes').insert([{
+                gang_id: gangId,
+                title: title,
+                content: content || null,
+                category: category || 'note',
+                color: color || 'red',
+                image_url: imageUrl || null,
+                pos_x: Math.floor(Math.random() * 300) + 100,
+                pos_y: Math.floor(Math.random() * 300) + 100,
+                created_by: user ? user.id : null
+            }]);
+        } catch (err) {
+            console.error('Auto create whiteboard card error:', err);
+        }
+    };
+
     const handleToggleArchive = async (id, currentStatus) => {
         if (!confirm(currentStatus ? "Re-open this syndicate file?" : "Archive this syndicate? Data will be preserved.")) return;
         try {
@@ -170,7 +191,6 @@ function Gangs() {
             loadGangs();
         } catch (err) { alert(err.message); }
     };
-
     const handleDeleteGang = async (id) => {
         if (!confirm("⚠️ DANGER: This will permanently delete the gang and ALL associated data (vehicles, members, etc). This cannot be undone.\n\nAre you sure?")) return;
         try {
@@ -277,6 +297,15 @@ function Gangs() {
                     p_gang_id: activeGangId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: vehImages
                 });
                 if (error) throw error;
+
+                createWhiteboardCardForGang(
+                    activeGangId,
+                    (model || 'Vehículo') + ' [' + (plate || 'SIN PLACA') + ']',
+                    'Propietario: ' + (owner || 'Desconocido') + (notes ? '\n' + notes : ''),
+                    'vehicle',
+                    'purple',
+                    vehImages && vehImages.length > 0 ? vehImages[0] : null
+                );
             }
             closeModal();
             loadGangs();
@@ -307,6 +336,15 @@ function Gangs() {
                     p_gang_id: activeGangId, p_owner: owner, p_notes: notes, p_images: homeImages
                 });
                 if (error) throw error;
+
+                createWhiteboardCardForGang(
+                    activeGangId,
+                    'Propiedad: ' + (owner || 'Ubicación Banda'),
+                    notes || 'Sin detalles de dirección',
+                    'location',
+                    'green',
+                    homeImages && homeImages.length > 0 ? homeImages[0] : null
+                );
             }
             closeModal();
             loadGangs();
@@ -328,6 +366,15 @@ function Gangs() {
                     p_gang_id: activeGangId, p_name: finalName, p_role: memRole, p_photo: memPhoto, p_notes: memNotes
                 });
                 if (error) throw error;
+
+                createWhiteboardCardForGang(
+                    activeGangId,
+                    finalName + ' (' + memRole + ')',
+                    'Rol: ' + memRole + (memNotes ? '\n' + memNotes : ''),
+                    memRole === 'Lider' || memRole === 'Sublider' ? 'suspect' : 'suspect',
+                    memRole === 'Lider' ? 'red' : memRole === 'Sublider' ? 'yellow' : 'blue',
+                    memPhoto || null
+                );
             }
             closeModal();
             loadGangs();
@@ -355,6 +402,15 @@ function Gangs() {
                     p_gang_id: activeGangId, p_type: infoType, p_content: content, p_images: infoImages
                 });
                 if (error) throw error;
+
+                createWhiteboardCardForGang(
+                    activeGangId,
+                    'Inteligencia: ' + (infoType === 'characteristic' ? 'Característica' : 'Nota'),
+                    content,
+                    infoType === 'characteristic' ? 'evidence' : 'note',
+                    infoType === 'characteristic' ? 'yellow' : 'dark',
+                    infoImages && infoImages.length > 0 ? infoImages[0] : null
+                );
             }
             closeModal();
             loadGangs();
@@ -391,6 +447,15 @@ function Gangs() {
                     p_notes: graffitiNotes.trim()
                 });
                 if (error) throw error;
+
+                createWhiteboardCardForGang(
+                    activeGangId,
+                    'Grafiti / GPS',
+                    graffitiNotes.trim() || 'Evidencia de grafiti registrado',
+                    'evidence',
+                    'purple',
+                    graffitiImage || gpsImage || null
+                );
             }
             closeModal();
             loadGangs();
@@ -732,7 +797,32 @@ function Gangs() {
                 </div>
             </div>
 
-            {viewMode === 'todo' ? (
+            {activeBoardGang ? (
+                <div style={{ flex: 1, padding: '1rem 2rem', overflowY: 'auto' }}>
+                    <div style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(10px)',
+                        padding: '0.8rem 1.25rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.12)',
+                        marginBottom: '1rem'
+                    }}>
+                        <button
+                            className="login-button btn-secondary"
+                            onClick={() => setActiveBoardGang(null)}
+                            style={{ width: 'auto', padding: '0.4rem 1rem', fontSize: '0.85rem' }}
+                        >
+                            ← Volver a Pandillas
+                        </button>
+                        <h3 style={{ margin: 0, color: activeBoardGang.color || 'var(--accent-gold)', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            📌 Pizarra de Investigación: <span style={{ color: 'white' }}>{activeBoardGang.name}</span>
+                        </h3>
+                    </div>
+                    <CaseWhiteboard
+                        gangId={activeBoardGang.gang_id}
+                        isGang={true}
+                        caseData={activeBoardGang}
+                    />
+                </div>
+            ) : viewMode === 'todo' ? (
                 <div style={{ flex: 1, padding: '2rem 3rem', overflowY: 'auto' }}>
                     <GangTodoList />
                 </div>
@@ -767,6 +857,7 @@ function Gangs() {
                                 onViewActivity={handleViewActivity}
                                 onViewMemberProfile={handleOpenMemberProfile}
                                 onEditGangName={handleEditGangName}
+                                onViewGangBoard={(g) => setActiveBoardGang(g)}
                             />
                         ))
                     )}
@@ -1240,7 +1331,7 @@ function Gangs() {
 
 // --- SUB-COMPONENTS ---
 
-function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName }) {
+function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName, onViewGangBoard }) {
     const { t } = useLanguage();
     const { isLSSD } = useTheme();
     // Helper for buttons
@@ -1272,6 +1363,19 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                 <div className="gang-header-top">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
                         <h3 className="gang-title" style={{ color: gang.color }}>{gang.name}</h3>
+                        <button
+                            className="gang-action-btn"
+                            onClick={() => onViewGangBoard(gang)}
+                            title="Abrir Pizarra de Investigación"
+                            style={{
+                                fontSize: '0.8rem', background: 'rgba(212, 175, 55, 0.2)',
+                                border: '1px solid var(--accent-gold)', borderRadius: '4px',
+                                padding: '2px 8px', color: 'var(--accent-gold)', fontWeight: 'bold',
+                                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px'
+                            }}
+                        >
+                            📌 Pizarra
+                        </button>
                         {isVIP && (
                             <button
                                 className="gang-action-btn"

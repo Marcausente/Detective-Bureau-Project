@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS public.case_board_nodes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     case_id UUID REFERENCES public.cases(id) ON DELETE CASCADE,
     ia_case_id UUID REFERENCES public.ia_cases(id) ON DELETE CASCADE,
+    gang_id UUID REFERENCES public.gangs(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     content TEXT,
     category TEXT NOT NULL DEFAULT 'note', -- 'suspect', 'evidence', 'location', 'vehicle', 'witness', 'victim', 'note'
@@ -20,11 +21,13 @@ CREATE TABLE IF NOT EXISTS public.case_board_nodes (
 
 -- Migration if table already exists
 ALTER TABLE public.case_board_nodes ADD COLUMN IF NOT EXISTS linked_update_ids JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.case_board_nodes ADD COLUMN IF NOT EXISTS gang_id UUID REFERENCES public.gangs(id) ON DELETE CASCADE;
 
 CREATE TABLE IF NOT EXISTS public.case_board_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     case_id UUID REFERENCES public.cases(id) ON DELETE CASCADE,
     ia_case_id UUID REFERENCES public.ia_cases(id) ON DELETE CASCADE,
+    gang_id UUID REFERENCES public.gangs(id) ON DELETE CASCADE,
     source_id UUID NOT NULL REFERENCES public.case_board_nodes(id) ON DELETE CASCADE,
     target_id UUID NOT NULL REFERENCES public.case_board_nodes(id) ON DELETE CASCADE,
     label TEXT,
@@ -32,6 +35,9 @@ CREATE TABLE IF NOT EXISTS public.case_board_links (
     style TEXT DEFAULT 'solid',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Migration for links
+ALTER TABLE public.case_board_links ADD COLUMN IF NOT EXISTS gang_id UUID REFERENCES public.gangs(id) ON DELETE CASCADE;
 
 -- Enable RLS
 ALTER TABLE public.case_board_nodes ENABLE ROW LEVEL SECURITY;
@@ -65,17 +71,55 @@ CREATE POLICY "Auth Delete Board Links" ON public.case_board_links FOR DELETE TO
 -- Indexes for fast queries
 CREATE INDEX IF NOT EXISTS idx_case_board_nodes_case_id ON public.case_board_nodes(case_id);
 CREATE INDEX IF NOT EXISTS idx_case_board_nodes_ia_case_id ON public.case_board_nodes(ia_case_id);
+CREATE INDEX IF NOT EXISTS idx_case_board_nodes_gang_id ON public.case_board_nodes(gang_id);
+
 CREATE INDEX IF NOT EXISTS idx_case_board_links_case_id ON public.case_board_links(case_id);
 CREATE INDEX IF NOT EXISTS idx_case_board_links_ia_case_id ON public.case_board_links(ia_case_id);
+CREATE INDEX IF NOT EXISTS idx_case_board_links_gang_id ON public.case_board_links(gang_id);
 
 -- RPC to get board data cleanly
-CREATE OR REPLACE FUNCTION get_case_board_data(p_case_id UUID, p_is_ia BOOLEAN DEFAULT false)
+CREATE OR REPLACE FUNCTION get_case_board_data(p_case_id UUID DEFAULT NULL, p_is_ia BOOLEAN DEFAULT false, p_gang_id UUID DEFAULT NULL)
 RETURNS JSON AS $$
 DECLARE
     v_nodes JSON;
     v_links JSON;
 BEGIN
-    IF p_is_ia THEN
+    IF p_gang_id IS NOT NULL THEN
+        SELECT COALESCE(json_agg(
+            json_build_object(
+                'id', n.id,
+                'gang_id', n.gang_id,
+                'title', n.title,
+                'content', n.content,
+                'category', n.category,
+                'color', n.color,
+                'image_url', n.image_url,
+                'pos_x', n.pos_x,
+                'pos_y', n.pos_y,
+                'width', n.width,
+                'linked_update_ids', COALESCE(n.linked_update_ids, '[]'::jsonb),
+                'created_at', n.created_at,
+                'created_by', n.created_by
+            ) ORDER BY n.created_at ASC
+        ), '[]'::json) INTO v_nodes
+        FROM public.case_board_nodes n
+        WHERE n.gang_id = p_gang_id;
+
+        SELECT COALESCE(json_agg(
+            json_build_object(
+                'id', l.id,
+                'gang_id', l.gang_id,
+                'source_id', l.source_id,
+                'target_id', l.target_id,
+                'label', l.label,
+                'color', l.color,
+                'style', l.style,
+                'created_at', l.created_at
+            ) ORDER BY l.created_at ASC
+        ), '[]'::json) INTO v_links
+        FROM public.case_board_links l
+        WHERE l.gang_id = p_gang_id;
+    ELSIF p_is_ia THEN
         SELECT COALESCE(json_agg(
             json_build_object(
                 'id', n.id,
