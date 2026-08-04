@@ -6,6 +6,29 @@ import '../../pages/Training/Training.css';
 // Roles que pueden apuntar/quitar prácticas en conteo
 const ALLOWED_ROLES = ['coordinador', 'comisionado', 'administrador', 'superadmin'];
 
+// Generador de iniciales e identificadores visuales sin consumo de egress
+const getAgentInitials = (nombre = '', apellido = '') => {
+    const first = (nombre || '').trim()[0] || '';
+    const last = (apellido || '').trim()[0] || '';
+    return (first + last).toUpperCase() || 'DB';
+};
+
+const getAvatarGradient = (str = '') => {
+    const gradients = [
+        'linear-gradient(135deg, #2b6cb0 0%, #1a365d 100%)',
+        'linear-gradient(135deg, #4c51bf 0%, #2c5282 100%)',
+        'linear-gradient(135deg, #2c7a7b 0%, #1a202c 100%)',
+        'linear-gradient(135deg, #6b46c1 0%, #2b6cb0 100%)',
+        'linear-gradient(135deg, #319795 0%, #2b6cb0 100%)'
+    ];
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % gradients.length;
+    return gradients[index];
+};
+
 function PracticeCount() {
     const [agents, setAgents] = useState([]);
     const [practiceCounts, setPracticeCounts] = useState({});
@@ -17,8 +40,9 @@ function PracticeCount() {
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const [canLog, setCanLog] = useState(false);
 
-    // Agente seleccionado para ver su historial
+    // Agente seleccionado para ver su historial e imagen bajo demanda
     const [selectedAgent, setSelectedAgent] = useState(null);
+    const [selectedAgentImage, setSelectedAgentImage] = useState(null);
     const [agentLog, setAgentLog] = useState([]);
     const [loadingLog, setLoadingLog] = useState(false);
 
@@ -58,7 +82,7 @@ function PracticeCount() {
             const [{ data: usersData, error: usersError }, countsData] = await Promise.all([
                 supabase
                     .from('users')
-                    .select('id, nombre, apellido, rango, rol, no_placa, profile_image, divisions')
+                    .select('id, nombre, apellido, rango, rol, no_placa, divisions')
                     .order('rango', { ascending: true }),
                 dtpService.getPracticeCountsAll()
             ]);
@@ -89,11 +113,18 @@ function PracticeCount() {
 
     const openAgentDetail = async (agent) => {
         setSelectedAgent(agent);
+        setSelectedAgentImage(null);
         setNewPracticeName('');
         setLoadingLog(true);
         try {
-            const log = await dtpService.getPracticeLog(agent.id);
+            const [log, userImgResult] = await Promise.all([
+                dtpService.getPracticeLog(agent.id),
+                supabase.from('users').select('profile_image').eq('id', agent.id).single()
+            ]);
             setAgentLog(log);
+            if (userImgResult?.data?.profile_image) {
+                setSelectedAgentImage(userImgResult.data.profile_image);
+            }
         } catch (err) {
             console.error('Error loading log:', err);
             setError('Error al cargar el historial del agente.');
@@ -270,20 +301,24 @@ function PracticeCount() {
                                             }
                                         }}
                                     >
-                                        {/* Avatar */}
+                                        {/* Avatar con iniciales (Optimizado para Egress) */}
                                         <div style={{
                                             width: '40px',
                                             height: '40px',
                                             borderRadius: '50%',
-                                            overflow: 'hidden',
                                             flexShrink: 0,
-                                            border: '2px solid rgba(255,255,255,0.1)'
+                                            background: getAvatarGradient(agent.apellido || agent.nombre),
+                                            border: '2px solid rgba(255, 255, 255, 0.15)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: '#ffffff',
+                                            fontWeight: 700,
+                                            fontSize: '0.85rem',
+                                            letterSpacing: '0.5px',
+                                            boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
                                         }}>
-                                            <img
-                                                src={agent.profile_image || '/anon.png'}
-                                                alt={agent.apellido}
-                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                            />
+                                            {getAgentInitials(agent.nombre, agent.apellido)}
                                         </div>
 
                                         {/* Info del agente */}
@@ -356,13 +391,26 @@ function PracticeCount() {
                                         borderRadius: '50%',
                                         overflow: 'hidden',
                                         border: '3px solid rgba(66, 153, 225, 0.4)',
-                                        flexShrink: 0
+                                        flexShrink: 0,
+                                        background: getAvatarGradient(selectedAgent.apellido || selectedAgent.nombre),
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#ffffff',
+                                        fontWeight: 700,
+                                        fontSize: '1.3rem',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
                                     }}>
-                                        <img
-                                            src={selectedAgent.profile_image || '/anon.png'}
-                                            alt={selectedAgent.apellido}
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                        />
+                                        {selectedAgentImage ? (
+                                            <img
+                                                src={selectedAgentImage}
+                                                alt={selectedAgent.apellido}
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                            />
+                                        ) : (
+                                            getAgentInitials(selectedAgent.nombre, selectedAgent.apellido)
+                                        )}
                                     </div>
                                     <div style={{ flex: 1 }}>
                                         <h3 style={{ margin: '0 0 0.3rem 0', color: '#e2e8f0', fontSize: '1.5rem', fontWeight: 700 }}>
