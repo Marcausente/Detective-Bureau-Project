@@ -5,6 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 import IACaseTodoList from '../components/IACaseTodoList';
 import IASanctionVoting from '../components/IASanctionVoting';
+import CaseWhiteboard from '../components/cases/CaseWhiteboard';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { makeQuillModules, quillFormats } from '../utils/quillConfig';
@@ -628,7 +629,7 @@ function IACaseDetail() {
                 )}
             </div>
 
-            <div className="case-layout" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+            <div className="case-layout" style={{ display: 'grid', gridTemplateColumns: activeTab === 'board' ? '1fr' : '2fr 1fr', gap: '2rem' }}>
                 <div className="case-main-content">
                     <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '1.5rem' }}>
                         <button
@@ -660,6 +661,16 @@ function IACaseDetail() {
                                 padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer'
                             }}>
                             {language === 'es' ? 'Votación de Sanciones' : 'Sanction Voting'}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('board')}
+                            style={{
+                                background: 'none', border: 'none',
+                                borderBottom: activeTab === 'board' ? '2px solid var(--accent-gold)' : '2px solid transparent',
+                                color: activeTab === 'board' ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                                padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer'
+                            }}>
+                            📌 {language === 'es' ? 'Pizarra' : 'Whiteboard'}
                         </button>
                     </div>
 
@@ -785,9 +796,13 @@ function IACaseDetail() {
                             canEditCase={canEditCase}
                         />
                     )}
+                    {activeTab === 'board' && (
+                        <CaseWhiteboard caseId={id} isIA={true} caseData={caseData} />
+                    )}
                 </div>
 
-                <div className="case-sidebar">
+                {activeTab !== 'board' && (
+                    <div className="case-sidebar">
                     <div className="sidebar-section">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                             <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>{language === 'es' ? 'Agentes Asignados' : 'Assigned Agents'}</h4>
@@ -892,6 +907,7 @@ function IACaseDetail() {
                         </div>
                     </div>
                 </div>
+                )}
             </div>
 
             {/* Assignments Modal */}

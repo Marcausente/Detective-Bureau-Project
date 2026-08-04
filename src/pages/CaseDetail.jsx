@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import '../index.css';
 import CaseTodoList from '../components/CaseTodoList';
+import CaseWhiteboard from '../components/cases/CaseWhiteboard';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { makeQuillModules, quillFormats } from '../utils/quillConfig';
@@ -716,7 +717,7 @@ function CaseDetail() {
                 )}
             </div>
 
-            <div className="case-layout" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+            <div className="case-layout" style={{ display: 'grid', gridTemplateColumns: activeTab === 'board' ? '1fr' : '2fr 1fr', gap: '2rem' }}>
 
                 {/* Left Column: Updates & Timeline */}
                 <div className="case-main-content">
@@ -753,6 +754,22 @@ function CaseDetail() {
                             }}
                         >
                             {t('toDoListTab')}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('board')}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                borderBottom: activeTab === 'board' ? '2px solid var(--accent-gold)' : '2px solid transparent',
+                                color: activeTab === 'board' ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                                padding: '0.5rem 1rem',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            📌 {t('whiteboardTab')}
                         </button>
                     </div>
 
@@ -907,13 +924,16 @@ function CaseDetail() {
                                 )}
                             </div>
                         </>
-                    ) : (
+                    ) : activeTab === 'todo' ? (
                         <CaseTodoList caseId={id} />
+                    ) : (
+                        <CaseWhiteboard caseId={id} isIA={false} caseData={caseData} />
                     )}
                 </div>
 
                 {/* Right Column: Key Info & Linked Data */}
-                <div className="case-sidebar">
+                {activeTab !== 'board' && (
+                    <div className="case-sidebar">
                     {/* Assigned Detectives */}
                     <div className="sidebar-section" style={{ marginBottom: '2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -1150,6 +1170,7 @@ function CaseDetail() {
                         </div>
                     </div>
                 </div>
+                )}
             </div>
 
             {/* Assignments Modal */}
