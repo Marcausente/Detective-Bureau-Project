@@ -21,7 +21,7 @@ const COLOR_SCHEMES = {
     dark: { bg: '#18181b', border: '#3f3f46', header: '#27272a', text: '#e4e4e7' }
 };
 
-export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }) {
+export default function CaseWhiteboard({ caseId, isIA = false, caseData = null, onGoToUpdate = null }) {
     const { t, language } = useLanguage();
     const [nodes, setNodes] = useState([]);
     const [links, setLinks] = useState([]);
@@ -53,7 +53,11 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
     const [nodeCategory, setNodeCategory] = useState('note');
     const [nodeColor, setNodeColor] = useState('red');
     const [nodeImage, setNodeImage] = useState('');
+    const [nodeLinkedUpdates, setNodeLinkedUpdates] = useState([]); // Array of update IDs
     const [submittingNode, setSubmittingNode] = useState(false);
+
+    // Preview Modal for Linked Update
+    const [selectedPreviewUpdate, setSelectedPreviewUpdate] = useState(null);
 
     // Image Viewer Modal
     const [expandedImage, setExpandedImage] = useState(null);
@@ -229,6 +233,7 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
             setNodeCategory(node.category || 'note');
             setNodeColor(node.color || 'red');
             setNodeImage(node.image_url || '');
+            setNodeLinkedUpdates(Array.isArray(node.linked_update_ids) ? node.linked_update_ids : []);
         } else {
             setEditingNode(null);
             setNodeTitle('');
@@ -236,6 +241,7 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
             setNodeCategory('note');
             setNodeColor('red');
             setNodeImage('');
+            setNodeLinkedUpdates([]);
         }
         setShowNodeModal(true);
     };
@@ -255,6 +261,7 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
                 category: nodeCategory,
                 color: nodeColor,
                 image_url: nodeImage || null,
+                linked_update_ids: nodeLinkedUpdates,
                 created_by: user ? user.id : null
             };
 
@@ -387,6 +394,7 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
                         image_url: img,
                         pos_x: posX,
                         pos_y: posY,
+                        linked_update_ids: [upd.id], // Auto-link to update!
                         created_by: user ? user.id : null
                     });
                     posX += 280;
@@ -505,7 +513,7 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
                         </button>
                     ) : (
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '8px' }}>
-                            {language === 'es' ? '💡 Usa ' : '💡 Use '} <strong>🔗</strong> {language === 'es' ? 'en una tarjeta para unila con otra' : 'on a card to connect it'}
+                            {language === 'es' ? '💡 Usa ' : '💡 Use '} <strong>🔗</strong> {language === 'es' ? 'en una tarjeta para unirla con otra' : 'on a card to connect it'}
                         </span>
                     )}
 
@@ -555,7 +563,7 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
                     transformOrigin: '0 0', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0
                 }}>
 
-                    {/* SVG Connector Strings Layer - Large viewBox covering infinite space */}
+                    {/* SVG Connector Strings Layer */}
                     <svg
                         style={{
                             position: 'absolute',
@@ -583,7 +591,6 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
                             const sW = source.width || 240;
                             const tW = target.width || 240;
 
-                            // Pin center at top of card (pos_y - 2px offset)
                             const x1 = source.pos_x + sW / 2;
                             const y1 = source.pos_y - 2;
                             const x2 = target.pos_x + tW / 2;
@@ -593,14 +600,12 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
                             const dy = y2 - y1;
                             const dist = Math.sqrt(dx * dx + dy * dy);
 
-                            // Natural hanging thread curve sagging downwards
                             const sag = Math.min(dist * 0.1, 45);
                             const midX = (x1 + x2) / 2;
                             const midY = (y1 + y2) / 2 + sag;
 
                             return (
                                 <g key={link.id}>
-                                    {/* Curved Red Thread Line */}
                                     <path
                                         d={`M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`}
                                         stroke={link.color || '#ef4444'}
@@ -609,11 +614,9 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
                                         strokeDasharray={link.style === 'dashed' ? '6,4' : 'none'}
                                         filter="url(#string-glow)"
                                     />
-                                    {/* String Pins */}
                                     <circle cx={x1} cy={y1} r="4" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
                                     <circle cx={x2} cy={y2} r="4" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
 
-                                    {/* Label Badge on Thread */}
                                     <foreignObject x={midX - 70} y={midY - 14} width="140" height="28" style={{ pointerEvents: 'auto' }}>
                                         <div
                                             onClick={(e) => { e.stopPropagation(); handleDeleteLink(link.id); }}
@@ -760,6 +763,32 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
                                             {node.content}
                                         </p>
                                     )}
+
+                                    {/* Linked Updates / Entradas Badges */}
+                                    {node.linked_update_ids && Array.isArray(node.linked_update_ids) && node.linked_update_ids.length > 0 && (
+                                        <div style={{ marginTop: '0.5rem', paddingTop: '0.4rem', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                            {node.linked_update_ids.map((updId) => {
+                                                const updObj = caseData?.updates?.find(u => u.id === updId);
+                                                if (!updObj) return null;
+                                                const idxInUpdates = caseData.updates.indexOf(updObj);
+                                                const numStr = caseData.updates.length - idxInUpdates;
+                                                return (
+                                                    <span
+                                                        key={updId}
+                                                        onClick={(e) => { e.stopPropagation(); setSelectedPreviewUpdate(updObj); }}
+                                                        style={{
+                                                            fontSize: '0.7rem', background: 'rgba(212, 175, 55, 0.2)', color: 'var(--accent-gold)',
+                                                            border: '1px solid rgba(212, 175, 55, 0.4)', borderRadius: '4px', padding: '1px 6px',
+                                                            cursor: 'pointer', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px'
+                                                        }}
+                                                        title="Clic para ver detalle de la novedad"
+                                                    >
+                                                        🔗 Novedad #{numStr}
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -776,7 +805,8 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
                 }}>
                     <div style={{
                         background: '#1e293b', border: '1px solid var(--accent-gold)', borderRadius: '12px',
-                        width: '100%', maxWidth: '480px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
+                        width: '100%', maxWidth: '500px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
+                        maxHeight: '90vh', overflowY: 'auto'
                     }}>
                         <h3 style={{ margin: '0 0 1rem 0', color: 'var(--accent-gold)', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
                             {editingNode ? t('editItemTitle') : t('newCardBtn')}
@@ -845,6 +875,41 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
                                     onChange={e => setNodeContent(e.target.value)}
                                     placeholder="Detalles, notas clave o hallazgos sobre esta tarjeta..."
                                 />
+                            </div>
+
+                            {/* Section: Link Case Entries / Updates */}
+                            <div style={{ marginBottom: '1.2rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--accent-gold)', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                                    {t('linkEntriesTitle')}
+                                </label>
+                                {caseData?.updates && caseData.updates.length > 0 ? (
+                                    <div style={{ maxHeight: '140px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', padding: '0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                        {caseData.updates.map((upd, idx) => {
+                                            const isChecked = nodeLinkedUpdates.includes(upd.id);
+                                            const snippet = upd.content ? upd.content.replace(/<[^>]*>?/gm, '').slice(0, 50) : 'Sin contenido';
+                                            const numStr = caseData.updates.length - idx;
+                                            return (
+                                                <label key={upd.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setNodeLinkedUpdates(prev => [...prev, upd.id]);
+                                                            } else {
+                                                                setNodeLinkedUpdates(prev => prev.filter(id => id !== upd.id));
+                                                            }
+                                                        }}
+                                                    />
+                                                    <span style={{ fontWeight: 'bold', color: 'var(--accent-gold)' }}>Novedad #{numStr}:</span>
+                                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{snippet}...</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>No hay novedades registradas en este caso.</div>
+                                )}
                             </div>
 
                             {/* Image upload / Base64 */}
@@ -929,13 +994,85 @@ export default function CaseWhiteboard({ caseId, isIA = false, caseData = null }
                 </div>
             )}
 
+            {/* Modal: Linked Entry Preview */}
+            {selectedPreviewUpdate && (
+                <div
+                    onClick={() => setSelectedPreviewUpdate(null)}
+                    style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(5px)', zIndex: 10000,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            background: '#1e293b', border: '1px solid var(--accent-gold)', borderRadius: '12px',
+                            width: '100%', maxWidth: '560px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.9)'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
+                            <h3 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1.1rem' }}>
+                                📝 {t('linkedEntryPreview')}
+                            </h3>
+                            <button onClick={() => setSelectedPreviewUpdate(null)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>&times;</button>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+                            <img src={selectedPreviewUpdate.author_avatar || '/anon.png'} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid var(--accent-gold)' }} />
+                            <div>
+                                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{selectedPreviewUpdate.author_rank} {selectedPreviewUpdate.author_name}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(selectedPreviewUpdate.created_at).toLocaleString()}</div>
+                            </div>
+                        </div>
+
+                        <div
+                            className="quill-content"
+                            style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', color: 'var(--text-primary)', maxHeight: '300px', overflowY: 'auto' }}
+                            dangerouslySetInnerHTML={{ __html: selectedPreviewUpdate.content }}
+                        />
+
+                        {(selectedPreviewUpdate.images && selectedPreviewUpdate.images.length > 0) ? (
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                {selectedPreviewUpdate.images.map((img, i) => (
+                                    <img key={i} src={img} alt="Evidence" style={{ height: '90px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer' }} onClick={() => setExpandedImage(img)} />
+                                ))}
+                            </div>
+                        ) : selectedPreviewUpdate.image ? (
+                            <div style={{ marginBottom: '1rem' }}>
+                                <img src={selectedPreviewUpdate.image} alt="Evidence" style={{ maxHeight: '120px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer' }} onClick={() => setExpandedImage(selectedPreviewUpdate.image)} />
+                            </div>
+                        ) : null}
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+                            <button className="login-button btn-secondary" onClick={() => setSelectedPreviewUpdate(null)} style={{ width: 'auto' }}>
+                                {t('closeBtnText')}
+                            </button>
+                            {onGoToUpdate && (
+                                <button
+                                    className="login-button"
+                                    onClick={() => {
+                                        const upId = selectedPreviewUpdate.id;
+                                        setSelectedPreviewUpdate(null);
+                                        onGoToUpdate(upId);
+                                    }}
+                                    style={{ width: 'auto' }}
+                                >
+                                    {t('viewInLogBtn')}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Modal: Fullscreen Image View */}
             {expandedImage && (
                 <div
                     onClick={() => setExpandedImage(null)}
                     style={{
                         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'rgba(0,0,0,0.9)', zIndex: 10000, display: 'flex',
+                        background: 'rgba(0,0,0,0.9)', zIndex: 10001, display: 'flex',
                         alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out', padding: '2rem'
                     }}
                 >

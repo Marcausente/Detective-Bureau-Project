@@ -130,6 +130,23 @@ function IACaseDetail() {
         }
     };
 
+    const handleGoToUpdate = (updateId) => {
+        setActiveTab('updates');
+        setTimeout(() => {
+            const el = document.getElementById(`ia-update-${updateId}`) || document.getElementById(`update-${updateId}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.transition = 'box-shadow 0.3s, border-color 0.3s';
+                el.style.boxShadow = '0 0 25px rgba(212, 175, 55, 0.9)';
+                el.style.borderColor = 'var(--accent-gold)';
+                setTimeout(() => {
+                    el.style.boxShadow = 'none';
+                    el.style.borderColor = 'rgba(255,255,255,0.1)';
+                }, 2500);
+            }
+        }, 100);
+    };
+
     useEffect(() => {
         loadCaseDetails();
         loadCurrentUser();
@@ -726,7 +743,7 @@ function IACaseDetail() {
                                         const isEditing = editingId === update.id;
 
                                         return (
-                                            <div key={update.id} className="case-update-card" style={{
+                                            <div key={update.id} id={`ia-update-${update.id}`} className="case-update-card" style={{
                                                 background: 'rgba(var(--secondary-rgb), 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
                                                 borderLeft: '2px solid rgba(255,255,255,0.1)'
                                             }}>
@@ -797,7 +814,7 @@ function IACaseDetail() {
                         />
                     )}
                     {activeTab === 'board' && (
-                        <CaseWhiteboard caseId={id} isIA={true} caseData={caseData} />
+                        <CaseWhiteboard caseId={id} isIA={true} caseData={caseData} onGoToUpdate={handleGoToUpdate} />
                     )}
                 </div>
 

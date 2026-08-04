@@ -13,9 +13,13 @@ CREATE TABLE IF NOT EXISTS public.case_board_nodes (
     pos_x NUMERIC NOT NULL DEFAULT 100,
     pos_y NUMERIC NOT NULL DEFAULT 100,
     width INT DEFAULT 240,
+    linked_update_ids JSONB DEFAULT '[]'::jsonb, -- Array of linked update/novedad IDs
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by UUID REFERENCES public.users(id)
 );
+
+-- Migration if table already exists
+ALTER TABLE public.case_board_nodes ADD COLUMN IF NOT EXISTS linked_update_ids JSONB DEFAULT '[]'::jsonb;
 
 CREATE TABLE IF NOT EXISTS public.case_board_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -84,6 +88,7 @@ BEGIN
                 'pos_x', n.pos_x,
                 'pos_y', n.pos_y,
                 'width', n.width,
+                'linked_update_ids', COALESCE(n.linked_update_ids, '[]'::jsonb),
                 'created_at', n.created_at,
                 'created_by', n.created_by
             ) ORDER BY n.created_at ASC
@@ -118,6 +123,7 @@ BEGIN
                 'pos_x', n.pos_x,
                 'pos_y', n.pos_y,
                 'width', n.width,
+                'linked_update_ids', COALESCE(n.linked_update_ids, '[]'::jsonb),
                 'created_at', n.created_at,
                 'created_by', n.created_by
             ) ORDER BY n.created_at ASC
