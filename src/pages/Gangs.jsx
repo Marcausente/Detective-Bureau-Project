@@ -137,31 +137,27 @@ function Gangs() {
         setLoading(false);
     };
 
-    const handleImageUpload = (e, setState, single = false) => {
+    const handleImageUpload = async (e, setState, single = false) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
 
-        files.forEach(file => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (event) => {
-                const img = new Image();
-                img.src = event.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 800; // Good balance for detail vs size
-                    const scaleSize = img.width > MAX_WIDTH ? (MAX_WIDTH / img.width) : 1;
-                    canvas.width = img.width * scaleSize;
-                    canvas.height = img.height * scaleSize;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    // Compress to 0.6 quality for storage efficiency
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-                    if (single) setState(dataUrl);
-                    else setState(prev => [...prev, dataUrl]);
-                };
-            };
-        });
+        try {
+            for (const file of files) {
+                const publicUrl = await uploadImageToStorage(file, 'gangs');
+                if (publicUrl) {
+                    if (single) {
+                        setState(publicUrl);
+                    } else {
+                        setState(prev => [...prev, publicUrl]);
+                    }
+                }
+            }
+            setFeedbackNotice("✅ Imagen subida con éxito al Bucket de Supabase Storage ☁️");
+            setTimeout(() => setFeedbackNotice(null), 5000);
+        } catch (err) {
+            console.error("Error uploading image to Storage:", err);
+            alert("Error uploading image to Storage: " + err.message);
+        }
     };
 
     // --- ACTIONS ---
@@ -895,6 +891,8 @@ function Gangs() {
                         {/* DEBUG ROLE */}
                         <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 5px', borderRadius: '4px' }}>{t('roleLabel')} {userRole || 'Loading...'}</span>
 
+                        {viewMode === 'active' && <button className="login-button" style={{ width: 'auto', padding: '0.6rem 1.2rem', fontSize: '0.9rem' }} onClick={() => openModal('createGang', null)}>{t('trackNewSyndicateBtn')}</button>}
+                    </div>
                 </div>
             )}
 
