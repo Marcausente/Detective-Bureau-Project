@@ -58,7 +58,7 @@ function PracticeCount() {
             const [{ data: usersData, error: usersError }, countsData] = await Promise.all([
                 supabase
                     .from('users')
-                    .select('id, nombre, apellido, rango, rol, no_placa, divisions')
+                    .select('id, nombre, apellido, rango, rol, no_placa, profile_image, divisions')
                     .order('rango', { ascending: true }),
                 dtpService.getPracticeCountsAll()
             ]);
