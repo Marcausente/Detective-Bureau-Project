@@ -776,34 +776,35 @@ function Gangs() {
     return (
         <div id="gangs-page" style={{ height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent' }}>
             {/* Header */}
-            {/* Header */}
-            <div className="doc-header" style={{ padding: '1rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'var(--glass-bg)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '3rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                        <img src={isLSSD ? "/lssd/GND.png" : "/gnd.png"} alt="GND Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 0 8px rgba(0,0,0,0.5))' }} />
-                        <h2 className="header-title" style={{ margin: 0, fontSize: '1.5rem', color: '#fff' }}>{isLSSD ? t('gndTitle') : t('giuTitle')}</h2>
+            {!activeBoardGang && (
+                <div className="doc-header" style={{ padding: '1rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'var(--glass-bg)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '3rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                            <img src={isLSSD ? "/lssd/GND.png" : "/gnd.png"} alt="GND Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 0 8px rgba(0,0,0,0.5))' }} />
+                            <h2 className="header-title" style={{ margin: 0, fontSize: '1.5rem', color: '#fff' }}>{isLSSD ? t('gndTitle') : t('giuTitle')}</h2>
+                        </div>
+                        <div className="gangs-tabs">
+                            <button className={`gang-tab-btn ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')}>{t('activeOperationTab')}</button>
+                            <button className={`gang-tab-btn ${viewMode === 'archived' ? 'active' : ''}`} onClick={() => setViewMode('archived')}>{t('archiveTab')}</button>
+                            <button className={`gang-tab-btn ${viewMode === 'todo' ? 'active' : ''}`} onClick={() => setViewMode('todo')}>{t('toDoListTab')}</button>
+                        </div>
                     </div>
-                    <div className="gangs-tabs">
-                        <button className={`gang-tab-btn ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')}>{t('activeOperationTab')}</button>
-                        <button className={`gang-tab-btn ${viewMode === 'archived' ? 'active' : ''}`} onClick={() => setViewMode('archived')}>{t('archiveTab')}</button>
-                        <button className={`gang-tab-btn ${viewMode === 'todo' ? 'active' : ''}`} onClick={() => setViewMode('todo')}>{t('toDoListTab')}</button>
-                    </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    {/* DEBUG ROLE */}
-                    <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 5px', borderRadius: '4px' }}>{t('roleLabel')} {userRole || 'Loading...'}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        {/* DEBUG ROLE */}
+                        <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 5px', borderRadius: '4px' }}>{t('roleLabel')} {userRole || 'Loading...'}</span>
 
-                    {viewMode === 'active' && <button className="login-button" style={{ width: 'auto', padding: '0.6rem 1.2rem', fontSize: '0.9rem' }} onClick={() => openModal('createGang', null)}>{t('trackNewSyndicateBtn')}</button>}
+                        {viewMode === 'active' && <button className="login-button" style={{ width: 'auto', padding: '0.6rem 1.2rem', fontSize: '0.9rem' }} onClick={() => openModal('createGang', null)}>{t('trackNewSyndicateBtn')}</button>}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {activeBoardGang ? (
-                <div style={{ flex: 1, padding: '1rem 2rem', overflowY: 'auto' }}>
+                <div style={{ flex: 1, height: 'calc(100vh - 100px)', padding: '0.75rem 1.5rem', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     <div style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(10px)',
-                        padding: '0.8rem 1.25rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.12)',
-                        marginBottom: '1rem'
+                        background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(10px)',
+                        padding: '0.6rem 1.2rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)',
+                        marginBottom: '0.6rem', flexShrink: 0
                     }}>
                         <button
                             className="login-button btn-secondary"
@@ -812,15 +813,17 @@ function Gangs() {
                         >
                             ← Volver a Pandillas
                         </button>
-                        <h3 style={{ margin: 0, color: activeBoardGang.color || 'var(--accent-gold)', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <h3 style={{ margin: 0, color: activeBoardGang.color || 'var(--accent-gold)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             📌 Pizarra de Investigación: <span style={{ color: 'white' }}>{activeBoardGang.name}</span>
                         </h3>
                     </div>
-                    <CaseWhiteboard
-                        gangId={activeBoardGang.gang_id}
-                        isGang={true}
-                        caseData={activeBoardGang}
-                    />
+                    <div style={{ flex: 1, minHeight: 0, width: '100%', position: 'relative' }}>
+                        <CaseWhiteboard
+                            gangId={activeBoardGang.gang_id}
+                            isGang={true}
+                            caseData={activeBoardGang}
+                        />
+                    </div>
                 </div>
             ) : viewMode === 'todo' ? (
                 <div style={{ flex: 1, padding: '2rem 3rem', overflowY: 'auto' }}>

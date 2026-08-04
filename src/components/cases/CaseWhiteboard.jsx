@@ -588,12 +588,22 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         };
     };
 
+    // Auto-fit all cards on load when nodes are populated
+    useEffect(() => {
+        if (!loading && nodes.length > 0) {
+            const timer = setTimeout(() => {
+                handleFitAll();
+            }, 200);
+            return () => clearTimeout(timer);
+        }
+    }, [loading, nodes.length === 0]);
+
     if (loading) {
         return <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--accent-gold)' }}>🕵️ Cargando Pizarra de Investigación...</div>;
     }
 
     return (
-        <div className="case-whiteboard-wrapper" style={{ position: 'relative', width: '100%', minHeight: '750px', height: 'calc(100vh - 220px)', background: '#0f172a', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden', userSelect: 'none' }}>
+        <div className="case-whiteboard-wrapper" style={{ position: 'relative', width: '100%', height: '100%', minHeight: '450px', background: '#0f172a', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden', userSelect: 'none' }}>
 
             {/* Top Bar Controls */}
             <div className="whiteboard-controls" style={{
