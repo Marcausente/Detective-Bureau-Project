@@ -39,11 +39,16 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const [draggingNodeId, setDraggingNodeId] = useState(null);
     const dragOffsetRef = useRef({ x: 0, y: 0 });
 
-    // Link Creation State
+    // Link Creation & Customization State
     const [connectingSourceId, setConnectingSourceId] = useState(null);
     const [showLinkLabelModal, setShowLinkLabelModal] = useState(false);
     const [pendingTargetId, setPendingTargetId] = useState(null);
     const [newLinkLabel, setNewLinkLabel] = useState('');
+
+    const [hoveredLinkId, setHoveredLinkId] = useState(null);
+    const [draggingLinkId, setDraggingLinkId] = useState(null);
+    const [editingLink, setEditingLink] = useState(null);
+    const [editLinkLabel, setEditLinkLabel] = useState('');
 
     // Modal State (Add/Edit Node)
     const [showNodeModal, setShowNodeModal] = useState(false);
@@ -127,6 +132,21 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         }, 500);
     };
 
+    // Save Link Label Position (Debounced)
+    const saveLinkPos = (linkId, pos) => {
+        const roundPos = Math.round(pos * 100) / 100;
+        if (positionSaveTimeoutsRef.current['link_' + linkId]) {
+            clearTimeout(positionSaveTimeoutsRef.current['link_' + linkId]);
+        }
+        positionSaveTimeoutsRef.current['link_' + linkId] = setTimeout(async () => {
+            try {
+                await supabase.from('case_board_links').update({ label_pos: roundPos }).eq('id', linkId);
+            } catch (err) {
+                console.error('Error saving link label position:', err);
+            }
+        }, 500);
+    };
+
     // Handle Card Drag Start
     const handleNodeMouseDown = (e, nodeId) => {
         e.stopPropagation();
@@ -158,6 +178,34 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                 setNodes(prev => prev.map(n => n.id === draggingNodeId ? { ...n, pos_x: newX, pos_y: newY } : n));
                 saveNodePosition(draggingNodeId, newX, newY);
+            } else if (draggingLinkId) {
+                // Drag link label along line
+                const linkObj = links.find(l => l.id === draggingLinkId);
+                if (linkObj) {
+                    const source = nodes.find(n => n.id === linkObj.source_id);
+                    const target = nodes.find(n => n.id === linkObj.target_id);
+                    if (source && target) {
+                        const sW = source.width || 240;
+                        const tW = target.width || 240;
+                        const x1 = source.pos_x + sW / 2;
+                        const y1 = source.pos_y - 2;
+                        const x2 = target.pos_x + tW / 2;
+                        const y2 = target.pos_y - 2;
+
+                        const rect = boardRef.current ? boardRef.current.getBoundingClientRect() : { left: 0, top: 0 };
+                        const mouseCanvasX = (e.clientX - rect.left) / zoom - pan.x;
+                        const mouseCanvasY = (e.clientY - rect.top) / zoom - pan.y;
+
+                        const dx = x2 - x1;
+                        const dy = y2 - y1;
+                        const lenSq = dx * dx + dy * dy;
+                        let tProj = lenSq > 0 ? ((mouseCanvasX - x1) * dx + (mouseCanvasY - y1) * dy) / lenSq : 0.5;
+                        tProj = Math.min(Math.max(0.1, tProj), 0.9);
+
+                        setLinks(prev => prev.map(l => l.id === draggingLinkId ? { ...l, label_pos: tProj } : l));
+                        saveLinkPos(draggingLinkId, tProj);
+                    }
+                }
             } else if (isPanning) {
                 setPan({
                     x: e.clientX - panStartRef.current.x,
@@ -168,6 +216,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
         const handleMouseUp = () => {
             if (draggingNodeId) setDraggingNodeId(null);
+            if (draggingLinkId) setDraggingLinkId(null);
             if (isPanning) setIsPanning(false);
         };
 
@@ -177,7 +226,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [draggingNodeId, isPanning, zoom]);
+    }, [draggingNodeId, draggingLinkId, isPanning, zoom, pan, links, nodes]);
 
     // Handle Pan Canvas
     const handleBoardMouseDown = (e) => {
@@ -324,6 +373,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 source_id: connectingSourceId,
                 target_id: pendingTargetId,
                 label: newLinkLabel.trim() || null,
+                label_pos: 0.5,
                 color: '#ef4444'
             };
 
@@ -345,6 +395,28 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             loadBoardData();
         } catch (err) {
             alert('Error creating link: ' + err.message);
+        }
+    };
+
+    // Update Link Label Text
+    const handleSaveLinkLabel = async (e) => {
+        e.preventDefault();
+        if (!editingLink) return;
+
+        try {
+            const newLabelVal = editLinkLabel.trim() || null;
+            const { error } = await supabase
+                .from('case_board_links')
+                .update({ label: newLabelVal })
+                .eq('id', editingLink.id);
+
+            if (error) throw error;
+
+            setLinks(prev => prev.map(l => l.id === editingLink.id ? { ...l, label: newLabelVal } : l));
+            setEditingLink(null);
+            setEditLinkLabel('');
+        } catch (err) {
+            alert('Error updating link text: ' + err.message);
         }
     };
 
@@ -566,6 +638,16 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         }
     }, [isGang, loading, nodes.length]);
 
+    // Auto-fit all cards on load when nodes are populated
+    useEffect(() => {
+        if (!loading && nodes.length > 0) {
+            const timer = setTimeout(() => {
+                handleFitAll();
+            }, 200);
+            return () => clearTimeout(timer);
+        }
+    }, [loading, nodes.length === 0]);
+
     // Handle Image File Upload in Node Form
     const handleImageUpload = (e) => {
         const file = e.target.files[0];
@@ -587,16 +669,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             };
         };
     };
-
-    // Auto-fit all cards on load when nodes are populated
-    useEffect(() => {
-        if (!loading && nodes.length > 0) {
-            const timer = setTimeout(() => {
-                handleFitAll();
-            }, 200);
-            return () => clearTimeout(timer);
-        }
-    }, [loading, nodes.length === 0]);
 
     if (loading) {
         return <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--accent-gold)' }}>🕵️ Cargando Pizarra de Investigación...</div>;
@@ -714,7 +786,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     >
                         <defs>
                             <filter id="string-glow" x="-50%" y="-50%" width="200%" height="200%">
-                                <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#ef4444" floodOpacity="0.6" />
+                                <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#ef4444" floodOpacity="0.7" />
+                            </filter>
+                            <filter id="string-hover-glow" x="-50%" y="-50%" width="200%" height="200%">
+                                <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#f59e0b" floodOpacity="0.9" />
                             </filter>
                         </defs>
 
@@ -739,34 +814,106 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             const midX = (x1 + x2) / 2;
                             const midY = (y1 + y2) / 2 + sag;
 
+                            const isHovered = hoveredLinkId === link.id;
+
+                            // Calculate position along curve (t in [0.1, 0.9])
+                            const tPos = link.label_pos ?? 0.5;
+                            const posX = (1 - tPos) * (1 - tPos) * x1 + 2 * (1 - tPos) * tPos * midX + tPos * tPos * x2;
+                            const posY = (1 - tPos) * (1 - tPos) * y1 + 2 * (1 - tPos) * tPos * midY + tPos * tPos * y2;
+
+                            const hasLabelText = link.label && link.label.trim().length > 0;
+
                             return (
                                 <g key={link.id}>
+                                    {/* Visible Red String Line */}
                                     <path
                                         d={`M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`}
-                                        stroke={link.color || '#ef4444'}
-                                        strokeWidth="2.5"
+                                        stroke={isHovered ? '#f59e0b' : (link.color || '#ef4444')}
+                                        strokeWidth={isHovered ? "3.5" : "2.5"}
                                         fill="none"
                                         strokeDasharray={link.style === 'dashed' ? '6,4' : 'none'}
-                                        filter="url(#string-glow)"
+                                        filter={isHovered ? "url(#string-hover-glow)" : "url(#string-glow)"}
                                     />
+
+                                    {/* Invisible Wide Interactive Stroke for Hover & Click */}
+                                    <path
+                                        d={`M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`}
+                                        stroke="transparent"
+                                        strokeWidth="18"
+                                        fill="none"
+                                        style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
+                                        onMouseEnter={() => setHoveredLinkId(link.id)}
+                                        onMouseLeave={() => setHoveredLinkId(null)}
+                                        onClick={(e) => { e.stopPropagation(); setEditingLink(link); setEditLinkLabel(link.label || ''); }}
+                                    />
+
+                                    {/* Pin Dots */}
                                     <circle cx={x1} cy={y1} r="4" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
                                     <circle cx={x2} cy={y2} r="4" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
 
-                                    <foreignObject x={midX - 70} y={midY - 14} width="140" height="28" style={{ pointerEvents: 'auto' }}>
-                                        <div
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteLink(link.id); }}
-                                            title="Clic para eliminar conexión"
-                                            style={{
-                                                background: 'rgba(239, 68, 68, 0.95)', color: 'white', fontSize: '0.7rem', fontWeight: 'bold',
-                                                padding: '2px 8px', borderRadius: '10px', textAlign: 'center', cursor: 'pointer',
-                                                boxShadow: '0 2px 6px rgba(0,0,0,0.5)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden',
-                                                border: '1px solid rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px'
-                                            }}
-                                        >
-                                            <span>{link.label || '🧵'}</span>
-                                            <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>×</span>
-                                        </div>
-                                    </foreignObject>
+                                    {/* Label Badge / Control Item */}
+                                    {hasLabelText ? (
+                                        /* Draggable Label Badge */
+                                        <foreignObject x={posX - 75} y={posY - 14} width="150" height="32" style={{ pointerEvents: 'auto' }}>
+                                            <div
+                                                onMouseEnter={() => setHoveredLinkId(link.id)}
+                                                onMouseLeave={() => setHoveredLinkId(null)}
+                                                onMouseDown={(e) => {
+                                                    e.stopPropagation();
+                                                    setDraggingLinkId(link.id);
+                                                }}
+                                                style={{
+                                                    background: isHovered ? 'rgba(245, 158, 11, 0.95)' : 'rgba(239, 68, 68, 0.95)',
+                                                    color: 'white', fontSize: '0.75rem', fontWeight: 'bold',
+                                                    padding: '2px 8px', borderRadius: '12px', textAlign: 'center',
+                                                    cursor: draggingLinkId === link.id ? 'grabbing' : 'grab',
+                                                    boxShadow: '0 3px 8px rgba(0,0,0,0.6)', whiteSpace: 'nowrap',
+                                                    textOverflow: 'ellipsis', overflow: 'hidden',
+                                                    border: '1px solid rgba(255,255,255,0.4)',
+                                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+                                                    maxWidth: '150px'
+                                                }}
+                                                title="Arrastra para mover la etiqueta por el hilo"
+                                            >
+                                                <span>🧵 {link.label}</span>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setEditingLink(link); setEditLinkLabel(link.label || ''); }}
+                                                    style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.7rem', opacity: 0.8, padding: 0 }}
+                                                    title="Editar texto de relación"
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteLink(link.id); }}
+                                                    style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.7rem', opacity: 0.8, padding: 0 }}
+                                                    title="Eliminar conexión"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        </foreignObject>
+                                    ) : (
+                                        /* Clean Thread: Floating quick actions on hover */
+                                        isHovered && (
+                                            <foreignObject x={posX - 55} y={posY - 14} width="110" height="28" style={{ pointerEvents: 'auto' }}>
+                                                <div
+                                                    style={{
+                                                        background: 'rgba(15, 23, 42, 0.95)', color: 'var(--accent-gold)', fontSize: '0.7rem', fontWeight: 'bold',
+                                                        padding: '2px 8px', borderRadius: '10px', border: '1px solid var(--accent-gold)',
+                                                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                                        boxShadow: '0 4px 10px rgba(0,0,0,0.6)', cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <span onClick={(e) => { e.stopPropagation(); setEditingLink(link); setEditLinkLabel(''); }} title="Añadir texto a la relación">
+                                                        ✏️ Texto
+                                                    </span>
+                                                    <span onClick={(e) => { e.stopPropagation(); handleDeleteLink(link.id); }} style={{ color: '#ef4444' }} title="Eliminar hilo rojo">
+                                                        🗑️
+                                                    </span>
+                                                </div>
+                                            </foreignObject>
+                                        )
+                                    )}
                                 </g>
                             );
                         })}
@@ -1086,7 +1233,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 </div>
             )}
 
-            {/* Modal: Link Label Input */}
+            {/* Modal: Link Label Input / New Link */}
             {showLinkLabelModal && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -1101,7 +1248,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         <form onSubmit={handleConfirmLink}>
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
-                                    {language === 'es' ? 'Texto de relación entre tarjetas (Opcional):' : 'Relationship label (Optional):'}
+                                    {language === 'es' ? 'Texto de relación entre tarjetas (Opcional - dejar vacío para hilo limpio):' : 'Relationship label (Optional - leave empty for clean thread):'}
                                 </label>
                                 <input
                                     type="text"
@@ -1124,6 +1271,59 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 </button>
                                 <button type="submit" className="login-button" style={{ width: 'auto' }}>
                                     {language === 'es' ? 'Unir con Hilo Rojo' : 'Connect with Red Thread'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Edit Existing Link Label */}
+            {editingLink && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(5px)', zIndex: 9999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                }}>
+                    <div style={{
+                        background: '#1e293b', border: '1px solid var(--accent-gold)', borderRadius: '12px',
+                        width: '100%', maxWidth: '420px', padding: '1.5rem'
+                    }}>
+                        <h3 style={{ margin: '0 0 1rem 0', color: 'var(--accent-gold)' }}>✏️ {language === 'es' ? 'Editar Texto de Relación' : 'Edit Relationship Text'}</h3>
+                        <form onSubmit={handleSaveLinkLabel}>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                                    {language === 'es' ? 'Texto de la caja flotante (vacío = ocultar caja):' : 'Label text (empty = hide text box):'}
+                                </label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={editLinkLabel}
+                                    onChange={e => setEditLinkLabel(e.target.value)}
+                                    placeholder={t('linkLabelPlaceholder')}
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                <button
+                                    type="button"
+                                    className="login-button btn-secondary"
+                                    onClick={() => handleDeleteLink(editingLink.id)}
+                                    style={{ width: 'auto', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', borderColor: '#ef4444' }}
+                                >
+                                    🗑️ {language === 'es' ? 'Eliminar Hilo' : 'Delete Thread'}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="login-button btn-secondary"
+                                    onClick={() => setEditingLink(null)}
+                                    style={{ width: 'auto' }}
+                                >
+                                    {t('cancelBtn')}
+                                </button>
+                                <button type="submit" className="login-button" style={{ width: 'auto' }}>
+                                    {t('saveBtn')}
                                 </button>
                             </div>
                         </form>

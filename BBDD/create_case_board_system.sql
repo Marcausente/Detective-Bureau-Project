@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS public.case_board_links (
     source_id UUID NOT NULL REFERENCES public.case_board_nodes(id) ON DELETE CASCADE,
     target_id UUID NOT NULL REFERENCES public.case_board_nodes(id) ON DELETE CASCADE,
     label TEXT,
+    label_pos NUMERIC DEFAULT 0.5, -- Position along curve (0.1 to 0.9)
     color TEXT NOT NULL DEFAULT '#ef4444',
     style TEXT DEFAULT 'solid',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS public.case_board_links (
 
 -- Migration for links
 ALTER TABLE public.case_board_links ADD COLUMN IF NOT EXISTS gang_id UUID REFERENCES public.gangs(id) ON DELETE CASCADE;
+ALTER TABLE public.case_board_links ADD COLUMN IF NOT EXISTS label_pos NUMERIC DEFAULT 0.5;
 
 -- Enable RLS
 ALTER TABLE public.case_board_nodes ENABLE ROW LEVEL SECURITY;
@@ -112,6 +114,7 @@ BEGIN
                 'source_id', l.source_id,
                 'target_id', l.target_id,
                 'label', l.label,
+                'label_pos', COALESCE(l.label_pos, 0.5),
                 'color', l.color,
                 'style', l.style,
                 'created_at', l.created_at
@@ -147,6 +150,7 @@ BEGIN
                 'source_id', l.source_id,
                 'target_id', l.target_id,
                 'label', l.label,
+                'label_pos', COALESCE(l.label_pos, 0.5),
                 'color', l.color,
                 'style', l.style,
                 'created_at', l.created_at
@@ -182,6 +186,7 @@ BEGIN
                 'source_id', l.source_id,
                 'target_id', l.target_id,
                 'label', l.label,
+                'label_pos', COALESCE(l.label_pos, 0.5),
                 'color', l.color,
                 'style', l.style,
                 'created_at', l.created_at
