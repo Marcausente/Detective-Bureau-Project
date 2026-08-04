@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { uploadImageToStorage } from '../utils/imageStorage';
+import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
 import '../index.css';
 import CaseTodoList from '../components/CaseTodoList';
 import CaseWhiteboard from '../components/cases/CaseWhiteboard';
@@ -420,9 +420,12 @@ function CaseDetail() {
                 );
             }
 
+            const finalContent = await processHtmlImages(newUpdateContent, 'cases');
+            if (finalContent !== newUpdateContent) usedBucket = true;
+
             const { error } = await supabase.rpc('add_case_update', {
                 p_case_id: id,
-                p_content: newUpdateContent,
+                p_content: finalContent,
                 p_images: uploadedImages
             });
 
@@ -518,12 +521,14 @@ function CaseDetail() {
 
     const handleSaveInfo = async () => {
         try {
+            const finalDescription = await processHtmlImages(editDescription, 'cases');
+
             const { error } = await supabase.rpc('update_case_details', {
                 p_case_id: id,
                 p_title: editTitle,
                 p_location: editLocation,
                 p_occurred_at: editOccurredAt,
-                p_description: editDescription
+                p_description: finalDescription
             });
             if (error) throw error;
 

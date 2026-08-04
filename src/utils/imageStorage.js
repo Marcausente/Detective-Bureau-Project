@@ -122,7 +122,7 @@ export async function uploadImageToStorage(imageInput, folder = 'avatars') {
 
     if (!fileToUpload) return imageInput;
 
-    // Compress image before uploading (Max 600px for avatars, 1000px for general uploads)
+    // Compress image before uploading (Max 500px for avatars, 1000px for general uploads)
     const maxDimension = folder === 'avatars' ? 500 : 1000;
     try {
         fileToUpload = await compressImage(fileToUpload, maxDimension, 0.75);
@@ -150,4 +150,39 @@ export async function uploadImageToStorage(imageInput, folder = 'avatars') {
         .getPublicUrl(fileName);
 
     return publicUrlData.publicUrl;
+}
+
+/**
+ * Processes HTML content (e.g. from ReactQuill editor) and replaces any embedded
+ * base64 image tags (<img src="data:image/...">) with Supabase Storage public URLs.
+ * @param {string} html 
+ * @param {string} folder 
+ * @returns {Promise<string>} HTML string with base64 images uploaded and replaced
+ */
+export async function processHtmlImages(html, folder = 'cases') {
+    if (!html || typeof html !== 'string' || !html.includes('data:image')) {
+        return html;
+    }
+
+    const regex = /src=["'](data:image\/[a-zA-Z0-9+]+;base64,[^"']+)["']/g;
+    let match;
+    let updatedHtml = html;
+    const matches = [];
+
+    while ((match = regex.exec(html)) !== null) {
+        if (match[1]) matches.push(match[1]);
+    }
+
+    for (const base64Data of matches) {
+        try {
+            const publicUrl = await uploadImageToStorage(base64Data, folder);
+            if (publicUrl) {
+                updatedHtml = updatedHtml.split(base64Data).join(publicUrl);
+            }
+        } catch (err) {
+            console.error('Error uploading embedded image from HTML editor to Storage:', err);
+        }
+    }
+
+    return updatedHtml;
 }

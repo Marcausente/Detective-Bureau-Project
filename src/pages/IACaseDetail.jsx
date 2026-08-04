@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { uploadImageToStorage } from '../utils/imageStorage';
+import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 import IACaseTodoList from '../components/IACaseTodoList';
@@ -310,10 +310,24 @@ function IACaseDetail() {
 
         setSubmittingUpdate(true);
         try {
+            let uploadedImages = [];
+            if (newUpdateImages.length > 0) {
+                uploadedImages = await Promise.all(
+                    newUpdateImages.map(async img => {
+                        if (img && img.startsWith('data:')) {
+                            return await uploadImageToStorage(img, 'cases');
+                        }
+                        return img;
+                    })
+                );
+            }
+
+            const finalContent = await processHtmlImages(newUpdateContent, 'cases');
+
             const { error } = await supabase.rpc('add_ia_case_update', {
                 p_case_id: id,
-                p_content: newUpdateContent,
-                p_images: newUpdateImages
+                p_content: finalContent,
+                p_images: uploadedImages
             });
 
             if (error) throw error;
@@ -386,12 +400,14 @@ function IACaseDetail() {
 
     const handleSaveInfo = async () => {
         try {
+            const finalDescription = await processHtmlImages(editDescription, 'cases');
+
             const { error } = await supabase.rpc('update_ia_case_details', {
                 p_case_id: id,
                 p_title: editTitle,
                 p_location: editLocation,
                 p_occurred_at: editOccurredAt,
-                p_description: editDescription
+                p_description: finalDescription
             });
             if (error) throw error;
 

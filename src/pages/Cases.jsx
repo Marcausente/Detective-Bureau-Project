@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { uploadImageToStorage } from '../utils/imageStorage';
+import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
@@ -66,11 +66,13 @@ function Cases() {
                 imageUrl = await uploadImageToStorage(imageUrl, 'cases');
             }
 
+            const finalDescription = await processHtmlImages(newCase.description, 'cases');
+
             const { data: newId, error } = await supabase.rpc('create_new_case', {
                 p_title: newCase.title,
                 p_location: newCase.location,
                 p_occurred_at: timestamp,
-                p_description: newCase.description,
+                p_description: finalDescription,
                 p_assigned_ids: newCase.assignments,
                 p_image: imageUrl
             });
