@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
+import { uploadImageToStorage } from '../../utils/imageStorage';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 const CATEGORY_CONFIG = {
@@ -307,12 +308,18 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             setSubmittingNode(true);
             const { data: { user } } = await supabase.auth.getUser();
 
+            let finalImageUrl = nodeImage;
+            if (finalImageUrl && finalImageUrl.startsWith('data:')) {
+                const folder = isGang ? 'gangs' : 'whiteboards';
+                finalImageUrl = await uploadImageToStorage(finalImageUrl, folder);
+            }
+
             const payload = {
                 title: nodeTitle.trim(),
                 content: nodeContent.trim(),
                 category: nodeCategory,
                 color: nodeColor,
-                image_url: nodeImage || null,
+                image_url: finalImageUrl || null,
                 linked_update_ids: nodeLinkedUpdates,
                 created_by: user ? user.id : null
             };
@@ -649,25 +656,20 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     }, [loading, nodes.length === 0]);
 
     // Handle Image File Upload in Node Form
-    const handleImageUpload = (e) => {
+    const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (ev) => {
-            const img = new Image();
-            img.src = ev.target.result;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_W = 600;
-                const scale = img.width > MAX_W ? MAX_W / img.width : 1;
-                canvas.width = img.width * scale;
-                canvas.height = img.height * scale;
-                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                setNodeImage(canvas.toDataURL('image/jpeg', 0.8));
-            };
-        };
+        try {
+            const folder = isGang ? 'gangs' : 'whiteboards';
+            const publicUrl = await uploadImageToStorage(file, folder);
+            if (publicUrl) {
+                setNodeImage(publicUrl);
+            }
+        } catch (err) {
+            console.error('Error uploading whiteboard card image:', err);
+            alert('Error subiendo imagen al Storage: ' + err.message);
+        }
     };
 
     if (loading) {
