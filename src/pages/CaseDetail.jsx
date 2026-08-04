@@ -529,9 +529,13 @@ function CaseDetail() {
 
             // If the user changed the initial image, update it directly
             if (editInitialImage !== null) {
+                let finalInitialImage = editInitialImage;
+                if (finalInitialImage && finalInitialImage.startsWith('data:')) {
+                    finalInitialImage = await uploadImageToStorage(finalInitialImage, 'cases');
+                }
                 const { error: imgError } = await supabase
                     .from('cases')
-                    .update({ initial_image_url: editInitialImage || null })
+                    .update({ initial_image_url: finalInitialImage || null })
                     .eq('id', id);
                 if (imgError) throw imgError;
             }

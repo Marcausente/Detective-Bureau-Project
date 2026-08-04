@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 import IACaseTodoList from '../components/IACaseTodoList';
@@ -395,9 +396,13 @@ function IACaseDetail() {
             if (error) throw error;
 
             if (editInitialImage !== null) {
+                let finalInitialImage = editInitialImage;
+                if (finalInitialImage && finalInitialImage.startsWith('data:')) {
+                    finalInitialImage = await uploadImageToStorage(finalInitialImage, 'cases');
+                }
                 const { error: imgError } = await supabase
                     .from('ia_cases')
-                    .update({ initial_image_url: editInitialImage || null })
+                    .update({ initial_image_url: finalInitialImage || null })
                     .eq('id', id);
                 if (imgError) throw imgError;
             }
