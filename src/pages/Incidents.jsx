@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { uploadImageToStorage } from '../utils/imageStorage';
+import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -217,12 +217,14 @@ function Incidents() {
                 );
             }
 
+            const finalDesc = await processHtmlImages(incDesc, 'incidents');
+
             const { data: newId, error } = await supabase.rpc('create_incident_v2', {
                 p_title: finalTitle,
                 p_location: incLocation,
                 p_occurred_at: new Date(incDate).toISOString(),
                 p_tablet_number: incTablet,
-                p_description: incDesc,
+                p_description: finalDesc,
                 p_images: uploadedImages
             });
             if (error) throw error;
@@ -255,12 +257,21 @@ function Incidents() {
         e.preventDefault();
         setSubmitting(true);
         try {
+            let uploadedImages = [];
+            if (outImages && outImages.length > 0) {
+                uploadedImages = await Promise.all(
+                    outImages.map(img => (img && img.startsWith('data:')) ? uploadImageToStorage(img, 'incidents') : Promise.resolve(img))
+                );
+            }
+
+            const finalInfo = await processHtmlImages(outInfo, 'incidents');
+
             const { data: newId, error } = await supabase.rpc('create_outing', {
                 p_title: outTitle,
                 p_occurred_at: new Date(outDate).toISOString(),
                 p_reason: outReason,
-                p_info_obtained: outInfo,
-                p_images: outImages,
+                p_info_obtained: finalInfo,
+                p_images: uploadedImages,
                 p_detective_ids: outDetectives,
                 p_tag: outTag || null
             });
@@ -276,7 +287,7 @@ function Incidents() {
             // Link to Interrogations
             if (outInterrogationIds.length > 0) {
                 for (const intId of outInterrogationIds) {
-                    await supabase.rpc('link_outing_interrogation', { p_outing_id: newId, p_interrogation_id: intId });
+                    await supabase.rpc('link_outing_interrogation', { p_incident_id: newId, p_interrogation_id: intId });
                 }
             }
 
@@ -359,6 +370,15 @@ function Incidents() {
             // Format title with tablet number if present
             const finalTitle = incTablet ? `[${incTablet}] ${incTitle}` : incTitle;
 
+            let uploadedImages = [];
+            if (incImages && incImages.length > 0) {
+                uploadedImages = await Promise.all(
+                    incImages.map(img => (img && img.startsWith('data:')) ? uploadImageToStorage(img, 'incidents') : Promise.resolve(img))
+                );
+            }
+
+            const finalDesc = await processHtmlImages(incDesc, 'incidents');
+
             // Update incident details
             const { error: updateError } = await supabase.rpc('update_incident', {
                 p_incident_id: editingIncident.record_id,
@@ -366,8 +386,8 @@ function Incidents() {
                 p_location: incLocation,
                 p_occurred_at: new Date(incDate).toISOString(),
                 p_tablet_number: incTablet,
-                p_description: incDesc,
-                p_images: incImages // Pass updated images
+                p_description: finalDesc,
+                p_images: uploadedImages
             });
             if (updateError) throw updateError;
 
@@ -470,13 +490,22 @@ function Incidents() {
         e.preventDefault();
         setSubmitting(true);
         try {
+            let uploadedImages = [];
+            if (outImages && outImages.length > 0) {
+                uploadedImages = await Promise.all(
+                    outImages.map(img => (img && img.startsWith('data:')) ? uploadImageToStorage(img, 'incidents') : Promise.resolve(img))
+                );
+            }
+
+            const finalInfo = await processHtmlImages(outInfo, 'incidents');
+
             const { error: updateError } = await supabase.rpc('update_outing', {
                 p_outing_id: editingOuting.record_id,
                 p_title: outTitle,
                 p_occurred_at: new Date(outDate).toISOString(),
                 p_reason: outReason,
-                p_info_obtained: outInfo,
-                p_images: outImages,
+                p_info_obtained: finalInfo,
+                p_images: uploadedImages,
                 p_tag: outTag || null
             });
             if (updateError) throw updateError;

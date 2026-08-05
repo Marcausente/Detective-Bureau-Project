@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import ComplaintCard from '../components/ComplaintCard';
 import { useLanguage } from '../contexts/LanguageContext';
+import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
 import '../index.css';
 
 function Denuncias() {
@@ -167,15 +168,22 @@ function Denuncias() {
         e.preventDefault();
         setSubmitting(true);
         try {
+            let finalImageUrl = imageUrl;
+            if (imageUrl && imageUrl.startsWith('data:')) {
+                finalImageUrl = await uploadImageToStorage(imageUrl, 'complaints');
+            }
+
+            const finalAcontecimientos = await processHtmlImages(acontecimientos, 'complaints');
+
             const { data, error } = await supabase.rpc('create_denuncia', {
                 p_case_id: formCaseId === "" ? null : formCaseId,
                 p_complainants: complainants,
                 p_accused: accusedList,
                 p_motivo: motivo,
-                p_acontecimientos: acontecimientos,
+                p_acontecimientos: finalAcontecimientos,
                 p_solicitud: solicitud || null,
                 p_notas: notas || null,
-                p_image_url: imageUrl || null,
+                p_image_url: finalImageUrl || null,
                 p_titulo: titulo
             });
             if (error) throw error;
@@ -208,16 +216,23 @@ function Denuncias() {
         e.preventDefault();
         setSubmitting(true);
         try {
+            let finalImageUrl = imageUrl;
+            if (imageUrl && imageUrl.startsWith('data:')) {
+                finalImageUrl = await uploadImageToStorage(imageUrl, 'complaints');
+            }
+
+            const finalAcontecimientos = await processHtmlImages(acontecimientos, 'complaints');
+
             const { error } = await supabase.rpc('update_denuncia', {
                 p_id: editingComplaint.record_id,
                 p_case_id: formCaseId === "" ? null : formCaseId,
                 p_complainants: complainants,
                 p_accused: accusedList,
                 p_motivo: motivo,
-                p_acontecimientos: acontecimientos,
+                p_acontecimientos: finalAcontecimientos,
                 p_solicitud: solicitud || null,
                 p_notas: notas || null,
-                p_image_url: imageUrl || null,
+                p_image_url: finalImageUrl || null,
                 p_titulo: titulo
             });
             if (error) throw error;
