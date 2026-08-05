@@ -304,6 +304,12 @@ function Gangs() {
                     p_vehicle_id: editingItemId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
+                if (uploadedImages && uploadedImages.length > 0) {
+                    await supabase.from('case_board_nodes')
+                        .update({ image_url: uploadedImages[0] })
+                        .eq('gang_id', activeGangId)
+                        .ilike('title', `%${model || plate}%`);
+                }
             } else {
                 const { error } = await supabase.rpc('add_gang_vehicle', {
                     p_gang_id: activeGangId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: uploadedImages
@@ -362,6 +368,12 @@ function Gangs() {
                     p_home_id: editingItemId, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
+                if (uploadedImages && uploadedImages.length > 0) {
+                    await supabase.from('case_board_nodes')
+                        .update({ image_url: uploadedImages[0] })
+                        .eq('gang_id', activeGangId)
+                        .ilike('title', `%${owner}%`);
+                }
             } else {
                 const { error } = await supabase.rpc('add_gang_home', {
                     p_gang_id: activeGangId, p_owner: owner, p_notes: notes, p_images: uploadedImages
@@ -405,6 +417,12 @@ function Gangs() {
                     p_member_id: editingItemId, p_name: finalName, p_role: memRole, p_photo: uploadedPhoto, p_notes: memNotes
                 });
                 if (error) throw error;
+                if (uploadedPhoto) {
+                    await supabase.from('case_board_nodes')
+                        .update({ image_url: uploadedPhoto })
+                        .eq('gang_id', activeGangId)
+                        .ilike('title', `${memName.trim()}%`);
+                }
             } else {
                 const { error } = await supabase.rpc('add_gang_member', {
                     p_gang_id: activeGangId, p_name: finalName, p_role: memRole, p_photo: uploadedPhoto, p_notes: memNotes
@@ -460,6 +478,12 @@ function Gangs() {
                     p_info_id: editingItemId, p_type: infoType, p_content: content, p_images: uploadedImages
                 });
                 if (error) throw error;
+                if (uploadedImages && uploadedImages.length > 0) {
+                    await supabase.from('case_board_nodes')
+                        .update({ image_url: uploadedImages[0] })
+                        .eq('gang_id', activeGangId)
+                        .ilike('title', `Inteligencia%`);
+                }
             } else {
                 const { error } = await supabase.rpc('add_gang_info', {
                     p_gang_id: activeGangId, p_type: infoType, p_content: content, p_images: uploadedImages
@@ -520,6 +544,13 @@ function Gangs() {
                     p_notes: graffitiNotes.trim()
                 });
                 if (error) throw error;
+                const newImg = uploadedGraffiti || uploadedGps;
+                if (newImg) {
+                    await supabase.from('case_board_nodes')
+                        .update({ image_url: newImg })
+                        .eq('gang_id', activeGangId)
+                        .ilike('title', `Grafiti / GPS%`);
+                }
             } else {
                 const { error } = await supabase.rpc('add_gang_graffiti', {
                     p_gang_id: activeGangId,

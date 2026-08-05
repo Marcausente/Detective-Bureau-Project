@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
 import { useLanguage } from '../contexts/LanguageContext';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
@@ -21,6 +22,7 @@ function Dashboard() {
     const [editingId, setEditingId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [expandedImage, setExpandedImage] = useState(null);
+    const [feedbackNotice, setFeedbackNotice] = useState(null);
 
     // Event Modal State
     const [showEventModal, setShowEventModal] = useState(false);
@@ -137,30 +139,55 @@ function Dashboard() {
 
         try {
             setSubmitting(true);
+            setFeedbackNotice(null);
+
+            // Process attached images
+            let uploadedImages = [];
+            let usedBucket = false;
+            if (newPost.images && newPost.images.length > 0) {
+                uploadedImages = await Promise.all(
+                    newPost.images.map(async img => {
+                        if (img && img.startsWith('data:')) {
+                            usedBucket = true;
+                            return await uploadImageToStorage(img, 'announcements');
+                        }
+                        return img;
+                    })
+                );
+            }
+
+            // Process embedded Quill images inside content HTML
+            const finalContent = await processHtmlImages(newPost.content, 'announcements');
+            if (finalContent !== newPost.content) usedBucket = true;
 
             if (editingId) {
                 // Update existing
                 const { error } = await supabase.rpc('update_announcement', {
                     p_id: editingId,
                     p_title: newPost.title,
-                    p_content: newPost.content,
+                    p_content: finalContent,
                     p_pinned: newPost.pinned,
-                    p_images: newPost.images || []
+                    p_images: uploadedImages
                 });
                 if (error) throw error;
             } else {
                 // Create new
                 const { error } = await supabase.rpc('create_announcement', {
                     p_title: newPost.title,
-                    p_content: newPost.content,
+                    p_content: finalContent,
                     p_pinned: newPost.pinned,
-                    p_images: newPost.images || []
+                    p_images: uploadedImages
                 });
                 if (error) throw error;
             }
 
             closeModal();
             fetchAnnouncements();
+            setFeedbackNotice(usedBucket
+                ? "✅ Anuncio guardado con éxito. Imagen(es) subida(s) al Bucket de Supabase Storage ☁️"
+                : "✅ Anuncio guardado con éxito 📝"
+            );
+            setTimeout(() => setFeedbackNotice(null), 6000);
         } catch (err) {
             alert('Error saving post: ' + err.message);
         } finally {
@@ -168,29 +195,23 @@ function Dashboard() {
         }
     };
 
-    const handleImageUpload = (e) => {
+    const handleImageUpload = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
 
-        files.forEach(file => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (event) => {
-                const img = new Image();
-                img.src = event.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 800;
-                    const scaleSize = img.width > MAX_WIDTH ? (MAX_WIDTH / img.width) : 1;
-                    canvas.width = img.width * scaleSize;
-                    canvas.height = img.height * scaleSize;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                    setNewPost(prev => ({ ...prev, images: [...(prev.images || []), dataUrl] }));
-                };
-            };
-        });
+        try {
+            for (const file of files) {
+                const publicUrl = await uploadImageToStorage(file, 'announcements');
+                if (publicUrl) {
+                    setNewPost(prev => ({ ...prev, images: [...(prev.images || []), publicUrl] }));
+                }
+            }
+            setFeedbackNotice("✅ Imagen subida con éxito al Bucket de Supabase Storage ☁️");
+            setTimeout(() => setFeedbackNotice(null), 5000);
+        } catch (err) {
+            console.error("Error uploading image to Storage:", err);
+            alert("Error uploading image to Storage: " + err.message);
+        }
     };
 
     const handleEdit = (ann) => {
@@ -322,17 +343,33 @@ function Dashboard() {
                         {t('logOutBtn')}
                     </button>
                     {canPost && (
-                        <button className="login-button" style={{ width: 'auto' }} onClick={() => { setEditingId(null); setNewPost({ title: '', content: '', pinned: false }); setShowModal(true); }}>
+                        <button className="login-button" style={{ width: 'auto' }} onClick={() => { setEditingId(null); setNewPost({ title: '', content: '', pinned: false, images: [] }); setShowModal(true); }}>
                             {t('newAnnouncementBtn')}
                         </button>
                     )}
                     {canCreateEvent && (
-                        <button className="login-button" style={{ width: 'auto', backgroundColor: 'var(--accent-purple)' }} onClick={() => setShowEventModal(true)}>
-                            {t('newEventBtn')}
+                        <button className="login-button btn-secondary" style={{ width: 'auto' }} onClick={() => setShowEventModal(true)}>
+                            📅 {t('createEventBtn')}
                         </button>
                     )}
                 </div>
             </div>
+
+            {feedbackNotice && (
+                <div style={{
+                    margin: '1rem 0',
+                    padding: '0.8rem 1.2rem',
+                    borderRadius: '6px',
+                    background: 'rgba(74, 222, 128, 0.15)',
+                    border: '1px solid #4ade80',
+                    color: '#4ade80',
+                    fontSize: '0.9rem',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                }}>
+                    {feedbackNotice}
+                </div>
+            )}
 
             <div className="dashboard-grid">
                 {/* Announcements Section */}
