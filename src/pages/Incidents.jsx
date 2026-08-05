@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
+import { uploadImageToStorage, processHtmlImages, getProfileImage, filterBucketImages, stripBase64FromHtml } from '../utils/imageStorage';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -146,8 +146,25 @@ function Incidents() {
             alert("Error loading outings: " + outError.message);
         }
 
-        setIncidents(incData || []);
-        setOutings(outData || []);
+        const sanitizedIncidents = (incData || []).map(inc => ({
+            ...inc,
+            images: filterBucketImages(inc.images),
+            author_avatar: getProfileImage(inc.author_avatar, '/anon.png'),
+            description: stripBase64FromHtml(inc.description)
+        }));
+
+        const sanitizedOutings = (outData || []).map(out => ({
+            ...out,
+            images: filterBucketImages(out.images),
+            author_avatar: getProfileImage(out.author_avatar, '/anon.png'),
+            info_obtained: stripBase64FromHtml(out.info_obtained),
+            detectives: Array.isArray(out.detectives)
+                ? out.detectives.map(d => ({ ...d, avatar: getProfileImage(d.avatar, '/anon.png') }))
+                : []
+        }));
+
+        setIncidents(sanitizedIncidents);
+        setOutings(sanitizedOutings);
         setLoading(false);
     };
 
@@ -344,7 +361,7 @@ function Incidents() {
         }
         setIncTablet(incident.tablet_incident_number || '');
         setIncDesc(incident.description || '');
-        setIncImages(incident.images || []); // Load existing images
+        setIncImages(filterBucketImages(incident.images || [])); // Load existing Bucket images only
 
         // Load linked gangs
         const { data: linkedGangs, error } = await supabase.rpc('get_incident_gangs', { p_incident_id: incident.record_id });
@@ -450,7 +467,7 @@ function Incidents() {
             }
             setOutReason(outing.reason || '');
             setOutInfo(outing.info_obtained || '');
-            setOutImages(outing.images || []);
+            setOutImages(filterBucketImages(outing.images || []));
             setOutTag(outing.tag || '');
 
             // Setup detectives

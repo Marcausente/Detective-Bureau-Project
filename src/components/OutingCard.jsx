@@ -1,3 +1,4 @@
+import { getProfileImage } from '../utils/imageStorage';
 import '../index.css';
 
 const getTagStyles = (tag) => {
@@ -83,7 +84,7 @@ function OutingCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
                 {data.detectives && data.detectives.length > 0 ? (
                     data.detectives.map((d, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', background: 'rgba(255, 255, 255, 0.08)', padding: '4px 10px 4px 4px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            <img src={d.avatar || '/anon.png'} style={{ width: '24px', height: '24px', borderRadius: '50%', border: '1px solid var(--accent-gold)', marginRight: '8px', objectFit: 'cover' }} alt="" />
+                            <img src={getProfileImage(d.avatar, '/anon.png')} style={{ width: '24px', height: '24px', borderRadius: '50%', border: '1px solid var(--accent-gold)', marginRight: '8px', objectFit: 'cover' }} alt="" />
                             <span style={{ fontSize: '0.85rem', color: '#e0e0e0' }}>{d.rank} {d.name}</span>
                         </div>
                     ))

@@ -186,3 +186,26 @@ export async function processHtmlImages(html, folder = 'cases') {
 
     return updatedHtml;
 }
+
+/**
+ * Filters an array of image URLs to keep ONLY Storage / Public URLs,
+ * ignoring old base64 data URLs ('data:image...').
+ * @param {Array<string>} images 
+ * @returns {Array<string>}
+ */
+export function filterBucketImages(images) {
+    if (!Array.isArray(images)) return [];
+    return images.filter(img => typeof img === 'string' && img && !img.startsWith('data:'));
+}
+
+/**
+ * Removes embedded base64 img tags (<img src="data:image...">) from HTML string
+ * to prevent heavy base64 payload rendering.
+ * @param {string} html 
+ * @returns {string}
+ */
+export function stripBase64FromHtml(html) {
+    if (!html || typeof html !== 'string') return html;
+    return html.replace(/<img[^>]*src=["']data:image\/[^"']+["'][^>]*>/gi, '');
+}
+
