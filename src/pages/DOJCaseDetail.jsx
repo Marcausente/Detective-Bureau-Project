@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
 import '../index.css';
 import DOJCaseTodoList from '../components/DOJCaseTodoList';
 import ReactQuill from 'react-quill';
@@ -22,6 +23,8 @@ function DOJCaseDetail() {
     // Edit State
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState('');
+    const [editImages, setEditImages] = useState([]);
+    const [submittingEdit, setSubmittingEdit] = useState(false);
 
     // Quill config – memoized so the object reference is stable across renders
     const quillModules = useMemo(() => makeQuillModules(), []);
@@ -201,20 +204,77 @@ function DOJCaseDetail() {
 
     const handleStartEdit = (update) => {
         setEditingId(update.id);
-        setEditContent(update.content);
+        setEditContent(update.content || "");
+        const initialImgs = update.images && update.images.length > 0 
+            ? [...update.images] 
+            : (update.image ? [update.image] : []);
+        setEditImages(initialImgs);
+    };
+
+    const handleEditImageUpload = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    const scaleSize = img.width > MAX_WIDTH ? (MAX_WIDTH / img.width) : 1;
+                    canvas.width = img.width * scaleSize;
+                    canvas.height = img.height * scaleSize;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    setEditImages(prev => [...prev, dataUrl]);
+                };
+            };
+        });
     };
 
     const handleSaveEdit = async (updateId) => {
+        const isTextEmpty = editContent.replace(/<[^>]*>/g, '').trim() === '';
+        if (isTextEmpty && editImages.length === 0) {
+            alert("Please enter text or attach an image.");
+            return;
+        }
+
+        setSubmittingEdit(true);
         try {
+            let uploadedImages = [];
+            if (editImages.length > 0) {
+                uploadedImages = await Promise.all(
+                    editImages.map(async img => {
+                        if (img && img.startsWith('data:')) {
+                            return await uploadImageToStorage(img, 'cases');
+                        }
+                        return img;
+                    })
+                );
+            }
+
+            const finalContent = await processHtmlImages(editContent, 'cases');
+
             const { error } = await supabase.rpc('update_doj_case_update_content', {
                 p_update_id: updateId,
-                p_content: editContent
+                p_content: finalContent,
+                p_images: uploadedImages
             });
             if (error) throw error;
             setEditingId(null);
+            setEditContent("");
+            setEditImages([]);
             loadCaseDetails();
         } catch (err) {
             alert("Error updating: " + err.message);
+        } finally {
+            setSubmittingEdit(false);
         }
     };
 
@@ -387,9 +447,38 @@ function DOJCaseDetail() {
                                                         onChange={setEditContent}
                                                         style={{ marginBottom: '0.5rem' }}
                                                     />
-                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                        <button className="login-button btn-secondary" onClick={() => setEditingId(null)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Cancel</button>
-                                                        <button className="login-button" onClick={() => handleSaveEdit(update.id)} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Save Changes</button>
+
+                                                    {/* Edit Image Previews */}
+                                                    {editImages.length > 0 && (
+                                                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '1rem', marginTop: '0.5rem' }}>
+                                                            {editImages.map((imgSrc, idx) => (
+                                                                <div key={idx} style={{ position: 'relative' }}>
+                                                                    <img src={imgSrc} alt="" style={{ height: '80px', borderRadius: '4px', border: '1px solid var(--accent-gold)' }} />
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setEditImages(prev => prev.filter((_, i) => i !== idx))}
+                                                                        style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '20px', height: '20px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}
+                                                                    >
+                                                                        &times;
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                            <label className="custom-file-upload" style={{ display: 'inline-block', width: 'auto', margin: 0, fontSize: '0.8rem', padding: '0.3rem 0.8rem' }}>
+                                                                <input type="file" accept="image/*" multiple onChange={handleEditImageUpload} />
+                                                                📸 Add Images
+                                                            </label>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                            <button className="login-button btn-secondary" onClick={() => { setEditingId(null); setEditImages([]); }} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Cancel</button>
+                                                            <button className="login-button" onClick={() => handleSaveEdit(update.id)} disabled={submittingEdit} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>
+                                                                {submittingEdit ? 'Saving...' : 'Save Changes'}
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ) : (

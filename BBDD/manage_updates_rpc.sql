@@ -10,13 +10,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 2. Edit Update Content
+-- 2. Edit Update Content & Images
 DROP FUNCTION IF EXISTS update_case_update_content(uuid, text);
-CREATE OR REPLACE FUNCTION update_case_update_content(p_update_id UUID, p_content TEXT)
+DROP FUNCTION IF EXISTS update_case_update_content(uuid, text, jsonb);
+CREATE OR REPLACE FUNCTION update_case_update_content(
+  p_update_id UUID, 
+  p_content TEXT,
+  p_images JSONB DEFAULT '[]'::jsonb
+)
 RETURNS VOID AS $$
 BEGIN
   UPDATE public.case_updates
-  SET content = p_content
+  SET content = p_content,
+      images = p_images
   WHERE id = p_update_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
