@@ -60,6 +60,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const [nodeColor, setNodeColor] = useState('red');
     const [nodeImage, setNodeImage] = useState('');
     const [nodeLinkedUpdates, setNodeLinkedUpdates] = useState([]); // Array of update IDs
+    const [nodeIsInactive, setNodeIsInactive] = useState(false);
     const [submittingNode, setSubmittingNode] = useState(false);
 
     // Preview Modal for Linked Update
@@ -287,6 +288,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             setNodeColor(node.color || 'red');
             setNodeImage(node.image_url || '');
             setNodeLinkedUpdates(Array.isArray(node.linked_update_ids) ? node.linked_update_ids : []);
+            setNodeIsInactive(!!node.is_inactive);
         } else {
             setEditingNode(null);
             setNodeTitle('');
@@ -295,6 +297,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             setNodeColor('red');
             setNodeImage('');
             setNodeLinkedUpdates([]);
+            setNodeIsInactive(false);
         }
         setShowNodeModal(true);
     };
@@ -321,6 +324,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 color: nodeColor,
                 image_url: finalImageUrl || null,
                 linked_update_ids: nodeLinkedUpdates,
+                is_inactive: nodeIsInactive,
                 created_by: user ? user.id : null
             };
 
@@ -455,13 +459,15 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 caseData.members.forEach(m => {
                     const titleStr = `${m.name} (${m.role || 'Miembro'})`;
                     if (!existingTitles.has(titleStr.toLowerCase())) {
+                        const isInactive = m.role === 'Inactivo';
                         itemsToInsert.push({
                             gang_id: gangId,
                             title: titleStr,
                             content: `Rol: ${m.role || 'Miembro'}${m.id_card ? '\nID: ' + m.id_card : ''}\n${m.notes || ''}`,
-                            category: m.role === 'Lider' || m.role === 'Sublider' ? 'suspect' : 'suspect',
-                            color: m.role === 'Lider' ? 'red' : m.role === 'Sublider' ? 'yellow' : 'blue',
+                            category: 'suspect',
+                            color: isInactive ? 'dark' : m.role === 'Lider' ? 'red' : m.role === 'Sublider' ? 'yellow' : 'blue',
                             image_url: m.photo_url || m.photo || null,
+                            is_inactive: isInactive,
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
@@ -959,14 +965,54 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     top: `${node.pos_y}px`,
                                     width: `${cardWidth}px`,
                                     background: scheme.bg,
-                                    border: `2px solid ${isSource ? '#ef4444' : scheme.border}`,
+                                    border: `2px solid ${isSource ? '#ef4444' : node.is_inactive ? '#991b1b' : scheme.border}`,
                                     borderRadius: '8px',
                                     boxShadow: isSource ? '0 0 16px rgba(239, 68, 68, 0.8)' : '0 8px 24px rgba(0, 0, 0, 0.6)',
                                     zIndex: isSource ? 15 : draggingNodeId === node.id ? 10 : 2,
                                     transition: draggingNodeId === node.id ? 'none' : 'box-shadow 0.2s',
-                                    cursor: connectingSourceId ? 'pointer' : 'move'
+                                    cursor: connectingSourceId ? 'pointer' : 'move',
+                                    opacity: node.is_inactive ? 0.88 : 1,
+                                    filter: node.is_inactive ? 'grayscale(25%)' : 'none'
                                 }}
                             >
+                                {/* Inactive Visual Overlay with Big Red Cross */}
+                                {node.is_inactive && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: 0, left: 0, right: 0, bottom: 0,
+                                        pointerEvents: 'none',
+                                        zIndex: 10,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: '8px',
+                                        overflow: 'hidden'
+                                    }}>
+                                        {/* Red Diagonal SVG Cross Lines */}
+                                        <svg style={{ position: 'absolute', width: '100%', height: '100%' }} viewBox="0 0 100 100" preserveAspectRatio="none">
+                                            <line x1="0" y1="0" x2="100" y2="100" stroke="#ef4444" strokeWidth="8" strokeLinecap="round" opacity="0.9" />
+                                            <line x1="100" y1="0" x2="0" y2="100" stroke="#ef4444" strokeWidth="8" strokeLinecap="round" opacity="0.9" />
+                                        </svg>
+                                        {/* Inactive Stamp / Badge */}
+                                        <div style={{
+                                            background: 'rgba(185, 28, 28, 0.95)',
+                                            color: 'white',
+                                            fontWeight: '900',
+                                            fontSize: '0.8rem',
+                                            letterSpacing: '1.5px',
+                                            padding: '4px 14px',
+                                            borderRadius: '4px',
+                                            border: '2px solid #ffffff',
+                                            boxShadow: '0 4px 14px rgba(0,0,0,0.85)',
+                                            transform: 'rotate(-12deg)',
+                                            textTransform: 'uppercase',
+                                            zIndex: 11
+                                        }}>
+                                            ❌ {t('inactiveBadge') || 'INACTIVO'}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Top Red Pin Accent */}
                                 <div style={{
                                     position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)',
@@ -982,6 +1028,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'white', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         <span>{catConfig.icon}</span>
                                         <span>{t(catConfig.label) || node.category}</span>
+                                        {node.is_inactive && (
+                                            <span style={{ fontSize: '0.65rem', background: '#ef4444', color: 'white', padding: '1px 5px', borderRadius: '3px', marginLeft: '4px' }}>
+                                                ❌ INACTIVO
+                                            </span>
+                                        )}
                                     </span>
 
                                     <div style={{ display: 'flex', gap: '4px' }}>
@@ -1146,6 +1197,30 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         <option value="dark">⚫ Oscuro / Slate</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            {/* Option: Mark as Inactive */}
+                            <div style={{
+                                marginBottom: '1rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                background: nodeIsInactive ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                                padding: '0.65rem 0.85rem',
+                                borderRadius: '6px',
+                                border: `1px solid ${nodeIsInactive ? '#ef4444' : 'rgba(255, 255, 255, 0.15)'}`,
+                                transition: 'all 0.2s'
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    id="nodeIsInactive"
+                                    checked={nodeIsInactive}
+                                    onChange={e => setNodeIsInactive(e.target.checked)}
+                                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ef4444' }}
+                                />
+                                <label htmlFor="nodeIsInactive" style={{ cursor: 'pointer', fontSize: '0.85rem', color: nodeIsInactive ? '#fca5a5' : 'var(--text-primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', margin: 0, userSelect: 'none' }}>
+                                    ❌ {t('inactiveCardLabel') || 'Marcar como Inactivo / No activo (Mostrar cruz roja)'}
+                                </label>
                             </div>
 
                             <div style={{ marginBottom: '1rem' }}>

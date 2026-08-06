@@ -1802,12 +1802,20 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                                 e.currentTarget.style.boxShadow = 'none';
                             }}
                         >
-                            <img
-                                src={m.photo || '/logowebp/anon.webp'}
-                                className="gang-member-photo"
-                                style={{ border: `2px solid ${getStatusColor(m.role, isLSSD)}` }}
-                                alt=""
-                            />
+                            <div style={{ position: 'relative', display: 'inline-block', width: '60px', height: '60px', margin: '0 auto' }}>
+                                <img
+                                    src={m.photo || '/logowebp/anon.webp'}
+                                    className="gang-member-photo"
+                                    style={{ border: `2px solid ${getStatusColor(m.role, isLSSD)}`, width: '100%', height: '100%', filter: m.role === 'Inactivo' ? 'grayscale(30%)' : 'none' }}
+                                    alt=""
+                                />
+                                {m.role === 'Inactivo' && (
+                                    <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', borderRadius: '50%' }} viewBox="0 0 100 100" preserveAspectRatio="none">
+                                        <line x1="15" y1="15" x2="85" y2="85" stroke="#ef4444" strokeWidth="12" strokeLinecap="round" opacity="0.9" />
+                                        <line x1="85" y1="15" x2="15" y2="85" stroke="#ef4444" strokeWidth="12" strokeLinecap="round" opacity="0.9" />
+                                    </svg>
+                                )}
+                            </div>
                             <div style={{ fontSize: '0.75rem', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
                             <div style={{
                                 fontSize: '0.65rem',
