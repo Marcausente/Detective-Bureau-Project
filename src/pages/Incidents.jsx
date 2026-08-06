@@ -52,9 +52,10 @@ function Incidents() {
     const [outInfo, setOutInfo] = useState('');
     const [outGangIds, setOutGangIds] = useState([]); // Changed to array for multiple gangs
     const [outInterrogationIds, setOutInterrogationIds] = useState([]); // Array of linked interrogation IDs
-    const [outImages, setOutImages] = useState([]);
-    const [outTag, setOutTag] = useState('');
-
+    // --- PAGINATION / LIMITS (20 ITEMS PER SECTION) ---
+    const [visibleGeneralCount, setVisibleGeneralCount] = useState(20);
+    const [visibleLinkedCount, setVisibleLinkedCount] = useState(20);
+    const [visibleOutingsCount, setVisibleOutingsCount] = useState(20);
 
     useEffect(() => {
         loadData();
@@ -73,7 +74,23 @@ function Incidents() {
     }, [loading]);
 
     // Filter to only Informes Generales (unlinked incidents)
-    const generalIncidents = incidents.filter(i => !i.gang_id);
+    const generalIncidents = useMemo(() => incidents.filter(i => !i.gang_id), [incidents]);
+    const linkedIncidents = useMemo(() => incidents.filter(i => i.gang_id), [incidents]);
+
+    const visibleGeneralIncidents = useMemo(() => {
+        if (searchTerm || searchParams.get('incident_id')) return generalIncidents;
+        return generalIncidents.slice(0, visibleGeneralCount);
+    }, [generalIncidents, visibleGeneralCount, searchTerm, searchParams]);
+
+    const visibleLinkedIncidents = useMemo(() => {
+        if (searchParams.get('incident_id')) return linkedIncidents;
+        return linkedIncidents.slice(0, visibleLinkedCount);
+    }, [linkedIncidents, visibleLinkedCount, searchParams]);
+
+    const visibleOutings = useMemo(() => {
+        if (searchParams.get('outing_id')) return outings;
+        return outings.slice(0, visibleOutingsCount);
+    }, [outings, visibleOutingsCount, searchParams]);
 
     // Compute search matches in General Incidents
     const searchMatches = useMemo(() => {
@@ -805,7 +822,7 @@ function Incidents() {
 
                         <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
                             {generalIncidents.length === 0 ? <div className="empty-list">{t('noIncidents')}</div> :
-                                generalIncidents.map(inc => {
+                                visibleGeneralIncidents.map(inc => {
                                     const isUrlHighlighted = searchParams.get('incident_id') === inc.record_id;
                                     const isSearchHighlighted = searchMatches.length > 0 && searchMatches[currentMatchIndex] === inc.record_id;
                                     const isHighlighted = isUrlHighlighted || isSearchHighlighted;
@@ -825,6 +842,18 @@ function Incidents() {
                                     );
                                 })
                             }
+                            {!searchTerm && !searchParams.get('incident_id') && generalIncidents.length > visibleGeneralCount && (
+                                <div style={{ textAlign: 'center', margin: '1rem 0 0.5rem 0' }}>
+                                    <button
+                                        type="button"
+                                        className="login-button btn-secondary"
+                                        style={{ width: '100%', padding: '0.5rem 1rem', fontSize: '0.82rem' }}
+                                        onClick={() => setVisibleGeneralCount(prev => prev + 20)}
+                                    >
+                                        📥 Cargar más informes ({generalIncidents.length - visibleGeneralCount} restantes)
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -832,8 +861,8 @@ function Incidents() {
                     <div className="column-container">
                         <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{t('linkedIncidentsCol')}</h3>
                         <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                            {incidents.filter(i => i.gang_id).length === 0 ? <div className="empty-list">{t('noLinkedIncidents')}</div> :
-                                incidents.filter(i => i.gang_id).map(inc => {
+                            {linkedIncidents.length === 0 ? <div className="empty-list">{t('noLinkedIncidents')}</div> :
+                                visibleLinkedIncidents.map(inc => {
                                     const isHighlighted = searchParams.get('incident_id') === inc.record_id;
                                     return (
                                         <div key={inc.record_id} ref={isHighlighted ? highlightedRef : null}>
@@ -848,6 +877,18 @@ function Incidents() {
                                     );
                                 })
                             }
+                            {!searchParams.get('incident_id') && linkedIncidents.length > visibleLinkedCount && (
+                                <div style={{ textAlign: 'center', margin: '1rem 0 0.5rem 0' }}>
+                                    <button
+                                        type="button"
+                                        className="login-button btn-secondary"
+                                        style={{ width: '100%', padding: '0.5rem 1rem', fontSize: '0.82rem' }}
+                                        onClick={() => setVisibleLinkedCount(prev => prev + 20)}
+                                    >
+                                        📥 Cargar más informes ({linkedIncidents.length - visibleLinkedCount} restantes)
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -856,7 +897,7 @@ function Incidents() {
                         <h3 className="section-title" style={{ borderBottom: '2px solid var(--accent-gold)', paddingBottom: '0.5rem' }}>{t('outingsCol')}</h3>
                         <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
                             {outings.length === 0 ? <div className="empty-list">{t('noOutings')}</div> :
-                                outings.map(out => {
+                                visibleOutings.map(out => {
                                     const isHighlighted = searchParams.get('outing_id') === out.record_id;
                                     return (
                                         <div key={out.record_id} ref={isHighlighted ? highlightedRef : null}>
@@ -871,6 +912,18 @@ function Incidents() {
                                     );
                                 })
                             }
+                            {!searchParams.get('outing_id') && outings.length > visibleOutingsCount && (
+                                <div style={{ textAlign: 'center', margin: '1rem 0 0.5rem 0' }}>
+                                    <button
+                                        type="button"
+                                        className="login-button btn-secondary"
+                                        style={{ width: '100%', padding: '0.5rem 1rem', fontSize: '0.82rem', borderColor: 'rgba(212, 175, 55, 0.4)' }}
+                                        onClick={() => setVisibleOutingsCount(prev => prev + 20)}
+                                    >
+                                        📥 Cargar más salidas ({outings.length - visibleOutingsCount} restantes)
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
