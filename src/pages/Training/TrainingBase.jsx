@@ -87,7 +87,7 @@ function TrainingBase() {
     return (
         <div className="dtp-container">
             <header className="dtp-header">
-                <img src="/DTP%20logo.png" alt="DTP Logo" className="dtp-logo" />
+                <img src="/logowebp/DTP logo.webp" alt="DTP Logo" className="dtp-logo" />
                 <div className="dtp-title-wrapper">
                     <h1>Detective Training Program</h1>
                     <p>Departamento de Instrucción y Capacitación Continua</p>

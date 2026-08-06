@@ -320,7 +320,7 @@ function DOJLicenseProfile() {
                         {profile.profile_image ? (
                             <img src={profile.profile_image} alt={profile.nombre} className="detail-image" />
                         ) : (
-                            <img src="/anon.png" alt="No photo" className="detail-image" />
+                            <img src="/logowebp/anon.webp" alt="No photo" className="detail-image" />
                         )}
                     </div>
                     <div className="detail-title">

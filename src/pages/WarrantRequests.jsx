@@ -151,7 +151,7 @@ function WarrantRequests() {
 
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                                    <img src={req.requester_avatar || '/anon.png'} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', marginRight: '10px' }} />
+                                    <img src={req.requester_avatar || '/logowebp/anon.webp'} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', marginRight: '10px' }} />
                                     <div>
                                         <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{req.requester_rank} {req.requester_name}</div>
                                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(req.created_at).toLocaleString()}</div>

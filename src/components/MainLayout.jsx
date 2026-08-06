@@ -154,7 +154,7 @@ function MainLayout() {
             <aside className="sidebar">
                 <div className="sidebar-header">
                     <img
-                        src={isLSSD ? "/lssd/SCUB.png" : "/LOGO_SAPD.png"}
+                        src={isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/LSSDlogo.webp"}
                         alt={isLSSD ? "SCUB" : "SAPD"}
                         className="sidebar-logo"
                         onClick={handleLogoClick}
@@ -182,7 +182,7 @@ function MainLayout() {
                                 {getProfileImage(profile.profile_image) ? (
                                     <img src={getProfileImage(profile.profile_image)} alt="Profile" />
                                 ) : (
-                                    <img src="/anon.png" alt="Profile" />
+                                    <img src="/logowebp/anon.webp" alt="Profile" />
                                 )}
                             </div>
                             <div className="user-info">

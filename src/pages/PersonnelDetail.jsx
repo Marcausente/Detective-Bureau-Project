@@ -395,7 +395,7 @@ function PersonnelDetail() {
                         {getProfileImage(user.profile_image) ? (
                             <img src={getProfileImage(user.profile_image)} alt={`${user.nombre} ${user.apellido}`} className="detail-image" />
                         ) : (
-                            <img src="/anon.png" alt="Anon" className="detail-image" />
+                            <img src="/logowebp/anon.webp" alt="Anon" className="detail-image" />
                         )}
                     </div>
                     <div className="detail-title">

@@ -355,7 +355,7 @@ function ComplaintCard({
                 {/* Author Info */}
                 <div style={{ display: 'flex', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                     <img 
-                        src={data.author_avatar || '/anon.png'} 
+                        src={data.author_avatar || '/logowebp/anon.webp'} 
                         alt={data.author_name || "User"} 
                         style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '5px', objectFit: 'cover' }} 
                     />

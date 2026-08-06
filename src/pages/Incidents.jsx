@@ -166,17 +166,18 @@ function Incidents() {
         const sanitizedIncidents = (incData || []).map(inc => ({
             ...inc,
             images: filterBucketImages(inc.images),
-            author_avatar: getProfileImage(inc.author_avatar, '/anon.png'),
-            description: stripBase64FromHtml(inc.description)
+            author_avatar: getProfileImage(inc.author_avatar, '/logowebp/anon.webp'),
+            description: stripBase64FromHtml(inc.description),
+            gang_names: inc.gang_names || []
         }));
 
         const sanitizedOutings = (outData || []).map(out => ({
             ...out,
             images: filterBucketImages(out.images),
-            author_avatar: getProfileImage(out.author_avatar, '/anon.png'),
+            author_avatar: getProfileImage(out.author_avatar, '/logowebp/anon.webp'),
             info_obtained: stripBase64FromHtml(out.info_obtained),
-            detectives: Array.isArray(out.detectives)
-                ? out.detectives.map(d => ({ ...d, avatar: getProfileImage(d.avatar, '/anon.png') }))
+            detectives: (out.detectives && Array.isArray(out.detectives))
+                ? out.detectives.map(d => ({ ...d, avatar: getProfileImage(d.avatar, '/logowebp/anon.webp') }))
                 : []
         }));
 

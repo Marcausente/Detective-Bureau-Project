@@ -151,7 +151,7 @@ function Cases() {
         <div className="documentation-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
             <div className="doc-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                    <img src={isLSSD ? "/lssd/Generalcrimes.png" : "/mcd.png"} alt="MCD Logo" style={{ height: '70px', width: 'auto', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }} />
+                    <img src={isLSSD ? "/logowebp/Generalcrimes.webp" : "/logowebp/mcd.webp"} alt="MCD Logo" style={{ height: '70px', width: 'auto', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }} />
                     <h2 className="page-title" style={{ margin: 0 }}>{isLSSD ? "GENERAL CRIMES" : "MAJOR CRIMES DIVISION"}</h2>
                 </div>
                 {currentUser && !['Ayudante', 'Invitado', 'Externo'].includes(currentUser.rol) && (
@@ -229,7 +229,7 @@ function Cases() {
                                     {c.assigned_avatars && c.assigned_avatars.map((img, idx) => (
                                         <img
                                             key={idx}
-                                            src={img || '/anon.png'}
+                                            src={img || '/logowebp/anon.webp'}
                                             alt="Ag"
                                             style={{
                                                 width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover',
@@ -302,7 +302,7 @@ function Cases() {
                                                 marginBottom: '2px'
                                             }}>
                                             <input type="checkbox" checked={newCase.assignments.includes(u.id)} readOnly style={{ marginRight: '10px' }} />
-                                            <img src={u.profile_image || '/anon.png'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '10px' }} />
+                                            <img src={u.profile_image || '/logowebp/anon.webp'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '10px' }} />
                                             <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
                                         </div>
                                     ))}

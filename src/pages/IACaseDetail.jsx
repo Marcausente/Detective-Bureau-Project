@@ -828,7 +828,7 @@ function IACaseDetail() {
                                             }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                        <img src={update.author_avatar || '/anon.png'} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px' }} />
+                                                        <img src={update.author_avatar || '/logowebp/anon.webp'} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px' }} />
                                                         <div>
                                                             <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{update.author_rank} {update.author_name}</div>
                                                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(update.created_at).toLocaleString()}</div>
@@ -939,7 +939,7 @@ function IACaseDetail() {
                             {assignments.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{language === 'es' ? 'Sin agentes asignados.' : 'No agents assigned.'}</div> : (
                                 assignments.map(user => (
                                     <div key={user.user_id} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '4px' }}>
-                                        <img src={user.avatar || '/anon.png'} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', marginRight: '10px', border: '1px solid var(--accent-gold)' }} />
+                                        <img src={user.avatar || '/logowebp/anon.webp'} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', marginRight: '10px', border: '1px solid var(--accent-gold)' }} />
                                         <div style={{ flex: 1 }}>
                                             <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{user.rank}</div>
                                             <div style={{ fontSize: '0.85rem' }}>{user.full_name}</div>
@@ -1050,7 +1050,7 @@ function IACaseDetail() {
                                         borderBottom: '1px solid rgba(255,255,255,0.05)'
                                     }}>
                                     <input type="checkbox" checked={selectedAssignments.includes(u.id)} readOnly style={{ marginRight: '10px', pointerEvents: 'none' }} />
-                                    <img src={u.profile_image || '/anon.png'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '10px' }} />
+                                    <img src={u.profile_image || '/logowebp/anon.webp'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '10px' }} />
                                     <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
                                 </div>
                             ))}
@@ -1225,7 +1225,7 @@ function IACaseDetail() {
                                                     borderBottom: '1px solid rgba(255,255,255,0.05)'
                                                 }}>
                                                 <input type="checkbox" checked={selectedHiddenUsers.includes(u.id)} readOnly style={{ marginRight: '10px', pointerEvents: 'none' }} />
-                                                <img src={u.profile_image || '/anon.png'} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', marginRight: '10px' }} />
+                                                <img src={u.profile_image || '/logowebp/anon.webp'} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', marginRight: '10px' }} />
                                                 <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
                                             </div>
                                         ))

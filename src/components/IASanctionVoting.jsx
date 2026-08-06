@@ -427,7 +427,7 @@ function IASanctionVoting({ caseId, currentUser, userIsIAUser, canEditCase }) {
                                                                     }}
                                                                 >
                                                                     <img
-                                                                        src={vote.users?.profile_image || '/anon.png'}
+                                                                        src={vote.users?.profile_image || '/logowebp/anon.webp'}
                                                                         alt=""
                                                                         style={{
                                                                             width: '16px',

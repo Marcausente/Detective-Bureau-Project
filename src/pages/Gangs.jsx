@@ -909,7 +909,7 @@ function Gangs() {
                 <div className="doc-header" style={{ padding: '1rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'var(--glass-bg)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '3rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                            <img src={isLSSD ? "/lssd/GND.png" : "/gnd.png"} alt="GND Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 0 8px rgba(0,0,0,0.5))' }} />
+                            <img src="/logowebp/gnd.webp" alt="GND Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 0 8px rgba(0,0,0,0.5))' }} />
                             <h2 className="header-title" style={{ margin: 0, fontSize: '1.5rem', color: '#fff' }}>{isLSSD ? t('gndTitle') : t('giuTitle')}</h2>
                         </div>
                         <div className="gangs-tabs">
@@ -1258,7 +1258,7 @@ function Gangs() {
                             <div>
                                 <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Logged by:</strong>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.3rem' }}>
-                                    <img src={selectedLog.detective_avatar || '/anon.png'} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                    <img src={selectedLog.detective_avatar || '/logowebp/anon.webp'} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
                                     <span>{selectedLog.detective_rank} {selectedLog.detective_name}</span>
                                 </div>
                             </div>
@@ -1360,7 +1360,7 @@ function Gangs() {
                         {/* Header */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                             <img
-                                src={selectedMember.photo || '/anon.png'}
+                                src={selectedMember.photo || '/logowebp/anon.webp'}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     if (selectedMember.photo) {
@@ -1803,7 +1803,7 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                             }}
                         >
                             <img
-                                src={m.photo || '/anon.png'}
+                                src={m.photo || '/logowebp/anon.webp'}
                                 className="gang-member-photo"
                                 style={{ border: `2px solid ${getStatusColor(m.role, isLSSD)}` }}
                                 alt=""

@@ -396,7 +396,7 @@ const OrderCard = ({ order, onPreview }) => {
 
             <div style={{ display: 'flex', alignItems: 'center', marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <img 
-                    src={order.author_avatar || '/anon.png'} 
+                    src={order.author_avatar || '/logowebp/anon.webp'} 
                     alt="" 
                     style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '10px', border: `1px solid ${color}44` }} 
                 />
@@ -481,12 +481,12 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                     
                     {/* Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', borderBottom: '2px solid #000', paddingBottom: '1rem' }}>
-                        <img src={isLSSD ? "/lssd/SCUB.png" : "/dblogo.png"} alt="DB" style={{ width: '60px', height: '60px' }} />
+                        <img src={isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp"} alt="DB" style={{ width: '60px', height: '60px' }} />
                         <div style={{ textAlign: 'center' }}>
                             <h2 style={{ margin: 0, textTransform: 'uppercase', fontSize: '1.2rem' }}>{isLSSD ? "Los Santos Sheriff's Department" : "Los Santos Police Department"}</h2>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'normal' }}>{isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU" : "DETECTIVE BUREAU"}</h3>
                         </div>
-                        <img src={isLSSD ? "/lssd/LSSDlogo.png" : "/LOGO_SAPD.png"} alt="LSPD" style={{ width: '60px', height: '60px' }} />
+                        <img src={isLSSD ? "/logowebp/LSSDlogo.webp" : "/logowebp/LSSDlogo.webp"} alt="LSPD" style={{ width: '60px', height: '60px' }} />
                     </div>
 
                     <h1 style={{ textAlign: 'center', textTransform: 'uppercase', fontSize: '1.8rem', margin: '2rem 0' }}>Solicitud de Orden Judicial</h1>

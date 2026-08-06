@@ -208,7 +208,7 @@ function IACases() {
                                     {c.assigned_avatars && c.assigned_avatars.map((img, idx) => (
                                         <img
                                             key={idx}
-                                            src={img || '/anon.png'}
+                                            src={img || '/logowebp/anon.webp'}
                                             alt="Ag"
                                             style={{
                                                 width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover',
@@ -282,7 +282,7 @@ function IACases() {
                                                     marginBottom: '2px'
                                                 }}>
                                                 <input type="checkbox" checked={newCase.assignments.includes(u.id)} readOnly style={{ marginRight: '10px' }} />
-                                                <img src={u.profile_image || '/anon.png'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '10px' }} />
+                                                <img src={u.profile_image || '/logowebp/anon.webp'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '10px' }} />
                                                 <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
                                             </div>
                                         ))}
@@ -320,7 +320,7 @@ function IACases() {
                                                             marginBottom: '2px', borderRadius: '4px'
                                                         }}>
                                                         <input type="checkbox" checked={newCase.hiddenUserIds.includes(u.id)} readOnly style={{ marginRight: '10px' }} />
-                                                        <img src={u.profile_image || '/anon.png'} alt="" style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '8px' }} />
+                                                        <img src={u.profile_image || '/logowebp/anon.webp'} alt="" style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '8px' }} />
                                                         <span style={{ fontSize: '0.85rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
                                                     </div>
                                                 ))}

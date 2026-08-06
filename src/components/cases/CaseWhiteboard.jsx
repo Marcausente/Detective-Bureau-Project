@@ -1358,7 +1358,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
-                            <img src={selectedPreviewUpdate.author_avatar || '/anon.png'} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid var(--accent-gold)' }} />
+                            <img src={selectedPreviewUpdate.author_avatar || '/logowebp/anon.webp'} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid var(--accent-gold)' }} />
                             <div>
                                 <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{selectedPreviewUpdate.author_rank} {selectedPreviewUpdate.author_name}</div>
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(selectedPreviewUpdate.created_at).toLocaleString()}</div>

@@ -22,7 +22,7 @@ function InternalAffairs() {
             {/* Hero Section */}
             <div style={{ textAlign: 'center', marginBottom: '3rem', animation: 'fadeIn 1s ease-out' }}>
                 <img
-                    src={isLSSD ? "/lssd/IALSSD.png" : "/ialogo.png"}
+                    src={isLSSD ? "/logowebp/IALSSD.webp" : "/logowebp/ialogo.webp"}
                     alt="IA Logo"
                     style={{
                         width: '120px', // Smaller logo

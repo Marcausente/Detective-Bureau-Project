@@ -18,7 +18,7 @@ function DOJ() {
             {/* Hero Section */}
             <div style={{ textAlign: 'center', marginBottom: '3rem', animation: 'fadeIn 1s ease-out' }}>
                 <img
-                    src="/doj-logo.png"
+                    src="/logowebp/doj-logo.webp"
                     alt="DOJ Logo"
                     style={{
                         width: '120px',

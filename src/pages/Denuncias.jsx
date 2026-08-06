@@ -304,7 +304,7 @@ function Denuncias() {
             <div className="doc-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                     <img 
-                        src="/lssd/Generalcrimes.png" 
+                        src="/logowebp/Generalcrimes.webp" 
                         alt="General Crimes Logo" 
                         style={{ height: '70px', width: 'auto', filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.5))' }} 
                     />

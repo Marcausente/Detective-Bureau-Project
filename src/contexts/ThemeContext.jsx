@@ -56,11 +56,11 @@ export function ThemeProvider({ children }) {
         if (theme === 'LSSD') {
             document.body.classList.add('theme-lssd');
             document.title = "Sheriff Criminal Unit Bureau";
-            if (favicon) favicon.href = '/lssd/SCUB.png';
+            if (favicon) favicon.href = '/logowebp/SCUB.webp';
         } else {
             document.body.classList.remove('theme-lssd');
             document.title = "Detective Bureau";
-            if (favicon) favicon.href = '/dblogo.png';
+            if (favicon) favicon.href = '/logowebp/dblogo.webp';
         }
     }, [theme]);
 

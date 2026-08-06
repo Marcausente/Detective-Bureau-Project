@@ -44,7 +44,7 @@ body.theme-lssd {
 body.theme-lssd .layout-content {
   background-image:
     linear-gradient(var(--content-overlay), var(--content-overlay)),
-    url("/lssd/fondolssd.jpg");
+    url("/logowebp/fondolssd.webp");
 }
 
 /* LSSD specific cards */
@@ -473,7 +473,7 @@ body {
   overflow-y: auto;
   background-image:
     linear-gradient(var(--content-overlay), var(--content-overlay)),
-    url("/indeximage.png");
+    url("/logowebp/indeximage.webp");
   /* Subtle texture if needed */
   background-size: cover;
 }

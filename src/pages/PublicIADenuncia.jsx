@@ -135,7 +135,7 @@ function PublicIADenuncia() {
             {/* Background image / style standard to the app */}
             <div className="background-container">
                 <img 
-                    src="/lssd/fondoia.png" 
+                    src="/logowebp/fondoia.webp" 
                     alt="Background" 
                     className="background-image" 
                     style={{ opacity: isLSSD ? 0.25 : 0.15 }} 
@@ -145,7 +145,7 @@ function PublicIADenuncia() {
             {/* Header */}
             <header className="header" style={{ borderBottom: `1px solid ${accentColorRgb}` }}>
                 <img 
-                    src={isLSSD ? "/lssd/IALSSD.png" : "/ialogo.png"} 
+                    src={isLSSD ? "/logowebp/IALSSD.webp" : "/logowebp/ialogo.webp"} 
                     alt="Logo" 
                     className="header-logo" 
                     style={{ filter: `drop-shadow(0 0 10px ${isLSSD ? 'rgba(74, 222, 128, 0.4)' : 'rgba(185, 28, 28, 0.4)'})` }} 
@@ -158,7 +158,7 @@ function PublicIADenuncia() {
                         FORMULARIO DE DENUNCIA CONFIDENCIAL
                     </div>
                 </div>
-                <img src={isLSSD ? "/lssd/SCUB.png" : "/dblogo.png"} alt="Bureau Logo" className="header-logo" />
+                <img src={isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp"} alt="Bureau Logo" className="header-logo" />
             </header>
 
             <main style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '3rem 1.5rem' }}>

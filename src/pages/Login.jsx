@@ -37,17 +37,17 @@ function Login() {
         <div className="app-container">
             {/* Background */}
             <div className="background-container">
-                <img src={isLSSD ? "/lssd/fondolssd.jpg" : "/indeximage.png"} alt="Background" className="background-image" />
+                <img src={isLSSD ? "/logowebp/fondolssd.webp" : "/logowebp/indeximage.webp"} alt="Background" className="background-image" />
             </div>
 
             {/* Header */}
             <header className="header">
-                <img src={isLSSD ? "/lssd/LSSDlogo.png" : "/LOGO_SAPD.png"} alt="Department Logo" className="header-logo" />
+                <img src={isLSSD ? "/logowebp/LSSDlogo.webp" : "/logowebp/LSSDlogo.webp"} alt="Department Logo" className="header-logo" />
                 <div className="header-title-container">
                     <h1 className="header-title">{isLSSD ? "Los Santos Sheriff's Department" : "Los Santos Police Department"}</h1>
                     <div className="header-subtitle">{isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau"}</div>
                 </div>
-                <img src={isLSSD ? "/lssd/SCUB.png" : "/dblogo.png"} alt="Bureau Logo" className="header-logo" />
+                <img src={isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp"} alt="Bureau Logo" className="header-logo" />
             </header>
 
             {/* Main Content */}

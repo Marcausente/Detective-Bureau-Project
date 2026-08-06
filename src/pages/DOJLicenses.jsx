@@ -208,7 +208,7 @@ function DOJLicenses() {
                                 {civilian.profile_image ? (
                                     <img src={civilian.profile_image} alt={civilian.nombre} className="personnel-image" />
                                 ) : (
-                                    <img src="/anon.png" alt="No photo" className="personnel-image" />
+                                    <img src="/logowebp/anon.webp" alt="No photo" className="personnel-image" />
                                 )}
                             </div>
                             <div className="personnel-info">

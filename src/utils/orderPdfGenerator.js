@@ -21,8 +21,8 @@ export const generateOrderPDF = async (order, config) => {
     // Determine theme
     const isLSSD = document.body.classList.contains('theme-lssd');
 
-    const dbLogo = await loadImg(isLSSD ? '/lssd/SCUB.png' : '/dblogo.png');
-    const sapdLogo = await loadImg(isLSSD ? '/lssd/LSSDlogo.png' : '/LOGO_SAPD.png');
+    const dbLogo = await loadImg(isLSSD ? '/logowebp/SCUB.webp' : '/logowebp/dblogo.webp');
+    const sapdLogo = await loadImg(isLSSD ? '/logowebp/LSSDlogo.webp' : '/logowebp/LSSDlogo.webp');
 
     // --- HEADER ---
     const pageWidth = doc.internal.pageSize.getWidth();

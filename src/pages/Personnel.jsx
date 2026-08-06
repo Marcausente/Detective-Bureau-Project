@@ -312,7 +312,7 @@ function Personnel() {
                     {getProfileImage(user.profile_image) ? (
                         <img src={getProfileImage(user.profile_image)} alt={`${user.nombre} ${user.apellido} `} className="personnel-image" />
                     ) : (
-                        <img src="/anon.png" alt="Anon" className="personnel-image" />
+                        <img src="/logowebp/anon.webp" alt="Anon" className="personnel-image" />
                     )}
                 </div>
                 <div className="personnel-info">

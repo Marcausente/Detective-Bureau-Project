@@ -94,7 +94,7 @@ function IncidentCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
             )}
 
             <div style={{ marginTop: '0.8rem', fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
-                <img src={getProfileImage(data.author_avatar, '/anon.png')} alt="" style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '5px' }} />
+                <img src={getProfileImage(data.author_avatar, '/logowebp/anon.webp')} alt="" style={{ width: '20px', height: '20px', borderRadius: '50%', marginRight: '5px' }} />
                 By {data.author_rank} {data.author_name}
             </div>
         </div>

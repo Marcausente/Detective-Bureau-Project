@@ -384,7 +384,7 @@ function Profile() {
                         {(formData.profile_image && formData.profile_image.startsWith('data:')) || getProfileImage(formData.profile_image) ? (
                             <img src={formData.profile_image} alt="Profile" />
                         ) : (
-                            <img src="/anon.png" alt="Default Profile" />
+                            <img src="/logowebp/anon.webp" alt="Default Profile" />
                         )}
                         <div className="profile-image-overlay">
                             <span className="image-upload-text">Click to Change</span>
