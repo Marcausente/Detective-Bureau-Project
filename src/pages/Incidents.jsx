@@ -53,6 +53,8 @@ function Incidents() {
     const [outInfo, setOutInfo] = useState('');
     const [outGangIds, setOutGangIds] = useState([]); // Changed to array for multiple gangs
     const [outInterrogationIds, setOutInterrogationIds] = useState([]); // Array of linked interrogation IDs
+    const [outTag, setOutTag] = useState('');
+    const [outImages, setOutImages] = useState([]);
     // --- PAGINATION / LIMITS (20 ITEMS PER SECTION) ---
     const [visibleGeneralCount, setVisibleGeneralCount] = useState(20);
     const [visibleLinkedCount, setVisibleLinkedCount] = useState(20);
