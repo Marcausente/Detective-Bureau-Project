@@ -16,6 +16,7 @@ function Incidents() {
     const highlightedRef = useRef(null);
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedGangName, setSelectedGangName] = useState('');
     const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
     const searchHighlightedRef = useRef(null);
 
@@ -78,9 +79,9 @@ function Incidents() {
     const linkedIncidents = useMemo(() => incidents.filter(i => i.gang_id), [incidents]);
 
     const visibleGeneralIncidents = useMemo(() => {
-        if (searchTerm || searchParams.get('incident_id')) return generalIncidents;
+        if (searchTerm || selectedGangName || searchParams.get('incident_id')) return generalIncidents;
         return generalIncidents.slice(0, visibleGeneralCount);
-    }, [generalIncidents, visibleGeneralCount, searchTerm, searchParams]);
+    }, [generalIncidents, visibleGeneralCount, searchTerm, selectedGangName, searchParams]);
 
     const visibleLinkedIncidents = useMemo(() => {
         if (searchTerm || searchParams.get('incident_id')) return linkedIncidents;
@@ -92,47 +93,58 @@ function Incidents() {
         return outings.slice(0, visibleOutingsCount);
     }, [outings, visibleOutingsCount, searchParams]);
 
-    // Compute search matches across ALL incidents (General & Linked)
+    // Compute search matches:
+    // - If selectedGangName is set -> Search ONLY in generalIncidents (unlinked reports) for gang members
+    // - If searchTerm is set -> Search across ALL incidents (General & Linked) for report number/text/author
     const searchMatches = useMemo(() => {
+        if (selectedGangName && selectedGangName.trim() !== '') {
+            const term = selectedGangName.toLowerCase().trim();
+            const matchedGang = gangs.find(g => g.name && g.name.toLowerCase() === term);
+
+            const searchTerms = [term];
+            if (matchedGang && matchedGang.gang_members) {
+                matchedGang.gang_members.forEach(m => {
+                    if (m.name) {
+                        const nameLower = m.name.toLowerCase().trim();
+                        searchTerms.push(nameLower);
+
+                        const bracketMatch = m.name.match(/\[([^\]]+)\]/);
+                        if (bracketMatch && bracketMatch[1]) {
+                            searchTerms.push(bracketMatch[1].toLowerCase().trim());
+                        }
+                    }
+                });
+            }
+
+            return generalIncidents.filter(inc => {
+                return searchTerms.some(sTerm => {
+                    return (
+                        (inc.title && inc.title.toLowerCase().includes(sTerm)) ||
+                        (inc.description && inc.description.toLowerCase().includes(sTerm)) ||
+                        (inc.location && inc.location.toLowerCase().includes(sTerm)) ||
+                        (inc.author_name && inc.author_name.toLowerCase().includes(sTerm))
+                    );
+                });
+            }).map(inc => inc.record_id);
+        }
+
         if (!searchTerm || typeof searchTerm !== 'string' || searchTerm.trim() === '') return [];
 
         const term = searchTerm.toLowerCase().trim();
-
-        // Check if the search term matches a gang name (case-insensitive)
-        const matchedGang = gangs.find(g => g.name && g.name.toLowerCase() === term);
-
-        // Build list of terms to search for
-        const searchTerms = [term];
-        if (matchedGang && matchedGang.gang_members) {
-            matchedGang.gang_members.forEach(m => {
-                if (m.name) {
-                    const nameLower = m.name.toLowerCase().trim();
-                    searchTerms.push(nameLower);
-
-                    // Extract ID inside brackets [] (e.g., [EBELT72G])
-                    const bracketMatch = m.name.match(/\[([^\]]+)\]/);
-                    if (bracketMatch && bracketMatch[1]) {
-                        searchTerms.push(bracketMatch[1].toLowerCase().trim());
-                    }
-                }
-            });
-        }
+        const cleanSTerm = term.replace(/^#/, '');
 
         return incidents.filter(inc => {
-            return searchTerms.some(sTerm => {
-                const cleanSTerm = sTerm.replace(/^#/, '');
-                return (
-                    (inc.title && inc.title.toLowerCase().includes(sTerm)) ||
-                    (inc.description && inc.description.toLowerCase().includes(sTerm)) ||
-                    (inc.tablet_incident_number && inc.tablet_incident_number.toString().toLowerCase().includes(cleanSTerm)) ||
-                    (inc.location && inc.location.toLowerCase().includes(sTerm)) ||
-                    (inc.author_name && inc.author_name.toLowerCase().includes(sTerm)) ||
-                    (inc.gang_names && inc.gang_names.some(gName => gName.toLowerCase().includes(sTerm))) ||
-                    (inc.record_id && inc.record_id.toLowerCase().includes(sTerm))
-                );
-            });
+            return (
+                (inc.title && inc.title.toLowerCase().includes(term)) ||
+                (inc.description && inc.description.toLowerCase().includes(term)) ||
+                (inc.tablet_incident_number && inc.tablet_incident_number.toString().toLowerCase().includes(cleanSTerm)) ||
+                (inc.location && inc.location.toLowerCase().includes(term)) ||
+                (inc.author_name && inc.author_name.toLowerCase().includes(term)) ||
+                (inc.gang_names && inc.gang_names.some(gName => gName.toLowerCase().includes(term))) ||
+                (inc.record_id && inc.record_id.toLowerCase().includes(term))
+            );
         }).map(inc => inc.record_id);
-    }, [incidents, searchTerm, gangs]);
+    }, [incidents, generalIncidents, searchTerm, selectedGangName, gangs]);
 
     const goToNextMatch = () => {
         if (searchMatches.length === 0) return;
@@ -153,7 +165,7 @@ function Incidents() {
             }, 50);
             return () => clearTimeout(timer);
         }
-    }, [searchTerm, currentMatchIndex]);
+    }, [searchTerm, selectedGangName, currentMatchIndex]);
 
     const loadData = async () => {
         setLoading(true);
@@ -686,10 +698,11 @@ function Incidents() {
                             <div style={{ position: 'relative', flex: 1, minWidth: '250px' }}>
                                 <input
                                     type="text"
-                                    placeholder="🔍 Buscador general de informes (Nº de informe, título, descripción, ubicación, autor...)"
+                                    placeholder="🔍 Buscador general (Nº de informe, título, descripción, ubicación, autor...)"
                                     value={searchTerm}
                                     onChange={(e) => {
                                         setSearchTerm(e.target.value);
+                                        if (e.target.value) setSelectedGangName('');
                                         setCurrentMatchIndex(0);
                                     }}
                                     className="form-input"
@@ -743,9 +756,10 @@ function Incidents() {
                                     border: '1px solid rgba(255,255,255,0.15)',
                                     color: '#fff'
                                 }}
-                                value={searchTerm}
+                                value={selectedGangName}
                                 onChange={(e) => {
-                                    setSearchTerm(e.target.value);
+                                    setSelectedGangName(e.target.value);
+                                    if (e.target.value) setSearchTerm('');
                                     setCurrentMatchIndex(0);
                                 }}
                             >
@@ -769,7 +783,10 @@ function Incidents() {
                                 border: '1px solid rgba(56, 189, 248, 0.2)'
                             }}>
                                 <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: '500' }}>
-                                    Coincidencia {currentMatchIndex + 1} de {searchMatches.length} en informes (generales y vinculados)
+                                    {selectedGangName
+                                        ? `Coincidencia ${currentMatchIndex + 1} de ${searchMatches.length} en informes generales para 🏴 ${selectedGangName}`
+                                        : `Coincidencia ${currentMatchIndex + 1} de ${searchMatches.length} en informes (generales y vinculados)`
+                                    }
                                 </span>
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                                     <button
@@ -804,7 +821,7 @@ function Incidents() {
                                     </button>
                                 </div>
                             </div>
-                        ) : searchTerm.trim() !== '' ? (
+                        ) : (searchTerm.trim() !== '' || selectedGangName.trim() !== '') ? (
                             <div style={{
                                 padding: '0.5rem 0.8rem',
                                 background: 'rgba(239, 68, 68, 0.08)',
@@ -814,7 +831,10 @@ function Incidents() {
                                 color: '#f87171',
                                 textAlign: 'center'
                             }}>
-                                ⚠️ Ningún informe (general o vinculado) coincide con "{searchTerm}"
+                                ⚠️ {selectedGangName
+                                    ? `Ningún informe general (sin vincular) coincide con la banda "${selectedGangName}"`
+                                    : `Ningún informe (general o vinculado) coincide con "${searchTerm}"`
+                                }
                             </div>
                         ) : null}
                     </div>
