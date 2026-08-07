@@ -83,16 +83,16 @@ function Incidents() {
     }, [generalIncidents, visibleGeneralCount, searchTerm, searchParams]);
 
     const visibleLinkedIncidents = useMemo(() => {
-        if (searchParams.get('incident_id')) return linkedIncidents;
+        if (searchTerm || searchParams.get('incident_id')) return linkedIncidents;
         return linkedIncidents.slice(0, visibleLinkedCount);
-    }, [linkedIncidents, visibleLinkedCount, searchParams]);
+    }, [linkedIncidents, visibleLinkedCount, searchTerm, searchParams]);
 
     const visibleOutings = useMemo(() => {
         if (searchParams.get('outing_id')) return outings;
         return outings.slice(0, visibleOutingsCount);
     }, [outings, visibleOutingsCount, searchParams]);
 
-    // Compute search matches in General Incidents
+    // Compute search matches across ALL incidents (General & Linked)
     const searchMatches = useMemo(() => {
         if (!searchTerm || typeof searchTerm !== 'string' || searchTerm.trim() === '') return [];
 
@@ -118,18 +118,21 @@ function Incidents() {
             });
         }
 
-        return generalIncidents.filter(inc => {
+        return incidents.filter(inc => {
             return searchTerms.some(sTerm => {
+                const cleanSTerm = sTerm.replace(/^#/, '');
                 return (
                     (inc.title && inc.title.toLowerCase().includes(sTerm)) ||
                     (inc.description && inc.description.toLowerCase().includes(sTerm)) ||
-                    (inc.tablet_incident_number && inc.tablet_incident_number.toString().toLowerCase().includes(sTerm)) ||
+                    (inc.tablet_incident_number && inc.tablet_incident_number.toString().toLowerCase().includes(cleanSTerm)) ||
                     (inc.location && inc.location.toLowerCase().includes(sTerm)) ||
-                    (inc.author_name && inc.author_name.toLowerCase().includes(sTerm))
+                    (inc.author_name && inc.author_name.toLowerCase().includes(sTerm)) ||
+                    (inc.gang_names && inc.gang_names.some(gName => gName.toLowerCase().includes(sTerm))) ||
+                    (inc.record_id && inc.record_id.toLowerCase().includes(sTerm))
                 );
             });
         }).map(inc => inc.record_id);
-    }, [generalIncidents, searchTerm, gangs]);
+    }, [incidents, searchTerm, gangs]);
 
     const goToNextMatch = () => {
         if (searchMatches.length === 0) return;
@@ -666,268 +669,275 @@ function Incidents() {
             </div>
 
             {loading ? <div className="loading-container">{t('loadingIncidents')}</div> : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2rem' }}>
-
-                    {/* COLUMN 1: UNLINKED INCIDENTS */}
-                    <div className="column-container">
-                        <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{t('generalIncidentsCol')}</h3>
-                        
-                        {/* SEARCH COMPONENT FOR GENERAL REPORTS */}
-                        <div style={{
-                            margin: '0.8rem 0',
-                            padding: '0.8rem',
-                            background: 'rgba(255, 255, 255, 0.03)',
-                            border: '1px solid rgba(255, 255, 255, 0.08)',
-                            borderRadius: '10px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.6rem',
-                            boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.05)'
-                        }}>
-                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                <div style={{ position: 'relative', flex: 1 }}>
-                                    <input
-                                        type="text"
-                                        placeholder="🔍 Buscar palabra..."
-                                        value={searchTerm}
-                                        onChange={(e) => {
-                                            setSearchTerm(e.target.value);
-                                            setCurrentMatchIndex(0);
-                                        }}
-                                        className="form-input"
-                                        style={{
-                                            margin: 0,
-                                            padding: '0.4rem 2.2rem 0.4rem 0.8rem',
-                                            fontSize: '0.85rem',
-                                            width: '100%',
-                                            boxSizing: 'border-box',
-                                            borderRadius: '6px',
-                                            background: 'rgba(0,0,0,0.2)',
-                                            border: '1px solid rgba(255,255,255,0.1)',
-                                            color: '#fff'
-                                        }}
-                                    />
-                                    {searchTerm && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setSearchTerm('');
-                                                setCurrentMatchIndex(0);
-                                            }}
-                                            style={{
-                                                position: 'absolute',
-                                                right: '6px',
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                background: 'none',
-                                                border: 'none',
-                                                color: 'rgba(255,255,255,0.4)',
-                                                cursor: 'pointer',
-                                                fontSize: '0.9rem',
-                                                padding: '2px 4px'
-                                            }}
-                                        >
-                                            ×
-                                        </button>
-                                    )}
-                                </div>
-
-                                <select
-                                    className="form-input"
-                                    style={{
-                                        margin: 0,
-                                        padding: '0.4rem 0.8rem',
-                                        fontSize: '0.85rem',
-                                        width: 'auto',
-                                        minWidth: '130px',
-                                        borderRadius: '6px',
-                                        background: 'rgba(0,0,0,0.2)',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        color: '#fff'
-                                    }}
+                <div>
+                    {/* BUSCADOR GENERAL DE INFORMES */}
+                    <div style={{
+                        margin: '0 0 1.5rem 0',
+                        padding: '1rem 1.2rem',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.8rem',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
+                    }}>
+                        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ position: 'relative', flex: 1, minWidth: '250px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Buscador general de informes (Nº de informe, título, descripción, ubicación, autor...)"
                                     value={searchTerm}
                                     onChange={(e) => {
                                         setSearchTerm(e.target.value);
                                         setCurrentMatchIndex(0);
                                     }}
-                                >
-                                    <option value="" style={{ background: '#222', color: '#888' }}>-- Buscar por banda --</option>
-                                    {gangs.map(g => (
-                                        <option key={g.id} value={g.name} style={{ background: '#222', color: '#fff' }}>
-                                            🏴 {g.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    className="form-input"
+                                    style={{
+                                        margin: 0,
+                                        padding: '0.6rem 2.4rem 0.6rem 1rem',
+                                        fontSize: '0.9rem',
+                                        width: '100%',
+                                        boxSizing: 'border-box',
+                                        borderRadius: '8px',
+                                        background: 'rgba(0,0,0,0.3)',
+                                        border: '1px solid rgba(255,255,255,0.15)',
+                                        color: '#fff'
+                                    }}
+                                />
+                                {searchTerm && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSearchTerm('');
+                                            setCurrentMatchIndex(0);
+                                        }}
+                                        style={{
+                                            position: 'absolute',
+                                            right: '10px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'none',
+                                            border: 'none',
+                                            color: 'rgba(255,255,255,0.5)',
+                                            cursor: 'pointer',
+                                            fontSize: '1.1rem',
+                                            padding: '2px 4px'
+                                        }}
+                                    >
+                                        ×
+                                    </button>
+                                )}
                             </div>
 
-                            {searchMatches.length > 0 ? (
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '0.2rem 0.4rem',
-                                    background: 'rgba(56, 189, 248, 0.08)',
-                                    borderRadius: '6px',
-                                    border: '1px solid rgba(56, 189, 248, 0.15)'
-                                }}>
-                                    <span style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: '500' }}>
-                                        Coincidencia {currentMatchIndex + 1} de {searchMatches.length}
-                                    </span>
-                                    <div style={{ display: 'flex', gap: '0.3rem' }}>
+                            <select
+                                className="form-input"
+                                style={{
+                                    margin: 0,
+                                    padding: '0.6rem 1rem',
+                                    fontSize: '0.9rem',
+                                    width: 'auto',
+                                    minWidth: '180px',
+                                    borderRadius: '8px',
+                                    background: 'rgba(0,0,0,0.3)',
+                                    border: '1px solid rgba(255,255,255,0.15)',
+                                    color: '#fff'
+                                }}
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentMatchIndex(0);
+                                }}
+                            >
+                                <option value="" style={{ background: '#222', color: '#888' }}>-- Buscar por banda --</option>
+                                {gangs.map(g => (
+                                    <option key={g.id} value={g.name} style={{ background: '#222', color: '#fff' }}>
+                                        🏴 {g.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {searchMatches.length > 0 ? (
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '0.4rem 0.8rem',
+                                background: 'rgba(56, 189, 248, 0.1)',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(56, 189, 248, 0.2)'
+                            }}>
+                                <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: '500' }}>
+                                    Coincidencia {currentMatchIndex + 1} de {searchMatches.length} en informes (generales y vinculados)
+                                </span>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={goToPrevMatch}
+                                        className="login-button btn-secondary"
+                                        style={{
+                                            width: 'auto',
+                                            padding: '0.3rem 0.7rem',
+                                            margin: 0,
+                                            fontSize: '0.8rem',
+                                            background: 'rgba(255,255,255,0.05)',
+                                            border: '1px solid rgba(255,255,255,0.1)'
+                                        }}
+                                    >
+                                        ▲ Anterior
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={goToNextMatch}
+                                        className="login-button btn-secondary"
+                                        style={{
+                                            width: 'auto',
+                                            padding: '0.3rem 0.7rem',
+                                            margin: 0,
+                                            fontSize: '0.8rem',
+                                            background: 'rgba(255,255,255,0.05)',
+                                            border: '1px solid rgba(255,255,255,0.1)'
+                                        }}
+                                    >
+                                        Siguiente ▼
+                                    </button>
+                                </div>
+                            </div>
+                        ) : searchTerm.trim() !== '' ? (
+                            <div style={{
+                                padding: '0.5rem 0.8rem',
+                                background: 'rgba(239, 68, 68, 0.08)',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(239, 68, 68, 0.15)',
+                                fontSize: '0.85rem',
+                                color: '#f87171',
+                                textAlign: 'center'
+                            }}>
+                                ⚠️ Ningún informe (general o vinculado) coincide con "{searchTerm}"
+                            </div>
+                        ) : null}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2rem' }}>
+
+                        {/* COLUMN 1: UNLINKED INCIDENTS */}
+                        <div className="column-container">
+                            <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{t('generalIncidentsCol')}</h3>
+
+                            <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                                {generalIncidents.length === 0 ? <div className="empty-list">{t('noIncidents')}</div> :
+                                    visibleGeneralIncidents.map(inc => {
+                                        const isUrlHighlighted = searchParams.get('incident_id') === inc.record_id;
+                                        const isSearchHighlighted = searchMatches.length > 0 && searchMatches[currentMatchIndex] === inc.record_id;
+                                        const isHighlighted = isUrlHighlighted || isSearchHighlighted;
+                                        return (
+                                            <div 
+                                                key={inc.record_id} 
+                                                ref={isUrlHighlighted ? highlightedRef : (isSearchHighlighted ? searchHighlightedRef : null)}
+                                            >
+                                                <IncidentCard
+                                                    data={inc}
+                                                    onExpand={setExpandedImage}
+                                                    onDelete={handleDeleteIncident}
+                                                    onEdit={handleEditIncident}
+                                                    isHighlighted={isHighlighted}
+                                                />
+                                            </div>
+                                        );
+                                    })
+                                }
+                                {!searchTerm && !searchParams.get('incident_id') && generalIncidents.length > visibleGeneralCount && (
+                                    <div style={{ textAlign: 'center', margin: '1rem 0 0.5rem 0' }}>
                                         <button
                                             type="button"
-                                            onClick={goToPrevMatch}
                                             className="login-button btn-secondary"
-                                            style={{
-                                                width: 'auto',
-                                                padding: '0.2rem 0.5rem',
-                                                margin: 0,
-                                                fontSize: '0.75rem',
-                                                background: 'rgba(255,255,255,0.05)',
-                                                border: '1px solid rgba(255,255,255,0.1)'
-                                            }}
+                                            style={{ width: '100%', padding: '0.5rem 1rem', fontSize: '0.82rem' }}
+                                            onClick={() => setVisibleGeneralCount(prev => prev + 20)}
                                         >
-                                            ▲ Anterior
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={goToNextMatch}
-                                            className="login-button btn-secondary"
-                                            style={{
-                                                width: 'auto',
-                                                padding: '0.2rem 0.5rem',
-                                                margin: 0,
-                                                fontSize: '0.75rem',
-                                                background: 'rgba(255,255,255,0.05)',
-                                                border: '1px solid rgba(255,255,255,0.1)'
-                                            }}
-                                        >
-                                            Siguiente ▼
+                                            📥 Cargar más informes ({generalIncidents.length - visibleGeneralCount} restantes)
                                         </button>
                                     </div>
-                                </div>
-                            ) : searchTerm.trim() !== '' ? (
-                                <div style={{
-                                    padding: '0.3rem 0.4rem',
-                                    background: 'rgba(239, 68, 68, 0.08)',
-                                    borderRadius: '6px',
-                                    border: '1px solid rgba(239, 68, 68, 0.15)',
-                                    fontSize: '0.8rem',
-                                    color: '#f87171',
-                                    textAlign: 'center'
-                                }}>
-                                    ⚠️ Ningún informe coincide
-                                </div>
-                            ) : null}
+                                )}
+                            </div>
                         </div>
 
-                        <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                            {generalIncidents.length === 0 ? <div className="empty-list">{t('noIncidents')}</div> :
-                                visibleGeneralIncidents.map(inc => {
-                                    const isUrlHighlighted = searchParams.get('incident_id') === inc.record_id;
-                                    const isSearchHighlighted = searchMatches.length > 0 && searchMatches[currentMatchIndex] === inc.record_id;
-                                    const isHighlighted = isUrlHighlighted || isSearchHighlighted;
-                                    return (
-                                        <div 
-                                            key={inc.record_id} 
-                                            ref={isUrlHighlighted ? highlightedRef : (isSearchHighlighted ? searchHighlightedRef : null)}
+                        {/* COLUMN 2: LINKED INCIDENTS */}
+                        <div className="column-container">
+                            <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{t('linkedIncidentsCol')}</h3>
+                            <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                                {linkedIncidents.length === 0 ? <div className="empty-list">{t('noLinkedIncidents')}</div> :
+                                    visibleLinkedIncidents.map(inc => {
+                                        const isUrlHighlighted = searchParams.get('incident_id') === inc.record_id;
+                                        const isSearchHighlighted = searchMatches.length > 0 && searchMatches[currentMatchIndex] === inc.record_id;
+                                        const isHighlighted = isUrlHighlighted || isSearchHighlighted;
+                                        return (
+                                            <div 
+                                                key={inc.record_id} 
+                                                ref={isUrlHighlighted ? highlightedRef : (isSearchHighlighted ? searchHighlightedRef : null)}
+                                            >
+                                                <IncidentCard
+                                                    data={inc}
+                                                    onExpand={setExpandedImage}
+                                                    onDelete={handleDeleteIncident}
+                                                    onEdit={handleEditIncident}
+                                                    isHighlighted={isHighlighted}
+                                                />
+                                            </div>
+                                        );
+                                    })
+                                }
+                                {!searchTerm && !searchParams.get('incident_id') && linkedIncidents.length > visibleLinkedCount && (
+                                    <div style={{ textAlign: 'center', margin: '1rem 0 0.5rem 0' }}>
+                                        <button
+                                            type="button"
+                                            className="login-button btn-secondary"
+                                            style={{ width: '100%', padding: '0.5rem 1rem', fontSize: '0.82rem' }}
+                                            onClick={() => setVisibleLinkedCount(prev => prev + 20)}
                                         >
-                                            <IncidentCard
-                                                data={inc}
-                                                onExpand={setExpandedImage}
-                                                onDelete={handleDeleteIncident}
-                                                onEdit={handleEditIncident}
-                                                isHighlighted={isHighlighted}
-                                            />
-                                        </div>
-                                    );
-                                })
-                            }
-                            {!searchTerm && !searchParams.get('incident_id') && generalIncidents.length > visibleGeneralCount && (
-                                <div style={{ textAlign: 'center', margin: '1rem 0 0.5rem 0' }}>
-                                    <button
-                                        type="button"
-                                        className="login-button btn-secondary"
-                                        style={{ width: '100%', padding: '0.5rem 1rem', fontSize: '0.82rem' }}
-                                        onClick={() => setVisibleGeneralCount(prev => prev + 20)}
-                                    >
-                                        📥 Cargar más informes ({generalIncidents.length - visibleGeneralCount} restantes)
-                                    </button>
-                                </div>
-                            )}
+                                            📥 Cargar más informes ({linkedIncidents.length - visibleLinkedCount} restantes)
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
 
-                    {/* COLUMN 2: LINKED INCIDENTS */}
-                    <div className="column-container">
-                        <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{t('linkedIncidentsCol')}</h3>
-                        <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                            {linkedIncidents.length === 0 ? <div className="empty-list">{t('noLinkedIncidents')}</div> :
-                                visibleLinkedIncidents.map(inc => {
-                                    const isHighlighted = searchParams.get('incident_id') === inc.record_id;
-                                    return (
-                                        <div key={inc.record_id} ref={isHighlighted ? highlightedRef : null}>
-                                            <IncidentCard
-                                                data={inc}
-                                                onExpand={setExpandedImage}
-                                                onDelete={handleDeleteIncident}
-                                                onEdit={handleEditIncident}
-                                                isHighlighted={isHighlighted}
-                                            />
-                                        </div>
-                                    );
-                                })
-                            }
-                            {!searchParams.get('incident_id') && linkedIncidents.length > visibleLinkedCount && (
-                                <div style={{ textAlign: 'center', margin: '1rem 0 0.5rem 0' }}>
-                                    <button
-                                        type="button"
-                                        className="login-button btn-secondary"
-                                        style={{ width: '100%', padding: '0.5rem 1rem', fontSize: '0.82rem' }}
-                                        onClick={() => setVisibleLinkedCount(prev => prev + 20)}
-                                    >
-                                        📥 Cargar más informes ({linkedIncidents.length - visibleLinkedCount} restantes)
-                                    </button>
-                                </div>
-                            )}
+                        {/* COLUMN 3: OUTINGS */}
+                        <div className="column-container">
+                            <h3 className="section-title" style={{ borderBottom: '2px solid var(--accent-gold)', paddingBottom: '0.5rem' }}>{t('outingsCol')}</h3>
+                            <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                                {outings.length === 0 ? <div className="empty-list">{t('noOutings')}</div> :
+                                    visibleOutings.map(out => {
+                                        const isHighlighted = searchParams.get('outing_id') === out.record_id;
+                                        return (
+                                            <div key={out.record_id} ref={isHighlighted ? highlightedRef : null}>
+                                                <OutingCard
+                                                    data={out}
+                                                    onExpand={setExpandedImage}
+                                                    onDelete={handleDeleteOuting}
+                                                    onEdit={handleEditOuting}
+                                                    isHighlighted={isHighlighted}
+                                                />
+                                            </div>
+                                        );
+                                    })
+                                }
+                                {!searchParams.get('outing_id') && outings.length > visibleOutingsCount && (
+                                    <div style={{ textAlign: 'center', margin: '1rem 0 0.5rem 0' }}>
+                                        <button
+                                            type="button"
+                                            className="login-button btn-secondary"
+                                            style={{ width: '100%', padding: '0.5rem 1rem', fontSize: '0.82rem', borderColor: 'rgba(212, 175, 55, 0.4)' }}
+                                            onClick={() => setVisibleOutingsCount(prev => prev + 20)}
+                                        >
+                                            📥 Cargar más salidas ({outings.length - visibleOutingsCount} restantes)
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
 
-                    {/* COLUMN 3: OUTINGS */}
-                    <div className="column-container">
-                        <h3 className="section-title" style={{ borderBottom: '2px solid var(--accent-gold)', paddingBottom: '0.5rem' }}>{t('outingsCol')}</h3>
-                        <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                            {outings.length === 0 ? <div className="empty-list">{t('noOutings')}</div> :
-                                visibleOutings.map(out => {
-                                    const isHighlighted = searchParams.get('outing_id') === out.record_id;
-                                    return (
-                                        <div key={out.record_id} ref={isHighlighted ? highlightedRef : null}>
-                                            <OutingCard
-                                                data={out}
-                                                onExpand={setExpandedImage}
-                                                onDelete={handleDeleteOuting}
-                                                onEdit={handleEditOuting}
-                                                isHighlighted={isHighlighted}
-                                            />
-                                        </div>
-                                    );
-                                })
-                            }
-                            {!searchParams.get('outing_id') && outings.length > visibleOutingsCount && (
-                                <div style={{ textAlign: 'center', margin: '1rem 0 0.5rem 0' }}>
-                                    <button
-                                        type="button"
-                                        className="login-button btn-secondary"
-                                        style={{ width: '100%', padding: '0.5rem 1rem', fontSize: '0.82rem', borderColor: 'rgba(212, 175, 55, 0.4)' }}
-                                        onClick={() => setVisibleOutingsCount(prev => prev + 20)}
-                                    >
-                                        📥 Cargar más salidas ({outings.length - visibleOutingsCount} restantes)
-                                    </button>
-                                </div>
-                            )}
-                        </div>
                     </div>
-
                 </div>
             )}
 
