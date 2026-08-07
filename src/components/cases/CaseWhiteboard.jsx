@@ -446,19 +446,46 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const handleImportCaseEvidence = async () => {
         if (!caseData) return alert("Data not available.");
 
-        const existingTitles = new Set(nodes.map(n => n.title.toLowerCase()));
+        // Fetch fresh existing nodes directly from database to avoid stale React state
+        let existingNodes = [...nodes];
+        try {
+            const column = isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id';
+            const { data: dbNodes } = await supabase.from('case_board_nodes').select('*').eq(column, targetId);
+            if (dbNodes && dbNodes.length > 0) {
+                existingNodes = dbNodes;
+            }
+        } catch (err) {
+            console.error("Error fetching latest board nodes for duplicate check:", err);
+        }
+
         const itemsToInsert = [];
         const { data: { user } } = await supabase.auth.getUser();
 
         let posX = 100;
         let posY = 100;
 
+        const clean = (str) => (str ? String(str).toLowerCase().trim() : '');
+
         if (isGang) {
-            // Import Gang Data (Members, Vehicles, Homes, Intel, Graffiti)
+            // 1. Members
             if (caseData.members && caseData.members.length > 0) {
                 caseData.members.forEach(m => {
+                    const mNameClean = clean(m.name);
+                    const mIdClean = clean(m.id_card);
+                    const mPhoto = m.photo_url || m.photo || null;
                     const titleStr = `${m.name} (${m.role || 'Miembro'})`;
-                    if (!existingTitles.has(titleStr.toLowerCase())) {
+
+                    const alreadyExists = existingNodes.some(n => {
+                        const nTitle = clean(n.title);
+                        const nContent = clean(n.content);
+                        if (nTitle === clean(titleStr)) return true;
+                        if (mNameClean && (nTitle.includes(mNameClean) || nContent.includes(mNameClean))) return true;
+                        if (mIdClean && (nTitle.includes(mIdClean) || nContent.includes(mIdClean))) return true;
+                        if (mPhoto && n.image_url === mPhoto) return true;
+                        return false;
+                    });
+
+                    if (!alreadyExists) {
                         const isInactive = m.role === 'Inactivo';
                         itemsToInsert.push({
                             gang_id: gangId,
@@ -466,7 +493,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             content: `Rol: ${m.role || 'Miembro'}${m.id_card ? '\nID: ' + m.id_card : ''}\n${m.notes || ''}`,
                             category: 'suspect',
                             color: isInactive ? 'dark' : m.role === 'Lider' ? 'red' : m.role === 'Sublider' ? 'yellow' : 'blue',
-                            image_url: m.photo_url || m.photo || null,
+                            image_url: mPhoto,
                             is_inactive: isInactive,
                             pos_x: posX,
                             pos_y: posY,
@@ -478,11 +505,27 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
+            // 2. Vehicles
             if (caseData.vehicles && caseData.vehicles.length > 0) {
                 caseData.vehicles.forEach(v => {
+                    const plateClean = clean(v.plate);
+                    const modelClean = clean(v.model);
+                    const ownerClean = clean(v.owner);
+                    const img = (v.images && v.images.length > 0) ? v.images[0] : null;
                     const titleStr = `${v.model || 'Vehículo'} [${v.plate || 'SIN PLACA'}]`;
-                    if (!existingTitles.has(titleStr.toLowerCase())) {
-                        const img = (v.images && v.images.length > 0) ? v.images[0] : null;
+
+                    const alreadyExists = existingNodes.some(n => {
+                        const nTitle = clean(n.title);
+                        const nContent = clean(n.content);
+                        if (nTitle === clean(titleStr)) return true;
+                        if (plateClean && plateClean !== 'sin placa' && (nTitle.includes(plateClean) || nContent.includes(plateClean))) return true;
+                        if (modelClean && ownerClean && nTitle.includes(modelClean) && nContent.includes(ownerClean)) return true;
+                        if (img && n.image_url === img) return true;
+                        if (v.images && v.images.length > 0 && v.images.includes(n.image_url)) return true;
+                        return false;
+                    });
+
+                    if (!alreadyExists) {
                         itemsToInsert.push({
                             gang_id: gangId,
                             title: titleStr,
@@ -500,11 +543,26 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
+            // 3. Homes / Properties
             if (caseData.homes && caseData.homes.length > 0) {
                 caseData.homes.forEach(h => {
+                    const ownerClean = clean(h.owner);
+                    const notesClean = clean(h.notes);
+                    const img = (h.images && h.images.length > 0) ? h.images[0] : null;
                     const titleStr = `Propiedad: ${h.owner || 'Ubicación Banda'}`;
-                    if (!existingTitles.has(titleStr.toLowerCase())) {
-                        const img = (h.images && h.images.length > 0) ? h.images[0] : null;
+
+                    const alreadyExists = existingNodes.some(n => {
+                        const nTitle = clean(n.title);
+                        const nContent = clean(n.content);
+                        if (nTitle === clean(titleStr)) return true;
+                        if (ownerClean && ownerClean !== 'ubicación banda' && (nTitle.includes(ownerClean) || nContent.includes(ownerClean))) return true;
+                        if (notesClean && notesClean.length > 5 && nContent.includes(notesClean.slice(0, 30))) return true;
+                        if (img && n.image_url === img) return true;
+                        if (h.images && h.images.length > 0 && h.images.includes(n.image_url)) return true;
+                        return false;
+                    });
+
+                    if (!alreadyExists) {
                         itemsToInsert.push({
                             gang_id: gangId,
                             title: titleStr,
@@ -522,11 +580,24 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
+            // 4. Intelligence
             if (caseData.info && caseData.info.length > 0) {
-                caseData.info.forEach((i, idx) => {
-                    const titleStr = `Inteligencia #${idx + 1} (${i.type === 'characteristic' ? 'Característica' : 'Info'})`;
-                    if (!existingTitles.has(titleStr.toLowerCase())) {
-                        const img = (i.images && i.images.length > 0) ? i.images[0] : null;
+                caseData.info.forEach((i) => {
+                    const contentClean = clean(i.content);
+                    const img = (i.images && i.images.length > 0) ? i.images[0] : null;
+                    const titleStr = `Inteligencia (${i.type === 'characteristic' ? 'Característica' : 'Info'})`;
+
+                    const alreadyExists = existingNodes.some(n => {
+                        const nTitle = clean(n.title);
+                        const nContent = clean(n.content);
+                        if (nTitle.includes('inteligencia') && contentClean && nContent.includes(contentClean.slice(0, 30))) return true;
+                        if (contentClean && contentClean.length > 5 && nContent === contentClean) return true;
+                        if (img && n.image_url === img) return true;
+                        if (i.images && i.images.length > 0 && i.images.includes(n.image_url)) return true;
+                        return false;
+                    });
+
+                    if (!alreadyExists) {
                         itemsToInsert.push({
                             gang_id: gangId,
                             title: titleStr,
@@ -544,11 +615,23 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
+            // 5. Graffiti
             if (caseData.graffiti && caseData.graffiti.length > 0) {
-                caseData.graffiti.forEach((g, idx) => {
-                    const titleStr = `Grafiti / GPS #${idx + 1}`;
-                    if (!existingTitles.has(titleStr.toLowerCase())) {
-                        const img = g.graffiti_image || g.gps_image || null;
+                caseData.graffiti.forEach((g) => {
+                    const notesClean = clean(g.notes);
+                    const img = g.graffiti_image || g.gps_image || null;
+                    const titleStr = `Grafiti / GPS`;
+
+                    const alreadyExists = existingNodes.some(n => {
+                        const nTitle = clean(n.title);
+                        const nContent = clean(n.content);
+                        if (nTitle.includes('grafiti') && notesClean && nContent.includes(notesClean.slice(0, 30))) return true;
+                        if (g.graffiti_image && n.image_url === g.graffiti_image) return true;
+                        if (g.gps_image && n.image_url === g.gps_image) return true;
+                        return false;
+                    });
+
+                    if (!alreadyExists) {
                         itemsToInsert.push({
                             gang_id: gangId,
                             title: titleStr,
@@ -571,26 +654,46 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             }
         } else {
             // Import Regular Case Data
-            if (caseData.info?.initial_image_url && !existingTitles.has('escena inicial / foto clave')) {
-                itemsToInsert.push({
-                    [isIA ? 'ia_case_id' : 'case_id']: caseId,
-                    title: 'Escena Inicial / Foto Clave',
-                    content: caseData.info.title || 'Evidencia principal registrada al abrir el caso.',
-                    category: 'evidence',
-                    color: 'red',
-                    image_url: caseData.info.initial_image_url,
-                    pos_x: posX,
-                    pos_y: posY,
-                    created_by: user ? user.id : null
+            if (caseData.info?.initial_image_url) {
+                const initialImg = caseData.info.initial_image_url;
+                const alreadyExists = existingNodes.some(n => {
+                    const nTitle = clean(n.title);
+                    return nTitle.includes('escena inicial') || nTitle.includes('foto clave') || n.image_url === initialImg;
                 });
-                posX += 280;
+
+                if (!alreadyExists) {
+                    itemsToInsert.push({
+                        [isIA ? 'ia_case_id' : 'case_id']: caseId,
+                        title: 'Escena Inicial / Foto Clave',
+                        content: caseData.info.title || 'Evidencia principal registrada al abrir el caso.',
+                        category: 'evidence',
+                        color: 'red',
+                        image_url: initialImg,
+                        pos_x: posX,
+                        pos_y: posY,
+                        created_by: user ? user.id : null
+                    });
+                    posX += 280;
+                }
             }
 
             if (caseData.updates && caseData.updates.length > 0) {
                 caseData.updates.forEach((upd, idx) => {
                     const titleStr = `Novedad #${idx + 1} (${upd.author_name || 'Agente'})`;
-                    if (!existingTitles.has(titleStr.toLowerCase())) {
-                        const img = (upd.images && upd.images.length > 0) ? upd.images[0] : upd.image || null;
+                    const updContentClean = upd.content ? clean(upd.content.replace(/<[^>]*>?/gm, '')) : '';
+                    const img = (upd.images && upd.images.length > 0) ? upd.images[0] : upd.image || null;
+
+                    const alreadyExists = existingNodes.some(n => {
+                        const nTitle = clean(n.title);
+                        const nContent = clean(n.content);
+                        if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(upd.id)) return true;
+                        if (nTitle === clean(titleStr)) return true;
+                        if (updContentClean && updContentClean.length > 10 && nContent.includes(updContentClean.slice(0, 40))) return true;
+                        if (img && n.image_url === img) return true;
+                        return false;
+                    });
+
+                    if (!alreadyExists) {
                         itemsToInsert.push({
                             [isIA ? 'ia_case_id' : 'case_id']: caseId,
                             title: titleStr,
@@ -611,8 +714,20 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
             if (caseData.interrogations && caseData.interrogations.length > 0) {
                 caseData.interrogations.forEach((inter) => {
+                    const suspectClean = clean(inter.suspect_name);
+                    const titleClean = clean(inter.title);
                     const titleStr = `Interrogatorio: ${inter.suspect_name || inter.title || 'Declaración'}`;
-                    if (!existingTitles.has(titleStr.toLowerCase())) {
+
+                    const alreadyExists = existingNodes.some(n => {
+                        const nTitle = clean(n.title);
+                        const nContent = clean(n.content);
+                        if (nTitle === clean(titleStr)) return true;
+                        if (suspectClean && (nTitle.includes(suspectClean) || nContent.includes(suspectClean))) return true;
+                        if (titleClean && (nTitle.includes(titleClean) || nContent.includes(titleClean))) return true;
+                        return false;
+                    });
+
+                    if (!alreadyExists) {
                         itemsToInsert.push({
                             [isIA ? 'ia_case_id' : 'case_id']: caseId,
                             title: titleStr,

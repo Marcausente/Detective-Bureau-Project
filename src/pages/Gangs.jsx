@@ -492,7 +492,7 @@ function Gangs() {
 
                 createWhiteboardCardForGang(
                     activeGangId,
-                    'Inteligencia: ' + (infoType === 'characteristic' ? 'Característica' : 'Nota'),
+                    'Inteligencia (' + (infoType === 'characteristic' ? 'Característica' : 'Info') + ')',
                     content,
                     infoType === 'characteristic' ? 'evidence' : 'note',
                     infoType === 'characteristic' ? 'yellow' : 'dark',
