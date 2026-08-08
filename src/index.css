@@ -2343,6 +2343,27 @@ body.theme-lssd .dtp-status-registered {
   box-shadow: 0 0 10px rgba(207, 181, 59, 0.5);
 }
 
+/* Search Highlight pulse for Gang Unit */
+@keyframes searchHighlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(207, 181, 59, 0.8);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(207, 181, 59, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(207, 181, 59, 0);
+  }
+}
+
+.search-highlight-item {
+  border: 2px solid var(--accent-gold) !important;
+  animation: searchHighlightPulse 2s infinite !important;
+  background: rgba(207, 181, 59, 0.18) !important;
+  border-radius: 8px !important;
+}
+
+
 /* Consistent Scrolling for Content Lists (Intel, Vehicles, Homes) */
 /* --- FORCED SCOPED CSS FOR GANGS --- */
 #gangs-page .gang-scroll-container {

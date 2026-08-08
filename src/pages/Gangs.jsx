@@ -93,6 +93,22 @@ function Gangs() {
     const [startX, setStartX] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
 
+    // --- SEARCH STATE ---
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
+    const searchRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (searchRef.current && !searchRef.current.contains(e.target)) {
+                setSearchDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+
 
     useEffect(() => {
         loadGangs();
@@ -900,14 +916,169 @@ function Gangs() {
         );
     }
 
-    const filteredGangs = gangs.filter(g => viewMode === 'active' ? !g.is_archived : g.is_archived);
+    const getSearchResults = () => {
+        if (!searchQuery || !searchQuery.trim()) return [];
+        const q = searchQuery.trim().toLowerCase();
+        const results = [];
+
+        gangs.forEach(gang => {
+            const gangNameMatch = gang.name?.toLowerCase().includes(q);
+            const d1Match = gang.detective_in_charge_1_name?.toLowerCase().includes(q);
+            const d2Match = gang.detective_in_charge_2_name?.toLowerCase().includes(q);
+
+            if (gangNameMatch || d1Match || d2Match) {
+                results.push({
+                    type: 'gang',
+                    title: gang.name,
+                    subtitle: `Grupo Criminal${gang.is_archived ? ' [Archivado]' : ''}`,
+                    gangId: gang.gang_id,
+                    gangName: gang.name,
+                    gangColor: gang.color
+                });
+            }
+
+            (gang.members || []).forEach(m => {
+                const nameMatch = m.name?.toLowerCase().includes(q);
+                const roleMatch = m.role?.toLowerCase().includes(q);
+                const notesMatch = m.notes?.toLowerCase().includes(q);
+
+                if (nameMatch || roleMatch || notesMatch) {
+                    results.push({
+                        type: 'member',
+                        item: m,
+                        title: m.name,
+                        subtitle: `${m.role}${m.notes ? ` • ${m.notes}` : ''}${gang.is_archived ? ' [Archivado]' : ''}`,
+                        gangId: gang.gang_id,
+                        gangName: gang.name,
+                        gangColor: gang.color,
+                        photo: m.photo
+                    });
+                }
+            });
+
+            (gang.vehicles || []).forEach(v => {
+                const modelMatch = v.model?.toLowerCase().includes(q);
+                const plateMatch = v.plate?.toLowerCase().includes(q);
+                const ownerMatch = v.owner?.toLowerCase().includes(q);
+                const notesMatch = v.notes?.toLowerCase().includes(q);
+
+                if (modelMatch || plateMatch || ownerMatch || notesMatch) {
+                    results.push({
+                        type: 'vehicle',
+                        item: v,
+                        title: `${v.model || 'Vehículo'} [${v.plate || 'SIN PLACA'}]`,
+                        subtitle: `Dueño: ${v.owner || 'Desconocido'}${v.notes ? ` • ${v.notes}` : ''}`,
+                        gangId: gang.gang_id,
+                        gangName: gang.name,
+                        gangColor: gang.color
+                    });
+                }
+            });
+
+            (gang.homes || []).forEach(h => {
+                const ownerMatch = h.owner?.toLowerCase().includes(q);
+                const notesMatch = h.notes?.toLowerCase().includes(q);
+
+                if (ownerMatch || notesMatch) {
+                    results.push({
+                        type: 'home',
+                        item: h,
+                        title: h.owner ? `Propiedad de ${h.owner}` : 'Propiedad / Inmueble',
+                        subtitle: h.notes || 'Sin detalles',
+                        gangId: gang.gang_id,
+                        gangName: gang.name,
+                        gangColor: gang.color
+                    });
+                }
+            });
+
+            (gang.info || []).forEach(inf => {
+                const contentMatch = inf.content?.toLowerCase().includes(q);
+                if (contentMatch) {
+                    results.push({
+                        type: 'info',
+                        item: inf,
+                        title: `Inteligencia (${inf.type === 'characteristic' ? 'Característica' : 'Info'})`,
+                        subtitle: inf.content,
+                        gangId: gang.gang_id,
+                        gangName: gang.name,
+                        gangColor: gang.color
+                    });
+                }
+            });
+
+            (gang.graffiti || []).forEach(g => {
+                const notesMatch = g.notes?.toLowerCase().includes(q);
+                if (notesMatch) {
+                    results.push({
+                        type: 'graffiti',
+                        item: g,
+                        title: 'Grafiti',
+                        subtitle: g.notes,
+                        gangId: gang.gang_id,
+                        gangName: gang.name,
+                        gangColor: gang.color
+                    });
+                }
+            });
+        });
+
+        return results;
+    };
+
+    const searchResults = getSearchResults();
+
+    const handleSelectSearchResult = (res) => {
+        setSearchDropdownOpen(false);
+        if (activeBoardGang) {
+            setActiveBoardGang(null);
+        }
+
+        const targetGang = gangs.find(g => g.gang_id === res.gangId);
+        if (targetGang) {
+            if (targetGang.is_archived && viewMode !== 'archived') {
+                setViewMode('archived');
+            } else if (!targetGang.is_archived && viewMode !== 'active') {
+                setViewMode('active');
+            }
+        }
+
+        setTimeout(() => {
+            const colElement = document.getElementById(`gang-col-${res.gangId}`);
+            if (colElement && scrollContainerRef.current) {
+                colElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+            if (res.type === 'member' && res.item) {
+                handleOpenMemberProfile(res.item, res.gangId);
+            }
+        }, 100);
+    };
+
+    const gangHasMatch = (gang, q) => {
+        if (!q || !q.trim()) return true;
+        const query = q.trim().toLowerCase();
+        return (
+            gang.name?.toLowerCase().includes(query) ||
+            gang.detective_in_charge_1_name?.toLowerCase().includes(query) ||
+            gang.detective_in_charge_2_name?.toLowerCase().includes(query) ||
+            gang.members?.some(m => m.name?.toLowerCase().includes(query) || m.role?.toLowerCase().includes(query) || (m.notes && m.notes.toLowerCase().includes(query))) ||
+            gang.vehicles?.some(v => v.model?.toLowerCase().includes(query) || v.plate?.toLowerCase().includes(query) || v.owner?.toLowerCase().includes(query) || (v.notes && v.notes.toLowerCase().includes(query))) ||
+            gang.homes?.some(h => h.owner?.toLowerCase().includes(query) || (h.notes && h.notes.toLowerCase().includes(query))) ||
+            gang.info?.some(i => i.content?.toLowerCase().includes(query)) ||
+            gang.graffiti?.some(g => g.notes?.toLowerCase().includes(query))
+        );
+    };
+
+    const filteredGangs = gangs
+        .filter(g => viewMode === 'active' ? !g.is_archived : g.is_archived)
+        .filter(g => gangHasMatch(g, searchQuery));
 
     return (
         <div id="gangs-page" style={{ height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent' }}>
             {/* Header */}
             {!activeBoardGang && (
                 <div className="doc-header" style={{ padding: '1rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'var(--glass-bg)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '3rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                             <img src="/logowebp/gnd.webp" alt="GND Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 0 8px rgba(0,0,0,0.5))' }} />
                             <h2 className="header-title" style={{ margin: 0, fontSize: '1.5rem', color: '#fff' }}>{isLSSD ? t('gndTitle') : t('giuTitle')}</h2>
@@ -916,6 +1087,127 @@ function Gangs() {
                             <button className={`gang-tab-btn ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')}>{t('activeOperationTab')}</button>
                             <button className={`gang-tab-btn ${viewMode === 'archived' ? 'active' : ''}`} onClick={() => setViewMode('archived')}>{t('archiveTab')}</button>
                             <button className={`gang-tab-btn ${viewMode === 'todo' ? 'active' : ''}`} onClick={() => setViewMode('todo')}>{t('toDoListTab')}</button>
+                        </div>
+                        {/* SEARCH INPUT */}
+                        <div ref={searchRef} style={{ position: 'relative', width: '280px' }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                background: 'rgba(0, 0, 0, 0.4)',
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                borderRadius: '20px',
+                                padding: '0.4rem 0.9rem',
+                                transition: 'all 0.3s ease',
+                                boxShadow: searchQuery ? '0 0 10px rgba(207, 181, 59, 0.3)' : 'none'
+                            }}>
+                                <span style={{ marginRight: '8px', fontSize: '0.9rem', opacity: 0.7 }}>🔍</span>
+                                <input
+                                    type="text"
+                                    placeholder="Buscar persona, ID, vehículo..."
+                                    value={searchQuery}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                        setSearchDropdownOpen(true);
+                                    }}
+                                    onFocus={() => setSearchDropdownOpen(true)}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        outline: 'none',
+                                        color: '#fff',
+                                        fontSize: '0.85rem',
+                                        width: '100%'
+                                    }}
+                                />
+                                {searchQuery && (
+                                    <button
+                                        onClick={() => { setSearchQuery(''); setSearchDropdownOpen(false); }}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: 'rgba(255,255,255,0.6)',
+                                            cursor: 'pointer',
+                                            fontSize: '0.9rem',
+                                            padding: '0 4px'
+                                        }}
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Dropdown Results */}
+                            {searchDropdownOpen && searchQuery.trim() !== '' && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 'calc(100% + 6px)',
+                                    left: 0,
+                                    width: '360px',
+                                    maxHeight: '350px',
+                                    overflowY: 'auto',
+                                    background: 'rgba(15, 23, 42, 0.96)',
+                                    backdropFilter: 'blur(12px)',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    borderRadius: '12px',
+                                    boxShadow: '0 15px 35px rgba(0,0,0,0.7)',
+                                    zIndex: 1000,
+                                    padding: '0.5rem'
+                                }}>
+                                    {searchResults.length === 0 ? (
+                                        <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                            No se encontraron resultados para "{searchQuery}"
+                                        </div>
+                                    ) : (
+                                        searchResults.map((res, idx) => (
+                                            <div
+                                                key={idx}
+                                                onClick={() => handleSelectSearchResult(res)}
+                                                style={{
+                                                    padding: '0.6rem 0.8rem',
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.75rem',
+                                                    transition: 'background 0.2s',
+                                                    borderBottom: idx < searchResults.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                {res.type === 'member' && res.photo ? (
+                                                    <img src={res.photo} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${res.gangColor || '#fff'}` }} />
+                                                ) : (
+                                                    <div style={{
+                                                        width: '36px',
+                                                        height: '36px',
+                                                        borderRadius: '50%',
+                                                        background: 'rgba(255,255,255,0.08)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '1rem',
+                                                        border: `1px solid ${res.gangColor || 'rgba(255,255,255,0.2)'}`
+                                                    }}>
+                                                        {res.type === 'member' ? '👤' : res.type === 'vehicle' ? '🚗' : res.type === 'home' ? '🏠' : res.type === 'info' ? '📝' : res.type === 'graffiti' ? '🎨' : '🏴'}
+                                                    </div>
+                                                )}
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {res.title}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: res.gangColor || '#cfb53b', display: 'inline-block' }}></span>
+                                                        <strong style={{ color: res.gangColor || '#fff' }}>{res.gangName}</strong>
+                                                        <span>•</span>
+                                                        <span>{res.subtitle}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -926,6 +1218,7 @@ function Gangs() {
                     </div>
                 </div>
             )}
+
 
             {feedbackNotice && (
                 <div style={{
@@ -995,6 +1288,7 @@ function Gangs() {
                             <GangColumn
                                 key={gang.gang_id}
                                 gang={gang}
+                                searchQuery={searchQuery}
                                 onAdd={openModal}
                                 isVIP={isVIP()}
                                 onArchive={() => handleToggleArchive(gang.gang_id, gang.is_archived)}
@@ -1479,7 +1773,7 @@ function Gangs() {
 
 // --- SUB-COMPONENTS ---
 
-function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName, onViewGangBoard }) {
+function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName, onViewGangBoard }) {
     const { t } = useLanguage();
     const { isLSSD } = useTheme();
     // Helper for buttons
@@ -1504,7 +1798,7 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
         </div>
     );
     return (
-        <div className="gang-column">
+        <div className="gang-column" id={`gang-col-${gang.gang_id}`}>
 
             {/* Header Card */}
             <div className="gang-header-card" style={{ borderTop: `4px solid ${gang.color}` }}>
@@ -1601,25 +1895,31 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                     <button className="gang-add-btn" onClick={() => onAdd('info', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-list-content">
-                    {gang.info && gang.info.map(i => (
-                        <div key={i.id} style={{
-                            fontSize: '0.85rem', marginBottom: '0.8rem',
-                            borderLeft: `3px solid ${i.type === 'characteristic' ? 'var(--accent-gold)' : '#64748b'}`,
-                            paddingLeft: '0.8rem', color: '#cbd5e1', position: 'relative'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div style={{ flex: 1, marginRight: '10px' }}>{(i.content && i.content.trim()) ? i.content : <span style={{ fontStyle: 'italic', opacity: 0.5, color: '#f59e0b' }}>{t('emptyContentFix')}</span>}</div>
-                                <ActionButtons type="info" item={i} />
-                            </div>
-                            {i.images && i.images.length > 0 && (
-                                <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
-                                    {i.images.map((img, idx) => (
-                                        <img key={idx} src={img} onClick={() => onViewImage(img)} style={{ width: '30px', height: '30px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} alt="Intel" />
-                                    ))}
+                    {gang.info && gang.info.map(i => {
+                        const isInfoMatch = searchQuery && searchQuery.trim() !== '' && (
+                            i.content?.toLowerCase().includes(searchQuery.trim().toLowerCase())
+                        );
+                        return (
+                            <div key={i.id} className={isInfoMatch ? 'search-highlight-item' : ''} style={{
+                                fontSize: '0.85rem', marginBottom: '0.8rem',
+                                borderLeft: `3px solid ${i.type === 'characteristic' ? 'var(--accent-gold)' : '#64748b'}`,
+                                paddingLeft: '0.8rem', color: '#cbd5e1', position: 'relative',
+                                padding: isInfoMatch ? '0.5rem 0.8rem' : '0 0 0 0.8rem'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ flex: 1, marginRight: '10px' }}>{(i.content && i.content.trim()) ? i.content : <span style={{ fontStyle: 'italic', opacity: 0.5, color: '#f59e0b' }}>{t('emptyContentFix')}</span>}</div>
+                                    <ActionButtons type="info" item={i} />
                                 </div>
-                            )}
-                        </div>
-                    ))}
+                                {i.images && i.images.length > 0 && (
+                                    <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+                                        {i.images.map((img, idx) => (
+                                            <img key={idx} src={img} onClick={() => onViewImage(img)} style={{ width: '30px', height: '30px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} alt="Intel" />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                     {(!gang.info || gang.info.length === 0) && <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>{t('noIntelGathered')}</div>}
                 </div>
             </div>
@@ -1656,27 +1956,35 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                     <button className="gang-add-btn" onClick={() => onAdd('vehicle', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-list-content">
-                    {gang.vehicles.map(v => (
-                        <div key={v.id} className="gang-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid var(--color-blue)', paddingLeft: '0.8rem' }}>
-                            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{(v.model && v.model.trim()) ? v.model : <span style={{ fontStyle: 'italic', opacity: 0.5, fontWeight: 'normal', color: '#f59e0b' }}>{t('unknownModel')}</span>}</span>
-                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                    <span style={{ color: 'var(--accent-gold)', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>[{v.plate}]</span>
-                                    <ActionButtons type="vehicle" item={v} />
+                    {gang.vehicles.map(v => {
+                        const isVehMatch = searchQuery && searchQuery.trim() !== '' && (
+                            v.model?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+                            v.plate?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+                            v.owner?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+                            (v.notes && v.notes.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+                        );
+                        return (
+                            <div key={v.id} className={`gang-list-item ${isVehMatch ? 'search-highlight-item' : ''}`} style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid var(--color-blue)', paddingLeft: '0.8rem', padding: isVehMatch ? '0.5rem 0.8rem' : undefined }}>
+                                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{(v.model && v.model.trim()) ? v.model : <span style={{ fontStyle: 'italic', opacity: 0.5, fontWeight: 'normal', color: '#f59e0b' }}>{t('unknownModel')}</span>}</span>
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                        <span style={{ color: 'var(--accent-gold)', fontFamily: 'monospace', letterSpacing: '-0.5px' }}>[{v.plate}]</span>
+                                        <ActionButtons type="vehicle" item={v} />
+                                    </div>
                                 </div>
+                                {v.owner && <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '3px' }}>{t('ownerLabelText')} {v.owner}</div>}
+                                {v.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{v.notes}</div>}
+                                {/* Vehicle Images */}
+                                {v.images && v.images.length > 0 && (
+                                    <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+                                        {v.images.map((img, idx) => (
+                                            <img key={idx} src={img} onClick={() => onViewImage(img)} style={{ width: '40px', height: '30px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} alt="Car" />
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                            {v.owner && <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '3px' }}>{t('ownerLabelText')} {v.owner}</div>}
-                            {v.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{v.notes}</div>}
-                            {/* Vehicle Images */}
-                            {v.images && v.images.length > 0 && (
-                                <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
-                                    {v.images.map((img, idx) => (
-                                        <img key={idx} src={img} onClick={() => onViewImage(img)} style={{ width: '40px', height: '30px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} alt="Car" />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                        );
+                    })}
                     {gang.vehicles.length === 0 && <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>{t('noKnownVehicles')}</div>}
                 </div>
             </div>
@@ -1688,23 +1996,29 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                     <button className="gang-add-btn" onClick={() => onAdd('home', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-list-content">
-                    {gang.homes.map(h => (
-                        <div key={h.id} className="gang-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid #10b981', paddingLeft: '0.8rem' }}>
-                            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between' }}>
-                                <span>{(h.owner && h.owner.trim()) ? h.owner : <span style={{ fontStyle: 'italic', opacity: 0.5, color: '#f59e0b' }}>{t('unknownOwner')}</span>}</span>
-                                <ActionButtons type="home" item={h} />
-                            </div>
-                            {h.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{h.notes}</div>}
-                            {/* Home Images */}
-                            {h.images && h.images.length > 0 && (
-                                <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
-                                    {h.images.map((img, idx) => (
-                                        <img key={idx} src={img} onClick={() => onViewImage(img)} style={{ width: '40px', height: '30px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} alt="Home" />
-                                    ))}
+                    {gang.homes.map(h => {
+                        const isHomeMatch = searchQuery && searchQuery.trim() !== '' && (
+                            h.owner?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+                            (h.notes && h.notes.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+                        );
+                        return (
+                            <div key={h.id} className={`gang-list-item ${isHomeMatch ? 'search-highlight-item' : ''}`} style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid #10b981', paddingLeft: '0.8rem', padding: isHomeMatch ? '0.5rem 0.8rem' : undefined }}>
+                                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between' }}>
+                                    <span>{(h.owner && h.owner.trim()) ? h.owner : <span style={{ fontStyle: 'italic', opacity: 0.5, color: '#f59e0b' }}>{t('unknownOwner')}</span>}</span>
+                                    <ActionButtons type="home" item={h} />
                                 </div>
-                            )}
-                        </div>
-                    ))}
+                                {h.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{h.notes}</div>}
+                                {/* Home Images */}
+                                {h.images && h.images.length > 0 && (
+                                    <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+                                        {h.images.map((img, idx) => (
+                                            <img key={idx} src={img} onClick={() => onViewImage(img)} style={{ width: '40px', height: '30px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} alt="Home" />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                     {gang.homes.length === 0 && <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>{t('noKnownProperties')}</div>}
                 </div>
             </div>
@@ -1716,44 +2030,49 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                     <button className="gang-add-btn" onClick={() => onAdd('graffiti', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-list-content">
-                    {(gang.graffiti || []).map(g => (
-                        <div key={g.id} className="gang-list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid #a855f7', paddingLeft: '0.8rem' }}>
-                            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '0.8rem' }}>
-                                    {g.notes ? g.notes : <span style={{ fontStyle: 'italic', opacity: 0.5 }}>{t('noNotes')}</span>}
-                                </span>
-                                <ActionButtons type="graffiti" item={g} />
-                            </div>
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '8px', width: '100%' }}>
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                    <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{t('graffitiImageLabel')}</span>
-                                    {g.graffiti_image ? (
-                                        <img 
-                                            src={g.graffiti_image} 
-                                            onClick={() => onViewImage(g.graffiti_image)} 
-                                            style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} 
-                                            alt="Graffiti" 
-                                        />
-                                    ) : (
-                                        <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#ef4444' }}>No image</div>
-                                    )}
+                    {(gang.graffiti || []).map(g => {
+                        const isGraffitiMatch = searchQuery && searchQuery.trim() !== '' && (
+                            g.notes && g.notes.toLowerCase().includes(searchQuery.trim().toLowerCase())
+                        );
+                        return (
+                            <div key={g.id} className={`gang-list-item ${isGraffitiMatch ? 'search-highlight-item' : ''}`} style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid #a855f7', paddingLeft: '0.8rem', padding: isGraffitiMatch ? '0.5rem 0.8rem' : undefined }}>
+                                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '0.8rem' }}>
+                                        {g.notes ? g.notes : <span style={{ fontStyle: 'italic', opacity: 0.5 }}>{t('noNotes')}</span>}
+                                    </span>
+                                    <ActionButtons type="graffiti" item={g} />
                                 </div>
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                    <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{t('gpsImageLabel')}</span>
-                                    {g.gps_image ? (
-                                        <img 
-                                            src={g.gps_image} 
-                                            onClick={() => onViewImage(g.gps_image)} 
-                                            style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} 
-                                            alt="GPS Location" 
-                                        />
-                                    ) : (
-                                        <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#ef4444' }}>No image</div>
-                                    )}
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '8px', width: '100%' }}>
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{t('graffitiImageLabel')}</span>
+                                        {g.graffiti_image ? (
+                                            <img 
+                                                src={g.graffiti_image} 
+                                                onClick={() => onViewImage(g.graffiti_image)} 
+                                                style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} 
+                                                alt="Graffiti" 
+                                            />
+                                        ) : (
+                                            <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#ef4444' }}>No image</div>
+                                        )}
+                                    </div>
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{t('gpsImageLabel')}</span>
+                                        {g.gps_image ? (
+                                            <img 
+                                                src={g.gps_image} 
+                                                onClick={() => onViewImage(g.gps_image)} 
+                                                style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} 
+                                                alt="GPS Location" 
+                                            />
+                                        ) : (
+                                            <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#ef4444' }}>No image</div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                     {(!gang.graffiti || gang.graffiti.length === 0) && (
                         <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>
                             {t('noGraffitis')}
@@ -1777,72 +2096,81 @@ function GangColumn({ gang, onAdd, isVIP, onArchive, onDelete, onViewImage, onEd
                             if (!aInactive && bInactive) return -1;
                             return 0;
                         })
-                        .map(m => (
-                        <div
-                            key={m.id}
-                            className="gang-member-item"
-                            onClick={() => onViewMemberProfile(m, gang.gang_id)}
-                            style={{
-                                cursor: 'pointer',
-                                transition: 'transform 0.2s, box-shadow 0.2s',
-                                ...(m.role === 'Inactivo' ? {
-                                    background: 'rgba(239, 68, 68, 0.08)',
-                                    border: '1px solid rgba(239, 68, 68, 0.35)',
-                                    opacity: 0.75
-                                } : {})
-                            }}
-                            onMouseEnter={e => {
-                                e.currentTarget.style.transform = 'scale(1.05)';
-                                e.currentTarget.style.boxShadow = m.role === 'Inactivo'
-                                    ? '0 4px 12px rgba(239, 68, 68, 0.3)'
-                                    : '0 4px 12px rgba(212, 175, 55, 0.3)';
-                            }}
-                            onMouseLeave={e => {
-                                e.currentTarget.style.transform = 'scale(1)';
-                                e.currentTarget.style.boxShadow = 'none';
-                            }}
-                        >
-                            <div style={{ position: 'relative', display: 'inline-block', width: '60px', height: '60px', margin: '0 auto' }}>
-                                <img
-                                    src={m.photo || '/logowebp/anon.webp'}
-                                    className="gang-member-photo"
-                                    style={{ border: `2px solid ${getStatusColor(m.role, isLSSD)}`, width: '100%', height: '100%', filter: m.role === 'Inactivo' ? 'grayscale(30%)' : 'none' }}
-                                    alt=""
-                                />
-                                {m.role === 'Inactivo' && (
-                                    <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', borderRadius: '50%' }} viewBox="0 0 100 100" preserveAspectRatio="none">
-                                        <line x1="15" y1="15" x2="85" y2="85" stroke="#ef4444" strokeWidth="12" strokeLinecap="round" opacity="0.9" />
-                                        <line x1="85" y1="15" x2="15" y2="85" stroke="#ef4444" strokeWidth="12" strokeLinecap="round" opacity="0.9" />
-                                    </svg>
-                                )}
-                            </div>
-                            <div style={{ fontSize: '0.75rem', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
-                            <div style={{
-                                fontSize: '0.65rem',
-                                color: m.role === 'Inactivo' ? '#ef4444' : '#94a3b8',
-                                fontWeight: m.role === 'Inactivo' ? '600' : '400'
-                            }}>{m.role}</div>
-                            {m.role === 'Inactivo' && (
-                                <div style={{
-                                    fontSize: '0.55rem',
-                                    background: 'rgba(239, 68, 68, 0.2)',
-                                    color: '#ef4444',
-                                    border: '1px solid rgba(239, 68, 68, 0.5)',
-                                    borderRadius: '4px',
-                                    padding: '1px 5px',
-                                    marginTop: '2px',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.5px',
-                                    fontWeight: '700'
-                                }}>⚫ INACTIVO</div>
-                            )}
-                            {m.notes && <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic', textAlign: 'center' }} title={m.notes}>📋 {t('hasNotes')}</div>}
-                            <div style={{ marginTop: '5px', display: 'flex', justifyContent: 'center', gap: '5px' }} onClick={e => e.stopPropagation()}>
-                                <button onClick={() => onEdit('member', gang.gang_id, m)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>✏️</button>
-                                <button onClick={() => onDeleteSubItem('member', m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>🗑️</button>
-                            </div>
-                        </div>
-                    ))}
+                        .map(m => {
+                            const isMemMatch = searchQuery && searchQuery.trim() !== '' && (
+                                m.name?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+                                m.role?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+                                (m.notes && m.notes.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+                            );
+                            return (
+                                <div
+                                    key={m.id}
+                                    className={`gang-member-item ${isMemMatch ? 'search-highlight-item' : ''}`}
+                                    onClick={() => onViewMemberProfile(m, gang.gang_id)}
+                                    style={{
+                                        cursor: 'pointer',
+                                        transition: 'transform 0.2s, box-shadow 0.2s',
+                                        padding: '0.4rem',
+                                        borderRadius: '8px',
+                                        ...(m.role === 'Inactivo' && !isMemMatch ? {
+                                            background: 'rgba(239, 68, 68, 0.08)',
+                                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                                            opacity: 0.75
+                                        } : {})
+                                    }}
+                                    onMouseEnter={e => {
+                                        e.currentTarget.style.transform = 'scale(1.05)';
+                                        e.currentTarget.style.boxShadow = m.role === 'Inactivo'
+                                            ? '0 4px 12px rgba(239, 68, 68, 0.3)'
+                                            : '0 4px 12px rgba(212, 175, 55, 0.3)';
+                                    }}
+                                    onMouseLeave={e => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.boxShadow = 'none';
+                                    }}
+                                >
+                                    <div style={{ position: 'relative', display: 'inline-block', width: '60px', height: '60px', margin: '0 auto' }}>
+                                        <img
+                                            src={m.photo || '/logowebp/anon.webp'}
+                                            className="gang-member-photo"
+                                            style={{ border: `2px solid ${getStatusColor(m.role, isLSSD)}`, width: '100%', height: '100%', filter: m.role === 'Inactivo' ? 'grayscale(30%)' : 'none' }}
+                                            alt=""
+                                        />
+                                        {m.role === 'Inactivo' && (
+                                            <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', borderRadius: '50%' }} viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                <line x1="15" y1="15" x2="85" y2="85" stroke="#ef4444" strokeWidth="12" strokeLinecap="round" opacity="0.9" />
+                                                <line x1="85" y1="15" x2="15" y2="85" stroke="#ef4444" strokeWidth="12" strokeLinecap="round" opacity="0.9" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
+                                    <div style={{
+                                        fontSize: '0.65rem',
+                                        color: m.role === 'Inactivo' ? '#ef4444' : '#94a3b8',
+                                        fontWeight: m.role === 'Inactivo' ? '600' : '400'
+                                    }}>{m.role}</div>
+                                    {m.role === 'Inactivo' && (
+                                        <div style={{
+                                            fontSize: '0.55rem',
+                                            background: 'rgba(239, 68, 68, 0.2)',
+                                            color: '#ef4444',
+                                            border: '1px solid rgba(239, 68, 68, 0.5)',
+                                            borderRadius: '4px',
+                                            padding: '1px 5px',
+                                            marginTop: '2px',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.5px',
+                                            fontWeight: '700'
+                                        }}>⚫ INACTIVO</div>
+                                    )}
+                                    {m.notes && <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic', textAlign: 'center' }} title={m.notes}>📋 {t('hasNotes')}</div>}
+                                    <div style={{ marginTop: '5px', display: 'flex', justifyContent: 'center', gap: '5px' }} onClick={e => e.stopPropagation()}>
+                                        <button onClick={() => onEdit('member', gang.gang_id, m)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>✏️</button>
+                                        <button onClick={() => onDeleteSubItem('member', m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>🗑️</button>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     {gang.members.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>{t('noKnownMembers')}</div>}
                 </div>
             </div>
