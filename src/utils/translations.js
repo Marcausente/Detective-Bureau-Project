@@ -47,12 +47,15 @@ export const translations = {
         rankOutingsDesc: "Personnel with the highest number of surveillance outings submitted",
         rankMatricesTitle: "Most GU Matrices",
         rankMatricesDesc: "Personnel with the highest number of gang unit patrol matrices submitted",
+        rankInterrogationsTitle: "Most Interrogations Participated",
+        rankInterrogationsDesc: "Personnel present in the highest number of interrogations",
         noRankingsFound: "No ranking entries recorded yet",
         unitCases: "Cases",
         unitReports: "Reports",
         unitIncidents: "Incidents",
         unitOutings: "Outings",
         unitMatrices: "Matrices",
+        unitInterrogations: "Interrogations",
 
         // Dashboard
         readBy: "Read confirmed by",
@@ -511,12 +514,15 @@ export const translations = {
         rankOutingsDesc: "Personas con más salidas de vigilancia (Outings) registradas",
         rankMatricesTitle: "Matrices Subidas",
         rankMatricesDesc: "Personas con más matrices de control de tiempo subidas en Gang Unit",
+        rankInterrogationsTitle: "Interrogatorios Realizados",
+        rankInterrogationsDesc: "Personas presentes en un mayor número de interrogatorios",
         noRankingsFound: "Sin registros aún en este ranking",
         unitCases: "Casos",
         unitReports: "Informes",
         unitIncidents: "Incidentes",
         unitOutings: "Vigilancias",
         unitMatrices: "Matrices",
+        unitInterrogations: "Interrogatorios",
 
         // Dashboard
         readBy: "Lectura confirmada por",

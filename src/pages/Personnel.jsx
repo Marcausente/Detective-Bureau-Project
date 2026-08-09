@@ -45,6 +45,7 @@ function Personnel() {
         closed_cases: [],
         incidents: [],
         outings: [],
+        interrogations: [],
         matrix: []
     });
     const [rankingsLoading, setRankingsLoading] = useState(false);
@@ -127,15 +128,17 @@ function Personnel() {
                     closed_cases: data.closed_cases || [],
                     incidents: data.incidents || [],
                     outings: data.outings || [],
+                    interrogations: data.interrogations || [],
                     matrix: data.matrix || []
                 });
             } else {
                 // Fallback computation using direct table queries if RPC is not available
-                const [usersRes, closedCasesRes, incRes, outRes, matrixRes] = await Promise.all([
+                const [usersRes, closedCasesRes, incRes, outRes, interrogationsRes, matrixRes] = await Promise.all([
                     supabase.from('users').select('id, nombre, apellido, rango, no_placa, profile_image'),
                     supabase.from('cases').select('id, created_by, case_assignments(user_id)').eq('status', 'Closed'),
                     supabase.from('incidents').select('author_id'),
                     supabase.from('outings').select('created_by'),
+                    supabase.from('interrogations').select('id, author_id, agents_present'),
                     supabase.from('gang_patrol_logs').select('created_by')
                 ]);
 
@@ -181,10 +184,23 @@ function Personnel() {
                     .sort((a, b) => b.count - a.count)
                     .slice(0, 10);
 
+                // Build Interrogations Leaderboard
+                const allInterrogations = interrogationsRes.data || [];
+                const interrogationsList = allUsers.map(u => {
+                    const count = allInterrogations.filter(i => {
+                        if (i.author_id === u.id) return true;
+                        if (i.agents_present && u.apellido && i.agents_present.toLowerCase().includes(u.apellido.toLowerCase())) return true;
+                        if (i.agents_present && u.nombre && i.agents_present.toLowerCase().includes(u.nombre.toLowerCase())) return true;
+                        return false;
+                    }).length;
+                    return { ...u, count };
+                }).filter(u => u.count > 0).sort((a, b) => b.count - a.count).slice(0, 10);
+
                 setRankingsData({
                     closed_cases: closedCasesList,
                     incidents: buildLeaderboard(incRes.data, i => i.author_id),
                     outings: buildLeaderboard(outRes.data, i => i.created_by),
+                    interrogations: interrogationsList,
                     matrix: buildLeaderboard(matrixRes.data, i => i.created_by)
                 });
             }
@@ -619,6 +635,42 @@ function Personnel() {
                                                     <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
                                                 </div>
                                                 <div className="ranking-count-pill">{item.count} {t('unitOutings') || 'Vigilancias'}</div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 4. Interrogations */}
+                        <div className="ranking-card">
+                            <div className="ranking-card-header">
+                                <span className="ranking-card-icon">🗣️</span>
+                                <h3 className="ranking-card-title">{t('rankInterrogationsTitle') || 'Interrogatorios Realizados'}</h3>
+                            </div>
+                            <div className="ranking-card-desc">{t('rankInterrogationsDesc') || 'Personas presentes en un mayor número de interrogatorios'}</div>
+                            <div className="ranking-list">
+                                {(!rankingsData.interrogations || rankingsData.interrogations.length === 0) ? (
+                                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
+                                        {t('noRankingsFound') || 'Sin registros aún en este ranking'}
+                                    </div>
+                                ) : (
+                                    rankingsData.interrogations.map((item, idx) => {
+                                        const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
+                                        const badgeSymbol = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`));
+                                        return (
+                                            <div key={item.id} className="ranking-item" onClick={() => navigate(`/personnel/${item.id}`)}>
+                                                <div className={`rank-badge ${rankClass}`}>{badgeSymbol}</div>
+                                                {getProfileImage(item.profile_image) ? (
+                                                    <img src={getProfileImage(item.profile_image)} alt={item.nombre} className="ranking-avatar" />
+                                                ) : (
+                                                    <img src="/logowebp/anon.webp" alt="Anon" className="ranking-avatar" />
+                                                )}
+                                                <div className="ranking-user-info">
+                                                    <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
+                                                    <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
+                                                </div>
+                                                <div className="ranking-count-pill">{item.count} {t('unitInterrogations') || 'Interrogatorios'}</div>
                                             </div>
                                         );
                                     })

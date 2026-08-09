@@ -1,5 +1,5 @@
 -- CREATE RPC FUNCTION TO GET PERSONNEL LEADERBOARD RANKINGS
--- Calculates top 10 personnel across 4 categories: Closed Cases, Uploaded Incidents, Outings, and Gang Unit Matrices.
+-- Calculates top 10 personnel across 5 categories: Closed Cases, Uploaded Incidents, Outings, Interrogations Participation, and Gang Unit Matrices.
 
 CREATE OR REPLACE FUNCTION get_personnel_rankings()
 RETURNS JSON AS $$
@@ -7,6 +7,7 @@ DECLARE
     v_closed_cases JSON;
     v_incidents JSON;
     v_outings JSON;
+    v_interrogations JSON;
     v_matrix JSON;
 BEGIN
     -- 1. Closed Cases Leaderboard
@@ -54,7 +55,23 @@ BEGIN
         LIMIT 10
     ) r;
 
-    -- 4. Matrix / Patrol Logs Leaderboard
+    -- 4. Interrogations Leaderboard
+    SELECT COALESCE(json_agg(r), '[]'::json) INTO v_interrogations FROM (
+        SELECT 
+            u.id, u.nombre, u.apellido, u.rango, u.no_placa, u.profile_image,
+            COUNT(DISTINCT i.id) as count
+        FROM public.users u
+        JOIN public.interrogations i ON (
+            i.author_id = u.id OR 
+            (i.agents_present IS NOT NULL AND i.agents_present ILIKE '%' || u.apellido || '%')
+        )
+        GROUP BY u.id, u.nombre, u.apellido, u.rango, u.no_placa, u.profile_image
+        HAVING COUNT(DISTINCT i.id) > 0
+        ORDER BY count DESC, u.nombre ASC
+        LIMIT 10
+    ) r;
+
+    -- 5. Matrix / Patrol Logs Leaderboard
     SELECT COALESCE(json_agg(r), '[]'::json) INTO v_matrix FROM (
         SELECT 
             u.id, u.nombre, u.apellido, u.rango, u.no_placa, u.profile_image,
@@ -71,6 +88,7 @@ BEGIN
         'closed_cases', v_closed_cases,
         'incidents', v_incidents,
         'outings', v_outings,
+        'interrogations', v_interrogations,
         'matrix', v_matrix
     );
 END;
