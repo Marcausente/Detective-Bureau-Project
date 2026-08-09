@@ -131,32 +131,50 @@ function Personnel() {
                     outings: data.outings || [],
                     matrix: data.matrix || []
                 });
-                return;
-            }
-        } catch (e) {
-            console.warn("RPC get_personnel_rankings failed, computing fallback:", e);
-        }
+            } else {
+                // Fallback computation using direct table queries if RPC is not available
+                const [usersRes, closedCasesRes, docRes, incRes, outRes, matrixRes] = await Promise.all([
+                    supabase.from('users').select('id, nombre, apellido, rango, no_placa, profile_image'),
+                    supabase.from('cases').select('id, created_by, case_assignments(user_id)').eq('status', 'Closed'),
+                    supabase.from('documentation_posts').select('author_id'),
+                    supabase.from('incidents').select('author_id'),
+                    supabase.from('outings').select('created_by'),
+                    supabase.from('gang_patrol_logs').select('created_by')
+                ]);
 
-        try {
-            const [usersRes, closedCasesRes, docRes, incRes, outRes, matrixRes] = await Promise.all([
-                supabase.from('users').select('id, nombre, apellido, rango, no_placa, profile_image'),
-                supabase.from('cases').select('id, created_by, case_assignments(user_id)').eq('status', 'Closed'),
-                supabase.from('documentation_posts').select('author_id'),
-                supabase.from('incidents').select('author_id'),
-                supabase.from('outings').select('created_by'),
-                supabase.from('gang_patrol_logs').select('created_by')
-            ]);
+                const allUsers = usersRes.data || [];
+                const userMap = new Map(allUsers.map(u => [u.id, u]));
 
-            const allUsers = usersRes.data || [];
-            const userMap = new Map(allUsers.map(u => [u.id, u]));
+                const buildLeaderboard = (items, getUserId) => {
+                    const counts = {};
+                    (items || []).forEach(item => {
+                        const uid = getUserId(item);
+                        if (uid) counts[uid] = (counts[uid] || 0) + 1;
+                    });
+                    return Object.entries(counts)
+                        .map(([uid, count]) => {
+                            const u = userMap.get(uid);
+                            if (!u) return null;
+                            return { ...u, count };
+                        })
+                        .filter(Boolean)
+                        .sort((a, b) => b.count - a.count)
+                        .slice(0, 10);
+                };
 
-            const buildLeaderboard = (items, getUserId) => {
-                const counts = {};
-                (items || []).forEach(item => {
-                    const uid = getUserId(item);
-                    if (uid) counts[uid] = (counts[uid] || 0) + 1;
+                const closedCasesCounts = {};
+                (closedCasesRes.data || []).forEach(c => {
+                    const uniqueUsers = new Set();
+                    if (c.created_by) uniqueUsers.add(c.created_by);
+                    if (c.case_assignments && Array.isArray(c.case_assignments)) {
+                        c.case_assignments.forEach(ca => { if (ca.user_id) uniqueUsers.add(ca.user_id); });
+                    }
+                    uniqueUsers.forEach(uid => {
+                        closedCasesCounts[uid] = (closedCasesCounts[uid] || 0) + 1;
+                    });
                 });
-                return Object.entries(counts)
+
+                const closedCasesList = Object.entries(closedCasesCounts)
                     .map(([uid, count]) => {
                         const u = userMap.get(uid);
                         if (!u) return null;
@@ -165,39 +183,17 @@ function Personnel() {
                     .filter(Boolean)
                     .sort((a, b) => b.count - a.count)
                     .slice(0, 10);
-            };
 
-            const closedCasesCounts = {};
-            (closedCasesRes.data || []).forEach(c => {
-                const uniqueUsers = new Set();
-                if (c.created_by) uniqueUsers.add(c.created_by);
-                if (c.case_assignments && Array.isArray(c.case_assignments)) {
-                    c.case_assignments.forEach(ca => { if (ca.user_id) uniqueUsers.add(ca.user_id); });
-                }
-                uniqueUsers.forEach(uid => {
-                    closedCasesCounts[uid] = (closedCasesCounts[uid] || 0) + 1;
+                setRankingsData({
+                    closed_cases: closedCasesList,
+                    doc_reports: buildLeaderboard(docRes.data, i => i.author_id),
+                    incidents: buildLeaderboard(incRes.data, i => i.author_id),
+                    outings: buildLeaderboard(outRes.data, i => i.created_by),
+                    matrix: buildLeaderboard(matrixRes.data, i => i.created_by)
                 });
-            });
-
-            const closedCasesList = Object.entries(closedCasesCounts)
-                .map(([uid, count]) => {
-                    const u = userMap.get(uid);
-                    if (!u) return null;
-                    return { ...u, count };
-                })
-                .filter(Boolean)
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 10);
-
-            setRankingsData({
-                closed_cases: closedCasesList,
-                doc_reports: buildLeaderboard(docRes.data, i => i.author_id),
-                incidents: buildLeaderboard(incRes.data, i => i.author_id),
-                outings: buildLeaderboard(outRes.data, i => i.created_by),
-                matrix: buildLeaderboard(matrixRes.data, i => i.created_by)
-            });
+            }
         } catch (err) {
-            console.error("Error computing rankings fallback:", err);
+            console.error("Error fetching rankings:", err);
         } finally {
             setRankingsLoading(false);
         }
