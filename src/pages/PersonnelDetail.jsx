@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { getProfileImage } from '../utils/imageStorage';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 // Rank Hierarchy Helper
@@ -74,10 +75,15 @@ const getSubdivisionClass = (sub) => {
 function PersonnelDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { t } = useLanguage();
     const [user, setUser] = useState(null); // The Target User
     const [viewer, setViewer] = useState(null); // The Current Logged-in User
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // User Stats State
+    const [userStats, setUserStats] = useState({ incidents: 0, matrix: 0, outings: 0 });
+    const [statsLoading, setStatsLoading] = useState(true);
 
     // Interrogations State
     const [agentInterrogations, setAgentInterrogations] = useState([]);
@@ -226,11 +232,48 @@ function PersonnelDetail() {
                 setAssignedCases(casesData);
             }
 
+            // 7. Fetch Activity Stats
+            fetchUserStats(id);
+
         } catch (err) {
             console.error('Error loading data:', err);
             setError(err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchUserStats = async (targetUserId) => {
+        try {
+            setStatsLoading(true);
+            const { data, error } = await supabase.rpc('get_user_stats', { p_target_user_id: targetUserId });
+            if (!error && data && data.length > 0) {
+                setUserStats({
+                    incidents: Number(data[0].incidents_count || 0),
+                    matrix: Number(data[0].matrix_count || 0),
+                    outings: Number(data[0].outings_count || 0)
+                });
+                return;
+            }
+        } catch (e) {
+            console.warn("RPC get_user_stats error, using fallback queries:", e);
+        }
+
+        try {
+            const [incRes, matrixRes, outRes] = await Promise.all([
+                supabase.from('incidents').select('id', { count: 'exact', head: true }).eq('author_id', targetUserId),
+                supabase.from('gang_patrol_logs').select('id', { count: 'exact', head: true }).eq('created_by', targetUserId),
+                supabase.from('outings').select('id', { count: 'exact', head: true }).eq('created_by', targetUserId)
+            ]);
+            setUserStats({
+                incidents: incRes.count || 0,
+                matrix: matrixRes.count || 0,
+                outings: outRes.count || 0
+            });
+        } catch (err) {
+            console.error("Error fetching user stats fallback:", err);
+        } finally {
+            setStatsLoading(false);
         }
     };
 
@@ -494,6 +537,45 @@ function PersonnelDetail() {
                             </div>
 
                         </div>
+                    </div>
+
+                    {/* STATS Section */}
+                    <div className="detail-section" style={{ marginTop: '1.5rem' }}>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            📊 {t('statsTitle') || 'Estadísticas de Actividad (STATS)'}
+                        </h3>
+                        {statsLoading ? (
+                            <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.9rem' }}>Cargando estadísticas...</div>
+                        ) : (
+                            <div className="stats-grid">
+                                <div className="stat-card">
+                                    <div className="stat-icon">📄</div>
+                                    <div className="stat-info">
+                                        <div className="stat-value">{userStats.incidents}</div>
+                                        <div className="stat-label">{t('uploadedIncidents') || 'Informes Subidos'}</div>
+                                        <div className="stat-subtext">{t('incidentsSectionDesc') || 'Apartado Incidents'}</div>
+                                    </div>
+                                </div>
+
+                                <div className="stat-card">
+                                    <div className="stat-icon">📈</div>
+                                    <div className="stat-info">
+                                        <div className="stat-value">{userStats.matrix}</div>
+                                        <div className="stat-label">{t('submittedMatrices') || 'Matrices Enviadas'}</div>
+                                        <div className="stat-subtext">{t('allGangsDesc') || 'Gang Unit - Todos los barrios'}</div>
+                                    </div>
+                                </div>
+
+                                <div className="stat-card">
+                                    <div className="stat-icon">🕵️‍♂️</div>
+                                    <div className="stat-info">
+                                        <div className="stat-value">{userStats.outings}</div>
+                                        <div className="stat-label">{t('submittedOutings') || 'Vigilancias Enviadas'}</div>
+                                        <div className="stat-subtext">{t('outingsSectionDesc') || 'Apartado Incidents (Outings)'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="detail-section">

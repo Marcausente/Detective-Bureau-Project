@@ -23,8 +23,16 @@ export const translations = {
         detectiveBureau: "Detective Bureau",
         scub: "SCUB",
         badge: "Badge #",
-        editProfile: "Edit Profile",
         logout: "Logout",
+
+        // Stats
+        statsTitle: "Activity Stats",
+        uploadedIncidents: "Uploaded Incidents",
+        submittedMatrices: "Submitted Matrices (GU)",
+        submittedOutings: "Submitted Outings / Vigilancias",
+        incidentsSectionDesc: "Incidents Section",
+        allGangsDesc: "Gang Unit - All Neighborhoods",
+        outingsSectionDesc: "Incidents Section (Outings)",
 
         // Dashboard
         readBy: "Read confirmed by",
@@ -459,8 +467,16 @@ export const translations = {
         detectiveBureau: "Detective Bureau",
         scub: "SCUB",
         badge: "Placa #",
-        editProfile: "Editar Perfil",
         logout: "Cerrar Sesión",
+
+        // Stats
+        statsTitle: "Estadísticas de Actividad (STATS)",
+        uploadedIncidents: "Informes Subidos",
+        submittedMatrices: "Matrices Enviadas (GU)",
+        submittedOutings: "Vigilancias Enviadas",
+        incidentsSectionDesc: "Apartado Incidents",
+        allGangsDesc: "Gang Unit - Todos los barrios",
+        outingsSectionDesc: "Apartado Incidents (Vigilancias)",
 
         // Dashboard
         readBy: "Lectura confirmada por",

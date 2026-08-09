@@ -3,14 +3,20 @@ import { createPortal } from 'react-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
 import { uploadImageToStorage, getProfileImage } from '../utils/imageStorage';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 function Profile() {
+    const { t } = useLanguage();
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
     const [message, setMessage] = useState(null);
     const fileInputRef = useRef(null);
     const editorRef = useRef(null);
+
+    // User Stats State
+    const [userStats, setUserStats] = useState({ incidents: 0, matrix: 0, outings: 0 });
+    const [statsLoading, setStatsLoading] = useState(true);
 
     // Cropper State
     const [editorOpen, setEditorOpen] = useState(false);
@@ -67,11 +73,48 @@ function Profile() {
                 if (data.rol === 'Administrador') {
                     fetchDbUsage();
                 }
+
+                // Fetch Stats for logged in user
+                fetchUserStats(user.id);
             }
         } catch (error) {
             console.error('Error fetching profile:', error.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchUserStats = async (userId) => {
+        try {
+            setStatsLoading(true);
+            const { data, error } = await supabase.rpc('get_user_stats', { p_target_user_id: userId });
+            if (!error && data && data.length > 0) {
+                setUserStats({
+                    incidents: Number(data[0].incidents_count || 0),
+                    matrix: Number(data[0].matrix_count || 0),
+                    outings: Number(data[0].outings_count || 0)
+                });
+                return;
+            }
+        } catch (e) {
+            console.warn("RPC get_user_stats error, using fallback queries:", e);
+        }
+
+        try {
+            const [incRes, matrixRes, outRes] = await Promise.all([
+                supabase.from('incidents').select('id', { count: 'exact', head: true }).eq('author_id', userId),
+                supabase.from('gang_patrol_logs').select('id', { count: 'exact', head: true }).eq('created_by', userId),
+                supabase.from('outings').select('id', { count: 'exact', head: true }).eq('created_by', userId)
+            ]);
+            setUserStats({
+                incidents: incRes.count || 0,
+                matrix: matrixRes.count || 0,
+                outings: outRes.count || 0
+            });
+        } catch (err) {
+            console.error("Error fetching user stats fallback:", err);
+        } finally {
+            setStatsLoading(false);
         }
     };
 
@@ -397,6 +440,45 @@ function Profile() {
                     </div>
                 </div>
             </form>
+
+            {/* STATS Section */}
+            <div style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--glass-border)' }}>
+                <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    📊 {t('statsTitle') || 'Estadísticas de Actividad (STATS)'}
+                </h3>
+                {statsLoading ? (
+                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.9rem' }}>Cargando estadísticas...</div>
+                ) : (
+                    <div className="stats-grid">
+                        <div className="stat-card">
+                            <div className="stat-icon">📄</div>
+                            <div className="stat-info">
+                                <div className="stat-value">{userStats.incidents}</div>
+                                <div className="stat-label">{t('uploadedIncidents') || 'Informes Subidos'}</div>
+                                <div className="stat-subtext">{t('incidentsSectionDesc') || 'Apartado Incidents'}</div>
+                            </div>
+                        </div>
+
+                        <div className="stat-card">
+                            <div className="stat-icon">📈</div>
+                            <div className="stat-info">
+                                <div className="stat-value">{userStats.matrix}</div>
+                                <div className="stat-label">{t('submittedMatrices') || 'Matrices Enviadas'}</div>
+                                <div className="stat-subtext">{t('allGangsDesc') || 'Gang Unit - Todos los barrios'}</div>
+                            </div>
+                        </div>
+
+                        <div className="stat-card">
+                            <div className="stat-icon">🕵️‍♂️</div>
+                            <div className="stat-info">
+                                <div className="stat-value">{userStats.outings}</div>
+                                <div className="stat-label">{t('submittedOutings') || 'Vigilancias Enviadas'}</div>
+                                <div className="stat-subtext">{t('outingsSectionDesc') || 'Apartado Incidents (Outings)'}</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {/* Image Cropper Modal */}
             {editorOpen && createPortal(
