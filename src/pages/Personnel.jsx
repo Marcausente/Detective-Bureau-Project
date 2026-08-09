@@ -119,7 +119,12 @@ function Personnel() {
         }
     };
 
-    const fetchRankingsData = async () => {
+    const fetchRankingsData = async (force = false) => {
+        // Caching optimization: avoid refetching egress data if already loaded
+        if (!force && (rankingsData.closed_cases.length > 0 || rankingsData.incidents.length > 0 || rankingsData.outings.length > 0 || rankingsData.interrogations.length > 0 || rankingsData.matrix.length > 0)) {
+            return;
+        }
+
         try {
             setRankingsLoading(true);
             const { data, error } = await supabase.rpc('get_personnel_rankings');
