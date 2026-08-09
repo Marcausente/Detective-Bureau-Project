@@ -1,11 +1,10 @@
 -- CREATE RPC FUNCTION TO GET PERSONNEL LEADERBOARD RANKINGS
--- Calculates top 10 personnel across 5 categories: Closed Cases, Documentation Reports, Uploaded Incidents, Outings, and Gang Unit Matrices.
+-- Calculates top 10 personnel across 4 categories: Closed Cases, Uploaded Incidents, Outings, and Gang Unit Matrices.
 
 CREATE OR REPLACE FUNCTION get_personnel_rankings()
 RETURNS JSON AS $$
 DECLARE
     v_closed_cases JSON;
-    v_doc_reports JSON;
     v_incidents JSON;
     v_outings JSON;
     v_matrix JSON;
@@ -29,20 +28,7 @@ BEGIN
         LIMIT 10
     ) r;
 
-    -- 2. Documentation Reports Leaderboard
-    SELECT COALESCE(json_agg(r), '[]'::json) INTO v_doc_reports FROM (
-        SELECT 
-            u.id, u.nombre, u.apellido, u.rango, u.no_placa, u.profile_image,
-            COUNT(dp.id) as count
-        FROM public.users u
-        JOIN public.documentation_posts dp ON u.id = dp.author_id
-        GROUP BY u.id, u.nombre, u.apellido, u.rango, u.no_placa, u.profile_image
-        HAVING COUNT(dp.id) > 0
-        ORDER BY count DESC, u.nombre ASC
-        LIMIT 10
-    ) r;
-
-    -- 3. Incidents Leaderboard
+    -- 2. Incidents Leaderboard
     SELECT COALESCE(json_agg(r), '[]'::json) INTO v_incidents FROM (
         SELECT 
             u.id, u.nombre, u.apellido, u.rango, u.no_placa, u.profile_image,
@@ -55,7 +41,7 @@ BEGIN
         LIMIT 10
     ) r;
 
-    -- 4. Outings Leaderboard
+    -- 3. Outings Leaderboard
     SELECT COALESCE(json_agg(r), '[]'::json) INTO v_outings FROM (
         SELECT 
             u.id, u.nombre, u.apellido, u.rango, u.no_placa, u.profile_image,
@@ -68,7 +54,7 @@ BEGIN
         LIMIT 10
     ) r;
 
-    -- 5. Matrix / Patrol Logs Leaderboard
+    -- 4. Matrix / Patrol Logs Leaderboard
     SELECT COALESCE(json_agg(r), '[]'::json) INTO v_matrix FROM (
         SELECT 
             u.id, u.nombre, u.apellido, u.rango, u.no_placa, u.profile_image,
@@ -83,7 +69,6 @@ BEGIN
 
     RETURN json_build_object(
         'closed_cases', v_closed_cases,
-        'doc_reports', v_doc_reports,
         'incidents', v_incidents,
         'outings', v_outings,
         'matrix', v_matrix

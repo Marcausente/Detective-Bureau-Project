@@ -43,7 +43,6 @@ function Personnel() {
     // Rankings State
     const [rankingsData, setRankingsData] = useState({
         closed_cases: [],
-        doc_reports: [],
         incidents: [],
         outings: [],
         matrix: []
@@ -126,17 +125,15 @@ function Personnel() {
             if (!error && data) {
                 setRankingsData({
                     closed_cases: data.closed_cases || [],
-                    doc_reports: data.doc_reports || [],
                     incidents: data.incidents || [],
                     outings: data.outings || [],
                     matrix: data.matrix || []
                 });
             } else {
                 // Fallback computation using direct table queries if RPC is not available
-                const [usersRes, closedCasesRes, docRes, incRes, outRes, matrixRes] = await Promise.all([
+                const [usersRes, closedCasesRes, incRes, outRes, matrixRes] = await Promise.all([
                     supabase.from('users').select('id, nombre, apellido, rango, no_placa, profile_image'),
                     supabase.from('cases').select('id, created_by, case_assignments(user_id)').eq('status', 'Closed'),
-                    supabase.from('documentation_posts').select('author_id'),
                     supabase.from('incidents').select('author_id'),
                     supabase.from('outings').select('created_by'),
                     supabase.from('gang_patrol_logs').select('created_by')
@@ -186,7 +183,6 @@ function Personnel() {
 
                 setRankingsData({
                     closed_cases: closedCasesList,
-                    doc_reports: buildLeaderboard(docRes.data, i => i.author_id),
                     incidents: buildLeaderboard(incRes.data, i => i.author_id),
                     outings: buildLeaderboard(outRes.data, i => i.created_by),
                     matrix: buildLeaderboard(matrixRes.data, i => i.created_by)
@@ -558,43 +554,7 @@ function Personnel() {
                             </div>
                         </div>
 
-                        {/* 2. Documentation Reports */}
-                        <div className="ranking-card">
-                            <div className="ranking-card-header">
-                                <span className="ranking-card-icon">📝</span>
-                                <h3 className="ranking-card-title">{t('rankDocReportsTitle') || 'Informes Subidos'}</h3>
-                            </div>
-                            <div className="ranking-card-desc">{t('rankDocReportsDesc') || 'Personas con más informes y documentos de oficina subidos'}</div>
-                            <div className="ranking-list">
-                                {(!rankingsData.doc_reports || rankingsData.doc_reports.length === 0) ? (
-                                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
-                                        {t('noRankingsFound') || 'Sin registros aún en este ranking'}
-                                    </div>
-                                ) : (
-                                    rankingsData.doc_reports.map((item, idx) => {
-                                        const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
-                                        const badgeSymbol = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`));
-                                        return (
-                                            <div key={item.id} className="ranking-item" onClick={() => navigate(`/personnel/${item.id}`)}>
-                                                <div className={`rank-badge ${rankClass}`}>{badgeSymbol}</div>
-                                                {getProfileImage(item.profile_image) ? (
-                                                    <img src={getProfileImage(item.profile_image)} alt={item.nombre} className="ranking-avatar" />
-                                                ) : (
-                                                    <img src="/logowebp/anon.webp" alt="Anon" className="ranking-avatar" />
-                                                )}
-                                                <div className="ranking-user-info">
-                                                    <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
-                                                    <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
-                                                </div>
-                                                <div className="ranking-count-pill">{item.count} {t('unitReports') || 'Informes'}</div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
-                        </div>
-
-                        {/* 3. Incidents */}
+                        {/* 2. Incidents */}
                         <div className="ranking-card">
                             <div className="ranking-card-header">
                                 <span className="ranking-card-icon">🚨</span>
