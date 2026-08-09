@@ -85,6 +85,7 @@ function Profile() {
     };
 
     const fetchUserStats = async (userId) => {
+        if (!userId) return;
         try {
             setStatsLoading(true);
             const { data, error } = await supabase.rpc('get_user_stats', { p_target_user_id: userId });
@@ -94,25 +95,21 @@ function Profile() {
                     matrix: Number(data[0].matrix_count || 0),
                     outings: Number(data[0].outings_count || 0)
                 });
-                return;
+            } else {
+                // Fallback to client-side table counts
+                const [incRes, matrixRes, outRes] = await Promise.all([
+                    supabase.from('incidents').select('id', { count: 'exact', head: true }).eq('author_id', userId),
+                    supabase.from('gang_patrol_logs').select('id', { count: 'exact', head: true }).eq('created_by', userId),
+                    supabase.from('outings').select('id', { count: 'exact', head: true }).eq('created_by', userId)
+                ]);
+                setUserStats({
+                    incidents: incRes ? (incRes.count || 0) : 0,
+                    matrix: matrixRes ? (matrixRes.count || 0) : 0,
+                    outings: outRes ? (outRes.count || 0) : 0
+                });
             }
-        } catch (e) {
-            console.warn("RPC get_user_stats error, using fallback queries:", e);
-        }
-
-        try {
-            const [incRes, matrixRes, outRes] = await Promise.all([
-                supabase.from('incidents').select('id', { count: 'exact', head: true }).eq('author_id', userId),
-                supabase.from('gang_patrol_logs').select('id', { count: 'exact', head: true }).eq('created_by', userId),
-                supabase.from('outings').select('id', { count: 'exact', head: true }).eq('created_by', userId)
-            ]);
-            setUserStats({
-                incidents: incRes.count || 0,
-                matrix: matrixRes.count || 0,
-                outings: outRes.count || 0
-            });
         } catch (err) {
-            console.error("Error fetching user stats fallback:", err);
+            console.error("Error fetching user stats:", err);
         } finally {
             setStatsLoading(false);
         }
