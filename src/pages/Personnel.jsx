@@ -6,6 +6,7 @@ import { supabase } from '../supabaseClient';
 import { uploadImageToStorage, getProfileImage } from '../utils/imageStorage';
 import { usePresence } from '../contexts/PresenceContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
 const getSubdivisionAbbrev = (sub) => {
@@ -31,9 +32,23 @@ const getSubdivisionClass = (sub) => {
 function Personnel() {
     const navigate = useNavigate();
     const { isLSSD } = useTheme();
+    const { t } = useLanguage();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    // Active Tab State ('directory' | 'rankings')
+    const [activeTab, setActiveTab] = useState('directory');
+
+    // Rankings State
+    const [rankingsData, setRankingsData] = useState({
+        closed_cases: [],
+        doc_reports: [],
+        incidents: [],
+        outings: [],
+        matrix: []
+    });
+    const [rankingsLoading, setRankingsLoading] = useState(false);
 
     // Auth State
     const [currentUserRole, setCurrentUserRole] = useState(null);
@@ -101,6 +116,90 @@ function Personnel() {
             setError(err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchRankingsData = async () => {
+        try {
+            setRankingsLoading(true);
+            const { data, error } = await supabase.rpc('get_personnel_rankings');
+            if (!error && data) {
+                setRankingsData({
+                    closed_cases: data.closed_cases || [],
+                    doc_reports: data.doc_reports || [],
+                    incidents: data.incidents || [],
+                    outings: data.outings || [],
+                    matrix: data.matrix || []
+                });
+                return;
+            }
+        } catch (e) {
+            console.warn("RPC get_personnel_rankings failed, computing fallback:", e);
+        }
+
+        try {
+            const [usersRes, closedCasesRes, docRes, incRes, outRes, matrixRes] = await Promise.all([
+                supabase.from('users').select('id, nombre, apellido, rango, no_placa, profile_image'),
+                supabase.from('cases').select('id, created_by, case_assignments(user_id)').eq('status', 'Closed'),
+                supabase.from('documentation_posts').select('author_id'),
+                supabase.from('incidents').select('author_id'),
+                supabase.from('outings').select('created_by'),
+                supabase.from('gang_patrol_logs').select('created_by')
+            ]);
+
+            const allUsers = usersRes.data || [];
+            const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+            const buildLeaderboard = (items, getUserId) => {
+                const counts = {};
+                (items || []).forEach(item => {
+                    const uid = getUserId(item);
+                    if (uid) counts[uid] = (counts[uid] || 0) + 1;
+                });
+                return Object.entries(counts)
+                    .map(([uid, count]) => {
+                        const u = userMap.get(uid);
+                        if (!u) return null;
+                        return { ...u, count };
+                    })
+                    .filter(Boolean)
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 10);
+            };
+
+            const closedCasesCounts = {};
+            (closedCasesRes.data || []).forEach(c => {
+                const uniqueUsers = new Set();
+                if (c.created_by) uniqueUsers.add(c.created_by);
+                if (c.case_assignments && Array.isArray(c.case_assignments)) {
+                    c.case_assignments.forEach(ca => { if (ca.user_id) uniqueUsers.add(ca.user_id); });
+                }
+                uniqueUsers.forEach(uid => {
+                    closedCasesCounts[uid] = (closedCasesCounts[uid] || 0) + 1;
+                });
+            });
+
+            const closedCasesList = Object.entries(closedCasesCounts)
+                .map(([uid, count]) => {
+                    const u = userMap.get(uid);
+                    if (!u) return null;
+                    return { ...u, count };
+                })
+                .filter(Boolean)
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 10);
+
+            setRankingsData({
+                closed_cases: closedCasesList,
+                doc_reports: buildLeaderboard(docRes.data, i => i.author_id),
+                incidents: buildLeaderboard(incRes.data, i => i.author_id),
+                outings: buildLeaderboard(outRes.data, i => i.created_by),
+                matrix: buildLeaderboard(matrixRes.data, i => i.created_by)
+            });
+        } catch (err) {
+            console.error("Error computing rankings fallback:", err);
+        } finally {
+            setRankingsLoading(false);
         }
     };
 
@@ -374,31 +473,241 @@ function Personnel() {
 
             {error && <div className="error-message">Error: {error}</div>}
 
-            <div className="personnel-grid">
-                {/* Detectives Column */}
-                <div className="personnel-column">
-                    <h3 className="column-title">Detectives</h3>
-                    <div className="personnel-list">
-                        {detectives.length > 0 ? detectives.map(u => <UserCard key={u.id} user={u} />) : <div className="empty-list">No detectives found</div>}
-                    </div>
-                </div>
-
-                {/* Helpers Column */}
-                <div className="personnel-column">
-                    <h3 className="column-title">{isLSSD ? "Ayudantes SCUB" : "Ayudantes DB"}</h3>
-                    <div className="personnel-list">
-                        {helpers.length > 0 ? helpers.map(u => <UserCard key={u.id} user={u} />) : <div className="empty-list">No oficiales found</div>}
-                    </div>
-                </div>
-
-                {/* Command Column */}
-                <div className="personnel-column">
-                    <h3 className="column-title">Comisionado y Externos</h3>
-                    <div className="personnel-list">
-                        {commandAndExternal.length > 0 ? commandAndExternal.map(u => <UserCard key={u.id} user={u} />) : <div className="empty-list">No command staff found</div>}
-                    </div>
-                </div>
+            {/* Personnel Tabs Header */}
+            <div className="personnel-tabs-bar">
+                <button 
+                    className={`personnel-tab-btn ${activeTab === 'directory' ? 'active' : ''}`} 
+                    onClick={() => setActiveTab('directory')}
+                >
+                    👥 {t('personnelDirectory') || 'Directorio de Personal'}
+                </button>
+                <button 
+                    className={`personnel-tab-btn ${activeTab === 'rankings' ? 'active' : ''}`} 
+                    onClick={() => {
+                        setActiveTab('rankings');
+                        fetchRankingsData();
+                    }}
+                >
+                    {t('rankingsTab') || '🏆 Rankings y Líderes'}
+                </button>
             </div>
+
+            {activeTab === 'directory' ? (
+                <div className="personnel-grid">
+                    {/* Detectives Column */}
+                    <div className="personnel-column">
+                        <h3 className="column-title">Detectives</h3>
+                        <div className="personnel-list">
+                            {detectives.length > 0 ? detectives.map(u => <UserCard key={u.id} user={u} />) : <div className="empty-list">No detectives found</div>}
+                        </div>
+                    </div>
+
+                    {/* Helpers Column */}
+                    <div className="personnel-column">
+                        <h3 className="column-title">{isLSSD ? "Ayudantes SCUB" : "Ayudantes DB"}</h3>
+                        <div className="personnel-list">
+                            {helpers.length > 0 ? helpers.map(u => <UserCard key={u.id} user={u} />) : <div className="empty-list">No oficiales found</div>}
+                        </div>
+                    </div>
+
+                    {/* Command Column */}
+                    <div className="personnel-column">
+                        <h3 className="column-title">Comisionado y Externos</h3>
+                        <div className="personnel-list">
+                            {commandAndExternal.length > 0 ? commandAndExternal.map(u => <UserCard key={u.id} user={u} />) : <div className="empty-list">No command staff found</div>}
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                /* Rankings Tab Content */
+                rankingsLoading ? (
+                    <div className="loading-container" style={{ padding: '3rem 0' }}>
+                        Cargando clasificaciones y rankings...
+                    </div>
+                ) : (
+                    <div className="rankings-grid">
+                        {/* 1. Closed Cases */}
+                        <div className="ranking-card">
+                            <div className="ranking-card-header">
+                                <span className="ranking-card-icon">📁</span>
+                                <h3 className="ranking-card-title">{t('rankClosedCasesTitle') || 'Casos en Closed'}</h3>
+                            </div>
+                            <div className="ranking-card-desc">{t('rankClosedCasesDesc') || 'Personas con más casos criminales cerrados y resueltos'}</div>
+                            <div className="ranking-list">
+                                {(!rankingsData.closed_cases || rankingsData.closed_cases.length === 0) ? (
+                                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
+                                        {t('noRankingsFound') || 'Sin registros aún en este ranking'}
+                                    </div>
+                                ) : (
+                                    rankingsData.closed_cases.map((item, idx) => {
+                                        const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
+                                        const badgeSymbol = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`));
+                                        return (
+                                            <div key={item.id} className="ranking-item" onClick={() => navigate(`/personnel/${item.id}`)}>
+                                                <div className={`rank-badge ${rankClass}`}>{badgeSymbol}</div>
+                                                {getProfileImage(item.profile_image) ? (
+                                                    <img src={getProfileImage(item.profile_image)} alt={item.nombre} className="ranking-avatar" />
+                                                ) : (
+                                                    <img src="/logowebp/anon.webp" alt="Anon" className="ranking-avatar" />
+                                                )}
+                                                <div className="ranking-user-info">
+                                                    <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
+                                                    <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
+                                                </div>
+                                                <div className="ranking-count-pill">{item.count} {t('unitCases') || 'Casos'}</div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 2. Documentation Reports */}
+                        <div className="ranking-card">
+                            <div className="ranking-card-header">
+                                <span className="ranking-card-icon">📝</span>
+                                <h3 className="ranking-card-title">{t('rankDocReportsTitle') || 'Informes Subidos'}</h3>
+                            </div>
+                            <div className="ranking-card-desc">{t('rankDocReportsDesc') || 'Personas con más informes y documentos de oficina subidos'}</div>
+                            <div className="ranking-list">
+                                {(!rankingsData.doc_reports || rankingsData.doc_reports.length === 0) ? (
+                                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
+                                        {t('noRankingsFound') || 'Sin registros aún en este ranking'}
+                                    </div>
+                                ) : (
+                                    rankingsData.doc_reports.map((item, idx) => {
+                                        const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
+                                        const badgeSymbol = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`));
+                                        return (
+                                            <div key={item.id} className="ranking-item" onClick={() => navigate(`/personnel/${item.id}`)}>
+                                                <div className={`rank-badge ${rankClass}`}>{badgeSymbol}</div>
+                                                {getProfileImage(item.profile_image) ? (
+                                                    <img src={getProfileImage(item.profile_image)} alt={item.nombre} className="ranking-avatar" />
+                                                ) : (
+                                                    <img src="/logowebp/anon.webp" alt="Anon" className="ranking-avatar" />
+                                                )}
+                                                <div className="ranking-user-info">
+                                                    <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
+                                                    <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
+                                                </div>
+                                                <div className="ranking-count-pill">{item.count} {t('unitReports') || 'Informes'}</div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 3. Incidents */}
+                        <div className="ranking-card">
+                            <div className="ranking-card-header">
+                                <span className="ranking-card-icon">🚨</span>
+                                <h3 className="ranking-card-title">{t('rankIncidentsTitle') || 'Incidentes Subidos'}</h3>
+                            </div>
+                            <div className="ranking-card-desc">{t('rankIncidentsDesc') || 'Personas con más partes de incidentes subidos'}</div>
+                            <div className="ranking-list">
+                                {(!rankingsData.incidents || rankingsData.incidents.length === 0) ? (
+                                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
+                                        {t('noRankingsFound') || 'Sin registros aún en este ranking'}
+                                    </div>
+                                ) : (
+                                    rankingsData.incidents.map((item, idx) => {
+                                        const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
+                                        const badgeSymbol = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`));
+                                        return (
+                                            <div key={item.id} className="ranking-item" onClick={() => navigate(`/personnel/${item.id}`)}>
+                                                <div className={`rank-badge ${rankClass}`}>{badgeSymbol}</div>
+                                                {getProfileImage(item.profile_image) ? (
+                                                    <img src={getProfileImage(item.profile_image)} alt={item.nombre} className="ranking-avatar" />
+                                                ) : (
+                                                    <img src="/logowebp/anon.webp" alt="Anon" className="ranking-avatar" />
+                                                )}
+                                                <div className="ranking-user-info">
+                                                    <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
+                                                    <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
+                                                </div>
+                                                <div className="ranking-count-pill">{item.count} {t('unitIncidents') || 'Incidentes'}</div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 4. Outings (Vigilancias) */}
+                        <div className="ranking-card">
+                            <div className="ranking-card-header">
+                                <span className="ranking-card-icon">🕵️‍♂️</span>
+                                <h3 className="ranking-card-title">{t('rankOutingsTitle') || 'Vigilancias Subidas'}</h3>
+                            </div>
+                            <div className="ranking-card-desc">{t('rankOutingsDesc') || 'Personas con más salidas de vigilancia (Outings) registradas'}</div>
+                            <div className="ranking-list">
+                                {(!rankingsData.outings || rankingsData.outings.length === 0) ? (
+                                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
+                                        {t('noRankingsFound') || 'Sin registros aún en este ranking'}
+                                    </div>
+                                ) : (
+                                    rankingsData.outings.map((item, idx) => {
+                                        const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
+                                        const badgeSymbol = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`));
+                                        return (
+                                            <div key={item.id} className="ranking-item" onClick={() => navigate(`/personnel/${item.id}`)}>
+                                                <div className={`rank-badge ${rankClass}`}>{badgeSymbol}</div>
+                                                {getProfileImage(item.profile_image) ? (
+                                                    <img src={getProfileImage(item.profile_image)} alt={item.nombre} className="ranking-avatar" />
+                                                ) : (
+                                                    <img src="/logowebp/anon.webp" alt="Anon" className="ranking-avatar" />
+                                                )}
+                                                <div className="ranking-user-info">
+                                                    <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
+                                                    <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
+                                                </div>
+                                                <div className="ranking-count-pill">{item.count} {t('unitOutings') || 'Vigilancias'}</div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 5. Matrix GU */}
+                        <div className="ranking-card">
+                            <div className="ranking-card-header">
+                                <span className="ranking-card-icon">📊</span>
+                                <h3 className="ranking-card-title">{t('rankMatricesTitle') || 'Matrices Subidas'}</h3>
+                            </div>
+                            <div className="ranking-card-desc">{t('rankMatricesDesc') || 'Personas con más matrices de control de tiempo subidas en Gang Unit'}</div>
+                            <div className="ranking-list">
+                                {(!rankingsData.matrix || rankingsData.matrix.length === 0) ? (
+                                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
+                                        {t('noRankingsFound') || 'Sin registros aún en este ranking'}
+                                    </div>
+                                ) : (
+                                    rankingsData.matrix.map((item, idx) => {
+                                        const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
+                                        const badgeSymbol = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`));
+                                        return (
+                                            <div key={item.id} className="ranking-item" onClick={() => navigate(`/personnel/${item.id}`)}>
+                                                <div className={`rank-badge ${rankClass}`}>{badgeSymbol}</div>
+                                                {getProfileImage(item.profile_image) ? (
+                                                    <img src={getProfileImage(item.profile_image)} alt={item.nombre} className="ranking-avatar" />
+                                                ) : (
+                                                    <img src="/logowebp/anon.webp" alt="Anon" className="ranking-avatar" />
+                                                )}
+                                                <div className="ranking-user-info">
+                                                    <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
+                                                    <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
+                                                </div>
+                                                <div className="ranking-count-pill">{item.count} {t('unitMatrices') || 'Matrices'}</div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )
+            )}
 
             {/* Add/Edit Modal */}
             {showModal && (

@@ -34,6 +34,26 @@ export const translations = {
         allGangsDesc: "Gang Unit - All Neighborhoods",
         outingsSectionDesc: "Incidents Section (Outings)",
 
+        // Rankings Tab
+        personnelDirectory: "Personnel Directory",
+        rankingsTab: "🏆 Leaderboard Rankings",
+        rankClosedCasesTitle: "Most Closed Cases",
+        rankClosedCasesDesc: "Personnel with the highest number of closed criminal cases",
+        rankDocReportsTitle: "Most Documentation Reports",
+        rankDocReportsDesc: "Personnel with the highest number of documentation posts uploaded",
+        rankIncidentsTitle: "Most Incidents Uploaded",
+        rankIncidentsDesc: "Personnel with the highest number of incident reports uploaded",
+        rankOutingsTitle: "Most Outings (Vigilancias)",
+        rankOutingsDesc: "Personnel with the highest number of surveillance outings submitted",
+        rankMatricesTitle: "Most GU Matrices",
+        rankMatricesDesc: "Personnel with the highest number of gang unit patrol matrices submitted",
+        noRankingsFound: "No ranking entries recorded yet",
+        unitCases: "Cases",
+        unitReports: "Reports",
+        unitIncidents: "Incidents",
+        unitOutings: "Outings",
+        unitMatrices: "Matrices",
+
         // Dashboard
         readBy: "Read confirmed by",
         noReactions: "No read confirmations yet.",
@@ -477,6 +497,26 @@ export const translations = {
         incidentsSectionDesc: "Apartado Incidents",
         allGangsDesc: "Gang Unit - Todos los barrios",
         outingsSectionDesc: "Apartado Incidents (Vigilancias)",
+
+        // Rankings Tab
+        personnelDirectory: "Directorio de Personal",
+        rankingsTab: "🏆 Rankings y Líderes",
+        rankClosedCasesTitle: "Casos en Closed",
+        rankClosedCasesDesc: "Personas con más casos criminales cerrados y resueltos",
+        rankDocReportsTitle: "Informes Subidos",
+        rankDocReportsDesc: "Personas con más informes y documentos de oficina subidos",
+        rankIncidentsTitle: "Incidentes Subidos",
+        rankIncidentsDesc: "Personas con más partes de incidentes subidos",
+        rankOutingsTitle: "Vigilancias Subidas",
+        rankOutingsDesc: "Personas con más salidas de vigilancia (Outings) registradas",
+        rankMatricesTitle: "Matrices Subidas",
+        rankMatricesDesc: "Personas con más matrices de control de tiempo subidas en Gang Unit",
+        noRankingsFound: "Sin registros aún en este ranking",
+        unitCases: "Casos",
+        unitReports: "Informes",
+        unitIncidents: "Incidentes",
+        unitOutings: "Vigilancias",
+        unitMatrices: "Matrices",
 
         // Dashboard
         readBy: "Lectura confirmada por",
