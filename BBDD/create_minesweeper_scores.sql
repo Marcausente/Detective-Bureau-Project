@@ -1,7 +1,7 @@
 -- Create Minesweeper Leaderboard Table
 CREATE TABLE IF NOT EXISTS public.minesweeper_scores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   time_seconds INTEGER NOT NULL,
   difficulty TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

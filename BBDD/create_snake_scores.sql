@@ -1,7 +1,7 @@
 -- Create Snake Leaderboard Table
 CREATE TABLE IF NOT EXISTS public.snake_scores (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   score INTEGER NOT NULL,
   speed_mode TEXT NOT NULL DEFAULT 'Normal',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

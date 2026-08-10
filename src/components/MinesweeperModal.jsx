@@ -278,6 +278,22 @@ export default function MinesweeperModal({ onClose, profile, onSwitchGame }) {
                     <button className="ms-close-btn" onClick={onClose}>✕</button>
                 </div>
 
+                {/* Minigame Switcher */}
+                <div className="minigame-switcher">
+                    <button 
+                        className="game-switch-btn active" 
+                        onClick={() => onSwitchGame && onSwitchGame('minesweeper')}
+                    >
+                        💣 Buscaminas
+                    </button>
+                    <button 
+                        className="game-switch-btn"
+                        onClick={() => onSwitchGame && onSwitchGame('snake')}
+                    >
+                        🐍 Snake
+                    </button>
+                </div>
+
                 {/* Tabs */}
                 <div className="ms-tabs">
                     <button 
