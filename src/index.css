@@ -3591,5 +3591,126 @@ body.theme-lssd .dtp-status-registered {
     flex-shrink: 0;
 }
 
+/* ==========================================
+   MINIGAMES SWITCHER & SNAKE STYLES
+   ========================================== */
 
+.minigame-switcher {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 0.35rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
 
+.game-switch-btn {
+    flex: 1;
+    padding: 0.45rem 0.75rem;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.game-switch-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.game-switch-btn.active {
+    background: var(--accent-gold);
+    color: #0b1120;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+}
+
+/* Snake Modal Specifics */
+.snake-game-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.snake-start-banner {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 0.25rem;
+}
+
+.snake-start-btn {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.snake-start-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.45);
+}
+
+.snake-canvas-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #0b1120;
+    padding: 6px;
+    border-radius: 12px;
+    border: 2px solid rgba(16, 185, 129, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 15px rgba(16, 185, 129, 0.15);
+}
+
+.snake-canvas {
+    border-radius: 6px;
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+/* D-Pad Controls for Touch / Mouse */
+.snake-dpad {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    margin-top: 0.25rem;
+}
+
+.dpad-row {
+    display: flex;
+    gap: 4px;
+}
+
+.dpad-btn {
+    width: 44px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.dpad-btn:active {
+    background: rgba(16, 185, 129, 0.4);
+    transform: scale(0.92);
+}

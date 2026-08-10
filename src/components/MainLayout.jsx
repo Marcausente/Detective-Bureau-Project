@@ -5,6 +5,7 @@ import { getProfileImage } from '../utils/imageStorage';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import MinesweeperModal from './MinesweeperModal';
+import SnakeModal from './SnakeModal';
 import '../index.css';
 
 function MainLayout() {
@@ -14,8 +15,8 @@ function MainLayout() {
     const { isLSSD } = useTheme();
     const { t } = useLanguage();
 
-    // Minesweeper secret states
-    const [showMinesweeper, setShowMinesweeper] = useState(false);
+    // Minigames secret states
+    const [activeGame, setActiveGame] = useState(null); // null | 'minesweeper' | 'snake'
     const [logoClicks, setLogoClicks] = useState(0);
 
     useEffect(() => {
@@ -29,7 +30,7 @@ function MainLayout() {
         setLogoClicks(prev => {
             const next = prev + 1;
             if (next >= 5) {
-                setShowMinesweeper(true);
+                setActiveGame('minesweeper');
                 return 0;
             }
             return next;
@@ -190,7 +191,7 @@ function MainLayout() {
                                 <div className="user-badge">
                                     {t('badge')}{profile.no_placa}
                                     <span
-                                        onClick={() => setShowMinesweeper(true)}
+                                        onClick={() => setActiveGame('minesweeper')}
                                         style={{
                                             opacity: 0.15,
                                             cursor: 'pointer',
@@ -201,7 +202,7 @@ function MainLayout() {
                                         }}
                                         onMouseEnter={(e) => e.target.style.opacity = 0.6}
                                         onMouseLeave={(e) => e.target.style.opacity = 0.15}
-                                        title="Buscaminas Secreto"
+                                        title="Minijuegos Secretos"
                                     >
                                         🎮
                                     </span>
@@ -226,8 +227,19 @@ function MainLayout() {
                     <Outlet />
                 </div>
             </main>
-            {showMinesweeper && (
-                <MinesweeperModal onClose={() => setShowMinesweeper(false)} profile={profile} />
+            {activeGame === 'minesweeper' && (
+                <MinesweeperModal 
+                    onClose={() => setActiveGame(null)} 
+                    profile={profile} 
+                    onSwitchGame={(game) => setActiveGame(game)} 
+                />
+            )}
+            {activeGame === 'snake' && (
+                <SnakeModal 
+                    onClose={() => setActiveGame(null)} 
+                    profile={profile} 
+                    onSwitchGame={(game) => setActiveGame(game)} 
+                />
             )}
         </div>
     );

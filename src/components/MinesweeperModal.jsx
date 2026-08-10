@@ -9,7 +9,7 @@ const DIFFICULTIES = {
     Hard: { rows: 15, cols: 15, mines: 40, label: 'msHard' }
 };
 
-export default function MinesweeperModal({ onClose, profile }) {
+export default function MinesweeperModal({ onClose, profile, onSwitchGame }) {
     const { t, currentLanguage } = useLanguage();
     const [activeTab, setActiveTab] = useState('game'); // 'game' | 'leaderboard'
     const [selectedDifficulty, setSelectedDifficulty] = useState('Easy');
@@ -158,27 +158,36 @@ export default function MinesweeperModal({ onClose, profile }) {
         }
     };
 
-    const handleCellClick = async (row, col) => {
-        if (gameStatus === 'lost' || gameStatus === 'won') return;
+    const handleCellClick = async (r, c) => {
+        if (gameStatus === 'won' || gameStatus === 'lost') return;
 
         let currentBoard = board;
-        let isFirstClick = gameStatus === 'idle';
-
-        if (isFirstClick) {
-            currentBoard = generateMines(row, col);
+        // First click logic - generate mines avoiding the clicked cell
+        if (gameStatus === 'idle') {
+            currentBoard = generateMines(r, c);
             setGameStatus('playing');
         }
 
-        const cell = currentBoard[row][col];
+        const cell = currentBoard[r][c];
         if (cell.isRevealed || cell.isFlagged) return;
 
-        const updatedBoard = JSON.parse(JSON.stringify(currentBoard));
-        revealCell(updatedBoard, row, col);
+        const newBoard = JSON.parse(JSON.stringify(currentBoard));
 
-        // Check loss
-        if (updatedBoard[row][col].isMine) {
-            revealAllMines(updatedBoard, row, col);
-            setBoard(updatedBoard);
+        // Clicked a mine -> Game Over
+        if (cell.isMine) {
+            newBoard[r][c].isRevealed = true;
+            newBoard[r][c].exploded = true;
+            
+            // Reveal all mines
+            const { rows, cols } = DIFFICULTIES[selectedDifficulty];
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (newBoard[i][j].isMine) {
+                        newBoard[i][j].isRevealed = true;
+                    }
+                }
+            }
+            setBoard(newBoard);
             setGameStatus('lost');
             return;
         }

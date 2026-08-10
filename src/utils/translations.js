@@ -451,6 +451,20 @@ export const translations = {
         msLoading: "Loading scoreboard...",
         msNoScores: "No high scores registered yet.",
 
+        // Snake Game
+        snakeTitle: "Detective Snake Game",
+        snakeScore: "Score",
+        snakeHighScore: "High Score",
+        snakeSpeedNormal: "Normal",
+        snakeSpeedFast: "Fast",
+        snakeSpeedExtreme: "Extreme",
+        snakeGameOver: "Game Over! You crashed.",
+        snakeControlsInfo: "⌨️ Use Arrow Keys / WASD or D-Pad below",
+        snakePause: "Pause",
+        snakeResume: "Resume",
+        snakeStart: "Start Game",
+        snakeWinScoreSaved: "Great job! Score saved.",
+
         // Ballistics
         addSeizedWeapon: "+ Add Seized Weapon",
         addBulletCasing: "+ Add Bullet Casing",
@@ -918,6 +932,20 @@ export const translations = {
         msGameOver: "¡Boom! Mina detonada.",
         msLoading: "Cargando clasificación...",
         msNoScores: "Aún no hay puntuaciones registradas.",
+
+        // Snake Game
+        snakeTitle: "Juego de la Serpiente (Snake)",
+        snakeScore: "Puntos",
+        snakeHighScore: "Récord",
+        snakeSpeedNormal: "Normal",
+        snakeSpeedFast: "Rápido",
+        snakeSpeedExtreme: "Extremo",
+        snakeGameOver: "¡Juego Terminado! Has chocado.",
+        snakeControlsInfo: "⌨️ Usa Flechas / WASD o el D-Pad inferior",
+        snakePause: "Pausa",
+        snakeResume: "Reanudar",
+        snakeStart: "Iniciar Juego",
+        snakeWinScoreSaved: "¡Bien hecho! Puntuación guardada.",
 
         // Ballistics
         addSeizedWeapon: "+ Añadir Arma Incautada",
