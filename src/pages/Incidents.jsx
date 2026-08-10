@@ -259,6 +259,24 @@ function Incidents() {
         e.preventDefault();
         setSubmitting(true);
         try {
+            if (incTablet && incTablet.trim() !== '') {
+                const trimmedTablet = incTablet.trim();
+                const { data: existing } = await supabase
+                    .from('incidents')
+                    .select('id, tablet_incident_number')
+                    .ilike('tablet_incident_number', trimmedTablet);
+
+                const isDuplicate = (existing && existing.length > 0) || incidents.some(i => i.tablet_incident_number && i.tablet_incident_number.toString().trim().toLowerCase() === trimmedTablet.toLowerCase());
+
+                if (isDuplicate) {
+                    const warningMsg = (t('tabletExistsWarning') || "El número de informe tablet '{number}' ya se encuentra en la BBDD, ¿estás seguro de que quieres añadirlo?").replace('{number}', trimmedTablet);
+                    if (!window.confirm(warningMsg)) {
+                        setSubmitting(false);
+                        return;
+                    }
+                }
+            }
+
             // Format title with tablet number if present
             const finalTitle = incTablet ? `[${incTablet}] ${incTitle}` : incTitle;
 
@@ -419,6 +437,31 @@ function Incidents() {
         e.preventDefault();
         setSubmitting(true);
         try {
+            if (incTablet && incTablet.trim() !== '') {
+                const trimmedTablet = incTablet.trim();
+                const currentId = editingIncident?.record_id || editingIncident?.id;
+
+                const { data: existing } = await supabase
+                    .from('incidents')
+                    .select('id, tablet_incident_number')
+                    .ilike('tablet_incident_number', trimmedTablet);
+
+                const duplicateInDb = existing && existing.some(item => item.id !== currentId);
+                const duplicateInState = incidents.some(i =>
+                    (i.record_id !== currentId && i.id !== currentId) &&
+                    i.tablet_incident_number &&
+                    i.tablet_incident_number.toString().trim().toLowerCase() === trimmedTablet.toLowerCase()
+                );
+
+                if (duplicateInDb || duplicateInState) {
+                    const warningMsg = (t('tabletExistsWarning') || "El número de informe tablet '{number}' ya se encuentra en la BBDD, ¿estás seguro de que quieres añadirlo?").replace('{number}', trimmedTablet);
+                    if (!window.confirm(warningMsg)) {
+                        setSubmitting(false);
+                        return;
+                    }
+                }
+            }
+
             // Format title with tablet number if present
             const finalTitle = incTablet ? `[${incTablet}] ${incTitle}` : incTitle;
 
