@@ -325,8 +325,8 @@ export default function SnakeModal({ onClose, profile, onSwitchGame }) {
     }, [snake, food, direction]);
 
     return (
-        <div className="ms-modal-overlay">
-            <div className="ms-modal-content snake-modal-content">
+        <div className="cropper-modal-overlay ms-modal-overlay">
+            <div className="cropper-modal-content ms-modal-content snake-modal-content">
                 {/* Header */}
                 <div className="ms-modal-header">
                     <div className="ms-modal-title">
