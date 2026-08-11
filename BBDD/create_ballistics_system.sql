@@ -8,9 +8,13 @@ CREATE TABLE IF NOT EXISTS public.ballistics_bullets (
     incidente_relacionado TEXT NOT NULL,
     calibre TEXT NOT NULL,
     numero_serie TEXT NOT NULL,
+    modelo_arma TEXT NOT NULL DEFAULT 'N/A',
     author_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Migration query in case table already exists
+ALTER TABLE public.ballistics_bullets ADD COLUMN IF NOT EXISTS modelo_arma TEXT NOT NULL DEFAULT 'N/A';
 
 -- 2. Create Seized Weapons Table (Tabla de Armas Incautadas)
 CREATE TABLE IF NOT EXISTS public.ballistics_weapons (
@@ -55,18 +59,24 @@ CREATE POLICY "Delete weapons allowed for auth"
 
 -- 5. RPC Functions for Bullets
 
+-- Drop old functions first to avoid signature / return type mismatch errors when updating schema
+DROP FUNCTION IF EXISTS get_ballistics_bullets();
+DROP FUNCTION IF EXISTS create_ballistics_bullet(text, text, text);
+DROP FUNCTION IF EXISTS create_ballistics_bullet(text, text, text, text);
+
 -- Create Seized Bullet
 CREATE OR REPLACE FUNCTION create_ballistics_bullet(
     p_incidente TEXT,
     p_calibre TEXT,
-    p_num_serie TEXT
+    p_num_serie TEXT,
+    p_modelo_arma TEXT DEFAULT 'N/A'
 )
 RETURNS UUID AS $$
 DECLARE
     v_new_id UUID;
 BEGIN
-    INSERT INTO public.ballistics_bullets (incidente_relacionado, calibre, numero_serie, author_id)
-    VALUES (p_incidente, p_calibre, p_num_serie, auth.uid())
+    INSERT INTO public.ballistics_bullets (incidente_relacionado, calibre, numero_serie, modelo_arma, author_id)
+    VALUES (p_incidente, p_calibre, p_num_serie, COALESCE(NULLIF(TRIM(p_modelo_arma), ''), 'N/A'), auth.uid())
     RETURNING id INTO v_new_id;
     RETURN v_new_id;
 END;
@@ -79,6 +89,7 @@ RETURNS TABLE (
     incidente_relacionado TEXT,
     calibre TEXT,
     numero_serie TEXT,
+    modelo_arma TEXT,
     created_at TIMESTAMP WITH TIME ZONE,
     author_name TEXT,
     author_rank TEXT,
@@ -97,6 +108,7 @@ BEGIN
         b.incidente_relacionado,
         b.calibre,
         b.numero_serie,
+        COALESCE(b.modelo_arma, 'N/A') AS modelo_arma,
         b.created_at,
         (u.nombre || ' ' || u.apellido) AS author_name,
         u.rango::text AS author_rank,

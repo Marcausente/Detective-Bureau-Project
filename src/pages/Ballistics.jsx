@@ -24,6 +24,7 @@ function Ballistics() {
     const [bulletForm, setBulletForm] = useState({
         incidente: '',
         calibre: '',
+        modelo_arma: 'N/A',
         num_serie: ''
     });
 
@@ -129,7 +130,8 @@ function Ballistics() {
             const { data, error } = await supabase.rpc('create_ballistics_bullet', {
                 p_incidente: bulletForm.incidente,
                 p_calibre: bulletForm.calibre,
-                p_num_serie: bulletForm.num_serie
+                p_num_serie: bulletForm.num_serie,
+                p_modelo_arma: bulletForm.modelo_arma || 'N/A'
             });
             if (error) throw error;
 
@@ -139,6 +141,7 @@ function Ballistics() {
                 incidente_relacionado: bulletForm.incidente,
                 calibre: bulletForm.calibre,
                 numero_serie: bulletForm.num_serie,
+                modelo_arma: bulletForm.modelo_arma || 'N/A',
                 created_at: new Date().toISOString()
             };
 
@@ -156,7 +159,7 @@ function Ballistics() {
             }
 
             setShowBulletModal(false);
-            setBulletForm({ incidente: '', calibre: '', num_serie: '' });
+            setBulletForm({ incidente: '', calibre: '', modelo_arma: 'N/A', num_serie: '' });
             await loadData();
         } catch (err) {
             alert('Error al añadir casquillo: ' + err.message);
@@ -519,7 +522,7 @@ function Ballistics() {
                                                                             <div key={bullet.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: '4px', fontSize: '0.8rem', borderLeft: isBulletNew ? '3px solid #eab308' : '3px solid var(--color-blue-light)' }}>
                                                                                 <strong>Incidente:</strong> {bullet.incidente_relacionado}
                                                                                 <br />
-                                                                                <strong>Calibre:</strong> {bullet.calibre}
+                                                                                <strong>Calibre:</strong> {bullet.calibre} | <strong>Modelo Arma:</strong> {bullet.modelo_arma || 'N/A'}
                                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', opacity: 0.7, marginTop: '4px' }}>
                                                                                     <span>Por: {bullet.author_rank} {bullet.author_name}</span>
                                                                                     <span>{new Date(bullet.created_at).toLocaleDateString()}</span>
@@ -579,7 +582,7 @@ function Ballistics() {
                                                     🗑️
                                                 </button>
                                             )}
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
                                                 <div>
                                                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{t('relatedIncident')}</span>
                                                     <strong>{item.incidente_relacionado}</strong>
@@ -587,6 +590,10 @@ function Ballistics() {
                                                 <div>
                                                     <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{t('bulletCaliber')}</span>
                                                     <strong>{item.calibre}</strong>
+                                                </div>
+                                                <div>
+                                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{t('weaponModel')}</span>
+                                                    <strong>{item.modelo_arma || 'N/A'}</strong>
                                                 </div>
                                             </div>
                                             <div style={{ fontSize: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.5rem' }}>
@@ -684,6 +691,15 @@ function Ballistics() {
                                     value={bulletForm.calibre}
                                     onChange={e => setBulletForm({ ...bulletForm, calibre: e.target.value })}
                                     placeholder="Ej: 9mm, .45 ACP, 5.56mm"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">{t('weaponModel')}</label>
+                                <input 
+                                    className="form-input" 
+                                    value={bulletForm.modelo_arma}
+                                    onChange={e => setBulletForm({ ...bulletForm, modelo_arma: e.target.value })}
+                                    placeholder="Ej: Combat Pistol, Special Carbine (Opcional, N/A por defecto)"
                                 />
                             </div>
                             <div className="form-group">
