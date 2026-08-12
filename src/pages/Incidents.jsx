@@ -701,308 +701,393 @@ function Incidents() {
 
     // --- RENDER ---
     return (
-        <div className="documentation-container" style={{ maxWidth: '1600px', margin: '0 auto', padding: '2rem' }}>
+        <div id="incidents-page" style={{ width: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', padding: '1rem 1.5rem 0 1.5rem', boxSizing: 'border-box' }}>
 
-            {/* GLOBAL ACTIONS */}
-            <div className="doc-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 className="page-title" style={{ margin: 0 }}>{t('incidentsTitle')}</h2>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            {/* ── Inner Header Navbar ── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem', padding: '0.3rem 0.8rem', gap: '1rem', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box', flexShrink: 0 }}>
+
+                {/* Left: Title */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.015em' }}>{t('incidentsTitle')}</h2>
+                </div>
+
+                {/* Right: Search + Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+
+                    {/* General search pill */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        background: 'rgba(0, 0, 0, 0.4)',
+                        border: '1px solid rgba(255, 255, 255, 0.14)',
+                        borderRadius: '20px',
+                        padding: '0.35rem 0.85rem',
+                        gap: '8px',
+                        minWidth: '240px',
+                        transition: 'border-color 0.2s',
+                    }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <input
+                            type="text"
+                            placeholder="Buscar informe, nº, autor, ubicación…"
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                if (e.target.value) setSelectedGangName('');
+                                setCurrentMatchIndex(0);
+                            }}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                outline: 'none',
+                                color: '#fff',
+                                fontSize: '0.82rem',
+                                width: '100%',
+                            }}
+                        />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                onClick={() => { setSearchTerm(''); setCurrentMatchIndex(0); }}
+                                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: '0.85rem', padding: '0 2px', lineHeight: 1 }}
+                            >✕</button>
+                        )}
+                    </div>
+
+                    {/* Gang filter — custom glass select */}
+                    <div style={{ position: 'relative', minWidth: '175px' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                            style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', zIndex: 1 }}>
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                        <select
+                            value={selectedGangName}
+                            onChange={(e) => {
+                                setSelectedGangName(e.target.value);
+                                if (e.target.value) setSearchTerm('');
+                                setCurrentMatchIndex(0);
+                            }}
+                            style={{
+                                width: '100%',
+                                padding: '0.38rem 2rem 0.38rem 2.1rem',
+                                background: 'rgba(0,0,0,0.4)',
+                                border: '1px solid rgba(255,255,255,0.14)',
+                                borderRadius: '20px',
+                                color: selectedGangName ? '#fff' : '#94a3b8',
+                                fontSize: '0.82rem',
+                                outline: 'none',
+                                appearance: 'none',
+                                cursor: 'pointer',
+                                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+                                backgroundRepeat: 'no-repeat',
+                                backgroundPosition: 'right 10px center',
+                            }}
+                        >
+                            <option value="" style={{ background: '#0f172a', color: '#94a3b8' }}>Filtrar por banda</option>
+                            {gangs.map(g => (
+                                <option key={g.id} value={g.name} style={{ background: '#0f172a', color: '#fff' }}>{g.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Show-all pill button */}
                     {(searchParams.get('incident_id') || searchParams.get('outing_id')) && (
                         <button
-                            className="login-button btn-secondary"
-                            style={{ width: 'auto', padding: '0.5rem 1rem' }}
+                            type="button"
                             onClick={() => setSearchParams({})}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                                padding: '0.38rem 1rem',
+                                background: 'rgba(255,255,255,0.07)',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                                borderRadius: '20px',
+                                color: '#cbd5e1',
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                whiteSpace: 'nowrap',
+                            }}
                         >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                                <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                            </svg>
                             Mostrar todos
                         </button>
                     )}
-                    <button className="login-button" style={{ width: 'auto' }} onClick={() => setShowIncidentModal(true)}>
+
+                    {/* NEW REPORT button */}
+                    <button
+                        type="button"
+                        onClick={() => setShowIncidentModal(true)}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '7px',
+                            padding: '0.38rem 1.1rem',
+                            background: 'rgba(99,102,241,0.18)',
+                            border: '1px solid rgba(99,102,241,0.4)',
+                            borderRadius: '20px',
+                            color: '#a5b4fc',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
                         {t('logIncidentBtn')}
                     </button>
-                    <button className="login-button" style={{ width: 'auto', background: 'var(--accent-gold)', color: 'black' }} onClick={() => setShowOutingModal(true)}>
+
+                    {/* NEW OUTING button */}
+                    <button
+                        type="button"
+                        onClick={() => setShowOutingModal(true)}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '7px',
+                            padding: '0.38rem 1.1rem',
+                            background: 'rgba(212,175,55,0.15)',
+                            border: '1px solid rgba(212,175,55,0.45)',
+                            borderRadius: '20px',
+                            color: '#d4af37',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="16"/>
+                            <line x1="8" y1="12" x2="16" y2="12"/>
+                        </svg>
                         {t('logOutingBtn')}
                     </button>
                 </div>
             </div>
 
-            {loading ? <div className="loading-container">{t('loadingIncidents')}</div> : (
-                <div>
-                    {/* BUSCADOR GENERAL DE INFORMES */}
-                    <div style={{
-                        margin: '0 0 1.5rem 0',
-                        padding: '1rem 1.2rem',
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        borderRadius: '12px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.8rem',
-                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
-                    }}>
-                        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <div style={{ position: 'relative', flex: 1, minWidth: '250px' }}>
-                                <input
-                                    type="text"
-                                    placeholder="🔍 Buscador general (Nº de informe, título, descripción, ubicación, autor...)"
-                                    value={searchTerm}
-                                    onChange={(e) => {
-                                        setSearchTerm(e.target.value);
-                                        if (e.target.value) setSelectedGangName('');
-                                        setCurrentMatchIndex(0);
-                                    }}
-                                    className="form-input"
-                                    style={{
-                                        margin: 0,
-                                        padding: '0.6rem 2.4rem 0.6rem 1rem',
-                                        fontSize: '0.9rem',
-                                        width: '100%',
-                                        boxSizing: 'border-box',
-                                        borderRadius: '8px',
-                                        background: 'rgba(0,0,0,0.3)',
-                                        border: '1px solid rgba(255,255,255,0.15)',
-                                        color: '#fff'
-                                    }}
-                                />
-                                {searchTerm && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setSearchTerm('');
-                                            setCurrentMatchIndex(0);
-                                        }}
-                                        style={{
-                                            position: 'absolute',
-                                            right: '10px',
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            background: 'none',
-                                            border: 'none',
-                                            color: 'rgba(255,255,255,0.5)',
-                                            cursor: 'pointer',
-                                            fontSize: '1.1rem',
-                                            padding: '2px 4px'
-                                        }}
-                                    >
-                                        ×
-                                    </button>
-                                )}
-                            </div>
+            {/* ── Search match navigator ── */}
+            {searchMatches.length > 0 && (
+                <div style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '0.4rem 1.2rem', marginBottom: '0.7rem',
+                    background: 'rgba(56,189,248,0.08)',
+                    border: '1px solid rgba(56,189,248,0.2)',
+                    borderRadius: '10px',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <span style={{ fontSize: '0.83rem', color: '#38bdf8', fontWeight: 500 }}>
+                            {selectedGangName
+                                ? `Coincidencia ${currentMatchIndex + 1} de ${searchMatches.length} — banda: ${selectedGangName}`
+                                : `Coincidencia ${currentMatchIndex + 1} de ${searchMatches.length}`
+                            }
+                        </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button type="button" onClick={goToPrevMatch} className="mac-doc-tab" style={{ padding: '0.25rem 0.7rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                            Anterior
+                        </button>
+                        <button type="button" onClick={goToNextMatch} className="mac-doc-tab" style={{ padding: '0.25rem 0.7rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            Siguiente
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                    </div>
+                </div>
+            )}
+            {searchMatches.length === 0 && (searchTerm.trim() !== '' || selectedGangName.trim() !== '') && (
+                <div style={{
+                    padding: '0.45rem 1.2rem', marginBottom: '0.7rem',
+                    background: 'rgba(239,68,68,0.07)', borderRadius: '10px',
+                    border: '1px solid rgba(239,68,68,0.15)',
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <span style={{ fontSize: '0.83rem', color: '#f87171' }}>
+                        {selectedGangName ? `Sin resultados para la banda "${selectedGangName}"` : `Sin resultados para "${searchTerm}"`}
+                    </span>
+                </div>
+            )}
 
-                            <select
-                                className="form-input"
-                                style={{
-                                    margin: 0,
-                                    padding: '0.6rem 1rem',
-                                    fontSize: '0.9rem',
-                                    width: 'auto',
-                                    minWidth: '180px',
-                                    borderRadius: '8px',
-                                    background: 'rgba(0,0,0,0.3)',
-                                    border: '1px solid rgba(255,255,255,0.15)',
-                                    color: '#fff'
-                                }}
-                                value={selectedGangName}
-                                onChange={(e) => {
-                                    setSelectedGangName(e.target.value);
-                                    if (e.target.value) setSearchTerm('');
-                                    setCurrentMatchIndex(0);
-                                }}
-                            >
-                                <option value="" style={{ background: '#222', color: '#888' }}>-- Buscar por banda --</option>
-                                {gangs.map(g => (
-                                    <option key={g.id} value={g.name} style={{ background: '#222', color: '#fff' }}>
-                                        🏴 {g.name}
-                                    </option>
-                                ))}
-                            </select>
+            {/* ── Main Content ── */}
+            {loading ? (
+                <div className="loading-container">{t('loadingIncidents')}</div>
+            ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
+
+                    {/* COLUMN 1: UNLINKED INCIDENTS */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {/* Column Header */}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            padding: '0.55rem 0.85rem',
+                            background: 'rgba(99,102,241,0.1)',
+                            border: '1px solid rgba(99,102,241,0.25)',
+                            borderRadius: '10px',
+                        }}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                            </svg>
+                            <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#a5b4fc', letterSpacing: '-0.01em' }}>{t('generalIncidentsCol')}</span>
+                            <span style={{
+                                marginLeft: 'auto',
+                                fontSize: '0.72rem', fontWeight: 700,
+                                color: '#a5b4fc',
+                                background: 'rgba(99,102,241,0.2)',
+                                border: '1px solid rgba(99,102,241,0.35)',
+                                borderRadius: '20px', padding: '0.1rem 0.55rem'
+                            }}>{generalIncidents.length}</span>
                         </div>
 
-                        {searchMatches.length > 0 ? (
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                padding: '0.4rem 0.8rem',
-                                background: 'rgba(56, 189, 248, 0.1)',
-                                borderRadius: '8px',
-                                border: '1px solid rgba(56, 189, 248, 0.2)'
-                            }}>
-                                <span style={{ fontSize: '0.85rem', color: '#38bdf8', fontWeight: '500' }}>
-                                    {selectedGangName
-                                        ? `Coincidencia ${currentMatchIndex + 1} de ${searchMatches.length} en informes generales para 🏴 ${selectedGangName}`
-                                        : `Coincidencia ${currentMatchIndex + 1} de ${searchMatches.length} en informes (generales y vinculados)`
-                                    }
-                                </span>
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                    <button
-                                        type="button"
-                                        onClick={goToPrevMatch}
-                                        className="login-button btn-secondary"
-                                        style={{
-                                            width: 'auto',
-                                            padding: '0.3rem 0.7rem',
-                                            margin: 0,
-                                            fontSize: '0.8rem',
-                                            background: 'rgba(255,255,255,0.05)',
-                                            border: '1px solid rgba(255,255,255,0.1)'
-                                        }}
-                                    >
-                                        ▲ Anterior
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={goToNextMatch}
-                                        className="login-button btn-secondary"
-                                        style={{
-                                            width: 'auto',
-                                            padding: '0.3rem 0.7rem',
-                                            margin: 0,
-                                            fontSize: '0.8rem',
-                                            background: 'rgba(255,255,255,0.05)',
-                                            border: '1px solid rgba(255,255,255,0.1)'
-                                        }}
-                                    >
-                                        Siguiente ▼
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (searchTerm.trim() !== '' || selectedGangName.trim() !== '') ? (
-                            <div style={{
-                                padding: '0.5rem 0.8rem',
-                                background: 'rgba(239, 68, 68, 0.08)',
-                                borderRadius: '8px',
-                                border: '1px solid rgba(239, 68, 68, 0.15)',
-                                fontSize: '0.85rem',
-                                color: '#f87171',
-                                textAlign: 'center'
-                            }}>
-                                ⚠️ {selectedGangName
-                                    ? `Ningún informe general (sin vincular) coincide con la banda "${selectedGangName}"`
-                                    : `Ningún informe (general o vinculado) coincide con "${searchTerm}"`
-                                }
-                            </div>
-                        ) : null}
+                        {/* Cards */}
+                        <div className="scroll-feed" style={{ overflowY: 'auto', paddingRight: '4px' }}>
+                            {generalIncidents.length === 0 ? (
+                                <div className="empty-list">{t('noIncidents')}</div>
+                            ) : (
+                                visibleGeneralIncidents.map(inc => {
+                                    const isUrlHighlighted = searchParams.get('incident_id') === inc.record_id;
+                                    const isSearchHighlighted = searchMatches.length > 0 && searchMatches[currentMatchIndex] === inc.record_id;
+                                    return (
+                                        <div key={inc.record_id} ref={isUrlHighlighted ? highlightedRef : (isSearchHighlighted ? searchHighlightedRef : null)}>
+                                            <IncidentCard data={inc} onExpand={setExpandedImage} onDelete={handleDeleteIncident} onEdit={handleEditIncident} isHighlighted={isUrlHighlighted || isSearchHighlighted} />
+                                        </div>
+                                    );
+                                })
+                            )}
+                            {!searchTerm && !searchParams.get('incident_id') && generalIncidents.length > visibleGeneralCount && (
+                                <button
+                                    type="button"
+                                    className="mac-doc-tab"
+                                    style={{ width: '100%', justifyContent: 'center', margin: '0.5rem 0', padding: '0.45rem 1rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    onClick={() => setVisibleGeneralCount(prev => prev + 20)}
+                                >
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                                    Cargar más ({generalIncidents.length - visibleGeneralCount} restantes)
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2rem' }}>
-
-                        {/* COLUMN 1: UNLINKED INCIDENTS */}
-                        <div className="column-container">
-                            <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{t('generalIncidentsCol')}</h3>
-
-                            <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                                {generalIncidents.length === 0 ? <div className="empty-list">{t('noIncidents')}</div> :
-                                    visibleGeneralIncidents.map(inc => {
-                                        const isUrlHighlighted = searchParams.get('incident_id') === inc.record_id;
-                                        const isSearchHighlighted = searchMatches.length > 0 && searchMatches[currentMatchIndex] === inc.record_id;
-                                        const isHighlighted = isUrlHighlighted || isSearchHighlighted;
-                                        return (
-                                            <div 
-                                                key={inc.record_id} 
-                                                ref={isUrlHighlighted ? highlightedRef : (isSearchHighlighted ? searchHighlightedRef : null)}
-                                            >
-                                                <IncidentCard
-                                                    data={inc}
-                                                    onExpand={setExpandedImage}
-                                                    onDelete={handleDeleteIncident}
-                                                    onEdit={handleEditIncident}
-                                                    isHighlighted={isHighlighted}
-                                                />
-                                            </div>
-                                        );
-                                    })
-                                }
-                                {!searchTerm && !searchParams.get('incident_id') && generalIncidents.length > visibleGeneralCount && (
-                                    <div style={{ textAlign: 'center', margin: '1rem 0 0.5rem 0' }}>
-                                        <button
-                                            type="button"
-                                            className="login-button btn-secondary"
-                                            style={{ width: '100%', padding: '0.5rem 1rem', fontSize: '0.82rem' }}
-                                            onClick={() => setVisibleGeneralCount(prev => prev + 20)}
-                                        >
-                                            📥 Cargar más informes ({generalIncidents.length - visibleGeneralCount} restantes)
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
+                    {/* COLUMN 2: LINKED INCIDENTS */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            padding: '0.55rem 0.85rem',
+                            background: 'rgba(16,185,129,0.1)',
+                            border: '1px solid rgba(16,185,129,0.25)',
+                            borderRadius: '10px',
+                        }}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                            </svg>
+                            <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#6ee7b7', letterSpacing: '-0.01em' }}>{t('linkedIncidentsCol')}</span>
+                            <span style={{
+                                marginLeft: 'auto',
+                                fontSize: '0.72rem', fontWeight: 700,
+                                color: '#6ee7b7',
+                                background: 'rgba(16,185,129,0.2)',
+                                border: '1px solid rgba(16,185,129,0.35)',
+                                borderRadius: '20px', padding: '0.1rem 0.55rem'
+                            }}>{linkedIncidents.length}</span>
                         </div>
 
-                        {/* COLUMN 2: LINKED INCIDENTS */}
-                        <div className="column-container">
-                            <h3 className="section-title" style={{ borderBottom: '2px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{t('linkedIncidentsCol')}</h3>
-                            <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                                {linkedIncidents.length === 0 ? <div className="empty-list">{t('noLinkedIncidents')}</div> :
-                                    visibleLinkedIncidents.map(inc => {
-                                        const isUrlHighlighted = searchParams.get('incident_id') === inc.record_id;
-                                        const isSearchHighlighted = searchMatches.length > 0 && searchMatches[currentMatchIndex] === inc.record_id;
-                                        const isHighlighted = isUrlHighlighted || isSearchHighlighted;
-                                        return (
-                                            <div 
-                                                key={inc.record_id} 
-                                                ref={isUrlHighlighted ? highlightedRef : (isSearchHighlighted ? searchHighlightedRef : null)}
-                                            >
-                                                <IncidentCard
-                                                    data={inc}
-                                                    onExpand={setExpandedImage}
-                                                    onDelete={handleDeleteIncident}
-                                                    onEdit={handleEditIncident}
-                                                    isHighlighted={isHighlighted}
-                                                />
-                                            </div>
-                                        );
-                                    })
-                                }
-                                {!searchTerm && !searchParams.get('incident_id') && linkedIncidents.length > visibleLinkedCount && (
-                                    <div style={{ textAlign: 'center', margin: '1rem 0 0.5rem 0' }}>
-                                        <button
-                                            type="button"
-                                            className="login-button btn-secondary"
-                                            style={{ width: '100%', padding: '0.5rem 1rem', fontSize: '0.82rem' }}
-                                            onClick={() => setVisibleLinkedCount(prev => prev + 20)}
-                                        >
-                                            📥 Cargar más informes ({linkedIncidents.length - visibleLinkedCount} restantes)
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
+                        <div className="scroll-feed" style={{ overflowY: 'auto', paddingRight: '4px' }}>
+                            {linkedIncidents.length === 0 ? (
+                                <div className="empty-list">{t('noLinkedIncidents')}</div>
+                            ) : (
+                                visibleLinkedIncidents.map(inc => {
+                                    const isUrlHighlighted = searchParams.get('incident_id') === inc.record_id;
+                                    const isSearchHighlighted = searchMatches.length > 0 && searchMatches[currentMatchIndex] === inc.record_id;
+                                    return (
+                                        <div key={inc.record_id} ref={isUrlHighlighted ? highlightedRef : (isSearchHighlighted ? searchHighlightedRef : null)}>
+                                            <IncidentCard data={inc} onExpand={setExpandedImage} onDelete={handleDeleteIncident} onEdit={handleEditIncident} isHighlighted={isUrlHighlighted || isSearchHighlighted} />
+                                        </div>
+                                    );
+                                })
+                            )}
+                            {!searchTerm && !searchParams.get('incident_id') && linkedIncidents.length > visibleLinkedCount && (
+                                <button
+                                    type="button"
+                                    className="mac-doc-tab"
+                                    style={{ width: '100%', justifyContent: 'center', margin: '0.5rem 0', padding: '0.45rem 1rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    onClick={() => setVisibleLinkedCount(prev => prev + 20)}
+                                >
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                                    Cargar más ({linkedIncidents.length - visibleLinkedCount} restantes)
+                                </button>
+                            )}
                         </div>
-
-                        {/* COLUMN 3: OUTINGS */}
-                        <div className="column-container">
-                            <h3 className="section-title" style={{ borderBottom: '2px solid var(--accent-gold)', paddingBottom: '0.5rem' }}>{t('outingsCol')}</h3>
-                            <div className="scroll-feed" style={{ maxHeight: '80vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                                {outings.length === 0 ? <div className="empty-list">{t('noOutings')}</div> :
-                                    visibleOutings.map(out => {
-                                        const isHighlighted = searchParams.get('outing_id') === out.record_id;
-                                        return (
-                                            <div key={out.record_id} ref={isHighlighted ? highlightedRef : null}>
-                                                <OutingCard
-                                                    data={out}
-                                                    onExpand={setExpandedImage}
-                                                    onDelete={handleDeleteOuting}
-                                                    onEdit={handleEditOuting}
-                                                    isHighlighted={isHighlighted}
-                                                />
-                                            </div>
-                                        );
-                                    })
-                                }
-                                {!searchParams.get('outing_id') && outings.length > visibleOutingsCount && (
-                                    <div style={{ textAlign: 'center', margin: '1rem 0 0.5rem 0' }}>
-                                        <button
-                                            type="button"
-                                            className="login-button btn-secondary"
-                                            style={{ width: '100%', padding: '0.5rem 1rem', fontSize: '0.82rem', borderColor: 'rgba(212, 175, 55, 0.4)' }}
-                                            onClick={() => setVisibleOutingsCount(prev => prev + 20)}
-                                        >
-                                            📥 Cargar más salidas ({outings.length - visibleOutingsCount} restantes)
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
                     </div>
+
+                    {/* COLUMN 3: OUTINGS / VIGILANCIAS */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            padding: '0.55rem 0.85rem',
+                            background: 'rgba(212,175,55,0.1)',
+                            border: '1px solid rgba(212,175,55,0.3)',
+                            borderRadius: '10px',
+                        }}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#d4af37', letterSpacing: '-0.01em' }}>{t('outingsCol')}</span>
+                            <span style={{
+                                marginLeft: 'auto',
+                                fontSize: '0.72rem', fontWeight: 700,
+                                color: '#d4af37',
+                                background: 'rgba(212,175,55,0.15)',
+                                border: '1px solid rgba(212,175,55,0.35)',
+                                borderRadius: '20px', padding: '0.1rem 0.55rem'
+                            }}>{outings.length}</span>
+                        </div>
+
+                        <div className="scroll-feed" style={{ overflowY: 'auto', paddingRight: '4px' }}>
+                            {outings.length === 0 ? (
+                                <div className="empty-list">{t('noOutings')}</div>
+                            ) : (
+                                visibleOutings.map(out => {
+                                    const isHighlighted = searchParams.get('outing_id') === out.record_id;
+                                    return (
+                                        <div key={out.record_id} ref={isHighlighted ? highlightedRef : null}>
+                                            <OutingCard data={out} onExpand={setExpandedImage} onDelete={handleDeleteOuting} onEdit={handleEditOuting} isHighlighted={isHighlighted} />
+                                        </div>
+                                    );
+                                })
+                            )}
+                            {!searchParams.get('outing_id') && outings.length > visibleOutingsCount && (
+                                <button
+                                    type="button"
+                                    className="mac-doc-tab"
+                                    style={{ width: '100%', justifyContent: 'center', margin: '0.5rem 0', padding: '0.45rem 1rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', borderColor: 'rgba(212,175,55,0.3)' }}
+                                    onClick={() => setVisibleOutingsCount(prev => prev + 20)}
+                                >
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                                    Cargar más ({outings.length - visibleOutingsCount} restantes)
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
                 </div>
             )}
 
@@ -1010,6 +1095,12 @@ function Incidents() {
             {showIncidentModal && (
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+                        {/* macOS traffic dots */}
+                        <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem' }}>
+                            <span onClick={() => setShowIncidentModal(false)} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', cursor: 'pointer', display: 'inline-block' }} />
+                            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }} />
+                            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28ca41', display: 'inline-block' }} />
+                        </div>
                         <h3 className="section-title">{t('logNewIncidentTitle')}</h3>
                         <form onSubmit={handleSubmitIncident}>
                             <div className="form-group"><label>{t('titleLabel')}</label><input className="form-input" required value={incTitle} onChange={e => setIncTitle(e.target.value)} /></div>
@@ -1090,6 +1181,11 @@ function Incidents() {
                 showEditIncidentModal && (
                     <div className="cropper-modal-overlay">
                         <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem' }}>
+                                <span onClick={() => { setShowEditIncidentModal(false); setEditingIncident(null); resetIncidentForm(); }} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', cursor: 'pointer', display: 'inline-block' }} />
+                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }} />
+                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28ca41', display: 'inline-block' }} />
+                            </div>
                             <h3 className="section-title">{t('editIncidentTitle')}</h3>
                             <form onSubmit={handleUpdateIncident}>
                                 <div className="form-group"><label>{t('titleLabel')}</label><input className="form-input" required value={incTitle} onChange={e => setIncTitle(e.target.value)} /></div>
@@ -1168,6 +1264,11 @@ function Incidents() {
                 showOutingModal && (
                     <div className="cropper-modal-overlay">
                         <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem' }}>
+                                <span onClick={() => setShowOutingModal(false)} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', cursor: 'pointer', display: 'inline-block' }} />
+                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }} />
+                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28ca41', display: 'inline-block' }} />
+                            </div>
                             <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>{t('logNewOutingTitle')}</h3>
                             <form onSubmit={handleSubmitOuting}>
                                 <div className="form-group"><label>{t('titleLabel')}</label><input className="form-input" required value={outTitle} onChange={e => setOutTitle(e.target.value)} /></div>
@@ -1269,6 +1370,11 @@ function Incidents() {
                 showEditOutingModal && (
                     <div className="cropper-modal-overlay">
                         <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem' }}>
+                                <span onClick={() => { setShowEditOutingModal(false); setEditingOuting(null); resetOutingForm(); }} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', cursor: 'pointer', display: 'inline-block' }} />
+                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }} />
+                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28ca41', display: 'inline-block' }} />
+                            </div>
                             <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>{t('editOutingTitle')}</h3>
                             <form onSubmit={handleUpdateOuting}>
                                 <div className="form-group"><label>{t('titleLabel')}</label><input className="form-input" required value={outTitle} onChange={e => setOutTitle(e.target.value)} /></div>
@@ -1373,7 +1479,7 @@ function Incidents() {
                     </div>
                 )
             }
-        </div >
+        </div>
     );
 }
 
