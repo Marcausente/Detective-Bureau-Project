@@ -291,18 +291,7 @@ function Interrogations() {
                     )}
 
                     {/* Apple Search Input */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        background: 'rgba(15, 23, 42, 0.65)',
-                        backdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(255, 255, 255, 0.14)',
-                        borderRadius: '20px',
-                        padding: '0.38rem 0.9rem',
-                        gap: '8px',
-                        minWidth: '260px',
-                        transition: 'border-color 0.2s',
-                    }}>
+                    <div className="int-search-pill">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="11" cy="11" r="8" />
                             <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -335,21 +324,8 @@ function Interrogations() {
                     {currentUser && (
                         <button
                             type="button"
+                            className="int-new-btn"
                             onClick={openCreate}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '7px',
-                                padding: '0.4rem 1.15rem',
-                                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.4) 100%)',
-                                border: '1px solid rgba(96, 165, 250, 0.4)',
-                                borderRadius: '20px',
-                                color: '#93c5fd',
-                                fontSize: '0.82rem',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                boxShadow: '0 4px 15px rgba(37, 99, 235, 0.2)',
-                                whiteSpace: 'nowrap',
-                            }}
                         >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                                 <line x1="12" y1="5" x2="12" y2="19" />
@@ -372,16 +348,8 @@ function Interrogations() {
             ) : (
                 <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.35rem', paddingBottom: '1rem' }} className="custom-scrollbar">
                     {filteredItems.length === 0 ? (
-                        <div style={{
-                            textAlign: 'center',
-                            padding: '4rem 1rem',
-                            color: '#64748b',
-                            background: 'rgba(15, 23, 42, 0.3)',
-                            backdropFilter: 'blur(12px)',
-                            borderRadius: '16px',
-                            border: '1px solid rgba(255, 255, 255, 0.06)'
-                        }}>
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto 0.75rem auto', opacity: 0.5 }}>
+                        <div className="int-empty-state">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="int-empty-icon">
                                 <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
                                 <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                                 <line x1="12" y1="19" x2="12" y2="22" />
@@ -405,20 +373,7 @@ function Interrogations() {
                                 return (
                                     <div
                                         key={item.id}
-                                        style={{
-                                            background: 'rgba(15, 23, 42, 0.65)',
-                                            backdropFilter: 'blur(16px)',
-                                            WebkitBackdropFilter: 'blur(16px)',
-                                            border: '1px solid rgba(255, 255, 255, 0.08)',
-                                            borderRadius: '16px',
-                                            padding: '1.15rem',
-                                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            justify: 'space-between',
-                                            transition: 'all 0.25s ease',
-                                            minWidth: 0
-                                        }}
+                                        className="int-grid-card"
                                     >
                                         <div>
                                             {/* Window Top Controls & Date Badge */}
