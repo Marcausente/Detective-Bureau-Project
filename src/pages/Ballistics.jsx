@@ -1080,30 +1080,33 @@ function Ballistics() {
             {/* --- ADD BULLET CASING MODAL --- */}
             {showBulletModal && (
                 <div className="mac-modal-overlay">
-                    <div className="mac-modal-content" style={{ maxWidth: '520px', width: '92vw', borderRadius: '16px' }}>
-                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.75rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="mac-modal-content" style={{
+                        maxWidth: '540px',
+                        width: '92vw',
+                        borderRadius: '20px',
+                        background: 'rgba(30, 41, 59, 0.96)',
+                        backdropFilter: 'blur(24px)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.85)',
+                        padding: '1.5rem',
+                        boxSizing: 'border-box'
+                    }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div className="mac-window-dots">
                                     <span className="mac-window-dot close" onClick={() => setShowBulletModal(false)} title="Cerrar" />
                                     <span className="mac-window-dot min" />
                                     <span className="mac-window-dot max" />
                                 </div>
-                                <h3 style={{ margin: '0 0 0 8px', fontSize: '1.1rem', color: '#f8fafc', fontWeight: 700 }}>
+                                <h3 style={{ margin: '0 0 0 10px', fontSize: '1.15rem', color: '#f8fafc', fontWeight: 800, letterSpacing: '-0.01em' }}>
                                     {t('addBulletCasing') || 'Registrar Casquillo'}
                                 </h3>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowBulletModal(false)}
-                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.2rem' }}
-                            >
-                                ✕
-                            </button>
                         </div>
 
-                        <form onSubmit={handleCreateBullet} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <form onSubmit={handleCreateBullet} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.78rem', color: '#60a5fa', marginBottom: '0.35rem' }}>
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
                                     {t('relatedIncident') || 'Incidente Relacionado'}
                                 </label>
                                 <input
@@ -1112,12 +1115,20 @@ function Ballistics() {
                                     value={bulletForm.incidente}
                                     onChange={e => setBulletForm({ ...bulletForm, incidente: e.target.value })}
                                     placeholder="Ej: Tiroteo en Grove St"
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '10px',
+                                        color: '#ffffff',
+                                        fontSize: '0.88rem',
+                                        padding: '0.65rem 0.9rem'
+                                    }}
                                 />
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label className="form-label" style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
                                         {t('bulletCaliber') || 'Calibre'}
                                     </label>
                                     <input
@@ -1126,10 +1137,18 @@ function Ballistics() {
                                         value={bulletForm.calibre}
                                         onChange={e => setBulletForm({ ...bulletForm, calibre: e.target.value })}
                                         placeholder="Ej: 9mm, .45 ACP, 5.56mm"
+                                        style={{
+                                            background: 'rgba(15, 23, 42, 0.75)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 0.9rem'
+                                        }}
                                     />
                                 </div>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label className="form-label" style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
                                         {t('weaponModel') || 'Modelo del Arma'}
                                     </label>
                                     <input
@@ -1137,12 +1156,20 @@ function Ballistics() {
                                         value={bulletForm.modelo_arma}
                                         onChange={e => setBulletForm({ ...bulletForm, modelo_arma: e.target.value })}
                                         placeholder="Ej: Combat Pistol (Opcional)"
+                                        style={{
+                                            background: 'rgba(15, 23, 42, 0.75)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 0.9rem'
+                                        }}
                                     />
                                 </div>
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.78rem', color: '#fbbf24', marginBottom: '0.35rem' }}>
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#fde047', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
                                     {t('serialNumber') || 'Número de Serie Balístico'}
                                 </label>
                                 <input
@@ -1151,14 +1178,24 @@ function Ballistics() {
                                     value={bulletForm.num_serie}
                                     onChange={e => setBulletForm({ ...bulletForm, num_serie: e.target.value })}
                                     placeholder="Ej: SN-12948-BALA"
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(234, 179, 8, 0.4)',
+                                        borderRadius: '10px',
+                                        color: '#fde047',
+                                        fontFamily: 'monospace',
+                                        fontWeight: 700,
+                                        fontSize: '0.9rem',
+                                        padding: '0.65rem 0.9rem'
+                                    }}
                                 />
                             </div>
 
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.85rem' }}>
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowBulletModal(false)} style={{ width: 'auto', padding: '0.45rem 1.2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowBulletModal(false)} style={{ width: 'auto', padding: '0.5rem 1.4rem', borderRadius: '10px' }}>
                                     {t('cancelBtn') || 'Cancelar'}
                                 </button>
-                                <button type="submit" className="login-button" style={{ width: 'auto', padding: '0.45rem 1.4rem' }} disabled={submitting}>
+                                <button type="submit" className="login-button" style={{ width: 'auto', padding: '0.5rem 1.6rem', borderRadius: '10px', fontWeight: 700 }} disabled={submitting}>
                                     {submitting ? (t('savingBtn') || 'Guardando...') : (t('saveBtn') || 'Guardar Registro')}
                                 </button>
                             </div>
@@ -1170,31 +1207,34 @@ function Ballistics() {
             {/* --- ADD SEIZED WEAPON MODAL --- */}
             {showWeaponModal && (
                 <div className="mac-modal-overlay">
-                    <div className="mac-modal-content" style={{ maxWidth: '520px', width: '92vw', borderRadius: '16px' }}>
-                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.75rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="mac-modal-content" style={{
+                        maxWidth: '540px',
+                        width: '92vw',
+                        borderRadius: '20px',
+                        background: 'rgba(30, 41, 59, 0.96)',
+                        backdropFilter: 'blur(24px)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.85)',
+                        padding: '1.5rem',
+                        boxSizing: 'border-box'
+                    }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div className="mac-window-dots">
                                     <span className="mac-window-dot close" onClick={() => setShowWeaponModal(false)} title="Cerrar" />
                                     <span className="mac-window-dot min" />
                                     <span className="mac-window-dot max" />
                                 </div>
-                                <h3 style={{ margin: '0 0 0 8px', fontSize: '1.1rem', color: '#f8fafc', fontWeight: 700 }}>
+                                <h3 style={{ margin: '0 0 0 10px', fontSize: '1.15rem', color: '#f8fafc', fontWeight: 800, letterSpacing: '-0.01em' }}>
                                     {t('addSeizedWeapon') || 'Registrar Arma Incautada'}
                                 </h3>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowWeaponModal(false)}
-                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.2rem' }}
-                            >
-                                ✕
-                            </button>
                         </div>
 
-                        <form onSubmit={handleCreateWeapon} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                        <form onSubmit={handleCreateWeapon} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label className="form-label" style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
                                         {t('ownerName') || 'Propietario'}
                                     </label>
                                     <input
@@ -1203,10 +1243,18 @@ function Ballistics() {
                                         value={weaponForm.propietario}
                                         onChange={e => setWeaponForm({ ...weaponForm, propietario: e.target.value })}
                                         placeholder="Ej: Desconocido, John Doe"
+                                        style={{
+                                            background: 'rgba(15, 23, 42, 0.75)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 0.9rem'
+                                        }}
                                     />
                                 </div>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label className="form-label" style={{ fontSize: '0.78rem', color: '#f87171', marginBottom: '0.35rem' }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#f87171', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
                                         {t('weaponModel') || 'Modelo del Arma'}
                                     </label>
                                     <input
@@ -1215,12 +1263,20 @@ function Ballistics() {
                                         value={weaponForm.modelo}
                                         onChange={e => setWeaponForm({ ...weaponForm, modelo: e.target.value })}
                                         placeholder="Ej: Combat Pistol, Special Carbine"
+                                        style={{
+                                            background: 'rgba(15, 23, 42, 0.75)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 0.9rem'
+                                        }}
                                     />
                                 </div>
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.78rem', color: '#60a5fa', marginBottom: '0.35rem' }}>
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
                                     {t('relatedIncident') || 'Incidente Relacionado'}
                                 </label>
                                 <input
@@ -1229,11 +1285,19 @@ function Ballistics() {
                                     value={weaponForm.incidente}
                                     onChange={e => setWeaponForm({ ...weaponForm, incidente: e.target.value })}
                                     placeholder="Ej: Asalto en Licorería"
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '10px',
+                                        color: '#ffffff',
+                                        fontSize: '0.88rem',
+                                        padding: '0.65rem 0.9rem'
+                                    }}
                                 />
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.78rem', color: '#fbbf24', marginBottom: '0.35rem' }}>
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#fde047', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
                                     {t('serialNumber') || 'Número de Serie Balístico'}
                                 </label>
                                 <input
@@ -1242,14 +1306,24 @@ function Ballistics() {
                                     value={weaponForm.num_serie}
                                     onChange={e => setWeaponForm({ ...weaponForm, num_serie: e.target.value })}
                                     placeholder="Ej: SN-12948-BALA"
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(234, 179, 8, 0.4)',
+                                        borderRadius: '10px',
+                                        color: '#fde047',
+                                        fontFamily: 'monospace',
+                                        fontWeight: 700,
+                                        fontSize: '0.9rem',
+                                        padding: '0.65rem 0.9rem'
+                                    }}
                                 />
                             </div>
 
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.85rem' }}>
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowWeaponModal(false)} style={{ width: 'auto', padding: '0.45rem 1.2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowWeaponModal(false)} style={{ width: 'auto', padding: '0.5rem 1.4rem', borderRadius: '10px' }}>
                                     {t('cancelBtn') || 'Cancelar'}
                                 </button>
-                                <button type="submit" className="login-button" style={{ width: 'auto', padding: '0.45rem 1.4rem' }} disabled={submitting}>
+                                <button type="submit" className="login-button" style={{ width: 'auto', padding: '0.5rem 1.6rem', borderRadius: '10px', fontWeight: 700 }} disabled={submitting}>
                                     {submitting ? (t('savingBtn') || 'Guardando...') : (t('saveBtn') || 'Guardar Registro')}
                                 </button>
                             </div>

@@ -690,31 +690,38 @@ function Interrogations() {
             {/* macOS Style Modal Window */}
             {showModal && (
                 <div className="mac-modal-overlay">
-                    <div className="mac-modal-content" style={{ maxWidth: '750px', width: '92vw', maxHeight: '88vh', overflowY: 'auto', borderRadius: '16px' }}>
+                    <div className="mac-modal-content" style={{
+                        maxWidth: '750px',
+                        width: '92vw',
+                        maxHeight: '88vh',
+                        overflowY: 'auto',
+                        borderRadius: '20px',
+                        background: 'rgba(30, 41, 59, 0.96)',
+                        backdropFilter: 'blur(24px)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.85)',
+                        padding: '1.5rem',
+                        boxSizing: 'border-box'
+                    }}>
                         {/* Titlebar with window dots */}
-                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.75rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f56' }}></span>
-                                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ffbd2e' }}></span>
-                                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#27c93f' }}></span>
-                                <h3 style={{ margin: '0 0 0 8px', fontSize: '1.1rem', color: '#f8fafc', fontWeight: 700 }}>
+                                <div className="mac-window-dots">
+                                    <span className="mac-window-dot close" onClick={() => setShowModal(false)} title="Cerrar" />
+                                    <span className="mac-window-dot min" />
+                                    <span className="mac-window-dot max" />
+                                </div>
+                                <h3 style={{ margin: '0 0 0 10px', fontSize: '1.15rem', color: '#f8fafc', fontWeight: 800, letterSpacing: '-0.01em' }}>
                                     {modalMode === 'create' ? (t('newInterrogationLogTitle') || 'Nuevo Registro de Interrogatorio') : (t('editLogTitle') || 'Editar Interrogatorio')}
                                 </h3>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowModal(false)}
-                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.2rem' }}
-                            >
-                                ✕
-                            </button>
                         </div>
 
                         <form onSubmit={handleAction} style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
                             {/* Date & Title inputs */}
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.85rem' }}>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label className="form-label" style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
                                         {t('dateLabel') || 'Fecha'}
                                     </label>
                                     <input
@@ -723,11 +730,20 @@ function Interrogations() {
                                         required
                                         value={formData.date}
                                         onChange={e => setFormData({ ...formData, date: e.target.value })}
-                                        style={{ width: '100%', boxSizing: 'border-box' }}
+                                        style={{
+                                            width: '100%',
+                                            boxSizing: 'border-box',
+                                            background: 'rgba(15, 23, 42, 0.75)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 0.9rem'
+                                        }}
                                     />
                                 </div>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label className="form-label" style={{ fontSize: '0.78rem', color: '#60a5fa', marginBottom: '0.35rem' }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
                                         {t('titleTemplateLabel') || 'Título del Interrogatorio'}
                                     </label>
                                     <input
@@ -735,21 +751,37 @@ function Interrogations() {
                                         required
                                         value={formData.title}
                                         onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                        style={{ width: '100%', boxSizing: 'border-box' }}
+                                        placeholder="Ej: Toma de declaración John Doe"
+                                        style={{
+                                            width: '100%',
+                                            boxSizing: 'border-box',
+                                            background: 'rgba(15, 23, 42, 0.75)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 0.9rem'
+                                        }}
                                     />
                                 </div>
                             </div>
 
                             {/* Custom Agent Selector Grid */}
                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.8rem', color: '#fbbf24', marginBottom: '0.4rem', fontWeight: 600, display: 'block' }}>
-                                    👤 {t('agentsPresentLabel') || 'Seleccionar Agentes Presentes'}
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#fde047', marginBottom: '0.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                        <circle cx="9" cy="7" r="4" />
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                    </svg>
+                                    {t('agentsPresentLabel') || 'Seleccionar Agentes Presentes'}
                                 </label>
                                 <div className="custom-scrollbar" style={{
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    border: '1px solid rgba(255, 255, 255, 0.16)',
                                     borderRadius: '12px',
                                     padding: '0.75rem',
-                                    background: 'rgba(0, 0, 0, 0.3)',
+                                    background: 'rgba(15, 23, 42, 0.65)',
                                     maxHeight: '190px',
                                     overflowY: 'auto',
                                     display: 'grid',
@@ -768,8 +800,8 @@ function Interrogations() {
                                                     borderRadius: '8px',
                                                     cursor: 'pointer',
                                                     fontSize: '0.78rem',
-                                                    border: isSelected ? '1px solid rgba(251, 191, 36, 0.5)' : '1px solid rgba(255, 255, 255, 0.05)',
-                                                    background: isSelected ? 'rgba(251, 191, 36, 0.12)' : 'rgba(15, 23, 42, 0.5)',
+                                                    border: isSelected ? '1px solid rgba(251, 191, 36, 0.6)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                                    background: isSelected ? 'rgba(251, 191, 36, 0.16)' : 'rgba(30, 41, 59, 0.6)',
                                                     color: isSelected ? '#fef08a' : '#cbd5e1',
                                                     transition: 'all 0.18s ease',
                                                     display: 'flex',
@@ -808,35 +840,66 @@ function Interrogations() {
 
                             {/* Subjects Interrogated Input */}
                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.8rem', color: '#f87171', fontWeight: 600 }}>
-                                    👤 {t('subjectsInterrogatedLabel') || 'Sujeto(s) Interrogados'}
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#f87171', fontWeight: 700, marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                        <circle cx="12" cy="7" r="4" />
+                                    </svg>
+                                    {t('subjectsInterrogatedLabel') || 'Sujeto(s) Interrogados'}
                                 </label>
                                 <input
                                     className="form-input"
-                                    placeholder="e.g. John Doe, Mark Smith"
+                                    placeholder="Ej: John Doe, Mark Smith"
                                     value={formData.subjects}
                                     onChange={e => setFormData({ ...formData, subjects: e.target.value })}
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '10px',
+                                        color: '#ffffff',
+                                        fontSize: '0.88rem',
+                                        padding: '0.65rem 0.9rem'
+                                    }}
                                 />
                             </div>
 
                             {/* Transcription & Relevant Info */}
                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 600 }}>
-                                    📖 {t('relevantInfoLabel') || 'Transcripción y Notas Relevantes'}
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                        <line x1="16" y1="13" x2="8" y2="13" />
+                                        <line x1="16" y1="17" x2="8" y2="17" />
+                                    </svg>
+                                    {t('relevantInfoLabel') || 'Transcripción y Notas Relevantes'}
                                 </label>
                                 <textarea
                                     className="eval-textarea"
-                                    rows="8"
+                                    rows="7"
                                     placeholder={t('enterNotesPlaceholder') || 'Escribe las notas de la declaración, preguntas clave, confesión...'}
                                     value={formData.transcription}
                                     onChange={e => setFormData({ ...formData, transcription: e.target.value })}
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '10px',
+                                        color: '#ffffff',
+                                        fontSize: '0.88rem',
+                                        padding: '0.65rem 0.9rem',
+                                        lineHeight: 1.5
+                                    }}
                                 />
                             </div>
 
                             {/* Media Recording URL */}
                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.8rem', color: '#a5b4fc', fontWeight: 600 }}>
-                                    🎧 {t('recordingLinkLabel') || 'Enlace a Grabación de Audio / Video'}
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#a5b4fc', fontWeight: 700, marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                                    </svg>
+                                    {t('recordingLinkLabel') || 'Enlace a Grabación de Audio / Video'}
                                 </label>
                                 <input
                                     type="url"
@@ -844,16 +907,24 @@ function Interrogations() {
                                     placeholder="https://drive.google.com/... o https://youtube.com/..."
                                     value={formData.url}
                                     onChange={e => setFormData({ ...formData, url: e.target.value })}
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '10px',
+                                        color: '#ffffff',
+                                        fontSize: '0.88rem',
+                                        padding: '0.65rem 0.9rem'
+                                    }}
                                 />
                             </div>
 
                             {/* Modal Actions Footer */}
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.85rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
                                 <button
                                     type="button"
                                     className="login-button btn-secondary"
                                     onClick={() => setShowModal(false)}
-                                    style={{ width: 'auto', padding: '0.45rem 1.2rem' }}
+                                    style={{ width: 'auto', padding: '0.5rem 1.4rem', borderRadius: '10px' }}
                                 >
                                     {t('cancelBtnLog') || 'Cancelar'}
                                 </button>
@@ -861,7 +932,7 @@ function Interrogations() {
                                     type="submit"
                                     className="login-button"
                                     disabled={submitLoading}
-                                    style={{ width: 'auto', padding: '0.45rem 1.4rem' }}
+                                    style={{ width: 'auto', padding: '0.5rem 1.6rem', borderRadius: '10px', fontWeight: 700 }}
                                 >
                                     {submitLoading ? 'Guardando...' : (t('saveLogBtn') || 'Guardar Registro')}
                                 </button>
