@@ -36,7 +36,8 @@ export const translations = {
 
         // Rankings Tab
         personnelDirectory: "Personnel Directory",
-        rankingsTab: "🏆 Leaderboard Rankings",
+        rankingsTab: "Leaderboard Rankings",
+        addPersonnel: "Add Personnel",
         rankClosedCasesTitle: "Most Closed Cases",
         rankClosedCasesDesc: "Personnel with the highest number of closed criminal cases",
         rankDocReportsTitle: "Most Documentation Reports",
@@ -519,7 +520,8 @@ export const translations = {
 
         // Rankings Tab
         personnelDirectory: "Directorio de Personal",
-        rankingsTab: "🏆 Rankings y Líderes",
+        rankingsTab: "Rankings y Líderes",
+        addPersonnel: "Añadir Personal",
         rankClosedCasesTitle: "Casos en Closed",
         rankClosedCasesDesc: "Personas con más casos criminales cerrados y resueltos",
         rankDocReportsTitle: "Informes Subidos",
