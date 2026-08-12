@@ -358,6 +358,12 @@ function MainLayout() {
     const activeMoreItem = moreItems.find(i => location.pathname === i.path || location.pathname.startsWith(i.path + '/'));
     const isMoreActive = Boolean(activeMoreItem);
 
+    const isRouteActive = (itemPath) => {
+        if (location.pathname === itemPath) return true;
+        if (location.pathname.startsWith(itemPath + '/')) return true;
+        return false;
+    };
+
     return (
         <div className="layout-container mac-app-shell">
             {/* macOS Top Navigation Toolbar Header */}
@@ -389,7 +395,7 @@ function MainLayout() {
                         <Link
                             key={item.path}
                             to={item.path}
-                            className={`mac-dock-item ${location.pathname === item.path ? 'active' : ''}`}
+                            className={`mac-dock-item ${isRouteActive(item.path) ? 'active' : ''}`}
                             title={item.name}
                             onClick={() => setShowMoreMenu(false)}
                         >
@@ -436,7 +442,7 @@ function MainLayout() {
                                             <Link
                                                 key={item.path}
                                                 to={item.path}
-                                                className={`mac-popover-item ${location.pathname === item.path ? 'active' : ''}`}
+                                                className={`mac-popover-item ${isRouteActive(item.path) ? 'active' : ''}`}
                                                 onClick={() => setShowMoreMenu(false)}
                                             >
                                                 <span className="mac-dock-icon">{getNavIcon(item.path)}</span>
