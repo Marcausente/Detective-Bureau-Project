@@ -27,18 +27,21 @@ export function ThemeProvider({ children }) {
                     setTheme(appData.value);
                 }
 
-                // 2. Fetch logged in user's individual saved theme preference if available
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user && mounted) {
-                    const { data: userData } = await supabase
-                        .from('users')
-                        .select('user_theme')
-                        .eq('id', user.id)
-                        .single();
+                // 2. Fetch logged in user's individual saved theme preference ONLY if not present in localStorage (Zero-egress optimization)
+                const savedLocal = localStorage.getItem('user_selected_theme');
+                if (!savedLocal) {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user && mounted) {
+                        const { data: userData } = await supabase
+                            .from('users')
+                            .select('user_theme')
+                            .eq('id', user.id)
+                            .single();
 
-                    if (userData?.user_theme && mounted) {
-                        setUserThemeState(userData.user_theme);
-                        localStorage.setItem('user_selected_theme', userData.user_theme);
+                        if (userData?.user_theme && mounted) {
+                            setUserThemeState(userData.user_theme);
+                            localStorage.setItem('user_selected_theme', userData.user_theme);
+                        }
                     }
                 }
             } catch (err) {
