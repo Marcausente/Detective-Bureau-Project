@@ -300,12 +300,13 @@ function MainLayout() {
         { name: t('crimeMap'), path: '/crimemap', divisions: ['Detective Bureau'] },
         { name: t('interrogations'), path: '/interrogations', divisions: ['Detective Bureau'] },
         { name: t('ballistics'), path: '/ballistics', divisions: ['Detective Bureau'] },
-        { name: t('personnel'), path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ'] },
+        { name: t('personnel'), path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB'] },
         { name: t('trainingProgram'), path: '/training', divisions: ['Detective Bureau'], roles: ['detective', 'coordinador', 'ayudante'] },
         { name: t('judicialOrders'), path: '/warrants', divisions: ['Detective Bureau'] },
         { name: t('internalAffairs'), path: '/internal-affairs', divisions: ['Internal Affairs'] },
         { name: t('doj'), path: '/doj', divisions: ['DOJ'] },
-        { name: t('coordination'), path: '/coordination', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ'], roles: ['coordinador', 'comisionado', 'administrador', 'superadmin'] },
+        { name: t('seb'), path: '/seb', divisions: ['SEB'] },
+        { name: t('coordination'), path: '/coordination', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB'], roles: ['coordinador', 'comisionado', 'administrador', 'superadmin'] },
         { name: t('adminPanel'), path: '/admin', divisions: ['SysAdmin'] },
     ];
 
@@ -321,6 +322,14 @@ function MainLayout() {
             const hasGangUnit = (profile.subdivisions && profile.subdivisions.includes('Gang Unit')) ||
                                 (profile.divisions && profile.divisions.includes('Gang Unit'));
             if (hasGangUnit) return true;
+        }
+
+        if (item.path === '/seb') {
+            const userRole = profile.rol ? profile.rol.toLowerCase() : '';
+            const isSEBRank = profile.rango === 'SEB Agent';
+            const isSEBDivision = profile.divisions && profile.divisions.includes('SEB');
+            const hasAllowedRole = ['coordinador', 'comisionado', 'administrador', 'superadmin'].includes(userRole);
+            return isSEBRank || isSEBDivision || hasAllowedRole;
         }
 
         if (!profile.divisions) return false;

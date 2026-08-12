@@ -224,9 +224,10 @@ function Personnel() {
         'Comandante': 110,
         'Capitan': 100,
         'Teniente': 90,
-        'Internal Affairs Agent': 85,
+        'Internal Affairs Agent': 87,
+        'SEB Agent': 86,
         'Department of Justice Agent': 85,
-        'Agente Externo': 85,
+        'Agente Externo': 84,
         'Detective III': 80,
         'Detective II': 70,
         'Detective I': 60,
@@ -256,7 +257,7 @@ function Personnel() {
 
     const detectives = useMemo(() => filteredUsers.filter(u => ['Detective I', 'Detective II', 'Detective III'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
     const helpers = useMemo(() => filteredUsers.filter(u => ['Deputy Sheriff', 'Oficial I', 'Deputy Sheriff Bonus I', 'Oficial II', 'Deputy Sheriff Bonus II', 'Oficial III', 'Oficial III+'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
-    const commandAndExternal = useMemo(() => filteredUsers.filter(u => ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente', 'Internal Affairs Agent', 'Department of Justice Agent', 'Agente Externo'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
+    const commandAndExternal = useMemo(() => filteredUsers.filter(u => ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente', 'Internal Affairs Agent', 'SEB Agent', 'Department of Justice Agent', 'Agente Externo'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
 
     // Actions
     const handleInputChange = (e) => {
@@ -1061,6 +1062,7 @@ function Personnel() {
                                     <option value="Detective II">Detective II</option>
                                     <option value="Detective III">Detective III</option>
                                     <option value="Internal Affairs Agent">Internal Affairs Agent</option>
+                                    <option value="SEB Agent">SEB Agent</option>
                                     <option value="Department of Justice Agent">Department of Justice Agent</option>
                                     <option value="Agente Externo">Agente Externo</option>
                                     <option value="Teniente">Teniente</option>
@@ -1091,7 +1093,7 @@ function Personnel() {
                             <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
                                 <label className="form-label" style={{ fontSize: '0.82rem', color: '#a5b4fc', fontWeight: 700, marginBottom: '0.35rem', display: 'block' }}>División(es)</label>
                                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
-                                    {['Detective Bureau', 'Internal Affairs', 'DOJ', 'DTP', 'Gang Unit'].map(divName => (
+                                    {['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'DTP', 'Gang Unit'].map(divName => (
                                         <label key={divName} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#f8fafc', fontSize: '0.82rem' }}>
                                             <input
                                                 type="checkbox"

@@ -393,6 +393,7 @@ function Profile() {
                                         <option value="Detective II">Detective II</option>
                                         <option value="Detective III">Detective III</option>
                                         <option value="Internal Affairs Agent">Internal Affairs Agent</option>
+                                        <option value="SEB Agent">SEB Agent</option>
                                         <option value="Department of Justice Agent">Department of Justice Agent</option>
                                         <option value="Teniente">Teniente</option>
                                         <option value="Capitan">Capitan</option>
