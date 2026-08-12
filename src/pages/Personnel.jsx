@@ -406,13 +406,10 @@ function Personnel() {
                     position: 'relative',
                     display: 'flex',
                     alignItems: 'center',
-                    background: 'rgba(15, 23, 42, 0.65)',
                     backdropFilter: 'blur(16px)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
                     borderRadius: '14px',
                     padding: '1rem 1.1rem',
                     gap: '1rem',
-                    boxShadow: '0 4px 18px rgba(0, 0, 0, 0.25)',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease'
                 }}
