@@ -1074,10 +1074,10 @@ function Gangs() {
         .filter(g => gangHasMatch(g, searchQuery));
 
     return (
-        <div id="gangs-page" style={{ width: '100%', minHeight: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', padding: '2rem 3rem 3rem 3rem', boxSizing: 'border-box' }}>
+        <div id="gangs-page" style={{ width: '100%', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', padding: '1rem 1.5rem 0px 1.5rem', boxSizing: 'border-box', overflow: 'hidden' }}>
             {/* Inner Header Navbar */}
             {!activeBoardGang && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.8rem', padding: '0.4rem 1.25rem', gap: '1rem', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', padding: '0.3rem 0.8rem', gap: '1rem', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box', flexShrink: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
                         <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.015em' }}>{isLSSD ? t('gndTitle') : t('giuTitle')}</h2>
 
@@ -1852,18 +1852,12 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
             {/* Header Card */}
             <div className="gang-header-card" style={{ borderTop: `4px solid ${gang.color}` }}>
                 <div className="gang-header-top">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
-                        <h3 className="gang-title" style={{ color: gang.color }}>{gang.name}</h3>
+                    <h3 className="gang-title" style={{ color: gang.color }}>{gang.name}</h3>
+                    <div className="gang-actions">
                         <button
-                            className="gang-action-btn"
+                            className="gang-board-btn"
                             onClick={() => onViewGangBoard(gang)}
                             title="Abrir Pizarra de Investigación"
-                            style={{
-                                fontSize: '0.78rem', background: 'rgba(212, 175, 55, 0.2)',
-                                border: '1px solid var(--accent-gold)', borderRadius: '6px',
-                                padding: '3px 8px', color: 'var(--accent-gold)', fontWeight: 'bold',
-                                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px'
-                            }}
                         >
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <line x1="12" y1="17" x2="12" y2="22" />
@@ -1873,10 +1867,9 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                         </button>
                         {isVIP && (
                             <button
-                                className="gang-action-btn"
+                                className="gang-icon-btn"
                                 onClick={() => onEditGangName(gang.gang_id)}
-                                title="Edit Gang Name"
-                                style={{ opacity: 0.75, display: 'inline-flex', alignItems: 'center' }}
+                                title="Editar Nombre"
                             >
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -1884,10 +1877,8 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                 </svg>
                             </button>
                         )}
-                    </div>
-                    {isVIP && (
-                        <div className="gang-actions">
-                            <button className="gang-action-btn" onClick={onArchive} title={gang.is_archived ? "Re-open" : "Archive"}>
+                        {isVIP && (
+                            <button className="gang-icon-btn" onClick={onArchive} title={gang.is_archived ? "Desarchivar" : "Archivar"}>
                                 {gang.is_archived ? (
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -1899,14 +1890,16 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                     </svg>
                                 )}
                             </button>
-                            <button className="gang-action-btn" onClick={onDelete} title="Delete Permanently" style={{ color: '#ef4444' }}>
+                        )}
+                        {isVIP && (
+                            <button className="gang-icon-btn delete" onClick={onDelete} title="Eliminar Permanentemente">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <polyline points="3 6 5 6 21 6" />
                                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                                 </svg>
                             </button>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
                 {/* Detectives al cargo */}
                 <div style={{ padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem' }}>
