@@ -131,45 +131,47 @@ function CaseTodoList({ caseId }) {
         }
     };
 
-    if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '1rem' }}>{t('loadingTasks')}</div>;
+    if (loading) return (
+        <div className="mac-doc-empty">
+            <span className="mac-status-dot" style={{ animation: 'pulse 1s infinite' }}></span>
+            <span>{t('loadingTasks') || 'Cargando lista de tareas...'}</span>
+        </div>
+    );
 
     return (
         <div className="todo-board">
             {/* Header: Add Category */}
-            <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <h3 style={{ margin: 0 }}>{t('projectTasksTitle')}</h3>
+            <div className="mac-widget-card" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#ffffff' }}>{t('projectTasksTitle') || 'Lista de Tareas del Proyecto'}</h3>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <input
                         type="text"
-                        placeholder={t('newCategoryPlaceholder')}
+                        placeholder={t('newCategoryPlaceholder') || 'Nueva Categoría / Lista...'}
                         value={newCategoryName}
                         onChange={e => setNewCategoryName(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleAddCategory(e); }}
-                        className="form-input"
-                        style={{ padding: '0.4rem', fontSize: '0.9rem', width: '200px' }}
+                        className="mac-form-input"
+                        style={{ padding: '0.5rem 0.85rem', fontSize: '0.85rem', width: '220px' }}
                     />
                     <button
                         type="button"
                         onClick={handleAddCategory}
-                        className="login-button"
-                        style={{ width: 'auto', padding: '0.4rem 1rem', fontSize: '0.9rem' }}
+                        className="mac-btn mac-btn-primary"
+                        style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
                     >
-                        {t('addListBtn')}
+                        {t('addListBtn') || '+ Añadir Lista'}
                     </button>
                 </div>
             </div>
 
             {/* Board Columns */}
-            <div className="todo-columns" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '1rem' }}>
+            <div className="todo-columns" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', paddingBottom: '1rem' }}>
                 {categories.map(cat => (
-                    <div key={cat.id} className="todo-column" style={{
+                    <div key={cat.id} className="mac-widget-card" style={{
                         width: '100%',
-                        background: 'rgba(var(--secondary-rgb), 0.4)',
-                        border: '1px solid var(--glass-border)',
-                        borderRadius: '8px',
-                        padding: '1rem',
                         display: 'flex',
-                        flexDirection: 'column'
+                        flexDirection: 'column',
+                        padding: '1.25rem'
                     }}>
                         {/* Column Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>

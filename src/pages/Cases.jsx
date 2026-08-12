@@ -204,7 +204,7 @@ function Cases() {
                                 <line x1="12" y1="5" x2="12" y2="19" />
                                 <line x1="5" y1="12" x2="19" y2="12" />
                             </svg>
-                            <span>{t('openNewCaseBtn') || 'Abrir Nuevo Caso'}</span>
+                            <span>{t('openNewCaseBtn')?.replace('+', '').trim() || 'Abrir Nuevo Caso'}</span>
                         </button>
                     )}
                 </div>
@@ -280,7 +280,7 @@ function Cases() {
                                             padding: '0.2rem 0.6rem',
                                             borderRadius: '6px'
                                         }}>
-                                            {t('caseHash') || 'CASO-'}#{String(c.case_number).padStart(3, '0')}
+                                            CASO #{String(c.case_number).padStart(3, '0')}
                                         </span>
 
                                         {isPinned && (

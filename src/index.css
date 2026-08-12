@@ -4140,25 +4140,23 @@ body.theme-verde .mac-btn-primary:hover {
 }
 
 .mac-widget-card {
-  background: rgba(16, 22, 36, 0.78);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(16, 22, 36, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  padding: 1.25rem 1.5rem;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.1rem 1.25rem;
+  box-shadow: 0 8px 20px -5px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   position: relative;
   overflow: hidden;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s, box-shadow 0.25s;
+  transform: translateZ(0);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .mac-widget-card:hover {
-  transform: translateY(-3px);
   border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 28px -5px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .mac-widget-header {
@@ -5914,6 +5912,90 @@ body.theme-verde .mac-login-crest-icon {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   text-align: center;
+}
+
+/* ==========================================
+   macOS Segmented Control Tabs System
+   ========================================== */
+
+.mac-doc-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 0.35rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.mac-doc-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  padding: 0.55rem 1.15rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mac-doc-tab:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mac-doc-tab.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+body.theme-lssd .mac-doc-tab.active,
+body.theme-verde .mac-doc-tab.active {
+  background: rgba(16, 185, 129, 0.25) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25) !important;
+}
+
+body.theme-negro .mac-doc-tab.active {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+body.theme-azul .mac-doc-tab.active {
+  background: rgba(0, 122, 255, 0.3) !important;
+  border-color: rgba(0, 122, 255, 0.5) !important;
+}
+
+/* ==========================================
+   macOS Container Layout & Side Margins
+   ========================================== */
+
+.mac-dashboard-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 2.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .mac-dashboard-container {
+    padding: 1.25rem 1rem;
+  }
 }
 
 
