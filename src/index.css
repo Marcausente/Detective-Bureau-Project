@@ -94,12 +94,14 @@ body.theme-verde .mac-dock-item.active {
 }
 
 body.theme-lssd .mac-command-banner,
+body.theme-lssd .mac-doc-banner,
 body.theme-lssd .mac-widget-card,
 body.theme-lssd .mac-ann-card,
 body.theme-lssd .mac-profile-card,
 body.theme-lssd .mac-profile-panel,
 body.theme-lssd .mac-doc-card,
 body.theme-verde .mac-command-banner,
+body.theme-verde .mac-doc-banner,
 body.theme-verde .mac-widget-card,
 body.theme-verde .mac-ann-card,
 body.theme-verde .mac-profile-card,
@@ -153,6 +155,7 @@ body.theme-negro .mac-dock-item.active {
 }
 
 body.theme-negro .mac-command-banner,
+body.theme-negro .mac-doc-banner,
 body.theme-negro .mac-widget-card,
 body.theme-negro .mac-ann-card,
 body.theme-negro .mac-profile-card,
@@ -195,6 +198,7 @@ body.theme-azul .mac-dock-item.active {
 }
 
 body.theme-azul .mac-command-banner,
+body.theme-azul .mac-doc-banner,
 body.theme-azul .mac-widget-card,
 body.theme-azul .mac-ann-card,
 body.theme-azul .mac-profile-card,
