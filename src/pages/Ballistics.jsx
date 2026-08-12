@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -15,6 +15,7 @@ function Ballistics() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [dbError, setDbError] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Modals visibility
     const [showWeaponModal, setShowWeaponModal] = useState(false);
@@ -45,7 +46,6 @@ function Ballistics() {
     // Load initial data
     useEffect(() => {
         loadData();
-        // Load read/seen matches from local storage
         try {
             const seen = JSON.parse(localStorage.getItem('seen_ballistics_matches') || '[]');
             setSeenMatchIds(seen);
@@ -61,7 +61,6 @@ function Ballistics() {
             // Fetch Bullets
             const { data: bulletsData, error: bulletsError } = await supabase.rpc('get_ballistics_bullets');
             if (bulletsError) {
-                // If RPC fails because tables/RPCs don't exist yet, catch it
                 console.error("Error fetching bullets:", bulletsError);
                 if (bulletsError.message.includes("does not exist")) {
                     setDbError("El sistema de base de datos de Balística no está inicializado. Por favor ejecuta el archivo SQL 'BBDD/create_ballistics_system.sql' en tu panel de Supabase.");
@@ -117,7 +116,6 @@ function Ballistics() {
             });
         });
 
-        // Sort by newest match first
         const sortedMatches = matches.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         setCoincidences(sortedMatches);
     };
@@ -134,16 +132,6 @@ function Ballistics() {
                 p_modelo_arma: bulletForm.modelo_arma || 'N/A'
             });
             if (error) throw error;
-
-            // Compute potential new matches before state updates
-            const newBulletObj = {
-                id: data,
-                incidente_relacionado: bulletForm.incidente,
-                calibre: bulletForm.calibre,
-                numero_serie: bulletForm.num_serie,
-                modelo_arma: bulletForm.modelo_arma || 'N/A',
-                created_at: new Date().toISOString()
-            };
 
             const cleanBulletSn = bulletForm.num_serie.trim().toLowerCase();
             if (cleanBulletSn !== '' && cleanBulletSn !== 'n/a') {
@@ -180,7 +168,6 @@ function Ballistics() {
             });
             if (error) throw error;
 
-            // Compute potential new matches before state updates
             const cleanWeaponSn = weaponForm.num_serie.trim().toLowerCase();
             if (cleanWeaponSn !== '' && cleanWeaponSn !== 'n/a') {
                 const matchedBullet = bullets.find(b => b.numero_serie.trim().toLowerCase() === cleanWeaponSn);
@@ -227,13 +214,6 @@ function Ballistics() {
         }
     };
 
-    // Mark single match as seen
-    const handleMarkMatchAsSeen = (matchId) => {
-        const updated = [...seenMatchIds, matchId];
-        setSeenMatchIds(updated);
-        localStorage.setItem('seen_ballistics_matches', JSON.stringify(updated));
-    };
-
     // Mark all matches as seen
     const handleMarkAllMatchesAsSeen = () => {
         const allIds = coincidences.map(c => c.id);
@@ -244,9 +224,9 @@ function Ballistics() {
 
     // Toggle weapon expand
     const toggleWeaponExpand = (weaponId) => {
-        setExpandedWeapons(prev => 
-            prev.includes(weaponId) 
-                ? prev.filter(id => id !== weaponId) 
+        setExpandedWeapons(prev =>
+            prev.includes(weaponId)
+                ? prev.filter(id => id !== weaponId)
                 : [...prev, weaponId]
         );
     };
@@ -259,91 +239,376 @@ function Ballistics() {
         localStorage.setItem('seen_ballistics_matches', JSON.stringify(updated));
     };
 
+    // Filtered lists for search
+    const filteredBullets = useMemo(() => {
+        if (!searchTerm.trim()) return bullets;
+        const term = searchTerm.toLowerCase();
+        return bullets.filter(b =>
+            (b.numero_serie && b.numero_serie.toLowerCase().includes(term)) ||
+            (b.incidente_relacionado && b.incidente_relacionado.toLowerCase().includes(term)) ||
+            (b.calibre && b.calibre.toLowerCase().includes(term)) ||
+            (b.modelo_arma && b.modelo_arma.toLowerCase().includes(term))
+        );
+    }, [bullets, searchTerm]);
+
+    const filteredWeapons = useMemo(() => {
+        if (!searchTerm.trim()) return weapons;
+        const term = searchTerm.toLowerCase();
+        return weapons.filter(w =>
+            (w.numero_serie && w.numero_serie.toLowerCase().includes(term)) ||
+            (w.propietario && w.propietario.toLowerCase().includes(term)) ||
+            (w.modelo && w.modelo.toLowerCase().includes(term)) ||
+            (w.incidente_relacionado && w.incidente_relacionado.toLowerCase().includes(term))
+        );
+    }, [weapons, searchTerm]);
+
+    const groupedCoincidences = useMemo(() => {
+        return weapons.map(weapon => {
+            if (!weapon.numero_serie) return null;
+            const cleanWeaponSn = weapon.numero_serie.trim().toLowerCase();
+            if (cleanWeaponSn === '' || cleanWeaponSn === 'n/a') return null;
+
+            const matchingBullets = bullets.filter(bullet =>
+                bullet.numero_serie && bullet.numero_serie.trim().toLowerCase() === cleanWeaponSn
+            );
+
+            if (matchingBullets.length === 0) return null;
+
+            // Search filter check for coincidences
+            if (searchTerm.trim()) {
+                const term = searchTerm.toLowerCase();
+                const matchesSn = weapon.numero_serie.toLowerCase().includes(term);
+                const matchesModel = weapon.modelo.toLowerCase().includes(term);
+                const matchesOwner = weapon.propietario.toLowerCase().includes(term);
+                const matchesBullets = matchingBullets.some(b =>
+                    (b.incidente_relacionado && b.incidente_relacionado.toLowerCase().includes(term)) ||
+                    (b.calibre && b.calibre.toLowerCase().includes(term))
+                );
+                if (!matchesSn && !matchesModel && !matchesOwner && !matchesBullets) return null;
+            }
+
+            const newBullets = matchingBullets.filter(bullet => {
+                const matchId = `${bullet.id}-${weapon.id}`;
+                return !seenMatchIds.includes(matchId);
+            });
+
+            return {
+                weapon,
+                bullets: matchingBullets,
+                newBullets,
+                isNew: newBullets.length > 0,
+                latestDate: matchingBullets.reduce((latest, bullet) => {
+                    const bDate = new Date(bullet.created_at);
+                    const wDate = new Date(weapon.created_at);
+                    const max = bDate > wDate ? bDate : wDate;
+                    return max > latest ? max : latest;
+                }, new Date(weapon.created_at))
+            };
+        }).filter(Boolean).sort((a, b) => b.latestDate - a.latestDate);
+    }, [weapons, bullets, seenMatchIds, searchTerm]);
+
+    const unseenCoincidencesCount = useMemo(() => {
+        return groupedCoincidences.filter(g => g.isNew).length;
+    }, [groupedCoincidences]);
+
     return (
-        <div className="documentation-container" style={{ maxWidth: '1600px', margin: '0 auto', padding: '2rem' }}>
-            
-            {/* Custom styles for glow effect and layout styling */}
+        <div
+            id="ballistics-page"
+            style={{
+                width: '100%',
+                height: 'calc(100vh - 80px)',
+                display: 'flex',
+                flexDirection: 'column',
+                backgroundColor: 'transparent',
+                padding: '1rem 1.5rem 0 1.5rem',
+                boxSizing: 'border-box',
+                overflow: 'hidden'
+            }}
+        >
             <style>{`
                 @keyframes goldGlow {
                     0% {
-                        box-shadow: 0 0 8px rgba(234, 179, 8, 0.4), inset 0 0 8px rgba(234, 179, 8, 0.1);
+                        box-shadow: 0 0 10px rgba(234, 179, 8, 0.35), inset 0 0 10px rgba(234, 179, 8, 0.08);
                         border-color: rgba(234, 179, 8, 0.5);
                     }
                     50% {
-                        box-shadow: 0 0 20px rgba(234, 179, 8, 0.7), inset 0 0 12px rgba(234, 179, 8, 0.3);
+                        box-shadow: 0 0 22px rgba(234, 179, 8, 0.65), inset 0 0 14px rgba(234, 179, 8, 0.25);
                         border-color: rgba(234, 179, 8, 0.9);
                     }
                     100% {
-                        box-shadow: 0 0 8px rgba(234, 179, 8, 0.4), inset 0 0 8px rgba(234, 179, 8, 0.1);
+                        box-shadow: 0 0 10px rgba(234, 179, 8, 0.35), inset 0 0 10px rgba(234, 179, 8, 0.08);
                         border-color: rgba(234, 179, 8, 0.5);
                     }
                 }
                 .new-coincidence-card {
                     animation: goldGlow 2.5s infinite ease-in-out;
                     border: 1px solid rgba(234, 179, 8, 0.6) !important;
-                    background: rgba(234, 179, 8, 0.04) !important;
+                    background: rgba(234, 179, 8, 0.05) !important;
                 }
                 .glow-badge {
                     background: #eab308;
-                    color: #000;
+                    color: #0f172a;
                     font-weight: 800;
-                    padding: 3px 8px;
-                    border-radius: 4px;
+                    padding: 3px 9px;
+                    border-radius: 20px;
                     font-size: 0.7rem;
                     box-shadow: 0 0 12px rgba(234, 179, 8, 0.7);
                     text-transform: uppercase;
-                    letter-spacing: 0.5px;
+                    letter-spacing: 0.04em;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
                 }
-                .coincidence-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-                    gap: 1.5rem;
-                }
-                .ballistics-list-card {
-                    background: rgba(15, 23, 42, 0.6);
-                    border: 1px solid rgba(255, 255, 255, 0.08);
-                    border-radius: 8px;
-                    padding: 1.25rem;
-                    margin-bottom: 1rem;
-                    position: relative;
-                }
-                .alert-banner {
-                    background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.1) 100%);
-                    border: 1px solid rgba(239, 68, 68, 0.5);
-                    border-left: 5px solid #ef4444;
+                .alert-banner-mac {
+                    background: rgba(239, 68, 68, 0.15);
+                    backdrop-filter: blur(14px);
+                    border: 1px solid rgba(239, 68, 68, 0.4);
+                    border-left: 4px solid #ef4444;
                     color: #fca5a5;
-                    border-radius: 8px;
-                    padding: 1.25rem;
-                    margin-bottom: 2rem;
+                    border-radius: 14px;
+                    padding: 1rem 1.25rem;
+                    margin-bottom: 1rem;
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    animation: pulseBorder 2s infinite ease-in-out;
-                }
-                @keyframes pulseBorder {
-                    0% { border-color: rgba(239, 68, 68, 0.5); }
-                    50% { border-color: rgba(239, 68, 68, 0.9); }
-                    100% { border-color: rgba(239, 68, 68, 0.5); }
+                    flex-shrink: 0;
                 }
             `}</style>
 
-            {/* Float Alert Match Notification */}
-            {alertMatch && (
-                <div className="alert-banner">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <span style={{ fontSize: '2rem' }}>⚠️</span>
+            {/* Apple Command Topbar */}
+            <div style={{
+                display: 'flex',
+                justify: 'space-between',
+                alignItems: 'center',
+                marginBottom: '0.9rem',
+                padding: '0.3rem 0.5rem',
+                gap: '1rem',
+                flexWrap: 'wrap',
+                width: '100%',
+                boxSizing: 'border-box',
+                flexShrink: 0
+            }}>
+                {/* Left: Brand Title & Apple Status LED */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '50%',
+                            background: '#22c55e',
+                            boxShadow: '0 0 12px #22c55e',
+                            display: 'inline-block'
+                        }}></span>
                         <div>
-                            <h4 style={{ margin: 0, fontWeight: 'bold', color: '#fca5a5', fontSize: '1.1rem' }}>
-                                {t('newCoincidenceDetected').replace('{item}', alertMatch.serialNumber)}
+                            <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.015em' }}>
+                                {t('ballistics') || 'Laboratorio de Balística'}
+                            </h2>
+                            <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
+                                <span>Coincidencias: <strong style={{ color: '#fbbf24' }}>{groupedCoincidences.length}</strong></span>
+                                {unseenCoincidencesCount > 0 && (
+                                    <>
+                                        <span>•</span>
+                                        <span>Nuevas: <strong style={{ color: '#facc15' }}>{unseenCoincidencesCount}</strong></span>
+                                    </>
+                                )}
+                                <span>•</span>
+                                <span>Casquillos: <strong style={{ color: '#60a5fa' }}>{bullets.length}</strong></span>
+                                <span>•</span>
+                                <span>Armas: <strong style={{ color: '#f87171' }}>{weapons.length}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right: Search, Tabs & Action Buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    {/* Apple Search Input */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        background: 'rgba(15, 23, 42, 0.65)',
+                        backdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(255, 255, 255, 0.14)',
+                        borderRadius: '20px',
+                        padding: '0.38rem 0.9rem',
+                        gap: '8px',
+                        minWidth: '240px',
+                        transition: 'border-color 0.2s',
+                    }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <input
+                            type="text"
+                            placeholder="Buscar Nº Serie, modelo, incidente..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                outline: 'none',
+                                color: '#fff',
+                                fontSize: '0.82rem',
+                                width: '100%',
+                            }}
+                        />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchTerm('')}
+                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.85rem', padding: '0 2px', lineHeight: 1 }}
+                            >✕</button>
+                        )}
+                    </div>
+
+                    {/* Apple Style Pill Tabs Header Navigation */}
+                    <div style={{
+                        display: 'flex',
+                        background: 'rgba(15, 23, 42, 0.65)',
+                        backdropFilter: 'blur(12px)',
+                        padding: '3px',
+                        borderRadius: '20px',
+                        border: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('coincidences')}
+                            style={{
+                                padding: '0.35rem 0.85rem',
+                                borderRadius: '16px',
+                                background: activeTab === 'coincidences' ? 'rgba(234, 179, 8, 0.2)' : 'transparent',
+                                color: activeTab === 'coincidences' ? '#fde047' : '#94a3b8',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                border: activeTab === 'coincidences' ? '1px solid rgba(234, 179, 8, 0.4)' : '1px solid transparent'
+                            }}
+                        >
+                            {t('coincidences') || 'Coincidencias'} ({groupedCoincidences.length})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('bullets')}
+                            style={{
+                                padding: '0.35rem 0.85rem',
+                                borderRadius: '16px',
+                                background: activeTab === 'bullets' ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                                color: activeTab === 'bullets' ? '#93c5fd' : '#94a3b8',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                border: activeTab === 'bullets' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid transparent'
+                            }}
+                        >
+                            {t('bulletCasings') || 'Casquillos'} ({filteredBullets.length})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('weapons')}
+                            style={{
+                                padding: '0.35rem 0.85rem',
+                                borderRadius: '16px',
+                                background: activeTab === 'weapons' ? 'rgba(239, 68, 68, 0.2)' : 'transparent',
+                                color: activeTab === 'weapons' ? '#fca5a5' : '#94a3b8',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                border: activeTab === 'weapons' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid transparent'
+                            }}
+                        >
+                            {t('seizedWeapons') || 'Armas Incautadas'} ({filteredWeapons.length})
+                        </button>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <button
+                        type="button"
+                        onClick={() => setShowBulletModal(true)}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            padding: '0.4rem 1.05rem',
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            border: '1px solid rgba(59, 130, 246, 0.35)',
+                            borderRadius: '20px',
+                            color: '#93c5fd',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        {t('addBulletCasing') || 'Registrar Casquillo'}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setShowWeaponModal(true)}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            padding: '0.4rem 1.05rem',
+                            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.35) 100%)',
+                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                            borderRadius: '20px',
+                            color: '#fca5a5',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 4px 15px rgba(239, 68, 68, 0.15)',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        {t('addSeizedWeapon') || 'Registrar Arma Incautada'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Float Alert Match Notification Banner */}
+            {alertMatch && (
+                <div className="alert-banner-mac">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                            <line x1="12" y1="9" x2="12" y2="13" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                        <div>
+                            <h4 style={{ margin: 0, fontWeight: 700, color: '#fca5a5', fontSize: '1rem' }}>
+                                {t('newCoincidenceDetected')?.replace('{item}', alertMatch.serialNumber) || `¡Coincidencia detectada! (Nº Serie: ${alertMatch.serialNumber})`}
                             </h4>
-                            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem', color: '#f3f4f6' }}>
+                            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', color: '#cbd5e1' }}>
                                 Coincidencia entre casquillo del <strong>{alertMatch.bulletIncident}</strong> y el arma <strong>{alertMatch.weaponModel}</strong> (Propietario: {alertMatch.weaponOwner}).
                             </p>
                         </div>
                     </div>
-                    <button 
-                        className="login-button btn-secondary" 
-                        style={{ width: 'auto', margin: 0, background: '#ef4444', color: '#fff', border: 'none', padding: '0.5rem 1rem' }}
+                    <button
+                        type="button"
+                        style={{
+                            background: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '0.45rem 1.1rem',
+                            borderRadius: '20px',
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
+                            whiteSpace: 'nowrap'
+                        }}
                         onClick={handleMarkAllMatchesAsSeen}
                     >
                         Entendido
@@ -351,373 +616,550 @@ function Ballistics() {
                 </div>
             )}
 
-            {/* Header Area */}
-            <div className="doc-header" style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                    <div style={{ fontSize: '3rem', filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))' }}>🔬</div>
-                    <div>
-                        <h2 className="page-title" style={{ margin: 0 }}>{t('ballistics')}</h2>
-                        <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                            {isLSSD ? t('ballistics_module_desc_lssd') : t('ballistics_module_desc')}
-                        </p>
-                    </div>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button className="login-button btn-secondary" style={{ width: 'auto', margin: 0 }} onClick={() => setShowBulletModal(true)}>
-                        {t('addBulletCasing')}
-                    </button>
-                    <button className="login-button" style={{ width: 'auto', margin: 0 }} onClick={() => setShowWeaponModal(true)}>
-                        {t('addSeizedWeapon')}
-                    </button>
-                </div>
-            </div>
-
-            {/* Error or Loading Grid */}
+            {/* Error or Loading Screen */}
             {dbError ? (
-                <div className="empty-list" style={{ color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '2rem', background: 'rgba(239, 68, 68, 0.05)' }}>
-                    <p style={{ fontWeight: 'bold', fontSize: '1.1rem', margin: '0 0 1rem 0' }}>⚠️ Error en la Base de Datos</p>
-                    <p style={{ margin: 0 }}>{dbError}</p>
+                <div style={{
+                    color: '#f87171',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    padding: '2.5rem',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    borderRadius: '16px',
+                    textAlign: 'center',
+                    backdropFilter: 'blur(12px)'
+                }}>
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 0.75rem auto' }}>
+                        <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <h4 style={{ fontWeight: 700, fontSize: '1.1rem', margin: '0 0 0.5rem 0' }}>Error en la Base de Datos</h4>
+                    <p style={{ margin: 0, fontSize: '0.9rem', color: '#cbd5e1' }}>{dbError}</p>
                 </div>
             ) : loading ? (
-                <div className="loading-container">Cargando módulo de balística...</div>
-            ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                    
-                    {/* TABS NAVIGATION */}
-                    <div className="tabs-container" style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: '1rem', paddingBottom: '0.5rem', flexWrap: 'wrap' }}>
-                        <button 
-                            onClick={() => setActiveTab('coincidences')}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                color: activeTab === 'coincidences' ? 'var(--accent-gold, #eab308)' : 'var(--text-secondary, #94a3b8)',
-                                borderBottom: activeTab === 'coincidences' ? '2px solid var(--accent-gold, #eab308)' : 'none',
-                                padding: '0.75rem 1.5rem',
-                                cursor: 'pointer',
-                                fontSize: '1rem',
-                                fontWeight: 'bold',
-                                transition: 'all 0.2s',
-                                marginBottom: '-0.6rem'
-                            }}
-                        >
-                            {t('coincidences')} ({coincidences.length})
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('bullets')}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                color: activeTab === 'bullets' ? 'var(--color-blue-light)' : 'var(--text-secondary, #94a3b8)',
-                                borderBottom: activeTab === 'bullets' ? '2px solid var(--color-blue-light)' : 'none',
-                                padding: '0.75rem 1.5rem',
-                                cursor: 'pointer',
-                                fontSize: '1rem',
-                                fontWeight: 'bold',
-                                transition: 'all 0.2s',
-                                marginBottom: '-0.6rem'
-                            }}
-                        >
-                            {t('bulletCasings')} ({bullets.length})
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('weapons')}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                color: activeTab === 'weapons' ? '#ef4444' : 'var(--text-secondary, #94a3b8)',
-                                borderBottom: activeTab === 'weapons' ? '2px solid #ef4444' : 'none',
-                                padding: '0.75rem 1.5rem',
-                                cursor: 'pointer',
-                                fontSize: '1rem',
-                                fontWeight: 'bold',
-                                transition: 'all 0.2s',
-                                marginBottom: '-0.6rem'
-                            }}
-                        >
-                            {t('seizedWeapons')} ({weapons.length})
-                        </button>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#94a3b8', fontSize: '0.95rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '18px', height: '18px', border: '2px solid #60a5fa', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+                        Cargando laboratorio de balística...
                     </div>
+                </div>
+            ) : (
+                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.35rem', paddingBottom: '1rem' }} className="custom-scrollbar">
 
-                    {/* RENDERING ACTIVE TAB CONTENT */}
-                    {activeTab === 'coincidences' && (() => {
-                        const groupedCoincidences = weapons.map(weapon => {
-                            if (!weapon.numero_serie) return null;
-                            const cleanWeaponSn = weapon.numero_serie.trim().toLowerCase();
-                            if (cleanWeaponSn === '' || cleanWeaponSn === 'n/a') return null;
-
-                            const matchingBullets = bullets.filter(bullet => 
-                                bullet.numero_serie && bullet.numero_serie.trim().toLowerCase() === cleanWeaponSn
-                            );
-
-                            if (matchingBullets.length === 0) return null;
-
-                            const newBullets = matchingBullets.filter(bullet => {
-                                const matchId = `${bullet.id}-${weapon.id}`;
-                                return !seenMatchIds.includes(matchId);
-                            });
-
-                            return {
-                                weapon,
-                                bullets: matchingBullets,
-                                newBullets,
-                                isNew: newBullets.length > 0,
-                                latestDate: matchingBullets.reduce((latest, bullet) => {
-                                    const bDate = new Date(bullet.created_at);
-                                    const wDate = new Date(weapon.created_at);
-                                    const max = bDate > wDate ? bDate : wDate;
-                                    return max > latest ? max : latest;
-                                }, new Date(weapon.created_at))
-                            };
-                        }).filter(Boolean).sort((a, b) => b.latestDate - a.latestDate);
-
-                        return (
-                            <div className="doc-section">
-                                <h3 className="section-title" style={{ borderBottom: '2px solid #eab308', paddingBottom: '0.5rem', color: '#eab308', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                                    {t('coincidences')} ({groupedCoincidences.length})
-                                </h3>
-                                {groupedCoincidences.length === 0 ? (
-                                    <div className="empty-list">No se han detectado coincidencias de número de serie todavía.</div>
-                                ) : (
-                                    <div className="coincidence-grid">
-                                        {groupedCoincidences.map(group => {
-                                            const isExpanded = expandedWeapons.includes(group.weapon.id);
-                                            return (
-                                                <div 
-                                                    key={group.weapon.id} 
-                                                    className={`ballistics-list-card ${group.isNew ? 'new-coincidence-card' : ''}`}
-                                                    style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', transition: 'all 0.3s ease' }}
-                                                >
-                                                    <div>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                                            <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'var(--accent-gold)', background: 'rgba(255,255,255,0.06)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.95rem' }}>
+                    {/* RENDERING COINCIDENCES TAB */}
+                    {activeTab === 'coincidences' && (
+                        <div>
+                            {groupedCoincidences.length === 0 ? (
+                                <div style={{
+                                    textAlign: 'center',
+                                    padding: '4rem 1rem',
+                                    color: '#64748b',
+                                    background: 'rgba(15, 23, 42, 0.3)',
+                                    backdropFilter: 'blur(12px)',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255, 255, 255, 0.06)'
+                                }}>
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto 0.75rem auto', opacity: 0.5 }}>
+                                        <circle cx="11" cy="11" r="8" />
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                    </svg>
+                                    <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#cbd5e1' }}>
+                                        No se han detectado coincidencias de número de serie todavía.
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+                                    gap: '1.25rem'
+                                }}>
+                                    {groupedCoincidences.map(group => {
+                                        const isExpanded = expandedWeapons.includes(group.weapon.id);
+                                        return (
+                                            <div
+                                                key={group.weapon.id}
+                                                className={`ballistics-list-card ${group.isNew ? 'new-coincidence-card' : ''}`}
+                                                style={{
+                                                    background: group.isNew ? 'rgba(234, 179, 8, 0.05)' : 'rgba(15, 23, 42, 0.65)',
+                                                    backdropFilter: 'blur(16px)',
+                                                    border: group.isNew ? '1px solid rgba(234, 179, 8, 0.6)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                                    borderRadius: '16px',
+                                                    padding: '1.2rem',
+                                                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    justify: 'space-between',
+                                                    transition: 'all 0.25s ease'
+                                                }}
+                                            >
+                                                <div>
+                                                    {/* Card Header Top */}
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }}></span>
+                                                            <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }}></span>
+                                                            <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
+                                                            <span style={{
+                                                                fontFamily: 'monospace',
+                                                                fontWeight: 700,
+                                                                color: '#fbbf24',
+                                                                background: 'rgba(251, 191, 36, 0.12)',
+                                                                border: '1px solid rgba(251, 191, 36, 0.25)',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '6px',
+                                                                fontSize: '0.78rem',
+                                                                marginLeft: '6px'
+                                                            }}>
                                                                 N/S: {group.weapon.numero_serie}
                                                             </span>
-                                                            {group.isNew ? (
-                                                                <span className="glow-badge">{t('newBadge')} ({group.newBullets.length})</span>
-                                                            ) : (
-                                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>✓ {group.bullets.length} Vinculados</span>
-                                                            )}
                                                         </div>
 
-                                                        {/* Weapon Info */}
-                                                        <div style={{ background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px', marginBottom: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                                            <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#ef4444', marginBottom: '0.5rem' }}>
-                                                                🔫 {group.weapon.modelo}
-                                                            </div>
-                                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                                                <span style={{ color: '#fff', opacity: 0.8 }}>Propietario:</span> {group.weapon.propietario}
-                                                                <br />
-                                                                <span style={{ color: '#fff', opacity: 0.8 }}>Incidente Incautación:</span> {group.weapon.incidente_relacionado}
-                                                            </div>
-                                                        </div>
+                                                        {group.isNew ? (
+                                                            <span className="glow-badge">
+                                                                ★ {t('newBadge') || 'NUEVA'} ({group.newBullets.length})
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{
+                                                                fontSize: '0.72rem',
+                                                                fontWeight: 600,
+                                                                color: '#4ade80',
+                                                                background: 'rgba(34, 197, 94, 0.12)',
+                                                                border: '1px solid rgba(34, 197, 94, 0.25)',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '12px'
+                                                            }}>
+                                                                ✓ {group.bullets.length} Vinculados
+                                                            </span>
+                                                        )}
+                                                    </div>
 
-                                                        {/* Expanded Bullet Relationships */}
-                                                        {isExpanded && (
-                                                            <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
-                                                                <h4 style={{ fontSize: '0.85rem', color: 'var(--color-blue-light)', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>Casquillos Vinculados:</h4>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                                    {group.bullets.map(bullet => {
-                                                                        const isBulletNew = !seenMatchIds.includes(`${bullet.id}-${group.weapon.id}`);
-                                                                        return (
-                                                                            <div key={bullet.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: '4px', fontSize: '0.8rem', borderLeft: isBulletNew ? '3px solid #eab308' : '3px solid var(--color-blue-light)' }}>
-                                                                                <strong>Incidente:</strong> {bullet.incidente_relacionado}
-                                                                                <br />
-                                                                                <strong>Calibre:</strong> {bullet.calibre} | <strong>Modelo Arma:</strong> {bullet.modelo_arma || 'N/A'}
-                                                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', opacity: 0.7, marginTop: '4px' }}>
-                                                                                    <span>Por: {bullet.author_rank} {bullet.author_name}</span>
-                                                                                    <span>{new Date(bullet.created_at).toLocaleDateString()}</span>
-                                                                                </div>
+                                                    {/* Weapon Info Box */}
+                                                    <div style={{
+                                                        background: 'rgba(0, 0, 0, 0.28)',
+                                                        padding: '0.85rem',
+                                                        borderRadius: '12px',
+                                                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                                                        marginBottom: '0.85rem'
+                                                    }}>
+                                                        <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#f87171', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                                <path d="M6 18L18 6M6 6l12 12" />
+                                                            </svg>
+                                                            {group.weapon.modelo}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: 1.5 }}>
+                                                            <div><span style={{ color: '#94a3b8' }}>Propietario:</span> <strong>{group.weapon.propietario}</strong></div>
+                                                            <div><span style={{ color: '#94a3b8' }}>Incidente Incautación:</span> <strong>{group.weapon.incidente_relacionado}</strong></div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Expanded Bullet Relationships */}
+                                                    {isExpanded && (
+                                                        <div style={{ marginTop: '0.85rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.85rem' }}>
+                                                            <div style={{ fontSize: '0.78rem', color: '#60a5fa', marginBottom: '0.5rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                                                Casquillos Vinculados ({group.bullets.length}):
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                                {group.bullets.map(bullet => {
+                                                                    const isBulletNew = !seenMatchIds.includes(`${bullet.id}-${group.weapon.id}`);
+                                                                    return (
+                                                                        <div
+                                                                            key={bullet.id}
+                                                                            style={{
+                                                                                background: 'rgba(0, 0, 0, 0.25)',
+                                                                                padding: '0.65rem 0.75rem',
+                                                                                borderRadius: '8px',
+                                                                                fontSize: '0.78rem',
+                                                                                borderLeft: isBulletNew ? '3px solid #eab308' : '3px solid #60a5fa',
+                                                                                border: '1px solid rgba(255, 255, 255, 0.04)'
+                                                                            }}
+                                                                        >
+                                                                            <div><strong style={{ color: '#f8fafc' }}>Incidente:</strong> {bullet.incidente_relacionado}</div>
+                                                                            <div style={{ color: '#cbd5e1', marginTop: '2px' }}>
+                                                                                <strong>Calibre:</strong> {bullet.calibre} | <strong>Modelo:</strong> {bullet.modelo_arma || 'N/A'}
                                                                             </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px' }}>
+                                                                                <span>Por: {bullet.author_rank} {bullet.author_name}</span>
+                                                                                <span>{new Date(bullet.created_at).toLocaleDateString()}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
                                                             </div>
-                                                        )}
-                                                    </div>
+                                                        </div>
+                                                    )}
+                                                </div>
 
-                                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem' }}>
-                                                        <button 
-                                                            className="login-button btn-secondary" 
-                                                            style={{ flex: 1, margin: 0, padding: '6px', fontSize: '0.8rem' }}
-                                                            onClick={() => toggleWeaponExpand(group.weapon.id)}
+                                                {/* Action Buttons */}
+                                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                                                    <button
+                                                        type="button"
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '0.42rem',
+                                                            borderRadius: '10px',
+                                                            background: 'rgba(255, 255, 255, 0.06)',
+                                                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                                                            color: '#cbd5e1',
+                                                            fontSize: '0.78rem',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                        onClick={() => toggleWeaponExpand(group.weapon.id)}
+                                                    >
+                                                        {isExpanded ? 'Ocultar Casquillos ▲' : `Ver Casquillos (${group.bullets.length}) ▼`}
+                                                    </button>
+                                                    {group.isNew && (
+                                                        <button
+                                                            type="button"
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: '0.42rem',
+                                                                borderRadius: '10px',
+                                                                background: 'rgba(234, 179, 8, 0.2)',
+                                                                border: '1px solid rgba(234, 179, 8, 0.4)',
+                                                                color: '#fde047',
+                                                                fontSize: '0.78rem',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s'
+                                                            }}
+                                                            onClick={() => handleMarkWeaponMatchesAsSeen(group.weapon, group.bullets)}
                                                         >
-                                                            {isExpanded ? 'Ocultar Casquillos' : `Ver Casquillos (${group.bullets.length})`}
+                                                            Marcar vistos ✓
                                                         </button>
-                                                        {group.isNew && (
-                                                            <button 
-                                                                className="login-button" 
-                                                                style={{ flex: 1, margin: 0, padding: '6px', fontSize: '0.8rem' }}
-                                                                onClick={() => handleMarkWeaponMatchesAsSeen(group.weapon, group.bullets)}
-                                                            >
-                                                                Marcar vistos
-                                                            </button>
-                                                        )}
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* RENDERING BULLETS TAB */}
+                    {activeTab === 'bullets' && (
+                        <div>
+                            {filteredBullets.length === 0 ? (
+                                <div style={{
+                                    textAlign: 'center',
+                                    padding: '4rem 1rem',
+                                    color: '#64748b',
+                                    background: 'rgba(15, 23, 42, 0.3)',
+                                    backdropFilter: 'blur(12px)',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255, 255, 255, 0.06)'
+                                }}>
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto 0.75rem auto', opacity: 0.5 }}>
+                                        <circle cx="12" cy="12" r="10" />
+                                        <line x1="12" y1="8" x2="12" y2="12" />
+                                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                                    </svg>
+                                    <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#cbd5e1' }}>
+                                        No hay casquillos registrados.
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+                                    gap: '1.25rem'
+                                }}>
+                                    {filteredBullets.map(item => (
+                                        <div
+                                            key={item.id}
+                                            style={{
+                                                background: 'rgba(15, 23, 42, 0.65)',
+                                                backdropFilter: 'blur(16px)',
+                                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                borderRadius: '16px',
+                                                padding: '1.15rem',
+                                                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justify: 'space-between',
+                                                position: 'relative'
+                                            }}
+                                        >
+                                            <div>
+                                                {/* Header window controls & trash */}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }}></span>
+                                                        <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }}></span>
+                                                        <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
+                                                    </div>
+                                                    {item.can_delete && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteBullet(item.id)}
+                                                            style={{
+                                                                background: 'rgba(239, 68, 68, 0.1)',
+                                                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                                color: '#f87171',
+                                                                borderRadius: '8px',
+                                                                width: '26px',
+                                                                height: '26px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justify: 'center',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s'
+                                                            }}
+                                                            title="Eliminar casquillo"
+                                                        >
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                <polyline points="3 6 5 6 21 6" />
+                                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                {/* Bullet Metadata */}
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '0.75rem' }}>
+                                                    <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.55rem', borderRadius: '8px' }}>
+                                                        <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('relatedIncident') || 'Incidente'}</span>
+                                                        <strong style={{ color: '#f8fafc', fontSize: '0.85rem' }}>{item.incidente_relacionado}</strong>
+                                                    </div>
+                                                    <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.55rem', borderRadius: '8px' }}>
+                                                        <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('bulletCaliber') || 'Calibre'}</span>
+                                                        <strong style={{ color: '#60a5fa', fontSize: '0.85rem' }}>{item.calibre}</strong>
                                                     </div>
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })()}
 
-                    {activeTab === 'bullets' && (
-                        <div className="doc-section" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-                            <h3 className="section-title" style={{ borderBottom: '2px solid var(--color-blue-light)', paddingBottom: '0.5rem', color: 'var(--color-blue-light)', marginBottom: '1.5rem' }}>
-                                {t('bulletCasings')} ({bullets.length})
-                            </h3>
-                            <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                                {bullets.length === 0 ? (
-                                    <div className="empty-list">No hay casquillos registrados.</div>
-                                ) : (
-                                    bullets.map(item => (
-                                        <div key={item.id} className="ballistics-list-card">
-                                            {item.can_delete && (
-                                                <button 
-                                                    style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem' }}
-                                                    onClick={() => handleDeleteBullet(item.id)}
-                                                    title="Eliminar casquillo"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            )}
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
-                                                <div>
-                                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{t('relatedIncident')}</span>
-                                                    <strong>{item.incidente_relacionado}</strong>
-                                                </div>
-                                                <div>
-                                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{t('bulletCaliber')}</span>
-                                                    <strong>{item.calibre}</strong>
-                                                </div>
-                                                <div>
-                                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{t('weaponModel')}</span>
-                                                    <strong>{item.modelo_arma || 'N/A'}</strong>
+                                                <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.55rem 0.75rem', borderRadius: '8px', marginBottom: '0.75rem' }}>
+                                                    <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('serialNumber') || 'Número de Serie'}</span>
+                                                    <strong style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.9rem', letterSpacing: '0.04em' }}>{item.numero_serie}</strong>
                                                 </div>
                                             </div>
-                                            <div style={{ fontSize: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.5rem' }}>
-                                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{t('serialNumber')}</span>
-                                                <strong style={{ fontFamily: 'monospace', color: 'var(--accent-gold)' }}>{item.numero_serie}</strong>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.75rem', opacity: 0.8 }}>
-                                                <span>Registrado por: {item.author_rank} {item.author_name}</span>
+
+                                            <div style={{
+                                                display: 'flex',
+                                                justify: 'space-between',
+                                                fontSize: '0.73rem',
+                                                color: '#94a3b8',
+                                                borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                                                paddingTop: '0.55rem',
+                                                marginTop: '0.2rem'
+                                            }}>
+                                                <span>Registrado por: <strong style={{ color: '#e2e8f0' }}>{item.author_rank} {item.author_name}</strong></span>
                                                 <span>{new Date(item.created_at).toLocaleDateString()}</span>
                                             </div>
                                         </div>
-                                    ))
-                                )}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
 
+                    {/* RENDERING WEAPONS TAB */}
                     {activeTab === 'weapons' && (
-                        <div className="doc-section" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-                            <h3 className="section-title" style={{ borderBottom: '2px solid #ef4444', paddingBottom: '0.5rem', color: '#ef4444', marginBottom: '1.5rem' }}>
-                                {t('seizedWeapons')} ({weapons.length})
-                            </h3>
-                            <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                                {weapons.length === 0 ? (
-                                    <div className="empty-list">No hay armas registradas.</div>
-                                ) : (
-                                    weapons.map(item => (
-                                        <div key={item.id} className="ballistics-list-card">
-                                            {item.can_delete && (
-                                                <button 
-                                                    style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem' }}
-                                                    onClick={() => handleDeleteWeapon(item.id)}
-                                                    title="Eliminar arma"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            )}
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
-                                                <div>
-                                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{t('ownerName')}</span>
-                                                    <strong>{item.propietario}</strong>
+                        <div>
+                            {filteredWeapons.length === 0 ? (
+                                <div style={{
+                                    textAlign: 'center',
+                                    padding: '4rem 1rem',
+                                    color: '#64748b',
+                                    background: 'rgba(15, 23, 42, 0.3)',
+                                    backdropFilter: 'blur(12px)',
+                                    borderRadius: '16px',
+                                    border: '1px solid rgba(255, 255, 255, 0.06)'
+                                }}>
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto 0.75rem auto', opacity: 0.5 }}>
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                        <line x1="16" y1="2" x2="16" y2="6" />
+                                        <line x1="8" y1="2" x2="8" y2="6" />
+                                        <line x1="3" y1="10" x2="21" y2="10" />
+                                    </svg>
+                                    <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#cbd5e1' }}>
+                                        No hay armas registradas.
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+                                    gap: '1.25rem'
+                                }}>
+                                    {filteredWeapons.map(item => (
+                                        <div
+                                            key={item.id}
+                                            style={{
+                                                background: 'rgba(15, 23, 42, 0.65)',
+                                                backdropFilter: 'blur(16px)',
+                                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                borderRadius: '16px',
+                                                padding: '1.15rem',
+                                                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justify: 'space-between',
+                                                position: 'relative'
+                                            }}
+                                        >
+                                            <div>
+                                                {/* Header window controls & trash */}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }}></span>
+                                                        <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }}></span>
+                                                        <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
+                                                    </div>
+                                                    {item.can_delete && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteWeapon(item.id)}
+                                                            style={{
+                                                                background: 'rgba(239, 68, 68, 0.1)',
+                                                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                                color: '#f87171',
+                                                                borderRadius: '8px',
+                                                                width: '26px',
+                                                                height: '26px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justify: 'center',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s'
+                                                            }}
+                                                            title="Eliminar arma"
+                                                        >
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                <polyline points="3 6 5 6 21 6" />
+                                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                            </svg>
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                <div>
-                                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{t('weaponModel')}</span>
-                                                    <strong>{item.modelo}</strong>
+
+                                                {/* Weapon Title / Model */}
+                                                <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1.05rem', fontWeight: 800, color: '#f87171' }}>
+                                                    {item.modelo}
+                                                </h3>
+
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '0.75rem' }}>
+                                                    <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.55rem', borderRadius: '8px' }}>
+                                                        <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('ownerName') || 'Propietario'}</span>
+                                                        <strong style={{ color: '#f8fafc', fontSize: '0.85rem' }}>{item.propietario}</strong>
+                                                    </div>
+                                                    <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.55rem', borderRadius: '8px' }}>
+                                                        <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('relatedIncident') || 'Incidente'}</span>
+                                                        <strong style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>{item.incidente_relacionado}</strong>
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.55rem 0.75rem', borderRadius: '8px', marginBottom: '0.75rem' }}>
+                                                    <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('serialNumber') || 'Número de Serie'}</span>
+                                                    <strong style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.9rem', letterSpacing: '0.04em' }}>{item.numero_serie}</strong>
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.5rem' }}>
-                                                <div>
-                                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{t('relatedIncident')}</span>
-                                                    <strong>{item.incidente_relacionado}</strong>
-                                                </div>
-                                                <div>
-                                                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{t('serialNumber')}</span>
-                                                    <strong style={{ fontFamily: 'monospace', color: 'var(--accent-gold)' }}>{item.numero_serie}</strong>
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.75rem', opacity: 0.8 }}>
-                                                <span>Registrado por: {item.author_rank} {item.author_name}</span>
+
+                                            <div style={{
+                                                display: 'flex',
+                                                justify: 'space-between',
+                                                fontSize: '0.73rem',
+                                                color: '#94a3b8',
+                                                borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                                                paddingTop: '0.55rem',
+                                                marginTop: '0.2rem'
+                                            }}>
+                                                <span>Registrado por: <strong style={{ color: '#e2e8f0' }}>{item.author_rank} {item.author_name}</strong></span>
                                                 <span>{new Date(item.created_at).toLocaleDateString()}</span>
                                             </div>
                                         </div>
-                                    ))
-                                )}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
-
                 </div>
             )}
 
             {/* --- ADD BULLET CASING MODAL --- */}
             {showBulletModal && (
-                <div className="cropper-modal-overlay">
-                    <div className="cropper-modal-content" style={{ maxWidth: '500px', textAlign: 'left' }}>
-                        <h3 className="section-title" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                            {t('addBulletCasing')}
-                        </h3>
-                        <form onSubmit={handleCreateBullet} style={{ marginTop: '1.5rem' }}>
-                            <div className="form-group">
-                                <label className="form-label">{t('relatedIncident')}</label>
-                                <input 
-                                    className="form-input" 
-                                    required 
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-content" style={{ maxWidth: '520px', width: '92vw', borderRadius: '16px' }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.75rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div className="mac-window-dots">
+                                    <span className="mac-window-dot close" onClick={() => setShowBulletModal(false)} title="Cerrar" />
+                                    <span className="mac-window-dot min" />
+                                    <span className="mac-window-dot max" />
+                                </div>
+                                <h3 style={{ margin: '0 0 0 8px', fontSize: '1.1rem', color: '#f8fafc', fontWeight: 700 }}>
+                                    {t('addBulletCasing') || 'Registrar Casquillo'}
+                                </h3>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowBulletModal(false)}
+                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.2rem' }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleCreateBullet} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.78rem', color: '#60a5fa', marginBottom: '0.35rem' }}>
+                                    {t('relatedIncident') || 'Incidente Relacionado'}
+                                </label>
+                                <input
+                                    className="form-input"
+                                    required
                                     value={bulletForm.incidente}
                                     onChange={e => setBulletForm({ ...bulletForm, incidente: e.target.value })}
                                     placeholder="Ej: Tiroteo en Grove St"
                                 />
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">{t('bulletCaliber')}</label>
-                                <input 
-                                    className="form-input" 
-                                    required 
-                                    value={bulletForm.calibre}
-                                    onChange={e => setBulletForm({ ...bulletForm, calibre: e.target.value })}
-                                    placeholder="Ej: 9mm, .45 ACP, 5.56mm"
-                                />
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
+                                        {t('bulletCaliber') || 'Calibre'}
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        required
+                                        value={bulletForm.calibre}
+                                        onChange={e => setBulletForm({ ...bulletForm, calibre: e.target.value })}
+                                        placeholder="Ej: 9mm, .45 ACP, 5.56mm"
+                                    />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
+                                        {t('weaponModel') || 'Modelo del Arma'}
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        value={bulletForm.modelo_arma}
+                                        onChange={e => setBulletForm({ ...bulletForm, modelo_arma: e.target.value })}
+                                        placeholder="Ej: Combat Pistol (Opcional)"
+                                    />
+                                </div>
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">{t('weaponModel')}</label>
-                                <input 
-                                    className="form-input" 
-                                    value={bulletForm.modelo_arma}
-                                    onChange={e => setBulletForm({ ...bulletForm, modelo_arma: e.target.value })}
-                                    placeholder="Ej: Combat Pistol, Special Carbine (Opcional, N/A por defecto)"
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">{t('serialNumber')}</label>
-                                <input 
-                                    className="form-input" 
-                                    required 
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.78rem', color: '#fbbf24', marginBottom: '0.35rem' }}>
+                                    {t('serialNumber') || 'Número de Serie Balístico'}
+                                </label>
+                                <input
+                                    className="form-input"
+                                    required
                                     value={bulletForm.num_serie}
                                     onChange={e => setBulletForm({ ...bulletForm, num_serie: e.target.value })}
                                     placeholder="Ej: SN-12948-BALA"
                                 />
                             </div>
-                            <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowBulletModal(false)} style={{ width: 'auto' }}>
-                                    {t('cancelBtn')}
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.85rem' }}>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowBulletModal(false)} style={{ width: 'auto', padding: '0.45rem 1.2rem' }}>
+                                    {t('cancelBtn') || 'Cancelar'}
                                 </button>
-                                <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>
-                                    {submitting ? t('savingBtn') : t('saveBtn')}
+                                <button type="submit" className="login-button" style={{ width: 'auto', padding: '0.45rem 1.4rem' }} disabled={submitting}>
+                                    {submitting ? (t('savingBtn') || 'Guardando...') : (t('saveBtn') || 'Guardar Registro')}
                                 </button>
                             </div>
                         </form>
@@ -727,65 +1169,94 @@ function Ballistics() {
 
             {/* --- ADD SEIZED WEAPON MODAL --- */}
             {showWeaponModal && (
-                <div className="cropper-modal-overlay">
-                    <div className="cropper-modal-content" style={{ maxWidth: '500px', textAlign: 'left' }}>
-                        <h3 className="section-title" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                            {t('addSeizedWeapon')}
-                        </h3>
-                        <form onSubmit={handleCreateWeapon} style={{ marginTop: '1.5rem' }}>
-                            <div className="form-group">
-                                <label className="form-label">{t('ownerName')}</label>
-                                <input 
-                                    className="form-input" 
-                                    required 
-                                    value={weaponForm.propietario}
-                                    onChange={e => setWeaponForm({ ...weaponForm, propietario: e.target.value })}
-                                    placeholder="Ej: Desconocido, John Doe"
-                                />
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-content" style={{ maxWidth: '520px', width: '92vw', borderRadius: '16px' }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.75rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div className="mac-window-dots">
+                                    <span className="mac-window-dot close" onClick={() => setShowWeaponModal(false)} title="Cerrar" />
+                                    <span className="mac-window-dot min" />
+                                    <span className="mac-window-dot max" />
+                                </div>
+                                <h3 style={{ margin: '0 0 0 8px', fontSize: '1.1rem', color: '#f8fafc', fontWeight: 700 }}>
+                                    {t('addSeizedWeapon') || 'Registrar Arma Incautada'}
+                                </h3>
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">{t('relatedIncident')}</label>
-                                <input 
-                                    className="form-input" 
-                                    required 
+                            <button
+                                type="button"
+                                onClick={() => setShowWeaponModal(false)}
+                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.2rem' }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleCreateWeapon} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
+                                        {t('ownerName') || 'Propietario'}
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        required
+                                        value={weaponForm.propietario}
+                                        onChange={e => setWeaponForm({ ...weaponForm, propietario: e.target.value })}
+                                        placeholder="Ej: Desconocido, John Doe"
+                                    />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.78rem', color: '#f87171', marginBottom: '0.35rem' }}>
+                                        {t('weaponModel') || 'Modelo del Arma'}
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        required
+                                        value={weaponForm.modelo}
+                                        onChange={e => setWeaponForm({ ...weaponForm, modelo: e.target.value })}
+                                        placeholder="Ej: Combat Pistol, Special Carbine"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.78rem', color: '#60a5fa', marginBottom: '0.35rem' }}>
+                                    {t('relatedIncident') || 'Incidente Relacionado'}
+                                </label>
+                                <input
+                                    className="form-input"
+                                    required
                                     value={weaponForm.incidente}
                                     onChange={e => setWeaponForm({ ...weaponForm, incidente: e.target.value })}
                                     placeholder="Ej: Asalto en Licorería"
                                 />
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">{t('weaponModel')}</label>
-                                <input 
-                                    className="form-input" 
-                                    required 
-                                    value={weaponForm.modelo}
-                                    onChange={e => setWeaponForm({ ...weaponForm, modelo: e.target.value })}
-                                    placeholder="Ej: Combat Pistol, Special Carbine"
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">{t('serialNumber')}</label>
-                                <input 
-                                    className="form-input" 
-                                    required 
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.78rem', color: '#fbbf24', marginBottom: '0.35rem' }}>
+                                    {t('serialNumber') || 'Número de Serie Balístico'}
+                                </label>
+                                <input
+                                    className="form-input"
+                                    required
                                     value={weaponForm.num_serie}
                                     onChange={e => setWeaponForm({ ...weaponForm, num_serie: e.target.value })}
                                     placeholder="Ej: SN-12948-BALA"
                                 />
                             </div>
-                            <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowWeaponModal(false)} style={{ width: 'auto' }}>
-                                    {t('cancelBtn')}
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.85rem' }}>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setShowWeaponModal(false)} style={{ width: 'auto', padding: '0.45rem 1.2rem' }}>
+                                    {t('cancelBtn') || 'Cancelar'}
                                 </button>
-                                <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>
-                                    {submitting ? t('savingBtn') : t('saveBtn')}
+                                <button type="submit" className="login-button" style={{ width: 'auto', padding: '0.45rem 1.4rem' }} disabled={submitting}>
+                                    {submitting ? (t('savingBtn') || 'Guardando...') : (t('saveBtn') || 'Guardar Registro')}
                                 </button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
-
         </div>
     );
 }
