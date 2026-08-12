@@ -701,10 +701,10 @@ function Incidents() {
 
     // --- RENDER ---
     return (
-        <div id="incidents-page" style={{ width: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', padding: '1rem 1.5rem 0 1.5rem', boxSizing: 'border-box' }}>
+        <div id="incidents-page" style={{ width: '100%', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', padding: '1rem 1.5rem 0 1.5rem', boxSizing: 'border-box', overflow: 'hidden' }}>
 
             {/* ── Inner Header Navbar ── */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem', padding: '0.3rem 0.8rem', gap: '1rem', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box', flexShrink: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.9rem', padding: '0.3rem 0.8rem', gap: '1rem', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box', flexShrink: 0, minHeight: 0 }}>
 
                 {/* Left: Title */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
@@ -883,6 +883,7 @@ function Incidents() {
                     background: 'rgba(56,189,248,0.08)',
                     border: '1px solid rgba(56,189,248,0.2)',
                     borderRadius: '10px',
+                    flexShrink: 0,
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -913,6 +914,7 @@ function Incidents() {
                     background: 'rgba(239,68,68,0.07)', borderRadius: '10px',
                     border: '1px solid rgba(239,68,68,0.15)',
                     display: 'flex', alignItems: 'center', gap: '8px',
+                    flexShrink: 0,
                 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -927,10 +929,10 @@ function Incidents() {
             {loading ? (
                 <div className="loading-container">{t('loadingIncidents')}</div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
+                <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', gap: '1.5rem', overflow: 'hidden', paddingBottom: '0.5rem' }}>
 
                     {/* COLUMN 1: UNLINKED INCIDENTS */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem', height: '100%', overflow: 'hidden' }}>
                         {/* Column Header */}
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: '10px',
@@ -957,7 +959,7 @@ function Incidents() {
                         </div>
 
                         {/* Cards */}
-                        <div className="scroll-feed" style={{ overflowY: 'auto', paddingRight: '4px' }}>
+                        <div className="scroll-feed" style={{ flex: '1 1 0%', minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '1rem' }}>
                             {generalIncidents.length === 0 ? (
                                 <div className="empty-list">{t('noIncidents')}</div>
                             ) : (
@@ -986,7 +988,7 @@ function Incidents() {
                     </div>
 
                     {/* COLUMN 2: LINKED INCIDENTS */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem', height: '100%', overflow: 'hidden' }}>
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: '10px',
                             padding: '0.55rem 0.85rem',
@@ -1009,7 +1011,7 @@ function Incidents() {
                             }}>{linkedIncidents.length}</span>
                         </div>
 
-                        <div className="scroll-feed" style={{ overflowY: 'auto', paddingRight: '4px' }}>
+                        <div className="scroll-feed" style={{ flex: '1 1 0%', minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '1rem' }}>
                             {linkedIncidents.length === 0 ? (
                                 <div className="empty-list">{t('noLinkedIncidents')}</div>
                             ) : (
@@ -1038,7 +1040,7 @@ function Incidents() {
                     </div>
 
                     {/* COLUMN 3: OUTINGS / VIGILANCIAS */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem', height: '100%', overflow: 'hidden' }}>
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: '10px',
                             padding: '0.55rem 0.85rem',
@@ -1061,7 +1063,7 @@ function Incidents() {
                             }}>{outings.length}</span>
                         </div>
 
-                        <div className="scroll-feed" style={{ overflowY: 'auto', paddingRight: '4px' }}>
+                        <div className="scroll-feed" style={{ flex: '1 1 0%', minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '1rem' }}>
                             {outings.length === 0 ? (
                                 <div className="empty-list">{t('noOutings')}</div>
                             ) : (
