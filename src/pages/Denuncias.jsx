@@ -383,18 +383,7 @@ function Denuncias() {
                 {/* Right: Search + Action Buttons */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                     {/* Real-Time Search input pill */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        background: 'rgba(15, 23, 42, 0.65)',
-                        backdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(255, 255, 255, 0.14)',
-                        borderRadius: '20px',
-                        padding: '0.38rem 0.9rem',
-                        gap: '8px',
-                        minWidth: '260px',
-                        transition: 'border-color 0.2s',
-                    }}>
+                    <div className="denuncias-search-pill">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="11" cy="11" r="8" />
                             <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -447,21 +436,8 @@ function Denuncias() {
                     {/* Create Complaint Button */}
                     <button
                         type="button"
+                        className="denuncias-new-btn"
                         onClick={() => { resetForm(); setShowCreateModal(true); }}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '7px',
-                            padding: '0.4rem 1.15rem',
-                            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.4) 100%)',
-                            border: '1px solid rgba(96, 165, 250, 0.4)',
-                            borderRadius: '20px',
-                            color: '#93c5fd',
-                            fontSize: '0.82rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            boxShadow: '0 4px 15px rgba(37, 99, 235, 0.2)',
-                            whiteSpace: 'nowrap',
-                        }}
                     >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="12" y1="5" x2="12" y2="19" />
@@ -490,18 +466,7 @@ function Denuncias() {
                     minHeight: 0
                 }}>
                     {/* Column 1: Denuncias Abiertas */}
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        background: 'rgba(15, 23, 42, 0.4)',
-                        backdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(255, 255, 255, 0.07)',
-                        borderRadius: '16px',
-                        padding: '1rem',
-                        height: '100%',
-                        minHeight: 0,
-                        boxSizing: 'border-box'
-                    }}>
+                    <div className="denuncias-column">
                         <div style={{
                             display: 'flex',
                             justify: 'space-between',
@@ -551,18 +516,7 @@ function Denuncias() {
                     </div>
 
                     {/* Column 2: Denuncias con Caso */}
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        background: 'rgba(15, 23, 42, 0.4)',
-                        backdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(255, 255, 255, 0.07)',
-                        borderRadius: '16px',
-                        padding: '1rem',
-                        height: '100%',
-                        minHeight: 0,
-                        boxSizing: 'border-box'
-                    }}>
+                    <div className="denuncias-column">
                         <div style={{
                             display: 'flex',
                             justify: 'space-between',
@@ -611,18 +565,7 @@ function Denuncias() {
                     </div>
 
                     {/* Column 3: Denuncias Archivadas */}
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        background: 'rgba(15, 23, 42, 0.4)',
-                        backdropFilter: 'blur(12px)',
-                        border: '1px solid rgba(255, 255, 255, 0.07)',
-                        borderRadius: '16px',
-                        padding: '1rem',
-                        height: '100%',
-                        minHeight: 0,
-                        boxSizing: 'border-box'
-                    }}>
+                    <div className="denuncias-column">
                         <div style={{
                             display: 'flex',
                             justify: 'space-between',

@@ -132,6 +132,116 @@ body.theme-verde .mac-status-dot {
   box-shadow: 0 0 12px rgba(52, 211, 153, 0.8) !important;
 }
 
+/* Denuncias page — theme-aware column and banner classes */
+.denuncias-column {
+  display: flex;
+  flex-direction: column;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 1rem;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.denuncias-search-pill {
+  display: flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  padding: 0.38rem 0.9rem;
+  gap: 8px;
+  min-width: 260px;
+  transition: border-color 0.2s;
+}
+
+.denuncias-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0.4rem 1.15rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.4) 100%);
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 20px;
+  color: #93c5fd;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
+  white-space: nowrap;
+}
+
+/* Verde / LSSD overrides */
+body.theme-lssd .denuncias-column,
+body.theme-verde .denuncias-column {
+  background: rgba(8, 22, 14, 0.5) !important;
+  border-color: rgba(16, 185, 129, 0.12) !important;
+}
+
+body.theme-lssd .denuncias-search-pill,
+body.theme-verde .denuncias-search-pill {
+  background: rgba(8, 22, 14, 0.65) !important;
+  border-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+body.theme-lssd .denuncias-new-btn,
+body.theme-verde .denuncias-new-btn {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(5, 150, 105, 0.45) 100%) !important;
+  border-color: rgba(52, 211, 153, 0.4) !important;
+  color: #6ee7b7 !important;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2) !important;
+}
+
+/* Negro overrides */
+body.theme-negro .denuncias-column {
+  background: rgba(6, 6, 10, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+}
+
+body.theme-negro .denuncias-search-pill {
+  background: rgba(6, 6, 10, 0.7) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Azul overrides */
+body.theme-azul .denuncias-column {
+  background: rgba(6, 14, 30, 0.5) !important;
+  border-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+body.theme-azul .denuncias-search-pill {
+  background: rgba(6, 14, 30, 0.65) !important;
+  border-color: rgba(59, 130, 246, 0.25) !important;
+}
+
+/* Complaint Card — theme-aware */
+.complaint-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+body.theme-lssd .complaint-card,
+body.theme-verde .complaint-card {
+  background: rgba(8, 22, 14, 0.7) !important;
+  border-color: rgba(16, 185, 129, 0.14) !important;
+}
+
+body.theme-negro .complaint-card {
+  background: rgba(8, 8, 12, 0.75) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+body.theme-azul .complaint-card {
+  background: rgba(6, 14, 30, 0.7) !important;
+  border-color: rgba(59, 130, 246, 0.14) !important;
+}
+
 /* 3. Theme Negro (OLED Pitch Black) */
 body.theme-negro .layout-content {
   background: #020204 !important;

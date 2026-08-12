@@ -51,28 +51,24 @@ function ComplaintCard({
             onClick={() => setIsExpanded(!isExpanded)}
             style={{
                 marginBottom: '1rem',
-                background: isHighlighted 
-                    ? 'rgba(30, 41, 59, 0.85)' 
-                    : 'rgba(15, 23, 42, 0.65)',
                 backdropFilter: 'blur(16px)',
                 WebkitBackdropFilter: 'blur(16px)',
                 padding: '1.1rem',
                 wordWrap: 'break-word',
                 overflowWrap: 'anywhere',
-                border: isHighlighted 
-                    ? '2px solid #60a5fa' 
-                    : '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '14px',
-                boxShadow: isHighlighted 
-                    ? '0 0 25px rgba(96, 165, 250, 0.35)' 
-                    : '0 4px 20px rgba(0, 0, 0, 0.25)',
                 transition: 'all 0.25s ease',
                 cursor: 'pointer',
                 minWidth: 0,
                 overflow: 'hidden',
-                position: 'relative'
+                position: 'relative',
+                ...(isHighlighted ? {
+                    background: 'rgba(30, 41, 59, 0.85)',
+                    border: '2px solid #60a5fa',
+                    boxShadow: '0 0 25px rgba(96, 165, 250, 0.35)'
+                } : {})
             }}
-            className="hover:border-slate-600"
+            className={`complaint-card${isHighlighted ? ' highlighted' : ''}`}
         >
             {/* Header: Badges, Title & Quick Actions */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
