@@ -4,35 +4,53 @@ import { supabase } from '../supabaseClient';
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-    const [theme, setTheme] = useState('LSPD'); // Department theme
+    const [theme, setTheme] = useState('LSPD'); // Global department theme
     const [userTheme, setUserThemeState] = useState(() => {
-        return localStorage.getItem('user_selected_theme') || 'gris';
+        return localStorage.getItem('user_selected_theme') || 'verde';
     });
     const [loadingTheme, setLoadingTheme] = useState(true);
 
+    // Fetch department global theme and sync user preference from Supabase
     useEffect(() => {
         let mounted = true;
 
-        const fetchTheme = async () => {
+        const fetchInitialThemes = async () => {
             try {
-                const { data, error } = await supabase
+                // 1. Fetch global department theme
+                const { data: appData } = await supabase
                     .from('app_settings')
                     .select('value')
                     .eq('key', 'theme')
                     .single();
 
-                if (!error && data && mounted) {
-                    setTheme(data.value);
+                if (appData && mounted) {
+                    setTheme(appData.value);
+                }
+
+                // 2. Fetch logged in user's individual saved theme preference if available
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user && mounted) {
+                    const { data: userData } = await supabase
+                        .from('users')
+                        .select('user_theme')
+                        .eq('id', user.id)
+                        .single();
+
+                    if (userData?.user_theme && mounted) {
+                        setUserThemeState(userData.user_theme);
+                        localStorage.setItem('user_selected_theme', userData.user_theme);
+                    }
                 }
             } catch (err) {
-                console.error("Error fetching theme:", err);
+                console.error("Error fetching themes:", err);
             } finally {
                 if (mounted) setLoadingTheme(false);
             }
         };
 
-        fetchTheme();
+        fetchInitialThemes();
 
+        // Subscribe to real-time app setting changes
         const subscription = supabase
             .channel('public:app_settings')
             .on(
@@ -52,12 +70,22 @@ export function ThemeProvider({ children }) {
         };
     }, []);
 
-    const setUserTheme = (newTheme) => {
+    // Set user theme locally and persist to Supabase & localStorage
+    const setUserTheme = async (newTheme) => {
         setUserThemeState(newTheme);
         localStorage.setItem('user_selected_theme', newTheme);
+
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase.from('users').update({ user_theme: newTheme }).eq('id', user.id);
+            }
+        } catch (e) {
+            // Non-blocking fallback
+        }
     };
 
-    // Apply CSS classes to body
+    // Apply CSS classes to document body dynamically
     useEffect(() => {
         const favicon = document.querySelector("link[rel~='icon']");
         if (theme === 'LSSD' || userTheme === 'verde') {
@@ -68,15 +96,15 @@ export function ThemeProvider({ children }) {
             if (favicon) favicon.href = '/logowebp/dblogo.webp';
         }
 
-        // Apply active theme class to document body
+        // Remove all previous theme classes
         document.body.classList.remove('theme-gris', 'theme-lssd', 'theme-verde', 'theme-negro', 'theme-azul', 'theme-claro');
         
-        if (userTheme === 'verde') {
-            document.body.classList.add('theme-lssd');
-        } else if (userTheme && userTheme !== 'gris') {
+        if (userTheme === 'gris') {
+            document.body.classList.add('theme-gris');
+        } else if (userTheme && userTheme !== 'verde') {
             document.body.classList.add(`theme-${userTheme}`);
         } else {
-            document.body.classList.add('theme-gris');
+            document.body.classList.add('theme-lssd');
         }
     }, [theme, userTheme]);
 

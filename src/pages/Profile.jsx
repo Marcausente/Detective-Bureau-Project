@@ -188,6 +188,7 @@ function Profile() {
                     no_placa: formData.no_placa,
                     rango: formData.rango,
                     profile_image: imageUrl,
+                    user_theme: userTheme,
                     updated_at: new Date()
                 })
                 .eq('id', user.id);
