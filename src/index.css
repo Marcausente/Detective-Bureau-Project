@@ -4585,8 +4585,10 @@ body.theme-verde .mac-btn-primary:hover {
   color: #4c0000;
   font-weight: 800;
 }
-.mac-window-dot.min { background: #ffbd2e; border: 1px solid #dea123; }
-.mac-window-dot.max { background: #27c93f; border: 1px solid #1aab29; }
+.mac-window-dot.min { background: #ffbd2e; border: 1px solid #dea123; transition: all 0.2s ease; }
+.mac-window-dot.min:hover { transform: scale(1.18); box-shadow: 0 0 12px rgba(255, 189, 46, 0.8); }
+.mac-window-dot.max { background: #27c93f; border: 1px solid #1aab29; transition: all 0.2s ease; }
+.mac-window-dot.max:hover { transform: scale(1.18); box-shadow: 0 0 12px rgba(39, 201, 63, 0.8); }
 
 /* macOS App Shell Topbar Layout */
 .mac-app-shell {

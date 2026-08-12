@@ -300,7 +300,7 @@ function IACaseDetail() {
                 );
             }
 
-            const { error } = await supabase.rpc('create_ia_case_update', {
+            const { error } = await supabase.rpc('add_ia_case_update', {
                 p_case_id: id,
                 p_content: finalContent,
                 p_images: uploadedImages
@@ -364,7 +364,7 @@ function IACaseDetail() {
                 );
             }
 
-            const { error } = await supabase.rpc('update_ia_case_update', {
+            const { error } = await supabase.rpc('update_ia_case_update_content', {
                 p_update_id: updateId,
                 p_content: finalContent,
                 p_images: finalImages

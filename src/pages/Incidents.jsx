@@ -1104,10 +1104,10 @@ function Incidents() {
                 <div className="cropper-modal-overlay">
                     <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
                         {/* macOS traffic dots */}
-                        <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem' }}>
-                            <span onClick={() => setShowIncidentModal(false)} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', cursor: 'pointer', display: 'inline-block' }} />
-                            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }} />
-                            <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28ca41', display: 'inline-block' }} />
+                        <div className="mac-window-dots" style={{ marginBottom: '1rem' }}>
+                            <span className="mac-window-dot close" onClick={() => setShowIncidentModal(false)} title="Cerrar" />
+                            <span className="mac-window-dot min" />
+                            <span className="mac-window-dot max" />
                         </div>
                         <h3 className="section-title">{t('logNewIncidentTitle')}</h3>
                         <form onSubmit={handleSubmitIncident}>
@@ -1189,10 +1189,10 @@ function Incidents() {
                 showEditIncidentModal && (
                     <div className="cropper-modal-overlay">
                         <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-                            <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem' }}>
-                                <span onClick={() => { setShowEditIncidentModal(false); setEditingIncident(null); resetIncidentForm(); }} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', cursor: 'pointer', display: 'inline-block' }} />
-                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }} />
-                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28ca41', display: 'inline-block' }} />
+                            <div className="mac-window-dots" style={{ marginBottom: '1rem' }}>
+                                <span className="mac-window-dot close" onClick={() => { setShowEditIncidentModal(false); setEditingIncident(null); resetIncidentForm(); }} title="Cerrar" />
+                                <span className="mac-window-dot min" />
+                                <span className="mac-window-dot max" />
                             </div>
                             <h3 className="section-title">{t('editIncidentTitle')}</h3>
                             <form onSubmit={handleUpdateIncident}>
@@ -1272,10 +1272,10 @@ function Incidents() {
                 showOutingModal && (
                     <div className="cropper-modal-overlay">
                         <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-                            <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem' }}>
-                                <span onClick={() => setShowOutingModal(false)} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', cursor: 'pointer', display: 'inline-block' }} />
-                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }} />
-                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28ca41', display: 'inline-block' }} />
+                            <div className="mac-window-dots" style={{ marginBottom: '1rem' }}>
+                                <span className="mac-window-dot close" onClick={() => setShowOutingModal(false)} title="Cerrar" />
+                                <span className="mac-window-dot min" />
+                                <span className="mac-window-dot max" />
                             </div>
                             <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>{t('logNewOutingTitle')}</h3>
                             <form onSubmit={handleSubmitOuting}>
@@ -1378,10 +1378,10 @@ function Incidents() {
                 showEditOutingModal && (
                     <div className="cropper-modal-overlay">
                         <div className="cropper-modal-content" style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-                            <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem' }}>
-                                <span onClick={() => { setShowEditOutingModal(false); setEditingOuting(null); resetOutingForm(); }} style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f57', cursor: 'pointer', display: 'inline-block' }} />
-                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }} />
-                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#28ca41', display: 'inline-block' }} />
+                            <div className="mac-window-dots" style={{ marginBottom: '1rem' }}>
+                                <span className="mac-window-dot close" onClick={() => { setShowEditOutingModal(false); setEditingOuting(null); resetOutingForm(); }} title="Cerrar" />
+                                <span className="mac-window-dot min" />
+                                <span className="mac-window-dot max" />
                             </div>
                             <h3 className="section-title" style={{ color: 'var(--accent-gold)' }}>{t('editOutingTitle')}</h3>
                             <form onSubmit={handleUpdateOuting}>
