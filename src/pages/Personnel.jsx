@@ -612,23 +612,8 @@ function Personnel() {
                     {canManagePersonnel && (
                         <button
                             type="button"
+                            className="personnel-add-btn"
                             onClick={openCreateModal}
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                padding: '0.45rem 1.25rem',
-                                background: 'linear-gradient(180deg, #3b82f6 0%, #2563eb 100%)',
-                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                borderRadius: '10px',
-                                color: '#ffffff',
-                                fontSize: '0.82rem',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
-                                transition: 'all 0.2s ease',
-                                whiteSpace: 'nowrap'
-                            }}
                         >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <line x1="12" y1="5" x2="12" y2="19" />
@@ -655,16 +640,7 @@ function Personnel() {
             )}
 
             {/* Apple macOS Glass Segmented Controls (NO EMOJIS) */}
-            <div style={{
-                display: 'inline-flex',
-                background: 'rgba(15, 23, 42, 0.65)',
-                backdropFilter: 'blur(16px)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: '12px',
-                padding: '4px',
-                gap: '4px',
-                marginBottom: '1.5rem'
-            }}>
+            <div className="personnel-segmented-bar">
                 <button
                     type="button"
                     onClick={() => setActiveTab('directory')}
@@ -674,9 +650,9 @@ function Personnel() {
                         gap: '7px',
                         padding: '0.45rem 1.15rem',
                         borderRadius: '9px',
-                        background: activeTab === 'directory' ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
-                        color: activeTab === 'directory' ? '#93c5fd' : '#94a3b8',
-                        border: activeTab === 'directory' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid transparent',
+                        background: activeTab === 'directory' ? `rgba(var(--color-blue-rgb), 0.25)` : 'transparent',
+                        color: activeTab === 'directory' ? 'var(--color-blue-light)' : '#94a3b8',
+                        border: activeTab === 'directory' ? `1px solid rgba(var(--color-blue-rgb), 0.4)` : '1px solid transparent',
                         fontSize: '0.82rem',
                         fontWeight: 700,
                         cursor: 'pointer',

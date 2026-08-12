@@ -68,6 +68,22 @@ body.theme-gris .layout-content {
 }
 
 /* 2. Theme Verde (LSSD Dark Slate Green - Flat Elegant Dark Style) */
+body.theme-verde {
+  --primary-bg: #08120c;
+  --primary-rgb: 8, 18, 12;
+  --secondary-bg: #0f2016;
+  --secondary-rgb: 15, 32, 22;
+  --glass-bg: rgba(var(--secondary-rgb), 0.7);
+  --content-overlay: rgba(var(--primary-rgb), 0.95);
+
+  /* Verde accent — override blue palette to green */
+  --color-blue: #10b981;
+  --color-blue-dark: #059669;
+  --color-blue-deep: #064e3b;
+  --color-blue-light: #34d399;
+  --color-blue-rgb: 16, 185, 129;
+}
+
 body.theme-lssd .layout-content,
 body.theme-verde .layout-content {
   background: #08120c !important;
@@ -174,6 +190,54 @@ body.theme-verde .mac-status-dot {
   transition: all 0.2s;
   box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
   white-space: nowrap;
+}
+
+/* Personnel page — theme-aware classes */
+.personnel-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.45rem 1.25rem;
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+body.theme-lssd .personnel-add-btn,
+body.theme-verde .personnel-add-btn {
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%) !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35) !important;
+}
+
+.personnel-segmented-bar {
+  display: inline-flex;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 1.5rem;
+}
+
+body.theme-lssd .personnel-segmented-bar,
+body.theme-verde .personnel-segmented-bar {
+  background: rgba(8, 22, 14, 0.65) !important;
+  border-color: rgba(16, 185, 129, 0.18) !important;
+}
+
+.personnel-seg-btn-active-dir {
+  background: rgba(var(--color-blue-rgb), 0.25) !important;
+  color: var(--color-blue-light) !important;
+  border: 1px solid rgba(var(--color-blue-rgb), 0.4) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* Verde / LSSD overrides */
