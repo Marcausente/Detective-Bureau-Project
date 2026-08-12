@@ -414,63 +414,83 @@ function PracticeSchedule({ userProfile }) {
         return attendees.some(a => a.user_id === currentUser?.id && a.event_id === event.id);
     };
 
-    const isUserOrganizer = (userId) => {
-      return currentUser && currentUser.id === userId;
-    };
-
-    const detectives = users.filter(u => u.rol && u.rol.toLowerCase() !== 'externo');
+const detectives = users.filter(u => u.rol && u.rol.toLowerCase() !== 'externo');
     const ayudantes = users.filter(u => u.rol?.toLowerCase() === 'ayudante' || (u.rango && u.rango.toLowerCase().includes('ayudante')) || (u.rango && u.rango.toLowerCase().includes('aspirante')));
 
     return (
-        <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
-            {error && <div className="error-message" style={{ marginBottom: '1rem', borderRadius: '8px' }}>{error}</div>}
-            {successMessage && <div className="success-message" style={{ marginBottom: '1rem', borderRadius: '8px' }}>{successMessage}</div>}
+        <div style={{ animation: 'macFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+            {error && (
+                <div style={{ color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '0.85rem 1rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', marginBottom: '1.25rem', fontSize: '0.85rem', fontWeight: 600 }}>
+                    {error}
+                </div>
+            )}
+            {successMessage && (
+                <div style={{ color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)', padding: '0.85rem 1rem', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '12px', marginBottom: '1.25rem', fontSize: '0.85rem', fontWeight: 600 }}>
+                    {successMessage}
+                </div>
+            )}
 
             {viewMode === 'list' && (
                 <>
                     {canManageDTP && (
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.25rem' }}>
                             <button className="dtp-btn-primary" onClick={() => setViewMode('create')}>
-                                <span>+</span> Programar Práctica
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                                Programar Práctica
                             </button>
                         </div>
                     )}
 
                     {loading ? (
-                        <div style={{ textAlign: 'center', padding: '3rem', color: '#a0aec0' }}>Cargando programación...</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', color: '#94a3b8', fontSize: '0.95rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '18px', height: '18px', border: '2px solid #60a5fa', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+                                Cargando programación de prácticas...
+                            </div>
+                        </div>
                     ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
-                            
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                             {/* Upcoming Events */}
                             <div>
-                                <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem', marginBottom: '1.5rem', color: '#e2e8f0', fontSize: '1.4rem' }}>
-                                    <span style={{ color: '#48bb78', marginRight: '0.5rem' }}>●</span> Próximas Prácticas
-                                </h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.65rem', marginBottom: '1.25rem' }}>
+                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
+                                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#4ade80', letterSpacing: '-0.01em' }}>
+                                        Próximas Prácticas ({upcomingEvents.length})
+                                    </h3>
+                                </div>
                                 
                                 {upcomingEvents.length === 0 ? (
-                                    <div className="dtp-glass-card" style={{ textAlign: 'center', padding: '3rem' }}>
-                                        <div style={{ fontSize: '2.5rem', marginBottom: '1rem', opacity: 0.5 }}>📅</div>
-                                        <p style={{ color: '#a0aec0' }}>No hay prácticas programadas próximamente.</p>
+                                    <div className="dtp-glass-card" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
+                                        <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" style={{ marginBottom: '0.85rem' }}>
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                            <line x1="16" y1="2" x2="16" y2="6" />
+                                            <line x1="8" y1="2" x2="8" y2="6" />
+                                            <line x1="3" y1="10" x2="21" y2="10" />
+                                        </svg>
+                                        <p style={{ color: '#cbd5e1', fontSize: '0.95rem', fontWeight: 600, margin: 0 }}>No hay prácticas programadas próximamente.</p>
                                     </div>
                                 ) : (
                                     <div className="dtp-grid">
                                         {upcomingEvents.map(event => (
                                             <div key={event.id} className="dtp-glass-card dtp-event-card upcoming" style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <h4 style={{ margin: '0 0 1rem 0', color: '#48bb78', fontSize: '1.2rem', fontWeight: 600 }}>
+                                                <h4 style={{ margin: '0 0 0.8rem 0', color: '#22c55e', fontSize: '1.1rem', fontWeight: 800 }}>
                                                     {event.practice?.title || 'Práctica Desconocida'}
                                                 </h4>
-                                                <div style={{ color: '#cbd5e0', flex: 1 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                                        <svg width="18" height="18" fill="none" stroke="#a0aec0" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                <div style={{ color: '#cbd5e1', flex: 1, fontSize: '0.85rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                                                         <span>{formatDate(event.event_date)}</span>
                                                     </div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                                                        <svg width="18" height="18" fill="none" stroke="#a0aec0" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                                                        <span>Org: {event.organizer ? `${event.organizer.rango} ${event.organizer.nombre} ${event.organizer.apellido}` : 'Sin asignar'}</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.8rem' }}>
+                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                                        <span>Org: <strong style={{ color: '#f8fafc' }}>{event.organizer ? `${event.organizer.rango} ${event.organizer.nombre} ${event.organizer.apellido}` : 'Sin asignar'}</strong></span>
                                                     </div>
                                                 </div>
-                                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                                    <button className="dtp-btn-secondary" onClick={() => handleActionClick('view', event.id)} style={{ padding: '0.5rem 1rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    <button className="dtp-btn-secondary" onClick={() => handleActionClick('view', event.id)} style={{ padding: '0.38rem 0.85rem', fontSize: '0.78rem' }}>
                                                         Ver Detalles
                                                     </button>
                                                 </div>
@@ -482,24 +502,27 @@ function PracticeSchedule({ userProfile }) {
 
                             {/* Past Events */}
                             <div>
-                                <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem', marginBottom: '1.5rem', color: '#a0aec0', fontSize: '1.4rem' }}>
-                                    <span style={{ color: '#718096', marginRight: '0.5rem' }}>●</span> Historial de Prácticas
-                                </h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.65rem', marginBottom: '1.25rem' }}>
+                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }}></span>
+                                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#94a3b8', letterSpacing: '-0.01em' }}>
+                                        Historial de Prácticas ({pastEvents.length})
+                                    </h3>
+                                </div>
                                 
                                 {pastEvents.length === 0 ? (
-                                    <p style={{ color: '#718096', fontStyle: 'italic', padding: '1rem 0' }}>No hay registro de prácticas anteriores.</p>
+                                    <p style={{ color: '#64748b', fontStyle: 'italic', padding: '1rem 0', fontSize: '0.85rem' }}>No hay registro de prácticas anteriores.</p>
                                 ) : (
                                     <div className="dtp-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
                                         {pastEvents.map(event => (
-                                            <div key={event.id} className="dtp-glass-card dtp-event-card past" style={{ padding: '1.2rem' }}>
-                                                <h4 style={{ margin: '0 0 0.5rem 0', color: '#e2e8f0', fontSize: '1.1rem' }}>{event.practice?.title || 'Práctica Desconocida'}</h4>
-                                                <div style={{ color: '#a0aec0', fontSize: '0.9rem', marginBottom: '0.8rem' }}>
+                                            <div key={event.id} className="dtp-glass-card dtp-event-card past" style={{ padding: '1rem' }}>
+                                                <h4 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '1rem', fontWeight: 700 }}>{event.practice?.title || 'Práctica Desconocida'}</h4>
+                                                <div style={{ color: '#94a3b8', fontSize: '0.82rem', marginBottom: '0.8rem' }}>
                                                     <div style={{ marginBottom: '0.2rem' }}>{formatDate(event.event_date, 'short')}</div>
-                                                    <div>Status: <span style={{ color: event.status === 'COMPLETED' ? '#48bb78' : event.status === 'CANCELLED' ? '#fc8181' : '#e2e8f0', fontWeight: event.status === 'CANCELLED' ? 'bold' : 'normal' }}>{event.status}</span></div>
+                                                    <div>Status: <span style={{ color: event.status === 'COMPLETED' ? '#4ade80' : event.status === 'CANCELLED' ? '#f87171' : '#f8fafc', fontWeight: 700 }}>{event.status}</span></div>
                                                     <div style={{ marginTop: '0.2rem' }}>Instructor: {event.organizer?.apellido || 'N/A'}</div>
                                                 </div>
                                                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                                    <button className="dtp-btn-secondary" onClick={() => handleActionClick('view', event.id)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', background: 'transparent' }}>
+                                                    <button className="dtp-btn-secondary" onClick={() => handleActionClick('view', event.id)} style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}>
                                                         Revisar Actividad
                                                     </button>
                                                 </div>
@@ -513,119 +536,107 @@ function PracticeSchedule({ userProfile }) {
                 </>
             )}
 
-            {viewMode === 'create' && canManageDTP && (
-                <div className="dtp-form-container">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
-                        <h3 style={{ margin: 0, color: '#e2e8f0', fontSize: '1.5rem', fontWeight: 600 }}>Programar Nueva Práctica</h3>
-                        <button className="dtp-btn-secondary" onClick={() => setViewMode('list')}>
-                            Cancelar
-                        </button>
+             {viewMode === 'create' && canManageDTP && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-content" style={{ maxWidth: '640px', width: '92vw', maxHeight: '90vh', overflowY: 'auto', borderRadius: '20px', background: 'rgba(30, 41, 59, 0.96)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.2)', padding: '1.5rem', boxSizing: 'border-box' }}>
+                        {/* Titlebar with window dots */}
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div className="mac-window-dots">
+                                    <span className="mac-window-dot close" onClick={() => setViewMode('list')} title="Cerrar" />
+                                    <span className="mac-window-dot min" />
+                                    <span className="mac-window-dot max" />
+                                </div>
+                                <h3 style={{ margin: '0 0 0 10px', fontSize: '1.15rem', color: '#f8fafc', fontWeight: 800, letterSpacing: '-0.01em' }}>
+                                    Programar Nueva Práctica
+                                </h3>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleCreateSubmit}>
+                            <div className="dtp-input-group" style={{ marginBottom: '1rem' }}>
+                                <label className="dtp-label" style={{ fontSize: '0.82rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.35rem', display: 'block' }}>Seleccionar Práctica del Archivo *</label>
+                                <select
+                                    className="custom-select"
+                                    name="practice_id"
+                                    value={formData.practice_id}
+                                    onChange={handleFormChange}
+                                    required
+                                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '10px', color: '#ffffff', fontSize: '0.88rem', padding: '0.65rem 0.9rem', boxSizing: 'border-box' }}
+                                >
+                                    <option value="" disabled style={{ color: '#94a3b8' }}>-- Selecciona una Práctica Base --</option>
+                                    {practices.map(p => (
+                                        <option key={p.id} value={p.id} style={{ background: '#0f172a', color: 'white' }}>{p.title}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                                <div className="dtp-input-group" style={{ marginBottom: 0 }}>
+                                    <label className="dtp-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem', display: 'block' }}>Fecha *</label>
+                                    <input
+                                        type="date"
+                                        name="event_date"
+                                        value={formData.event_date}
+                                        onChange={handleFormChange}
+                                        required
+                                        style={{ width: '100%', background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '10px', color: '#ffffff', fontSize: '0.88rem', padding: '0.65rem 0.9rem', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                                <div className="dtp-input-group" style={{ marginBottom: 0 }}>
+                                    <label className="dtp-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem', display: 'block' }}>Hora *</label>
+                                    <input
+                                        type="time"
+                                        name="event_time"
+                                        value={formData.event_time}
+                                        onChange={handleFormChange}
+                                        required
+                                        style={{ width: '100%', background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '10px', color: '#ffffff', fontSize: '0.88rem', padding: '0.65rem 0.9rem', boxSizing: 'border-box' }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="dtp-input-group" style={{ marginBottom: '1rem' }}>
+                                <label className="dtp-label" style={{ fontSize: '0.82rem', color: '#fbbf24', fontWeight: 700, marginBottom: '0.35rem', display: 'block' }}>Instructor Principal (Organizador) *</label>
+                                <select
+                                    className="custom-select"
+                                    name="organizer_id"
+                                    value={formData.organizer_id}
+                                    onChange={handleFormChange}
+                                    required
+                                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '10px', color: '#ffffff', fontSize: '0.88rem', padding: '0.65rem 0.9rem', boxSizing: 'border-box' }}
+                                >
+                                    <option value="" disabled style={{ color: '#94a3b8' }}>-- Seleccionar Instructor --</option>
+                                    {detectives.map(u => (
+                                        <option key={u.id} value={u.id} style={{ background: '#0f172a', color: 'white' }}>
+                                            {u.rango} {u.nombre} {u.apellido} (#{u.no_placa || 'N/A'})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="dtp-input-group" style={{ marginBottom: '1rem' }}>
+                                <label className="dtp-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem', display: 'block' }}>Lugar de Reunión o Notas Especiales</label>
+                                <input
+                                    type="text"
+                                    name="notes"
+                                    value={formData.notes}
+                                    onChange={handleFormChange}
+                                    placeholder="Ej: Comisaría de Mission Row, Uniforme ordinario..."
+                                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '10px', color: '#ffffff', fontSize: '0.88rem', padding: '0.65rem 0.9rem', boxSizing: 'border-box' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
+                                <button type="button" className="dtp-btn-secondary" onClick={() => setViewMode('list')} disabled={loading}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="dtp-btn-primary" disabled={loading}>
+                                    Finalizar Programación
+                                </button>
+                            </div>
+                        </form>
                     </div>
-
-                    <form onSubmit={handleCreateSubmit}>
-                        <div className="dtp-input-group">
-                            <label className="dtp-label">Seleccionar Práctica del Archivo *</label>
-                            <select
-                                className="dtp-input"
-                                name="practice_id"
-                                value={formData.practice_id}
-                                onChange={handleFormChange}
-                                required
-                            >
-                                <option value="" disabled style={{ color: '#718096' }}>-- Selecciona una Práctica Base --</option>
-                                {practices.map(p => (
-                                    <option key={p.id} value={p.id} style={{ background: '#1a1d24', color: 'white' }}>{p.title}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
-                            <div className="dtp-input-group" style={{ marginBottom: 0 }}>
-                                <label className="dtp-label">Fecha *</label>
-                                <input
-                                    type="date"
-                                    className="dtp-input"
-                                    name="event_date"
-                                    value={formData.event_date}
-                                    onChange={handleFormChange}
-                                    required
-                                />
-                            </div>
-                            <div className="dtp-input-group" style={{ marginBottom: 0 }}>
-                                <label className="dtp-label">Hora *</label>
-                                <input
-                                    type="time"
-                                    className="dtp-input"
-                                    name="event_time"
-                                    value={formData.event_time}
-                                    onChange={handleFormChange}
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <div className="dtp-input-group">
-                            <label className="dtp-label">Instructor / Organizador Principal *</label>
-                            <select
-                                className="dtp-input"
-                                name="organizer_id"
-                                value={formData.organizer_id}
-                                onChange={handleFormChange}
-                                required
-                            >
-                                <option value="" disabled style={{ color: '#718096' }}>-- Selecciona un Detective --</option>
-                                {detectives.map(u => (
-                                    <option key={u.id} value={u.id} style={{ background: '#1a1d24', color: 'white' }}>{u.rango} {u.nombre} {u.apellido} - Placa {u.no_placa}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="dtp-input-group">
-                            <label className="dtp-label">Instructores Asistentes (Detectives) - Opcional</label>
-                            <div style={{ display: 'flex', gap: '1rem', height: '200px' }}>
-                                {/* Disponibles */}
-                                <div style={{ flex: 1, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', overflowY: 'auto', padding: '0.5rem' }}>
-                                    <div style={{ fontSize: '0.8rem', color: '#a0aec0', marginBottom: '0.5rem', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>Disponibles</div>
-                                    {detectives.filter(u => u.id !== formData.organizer_id && !(formData.selectedInstructors || []).includes(u.id)).map(u => (
-                                        <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1d24', padding: '0.5rem', marginBottom: '0.3rem', borderRadius: '4px' }}>
-                                            <span style={{ color: 'white', fontSize: '0.9rem' }}>{u.rango} {u.apellido}</span>
-                                            <button type="button" onClick={() => handleCreateToggleInstructor(u.id)} style={{ background: 'rgba(72, 187, 120, 0.2)', border: '1px solid #48bb78', color: '#48bb78', width: '24px', height: '24px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>+</button>
-                                        </div>
-                                    ))}
-                                </div>
-                                {/* Seleccionados */}
-                                <div style={{ flex: 1, background: 'rgba(237, 137, 54, 0.05)', border: '1px solid rgba(237, 137, 54, 0.2)', borderRadius: '8px', overflowY: 'auto', padding: '0.5rem' }}>
-                                    <div style={{ fontSize: '0.8rem', color: '#ed8936', marginBottom: '0.5rem', textAlign: 'center', borderBottom: '1px solid rgba(237, 137, 54, 0.2)', paddingBottom: '0.5rem' }}>Seleccionados ({(formData.selectedInstructors || []).length})</div>
-                                    {(!formData.selectedInstructors || formData.selectedInstructors.length === 0) && <div style={{ textAlign: 'center', color: '#718096', fontSize: '0.85rem', marginTop: '1rem' }}>Ninguno</div>}
-                                    {detectives.filter(u => (formData.selectedInstructors || []).includes(u.id)).map(u => (
-                                        <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(237, 137, 54, 0.1)', padding: '0.5rem', marginBottom: '0.3rem', borderRadius: '4px' }}>
-                                            <span style={{ color: '#fbd38d', fontSize: '0.9rem' }}>{u.rango} {u.apellido}</span>
-                                            <button type="button" onClick={() => handleCreateToggleInstructor(u.id)} style={{ background: 'rgba(229, 62, 62, 0.2)', border: '1px solid #e53e3e', color: '#fc8181', width: '24px', height: '24px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>-</button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="dtp-input-group">
-                            <label className="dtp-label">Lugar de Reunión o Notas Especiales</label>
-                            <input
-                                type="text"
-                                className="dtp-input"
-                                name="notes"
-                                value={formData.notes}
-                                onChange={handleFormChange}
-                                placeholder="Ej: Comisaría de Mission Row, Uniforme ordinario..."
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                            <button type="submit" className="dtp-btn-primary" disabled={loading}>
-                                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style={{marginRight: '8px'}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                                Finalizar Programación
-                            </button>
-                        </div>
-                    </form>
                 </div>
             )}
 
