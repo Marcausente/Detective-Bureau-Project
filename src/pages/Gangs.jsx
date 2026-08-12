@@ -1074,33 +1074,54 @@ function Gangs() {
         .filter(g => gangHasMatch(g, searchQuery));
 
     return (
-        <div id="gangs-page" style={{ height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent' }}>
-            {/* Header */}
+        <div id="gangs-page" style={{ width: '100%', minHeight: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', padding: '2rem 3rem 3rem 3rem', boxSizing: 'border-box' }}>
+            {/* Inner Header Navbar */}
             {!activeBoardGang && (
-                <div className="doc-header" style={{ padding: '1rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'var(--glass-bg)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                            <img src="/logowebp/gnd.webp" alt="GND Logo" style={{ height: '60px', width: 'auto', filter: 'drop-shadow(0 0 8px rgba(0,0,0,0.5))' }} />
-                            <h2 className="header-title" style={{ margin: 0, fontSize: '1.5rem', color: '#fff' }}>{isLSSD ? t('gndTitle') : t('giuTitle')}</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.8rem', padding: '0.4rem 1.25rem', gap: '1rem', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                        <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.015em' }}>{isLSSD ? t('gndTitle') : t('giuTitle')}</h2>
+
+                        {/* Segmented Pill Tabs */}
+                        <div className="mac-doc-tabs" style={{ padding: '0.25rem' }}>
+                            <button className={`mac-doc-tab ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                                </svg>
+                                <span>{t('activeOperationTab')}</span>
+                            </button>
+                            <button className={`mac-doc-tab ${viewMode === 'archived' ? 'active' : ''}`} onClick={() => setViewMode('archived')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="21 8 21 21 3 21 3 8" />
+                                    <rect x="1" y="3" width="22" height="5" />
+                                    <line x1="10" y1="12" x2="14" y2="12" />
+                                </svg>
+                                <span>{t('archiveTab')}</span>
+                            </button>
+                            <button className={`mac-doc-tab ${viewMode === 'todo' ? 'active' : ''}`} onClick={() => setViewMode('todo')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M9 11l3 3L22 4" />
+                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                                </svg>
+                                <span>{t('toDoListTab')}</span>
+                            </button>
                         </div>
-                        <div className="gangs-tabs">
-                            <button className={`gang-tab-btn ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')}>{t('activeOperationTab')}</button>
-                            <button className={`gang-tab-btn ${viewMode === 'archived' ? 'active' : ''}`} onClick={() => setViewMode('archived')}>{t('archiveTab')}</button>
-                            <button className={`gang-tab-btn ${viewMode === 'todo' ? 'active' : ''}`} onClick={() => setViewMode('todo')}>{t('toDoListTab')}</button>
-                        </div>
+
                         {/* SEARCH INPUT */}
-                        <div ref={searchRef} style={{ position: 'relative', width: '280px' }}>
+                        <div ref={searchRef} style={{ position: 'relative', width: '260px' }}>
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 background: 'rgba(0, 0, 0, 0.4)',
                                 border: '1px solid rgba(255, 255, 255, 0.15)',
                                 borderRadius: '20px',
-                                padding: '0.4rem 0.9rem',
+                                padding: '0.35rem 0.85rem',
                                 transition: 'all 0.3s ease',
-                                boxShadow: searchQuery ? '0 0 10px rgba(207, 181, 59, 0.3)' : 'none'
+                                boxShadow: searchQuery ? '0 0 10px rgba(16, 185, 129, 0.3)' : 'none'
                             }}>
-                                <span style={{ marginRight: '8px', fontSize: '0.9rem', opacity: 0.7 }}>🔍</span>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', color: '#94a3b8' }}>
+                                    <circle cx="11" cy="11" r="8" />
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                </svg>
                                 <input
                                     type="text"
                                     placeholder="Buscar persona, ID, vehículo..."
@@ -1115,7 +1136,7 @@ function Gangs() {
                                         border: 'none',
                                         outline: 'none',
                                         color: '#fff',
-                                        fontSize: '0.85rem',
+                                        fontSize: '0.82rem',
                                         width: '100%'
                                     }}
                                 />
@@ -1127,7 +1148,7 @@ function Gangs() {
                                             border: 'none',
                                             color: 'rgba(255,255,255,0.6)',
                                             cursor: 'pointer',
-                                            fontSize: '0.9rem',
+                                            fontSize: '0.85rem',
                                             padding: '0 4px'
                                         }}
                                     >
@@ -1142,7 +1163,7 @@ function Gangs() {
                                     position: 'absolute',
                                     top: 'calc(100% + 6px)',
                                     left: 0,
-                                    width: '360px',
+                                    width: '340px',
                                     maxHeight: '350px',
                                     overflowY: 'auto',
                                     background: 'rgba(15, 23, 42, 0.96)',
@@ -1186,10 +1207,22 @@ function Gangs() {
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
-                                                        fontSize: '1rem',
+                                                        fontSize: '0.9rem',
                                                         border: `1px solid ${res.gangColor || 'rgba(255,255,255,0.2)'}`
                                                     }}>
-                                                        {res.type === 'member' ? '👤' : res.type === 'vehicle' ? '🚗' : res.type === 'home' ? '🏠' : res.type === 'info' ? '📝' : res.type === 'graffiti' ? '🎨' : '🏴'}
+                                                        {res.type === 'member' ? (
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                                        ) : res.type === 'vehicle' ? (
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13" rx="2" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></svg>
+                                                        ) : res.type === 'home' ? (
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                                                        ) : res.type === 'info' ? (
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+                                                        ) : res.type === 'graffiti' ? (
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /></svg>
+                                                        ) : (
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
+                                                        )}
                                                     </div>
                                                 )}
                                                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -1210,11 +1243,21 @@ function Gangs() {
                             )}
                         </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        {/* DEBUG ROLE */}
-                        <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 5px', borderRadius: '4px' }}>{t('roleLabel')} {userRole || 'Loading...'}</span>
 
-                        {viewMode === 'active' && <button className="login-button" style={{ width: 'auto', padding: '0.6rem 1.2rem', fontSize: '0.9rem' }} onClick={() => openModal('createGang', null)}>{t('trackNewSyndicateBtn')}</button>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {viewMode === 'active' && (
+                            <button
+                                className="mac-btn mac-btn-primary"
+                                style={{ padding: '0.45rem 1rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                onClick={() => openModal('createGang', null)}
+                            >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                                <span>{t('trackNewSyndicateBtn')}</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
@@ -1782,18 +1825,24 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
             <button 
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); onEdit(type, gang.gang_id, item); }} 
-                style={{ background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '1rem', padding: '2px 5px' }} 
+                style={{ background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '2px 5px', color: '#94a3b8' }} 
                 title="Edit"
             >
-                ✏️
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
             </button>
             <button 
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); onDeleteSubItem(type, item.id); }} 
-                style={{ background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '1rem', padding: '2px 5px', color: '#ff4444' }} 
+                style={{ background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '2px 5px', color: '#f87171' }} 
                 title="Delete"
             >
-                🗑️
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
             </button>
         </div>
     );
@@ -1810,40 +1859,62 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                             onClick={() => onViewGangBoard(gang)}
                             title="Abrir Pizarra de Investigación"
                             style={{
-                                fontSize: '0.8rem', background: 'rgba(212, 175, 55, 0.2)',
-                                border: '1px solid var(--accent-gold)', borderRadius: '4px',
-                                padding: '2px 8px', color: 'var(--accent-gold)', fontWeight: 'bold',
+                                fontSize: '0.78rem', background: 'rgba(212, 175, 55, 0.2)',
+                                border: '1px solid var(--accent-gold)', borderRadius: '6px',
+                                padding: '3px 8px', color: 'var(--accent-gold)', fontWeight: 'bold',
                                 cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px'
                             }}
                         >
-                            📌 Pizarra
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="17" x2="12" y2="22" />
+                                <path d="M5 17h14l-1.5-6h2L18 3H6L4.5 11h2z" />
+                            </svg>
+                            <span>Pizarra</span>
                         </button>
                         {isVIP && (
                             <button
                                 className="gang-action-btn"
                                 onClick={() => onEditGangName(gang.gang_id)}
                                 title="Edit Gang Name"
-                                style={{ fontSize: '0.9rem', opacity: 0.7 }}
+                                style={{ opacity: 0.75, display: 'inline-flex', alignItems: 'center' }}
                             >
-                                ✏️
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                </svg>
                             </button>
                         )}
                     </div>
                     {isVIP && (
                         <div className="gang-actions">
                             <button className="gang-action-btn" onClick={onArchive} title={gang.is_archived ? "Re-open" : "Archive"}>
-                                {gang.is_archived ? '📂' : '🔒'}
+                                {gang.is_archived ? (
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                                    </svg>
+                                ) : (
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                    </svg>
+                                )}
                             </button>
                             <button className="gang-action-btn" onClick={onDelete} title="Delete Permanently" style={{ color: '#ef4444' }}>
-                                🗑️
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                </svg>
                             </button>
                         </div>
                     )}
                 </div>
                 {/* Detectives al cargo */}
                 <div style={{ padding: '0.6rem 1rem', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.8rem' }}>
-                    <div style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 'bold', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.2rem' }}>
-                        🕵️‍♂️ {t('detectivesInCharge')}
+                    <div style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 'bold', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
+                        <span>{t('detectivesInCharge')}</span>
                     </div>
                     <div style={{ color: '#cbd5e1', fontWeight: '500' }}>
                         {gang.detective_in_charge_1_name || gang.detective_in_charge_2_name ? (
@@ -1863,10 +1934,15 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                         style={{
                             position: 'absolute', top: 10, right: 10, zIndex: 10,
                             background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none',
-                            borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem'
+                            borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.78rem',
+                            display: 'flex', alignItems: 'center', gap: '0.3rem'
                         }}
                     >
-                        ✏️ {t('editMapBtnGangs')}
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                        <span>{t('editMapBtnGangs')}</span>
                     </button>
 
                     <div onClick={() => gang.zones_image && onViewImage(gang.zones_image)} style={{ width: '100%', height: '100%', cursor: gang.zones_image ? 'pointer' : 'default' }}>
@@ -1874,7 +1950,11 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                             <img src={gang.zones_image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Zones" />
                         ) : (
                             <div className="gang-image-empty">
-                                <span style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🗺️</span>
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '0.5rem' }}>
+                                    <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+                                    <line x1="8" y1="2" x2="8" y2="18" />
+                                    <line x1="16" y1="6" x2="16" y2="22" />
+                                </svg>
                                 <span>{t('noZoneData')}</span>
                             </div>
                         )}
@@ -1891,7 +1971,13 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
             {/* Intel Section */}
             <div className="gang-section-card">
                 <div className="gang-section-header">
-                    <span className="gang-section-title">📝 {t('intelAndCharacteristics')}</span>
+                    <span className="gang-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                        <span>{t('intelAndCharacteristics')}</span>
+                    </span>
                     <button className="gang-add-btn" onClick={() => onAdd('info', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-list-content">
@@ -1927,23 +2013,38 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
             {/* Patrol Time Control Section */}
             <div className="gang-section-card">
                 <div className="gang-section-header">
-                    <span className="gang-section-title">🕐 {t('patrolTimeControl')}</span>
+                    <span className="gang-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                        <span>{t('patrolTimeControl')}</span>
+                    </span>
                 </div>
                 <div className="gang-list-content" style={{ padding: '0.5rem' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                         <button
-                            className="login-button"
+                            className="mac-btn mac-btn-primary"
                             onClick={() => onAdd('patrol', gang.gang_id)}
-                            style={{ fontSize: '0.8rem', padding: '0.5rem', width: '100%' }}
+                            style={{ fontSize: '0.78rem', padding: '0.4rem 0.75rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
                         >
-                            ➕ {t('logPatrolBtn')}
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            <span>{t('logPatrolBtn')}</span>
                         </button>
                         <button
-                            className="login-button btn-secondary"
+                            className="mac-btn mac-btn-secondary"
                             onClick={() => onViewActivity('patrolTable', gang.gang_id)}
-                            style={{ fontSize: '0.8rem', padding: '0.5rem', width: '100%' }}
+                            style={{ fontSize: '0.78rem', padding: '0.4rem 0.75rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
                         >
-                            📊 {t('viewMatrixBtn')}
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <line x1="3" y1="9" x2="21" y2="9" />
+                                <line x1="9" y1="21" x2="9" y2="9" />
+                            </svg>
+                            <span>{t('viewMatrixBtn')}</span>
                         </button>
                     </div>
                 </div>
@@ -1952,7 +2053,15 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
             {/* Vehicles Section */}
             <div className="gang-section-card">
                 <div className="gang-section-header">
-                    <span className="gang-section-title">🚗 {t('fleetLabel')} ({gang.vehicles.length})</span>
+                    <span className="gang-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="1" y="3" width="15" height="13" rx="2" />
+                            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                            <circle cx="5.5" cy="18.5" r="2.5" />
+                            <circle cx="18.5" cy="18.5" r="2.5" />
+                        </svg>
+                        <span>{t('fleetLabel')} ({gang.vehicles.length})</span>
+                    </span>
                     <button className="gang-add-btn" onClick={() => onAdd('vehicle', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-list-content">
@@ -1974,7 +2083,6 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                 </div>
                                 {v.owner && <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '3px' }}>{t('ownerLabelText')} {v.owner}</div>}
                                 {v.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{v.notes}</div>}
-                                {/* Vehicle Images */}
                                 {v.images && v.images.length > 0 && (
                                     <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
                                         {v.images.map((img, idx) => (
@@ -1992,7 +2100,13 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
             {/* Homes Section */}
             <div className="gang-section-card">
                 <div className="gang-section-header">
-                    <span className="gang-section-title">🏠 {t('propertiesLabel')} ({gang.homes.length})</span>
+                    <span className="gang-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                            <polyline points="9 22 9 12 15 12 15 22" />
+                        </svg>
+                        <span>{t('propertiesLabel')} ({gang.homes.length})</span>
+                    </span>
                     <button className="gang-add-btn" onClick={() => onAdd('home', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-list-content">
@@ -2008,7 +2122,6 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                     <ActionButtons type="home" item={h} />
                                 </div>
                                 {h.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{h.notes}</div>}
-                                {/* Home Images */}
                                 {h.images && h.images.length > 0 && (
                                     <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
                                         {h.images.map((img, idx) => (
@@ -2026,7 +2139,13 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
             {/* Graffiti Section */}
             <div className="gang-section-card">
                 <div className="gang-section-header">
-                    <span className="gang-section-title">🎨 {t('graffitisLabel')} ({(gang.graffiti || []).length})</span>
+                    <span className="gang-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                        </svg>
+                        <span>{t('graffitisLabel')} ({(gang.graffiti || []).length})</span>
+                    </span>
                     <button className="gang-add-btn" onClick={() => onAdd('graffiti', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-list-content">
@@ -2084,7 +2203,15 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
             {/* Members Section */}
             <div className="gang-section-card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <div className="gang-section-header">
-                    <span className="gang-section-title">👥 {t('knownAffiliatesLabel')} ({gang.members.length})</span>
+                    <span className="gang-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg>
+                        <span>{t('knownAffiliatesLabel')} ({gang.members.length})</span>
+                    </span>
                     <button className="gang-add-btn" onClick={() => onAdd('member', gang.gang_id)}>+</button>
                 </div>
                 <div className="gang-member-grid">
@@ -2161,12 +2288,27 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.5px',
                                             fontWeight: '700'
-                                        }}>⚫ INACTIVO</div>
+                                        }}>INACTIVO</div>
                                     )}
-                                    {m.notes && <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic', textAlign: 'center' }} title={m.notes}>📋 {t('hasNotes')}</div>}
+                                    {m.notes && (
+                                        <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }} title={m.notes}>
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                            <span>{t('hasNotes')}</span>
+                                        </div>
+                                    )}
                                     <div style={{ marginTop: '5px', display: 'flex', justifyContent: 'center', gap: '5px' }} onClick={e => e.stopPropagation()}>
-                                        <button onClick={() => onEdit('member', gang.gang_id, m)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>✏️</button>
-                                        <button onClick={() => onDeleteSubItem('member', m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', opacity: 0.7 }}>🗑️</button>
+                                        <button onClick={() => onEdit('member', gang.gang_id, m)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', opacity: 0.85 }} title="Edit">
+                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                            </svg>
+                                        </button>
+                                        <button onClick={() => onDeleteSubItem('member', m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', opacity: 0.85 }} title="Delete">
+                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="3 6 5 6 21 6" />
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                            </svg>
+                                        </button>
                                     </div>
                                 </div>
                             );
@@ -2229,16 +2371,28 @@ function ColorPicker({ label, value, onChange }) {
 
 function Modal({ title, onClose, onSubmit, submitting, children }) {
     return (
-        <div className="cropper-modal-overlay">
-            <div className="cropper-modal-content" style={{ maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <h3 className="section-title" style={{ marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>{title}</h3>
-                <form onSubmit={onSubmit}>
-                    {children}
-                    <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '2rem' }}>
-                        <button type="button" className="login-button btn-secondary" onClick={onClose} style={{ width: 'auto' }}>Cancel</button>
-                        <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? 'Saving...' : 'Save'}</button>
+        <div className="mac-modal-overlay">
+            <div className="mac-modal-card" style={{ maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }}>
+                <div className="mac-modal-header">
+                    <div className="mac-window-dots">
+                        <div className="mac-window-dot close" onClick={onClose}></div>
+                        <div className="mac-window-dot min"></div>
+                        <div className="mac-window-dot max"></div>
                     </div>
-                </form>
+                    <span className="mac-modal-title">{title}</span>
+                    <div style={{ width: 52 }} />
+                </div>
+                <div className="mac-modal-body">
+                    <form onSubmit={onSubmit}>
+                        {children}
+                        <div className="mac-modal-actions" style={{ justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                            <button type="button" className="mac-btn mac-btn-secondary" onClick={onClose}>Cancelar</button>
+                            <button type="submit" className="mac-btn mac-btn-primary" disabled={submitting}>
+                                {submitting ? 'Guardando...' : 'Guardar'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     );
@@ -2246,18 +2400,18 @@ function Modal({ title, onClose, onSubmit, submitting, children }) {
 
 function Input({ label, ...props }) {
     return (
-        <div className="form-group">
-            <label>{label}</label>
-            <input className="form-input" {...props} />
+        <div className="mac-form-group" style={{ marginBottom: '0.85rem' }}>
+            {label && <label className="mac-form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</label>}
+            <input className="mac-form-input" style={{ width: '100%' }} {...props} />
         </div>
     );
 }
 
 function TextArea({ label, ...props }) {
     return (
-        <div className="form-group">
-            <label>{label}</label>
-            <textarea className="eval-textarea" rows="3" {...props} />
+        <div className="mac-form-group" style={{ marginBottom: '0.85rem' }}>
+            {label && <label className="mac-form-label" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</label>}
+            <textarea className="mac-form-textarea" rows="3" style={{ width: '100%' }} {...props} />
         </div>
     );
 }
