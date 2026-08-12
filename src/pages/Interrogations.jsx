@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -28,6 +28,7 @@ function Interrogations() {
     });
     // Temporary state to hold array of currently selected agent names in the modal
     const [selectedAgents, setSelectedAgents] = useState([]);
+    const [expandedCards, setExpandedCards] = useState({});
 
     const [submitLoading, setSubmitLoading] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
@@ -37,7 +38,6 @@ function Interrogations() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data } = await supabase.from('users').select('rol').eq('id', user.id).single();
-                console.log('[DEBUG] currentUser data:', data);
                 setCurrentUser(data);
             }
         };
@@ -53,7 +53,7 @@ function Interrogations() {
             if (error) throw error;
             setInterrogations(data || []);
         } catch (err) {
-            console.error('Error loading interrogations:', err.message || err, err.details || '', err.hint || '');
+            console.error('Error loading interrogations:', err.message || err);
         } finally {
             setLoading(false);
         }
@@ -64,12 +64,11 @@ function Interrogations() {
             const { data, error } = await supabase
                 .from('users')
                 .select('nombre, apellido, rango, no_placa')
-                .order('nombre'); // basic sort, we'll custom sort below
+                .order('nombre');
 
             if (error) throw error;
 
             if (data) {
-                // Rank Priorities (Same as Personnel.jsx)
                 const rankPriority = {
                     'Sheriff': 150,
                     'Undersheriff': 140,
@@ -93,7 +92,6 @@ function Interrogations() {
                 };
                 const getRankPriority = (rank) => rankPriority[rank] || 0;
 
-                // Sort by Rank DESC, then Name ASC
                 const sorted = data.sort((a, b) => {
                     const rankDiff = getRankPriority(b.rango) - getRankPriority(a.rango);
                     if (rankDiff !== 0) return rankDiff;
@@ -111,7 +109,7 @@ function Interrogations() {
         setModalMode('create');
         const today = new Date().toLocaleDateString('en-GB'); // DD/MM/YYYY
         setFormData({
-            title: `${today} - [Subject Name]`,
+            title: `${today} - [Nombre del Sujeto]`,
             date: new Date().toISOString().split('T')[0],
             agents: '',
             subjects: '',
@@ -152,7 +150,6 @@ function Interrogations() {
     const handleAction = async (e) => {
         e.preventDefault();
         setSubmitLoading(true);
-        // Ensure formData.agents is synced with selectedAgents just in case
         const finalAgents = selectedAgents.join(', ');
 
         try {
@@ -177,7 +174,7 @@ function Interrogations() {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Delete this interrogation record?")) return;
+        if (!window.confirm("¿Estás seguro de que deseas eliminar este registro de interrogatorio?")) return;
         try {
             const { error } = await supabase.rpc('manage_interrogation', {
                 p_action: 'delete',
@@ -186,132 +183,577 @@ function Interrogations() {
             if (error) throw error;
             loadData();
         } catch (err) {
-            alert('Error deleting: ' + err.message);
+            alert('Error al eliminar: ' + err.message);
         }
     };
 
-    const filteredItems = interrogations.filter(item => {
-        // 1. If ID param exists, show ONLY that item
+    const toggleCardExpanded = (id) => {
+        setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
+    };
+
+    const filteredItems = useMemo(() => {
         const paramId = searchParams.get('id');
         if (paramId) {
-            return item.id === paramId;
+            return interrogations.filter(item => item.id === paramId);
         }
-        // 2. Otherwise apply search term
-        return (
-            item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.subjects?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            item.agents_present?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    });
+        if (!searchTerm || searchTerm.trim() === '') return interrogations;
+        const term = searchTerm.toLowerCase().trim();
+        return interrogations.filter(item => (
+            (item.title && item.title.toLowerCase().includes(term)) ||
+            (item.subjects && item.subjects.toLowerCase().includes(term)) ||
+            (item.agents_present && item.agents_present.toLowerCase().includes(term)) ||
+            (item.transcription && item.transcription.toLowerCase().includes(term)) ||
+            (item.author_name && item.author_name.toLowerCase().includes(term))
+        ));
+    }, [interrogations, searchParams, searchTerm]);
 
     const clearIdFilter = () => {
         setSearchParams({});
     };
 
-    // Filter agents for selection (simple search inside modal could be added, but list is likely short enough)
+    const withMediaCount = useMemo(() => interrogations.filter(i => i.media_url).length, [interrogations]);
 
     return (
-        <div className="documentation-container">
-            <div className="doc-header">
-                <h2 className="page-title">{t('interrogationsLogTitle')}</h2>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div
+            id="interrogations-page"
+            style={{
+                width: '100%',
+                height: 'calc(100vh - 80px)',
+                display: 'flex',
+                flexDirection: 'column',
+                backgroundColor: 'transparent',
+                padding: '1rem 1.5rem 0 1.5rem',
+                boxSizing: 'border-box',
+                overflow: 'hidden'
+            }}
+        >
+            {/* Apple Command Topbar */}
+            <div style={{
+                display: 'flex',
+                justify: 'space-between',
+                alignItems: 'center',
+                marginBottom: '0.9rem',
+                padding: '0.3rem 0.5rem',
+                gap: '1rem',
+                flexWrap: 'wrap',
+                width: '100%',
+                boxSizing: 'border-box',
+                flexShrink: 0
+            }}>
+                {/* Left: Brand Title & Apple Status LED */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '50%',
+                            background: '#22c55e',
+                            boxShadow: '0 0 12px #22c55e',
+                            display: 'inline-block'
+                        }}></span>
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.015em' }}>
+                                {t('interrogationsLogTitle') || 'Registro de Interrogatorios'}
+                            </h2>
+                            <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
+                                <span>Total: <strong style={{ color: '#60a5fa' }}>{interrogations.length}</strong></span>
+                                <span>•</span>
+                                <span>Con Grabación: <strong style={{ color: '#4ade80' }}>{withMediaCount}</strong></span>
+                                <span>•</span>
+                                <span>Resultados: <strong style={{ color: '#f1f5f9' }}>{filteredItems.length}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right: Search & Action Buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    {/* Clear URL ID parameter button */}
                     {searchParams.get('id') && (
-                        <button className="login-button btn-secondary" style={{ width: 'auto', padding: '0.5rem 1rem', marginRight: '0.5rem' }} onClick={clearIdFilter}>
-                            {t('showAllBtn')}
+                        <button
+                            type="button"
+                            onClick={clearIdFilter}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                                padding: '0.38rem 1rem',
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                borderRadius: '20px',
+                                color: '#cbd5e1',
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {t('showAllBtn') || 'Mostrar todos'}
                         </button>
                     )}
-                    <input
-                        type="text"
-                        placeholder={t('searchLogsPlaceholder')}
-                        className="form-input"
-                        style={{ width: '250px' }}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        disabled={!!searchParams.get('id')}
-                    />
+
+                    {/* Apple Search Input */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        background: 'rgba(15, 23, 42, 0.65)',
+                        backdropFilter: 'blur(12px)',
+                        border: '1px solid rgba(255, 255, 255, 0.14)',
+                        borderRadius: '20px',
+                        padding: '0.38rem 0.9rem',
+                        gap: '8px',
+                        minWidth: '260px',
+                        transition: 'border-color 0.2s',
+                    }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <input
+                            type="text"
+                            placeholder={t('searchLogsPlaceholder') || 'Buscar registros, agente, sujeto...'}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            disabled={!!searchParams.get('id')}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                outline: 'none',
+                                color: '#fff',
+                                fontSize: '0.82rem',
+                                width: '100%',
+                            }}
+                        />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchTerm('')}
+                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.85rem', padding: '0 2px', lineHeight: 1 }}
+                            >✕</button>
+                        )}
+                    </div>
+
+                    {/* New Interrogation Entry Button */}
                     {currentUser && (
-                        <button className="login-button" style={{ width: 'auto', padding: '0.5rem 1rem' }} onClick={openCreate}>
-                            {t('newEntryBtn')}
+                        <button
+                            type="button"
+                            onClick={openCreate}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '7px',
+                                padding: '0.4rem 1.15rem',
+                                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.4) 100%)',
+                                border: '1px solid rgba(96, 165, 250, 0.4)',
+                                borderRadius: '20px',
+                                color: '#93c5fd',
+                                fontSize: '0.82rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 4px 15px rgba(37, 99, 235, 0.2)',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            {t('newEntryBtn') || 'Nuevo Registro'}
                         </button>
                     )}
                 </div>
             </div>
 
+            {/* Main Content Area */}
             {loading ? (
-                <div className="loading-container">{t('loadingLogs')}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#94a3b8', fontSize: '0.95rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '18px', height: '18px', border: '2px solid #60a5fa', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+                        {t('loadingLogs') || 'Cargando registros...'}
+                    </div>
+                </div>
             ) : (
-                <div className="interrogations-list">
+                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.35rem', paddingBottom: '1rem' }} className="custom-scrollbar">
                     {filteredItems.length === 0 ? (
-                        <div className="empty-list">{t('noInterrogationsFound')}</div>
-                    ) : (
-                        filteredItems.map(item => (
-                            <div key={item.id} className="interrogation-card">
-                                <div className="int-card-header">
-                                    <span className="int-date">{item.interrogation_date}</span>
-                                    {item.can_edit && (
-                                        <div className="int-actions">
-                                            <button onClick={() => openEdit(item)} className="card-action-btn edit-btn">✏️</button>
-                                            <button onClick={() => handleDelete(item.id)} className="card-action-btn delete-btn">🗑️</button>
-                                        </div>
-                                    )}
-                                </div>
-                                <h3 className="int-title">{item.title}</h3>
-                                <div className="int-details-grid">
-                                    <div className="int-detail">
-                                        <label>{t('agentsLabel')}</label>
-                                        <span>{item.agents_present || 'N/A'}</span>
-                                    </div>
-                                    <div className="int-detail">
-                                        <label>{t('subjectsLabel')}</label>
-                                        <span>{item.subjects || 'N/A'}</span>
-                                    </div>
-                                </div>
-                                <div className="int-transcription-preview">
-                                    <label>{t('transcriptionNotesLabel')}</label>
-                                    <p>{item.transcription}</p>
-                                </div>
-                                {item.media_url && (
-                                    <a href={item.media_url} target="_blank" rel="noopener noreferrer" className="int-link-btn">
-                                        {t('viewRecordingBtn')}
-                                    </a>
-                                )}
-                                <div className="int-author-footer">{t('filedByLabel')} {item.author_name}</div>
+                        <div style={{
+                            textAlign: 'center',
+                            padding: '4rem 1rem',
+                            color: '#64748b',
+                            background: 'rgba(15, 23, 42, 0.3)',
+                            backdropFilter: 'blur(12px)',
+                            borderRadius: '16px',
+                            border: '1px solid rgba(255, 255, 255, 0.06)'
+                        }}>
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto 0.75rem auto', opacity: 0.5 }}>
+                                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                <line x1="12" y1="19" x2="12" y2="22" />
+                            </svg>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#cbd5e1' }}>
+                                {t('noInterrogationsFound') || 'No se encontraron registros de interrogatorios'}
                             </div>
-                        ))
+                        </div>
+                    ) : (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
+                            gap: '1.25rem'
+                        }}>
+                            {filteredItems.map(item => {
+                                const isLongTranscription = item.transcription && item.transcription.length > 280;
+                                const isExpanded = !!expandedCards[item.id];
+                                const agentsList = item.agents_present ? item.agents_present.split(',').map(s => s.trim()).filter(Boolean) : [];
+                                const subjectsList = item.subjects ? item.subjects.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+                                return (
+                                    <div
+                                        key={item.id}
+                                        style={{
+                                            background: 'rgba(15, 23, 42, 0.65)',
+                                            backdropFilter: 'blur(16px)',
+                                            WebkitBackdropFilter: 'blur(16px)',
+                                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                                            borderRadius: '16px',
+                                            padding: '1.15rem',
+                                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justify: 'space-between',
+                                            transition: 'all 0.25s ease',
+                                            minWidth: 0
+                                        }}
+                                    >
+                                        <div>
+                                            {/* Window Top Controls & Date Badge */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+                                                {/* macOS window dots */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }}></span>
+                                                    <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }}></span>
+                                                    <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
+                                                    <span style={{
+                                                        fontSize: '0.68rem',
+                                                        fontWeight: 700,
+                                                        color: '#94a3b8',
+                                                        marginLeft: '6px',
+                                                        letterSpacing: '0.03em'
+                                                    }}>
+                                                        #INT-{String(item.id).substring(0, 6).toUpperCase()}
+                                                    </span>
+                                                </div>
+
+                                                {/* Date Badge */}
+                                                <div style={{
+                                                    background: 'rgba(59, 130, 246, 0.12)',
+                                                    color: '#60a5fa',
+                                                    padding: '3px 9px',
+                                                    borderRadius: '20px',
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 600,
+                                                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '5px'
+                                                }}>
+                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                                        <line x1="16" y1="2" x2="16" y2="6" />
+                                                        <line x1="8" y1="2" x2="8" y2="6" />
+                                                        <line x1="3" y1="10" x2="21" y2="10" />
+                                                    </svg>
+                                                    {item.interrogation_date}
+                                                </div>
+                                            </div>
+
+                                            {/* Interrogation Title */}
+                                            <h3 style={{
+                                                margin: '0 0 0.75rem 0',
+                                                fontSize: '1.1rem',
+                                                fontWeight: 700,
+                                                color: '#f8fafc',
+                                                lineHeight: 1.35,
+                                                letterSpacing: '-0.01em'
+                                            }}>
+                                                {item.title}
+                                            </h3>
+
+                                            {/* Metadata Grid (Agents & Subjects) */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.85rem' }}>
+                                                {/* Agents Present */}
+                                                <div style={{ background: 'rgba(0, 0, 0, 0.25)', padding: '0.55rem 0.75rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                                                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                                            <circle cx="12" cy="7" r="4" />
+                                                        </svg>
+                                                        {t('agentsLabel') || 'Agentes Presentes'}
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                        {agentsList.length > 0 ? (
+                                                            agentsList.map((agent, aIdx) => (
+                                                                <span key={aIdx} style={{
+                                                                    background: 'rgba(251, 191, 36, 0.1)',
+                                                                    color: '#fef08a',
+                                                                    padding: '2px 7px',
+                                                                    borderRadius: '6px',
+                                                                    fontSize: '0.72rem',
+                                                                    border: '1px solid rgba(251, 191, 36, 0.2)',
+                                                                    fontWeight: 500
+                                                                }}>
+                                                                    {agent}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>N/A</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Subjects Interrogated */}
+                                                <div style={{ background: 'rgba(0, 0, 0, 0.25)', padding: '0.55rem 0.75rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                                                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                                                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                                            <circle cx="9" cy="7" r="4" />
+                                                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                                        </svg>
+                                                        {t('subjectsLabel') || 'Sujetos Interrogados'}
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                        {subjectsList.length > 0 ? (
+                                                            subjectsList.map((subj, sIdx) => (
+                                                                <span key={sIdx} style={{
+                                                                    background: 'rgba(239, 68, 68, 0.1)',
+                                                                    color: '#fca5a5',
+                                                                    padding: '2px 7px',
+                                                                    borderRadius: '6px',
+                                                                    fontSize: '0.72rem',
+                                                                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                                    fontWeight: 500
+                                                                }}>
+                                                                    {subj}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>N/A</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Transcription / Notes Section */}
+                                            {item.transcription && (
+                                                <div style={{
+                                                    background: 'rgba(0, 0, 0, 0.3)',
+                                                    padding: '0.75rem',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                                                    marginBottom: '0.85rem'
+                                                }}>
+                                                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '4px' }}>
+                                                        📝 {t('transcriptionNotesLabel') || 'Transcripción y Notas'}
+                                                    </div>
+                                                    <p style={{
+                                                        margin: 0,
+                                                        fontSize: '0.83rem',
+                                                        color: '#cbd5e1',
+                                                        lineHeight: 1.45,
+                                                        whiteSpace: 'pre-line',
+                                                        maxHeight: (!isExpanded && isLongTranscription) ? '120px' : 'none',
+                                                        overflow: 'hidden',
+                                                        position: 'relative'
+                                                    }}>
+                                                        {item.transcription}
+                                                    </p>
+                                                    {isLongTranscription && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleCardExpanded(item.id)}
+                                                            style={{
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                color: '#60a5fa',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: 600,
+                                                                cursor: 'pointer',
+                                                                marginTop: '4px',
+                                                                padding: 0
+                                                            }}
+                                                        >
+                                                            {isExpanded ? 'Mostrar menos ▲' : 'Mostrar más ▼'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Recording Link Pill */}
+                                            {item.media_url && (
+                                                <div style={{ marginBottom: '0.85rem' }}>
+                                                    <a
+                                                        href={item.media_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '6px',
+                                                            background: 'rgba(99, 102, 241, 0.15)',
+                                                            color: '#a5b4fc',
+                                                            border: '1px solid rgba(99, 102, 241, 0.3)',
+                                                            padding: '5px 12px',
+                                                            borderRadius: '20px',
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 600,
+                                                            textDecoration: 'none',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                    >
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                                                            <polygon points="5 3 19 12 5 21 5 3" />
+                                                        </svg>
+                                                        {t('viewRecordingBtn') || 'Ver / Escuchar Grabación'}
+                                                    </a>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Card Footer: Author & Actions */}
+                                        <div style={{
+                                            display: 'flex',
+                                            justify: 'space-between',
+                                            alignItems: 'center',
+                                            borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                                            paddingTop: '0.65rem',
+                                            marginTop: '0.35rem'
+                                        }}>
+                                            <div style={{ fontSize: '0.73rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                <span>{t('filedByLabel') || 'Archivado por:'}</span>
+                                                <strong style={{ color: '#e2e8f0' }}>{item.author_name || 'Agente'}</strong>
+                                            </div>
+
+                                            {item.can_edit && (
+                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openEdit(item)}
+                                                        style={{
+                                                            background: 'rgba(255, 255, 255, 0.06)',
+                                                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                                                            color: '#60a5fa',
+                                                            borderRadius: '8px',
+                                                            width: '28px',
+                                                            height: '28px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justify: 'center',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                        title={t('editLogTitle') || 'Editar'}
+                                                    >
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                        </svg>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDelete(item.id)}
+                                                        style={{
+                                                            background: 'rgba(239, 68, 68, 0.1)',
+                                                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                            color: '#f87171',
+                                                            borderRadius: '8px',
+                                                            width: '28px',
+                                                            height: '28px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justify: 'center',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s'
+                                                        }}
+                                                        title="Eliminar"
+                                                    >
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <polyline points="3 6 5 6 21 6" />
+                                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     )}
                 </div>
             )}
 
-            {/* Modal */}
+            {/* macOS Style Modal Window */}
             {showModal && (
-                <div className="cropper-modal-overlay">
-                    <div className="cropper-modal-content" style={{ maxWidth: '800px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3>{modalMode === 'create' ? t('newInterrogationLogTitle') : t('editLogTitle')}</h3>
-                        <form onSubmit={handleAction} style={{ textAlign: 'left', marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-content" style={{ maxWidth: '750px', width: '92vw', maxHeight: '88vh', overflowY: 'auto', borderRadius: '16px' }}>
+                        {/* Titlebar with window dots */}
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.75rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f56' }}></span>
+                                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ffbd2e' }}></span>
+                                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#27c93f' }}></span>
+                                <h3 style={{ margin: '0 0 0 8px', fontSize: '1.1rem', color: '#f8fafc', fontWeight: 700 }}>
+                                    {modalMode === 'create' ? (t('newInterrogationLogTitle') || 'Nuevo Registro de Interrogatorio') : (t('editLogTitle') || 'Editar Interrogatorio')}
+                                </h3>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowModal(false)}
+                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.2rem' }}
+                            >
+                                ✕
+                            </button>
+                        </div>
 
-                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                                <div className="form-group" style={{ flex: '1 1 200px' }}>
-                                    <label className="form-label">{t('dateLabel')}</label>
-                                    <input type="date" className="form-input" required value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                        <form onSubmit={handleAction} style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                            {/* Date & Title inputs */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.85rem' }}>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
+                                        {t('dateLabel') || 'Fecha'}
+                                    </label>
+                                    <input
+                                        type="date"
+                                        className="form-input"
+                                        required
+                                        value={formData.date}
+                                        onChange={e => setFormData({ ...formData, date: e.target.value })}
+                                        style={{ width: '100%', boxSizing: 'border-box' }}
+                                    />
                                 </div>
-                                <div className="form-group" style={{ flex: '2 1 300px' }}>
-                                    <label className="form-label">{t('titleTemplateLabel')}</label>
-                                    <input className="form-input" required value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.78rem', color: '#60a5fa', marginBottom: '0.35rem' }}>
+                                        {t('titleTemplateLabel') || 'Título del Interrogatorio'}
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        required
+                                        value={formData.title}
+                                        onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                        style={{ width: '100%', boxSizing: 'border-box' }}
+                                    />
                                 </div>
                             </div>
 
-                            {/* Custom Agent Selector */}
-                            <div className="form-group">
-                                <label className="form-label">{t('agentsPresentLabel')}</label>
-                                <div className="agent-selector-container" style={{
-                                    border: '1px solid var(--glass-border)',
-                                    borderRadius: '8px',
-                                    padding: '1rem',
-                                    background: 'rgba(0,0,0,0.2)',
-                                    maxHeight: '200px',
+                            {/* Custom Agent Selector Grid */}
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.8rem', color: '#fbbf24', marginBottom: '0.4rem', fontWeight: 600, display: 'block' }}>
+                                    👤 {t('agentsPresentLabel') || 'Seleccionar Agentes Presentes'}
+                                </label>
+                                <div className="custom-scrollbar" style={{
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    borderRadius: '12px',
+                                    padding: '0.75rem',
+                                    background: 'rgba(0, 0, 0, 0.3)',
+                                    maxHeight: '190px',
                                     overflowY: 'auto',
                                     display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
                                     gap: '0.5rem'
                                 }}>
                                     {personnel.map(p => {
@@ -319,64 +761,110 @@ function Interrogations() {
                                         const isSelected = selectedAgents.includes(fullName);
                                         return (
                                             <div
-                                                key={p.no_placa + p.nombre} // somewhat unique key
+                                                key={p.no_placa + p.nombre}
                                                 onClick={() => toggleAgent(fullName)}
                                                 style={{
-                                                    padding: '0.5rem',
-                                                    borderRadius: '4px',
+                                                    padding: '0.45rem 0.65rem',
+                                                    borderRadius: '8px',
                                                     cursor: 'pointer',
-                                                    fontSize: '0.85rem',
-                                                    border: isSelected ? '1px solid var(--accent-gold)' : '1px solid transparent',
-                                                    background: isSelected ? 'rgba(207, 181, 59, 0.1)' : 'transparent',
-                                                    color: isSelected ? 'var(--accent-gold)' : 'var(--text-secondary)',
-                                                    transition: 'all 0.2s',
+                                                    fontSize: '0.78rem',
+                                                    border: isSelected ? '1px solid rgba(251, 191, 36, 0.5)' : '1px solid rgba(255, 255, 255, 0.05)',
+                                                    background: isSelected ? 'rgba(251, 191, 36, 0.12)' : 'rgba(15, 23, 42, 0.5)',
+                                                    color: isSelected ? '#fef08a' : '#cbd5e1',
+                                                    transition: 'all 0.18s ease',
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     gap: '0.5rem'
                                                 }}
                                             >
                                                 <div style={{
-                                                    width: '16px', height: '16px', borderRadius: '4px',
-                                                    border: '1px solid var(--text-secondary)',
-                                                    background: isSelected ? 'var(--accent-gold)' : 'transparent',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                    width: '15px',
+                                                    height: '15px',
+                                                    borderRadius: '4px',
+                                                    border: isSelected ? '1px solid #fbbf24' : '1px solid #64748b',
+                                                    background: isSelected ? '#fbbf24' : 'transparent',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justify: 'center',
+                                                    flexShrink: 0
                                                 }}>
-                                                    {isSelected && <span style={{ color: 'black', fontSize: '10px' }}>✓</span>}
+                                                    {isSelected && <span style={{ color: '#0f172a', fontSize: '10px', fontWeight: 'bold' }}>✓</span>}
                                                 </div>
-                                                {fullName}
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {fullName}
+                                                </span>
                                             </div>
                                         );
                                     })}
                                 </div>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-                                    {t('selectedLabel')} {selectedAgents.length > 0 ? selectedAgents.join(', ') : t('noneSelected')}
+                                <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '0.4rem' }}>
+                                    {t('selectedLabel') || 'Seleccionados:'} {selectedAgents.length > 0 ? (
+                                        <strong style={{ color: '#fbbf24' }}>{selectedAgents.join(', ')}</strong>
+                                    ) : (
+                                        <em>{t('noneSelected') || 'Ninguno'}</em>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="form-group">
-                                <label className="form-label">{t('subjectsInterrogatedLabel')}</label>
-                                <input className="form-input" placeholder="e.g. John Doe" value={formData.subjects} onChange={e => setFormData({ ...formData, subjects: e.target.value })} />
+                            {/* Subjects Interrogated Input */}
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.8rem', color: '#f87171', fontWeight: 600 }}>
+                                    👤 {t('subjectsInterrogatedLabel') || 'Sujeto(s) Interrogados'}
+                                </label>
+                                <input
+                                    className="form-input"
+                                    placeholder="e.g. John Doe, Mark Smith"
+                                    value={formData.subjects}
+                                    onChange={e => setFormData({ ...formData, subjects: e.target.value })}
+                                />
                             </div>
 
-                            <div className="form-group">
-                                <label className="form-label">{t('relevantInfoLabel')}</label>
+                            {/* Transcription & Relevant Info */}
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 600 }}>
+                                    📖 {t('relevantInfoLabel') || 'Transcripción y Notas Relevantes'}
+                                </label>
                                 <textarea
-                                    className="form-input"
-                                    rows="10"
-                                    placeholder={t('enterNotesPlaceholder')}
+                                    className="eval-textarea"
+                                    rows="8"
+                                    placeholder={t('enterNotesPlaceholder') || 'Escribe las notas de la declaración, preguntas clave, confesión...'}
                                     value={formData.transcription}
                                     onChange={e => setFormData({ ...formData, transcription: e.target.value })}
                                 />
                             </div>
 
-                            <div className="form-group">
-                                <label className="form-label">{t('recordingLinkLabel')}</label>
-                                <input type="url" className="form-input" placeholder="https://..." value={formData.url} onChange={e => setFormData({ ...formData, url: e.target.value })} />
+                            {/* Media Recording URL */}
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.8rem', color: '#a5b4fc', fontWeight: 600 }}>
+                                    🎧 {t('recordingLinkLabel') || 'Enlace a Grabación de Audio / Video'}
+                                </label>
+                                <input
+                                    type="url"
+                                    className="form-input"
+                                    placeholder="https://drive.google.com/... o https://youtube.com/..."
+                                    value={formData.url}
+                                    onChange={e => setFormData({ ...formData, url: e.target.value })}
+                                />
                             </div>
 
-                            <div className="cropper-actions">
-                                <button type="button" className="login-button btn-secondary" onClick={() => setShowModal(false)}>{t('cancelBtnLog')}</button>
-                                <button type="submit" className="login-button" disabled={submitLoading}>{submitLoading ? 'Saving...' : t('saveLogBtn')}</button>
+                            {/* Modal Actions Footer */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.85rem' }}>
+                                <button
+                                    type="button"
+                                    className="login-button btn-secondary"
+                                    onClick={() => setShowModal(false)}
+                                    style={{ width: 'auto', padding: '0.45rem 1.2rem' }}
+                                >
+                                    {t('cancelBtnLog') || 'Cancelar'}
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="login-button"
+                                    disabled={submitLoading}
+                                    style={{ width: 'auto', padding: '0.45rem 1.4rem' }}
+                                >
+                                    {submitLoading ? 'Guardando...' : (t('saveLogBtn') || 'Guardar Registro')}
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -387,3 +875,4 @@ function Interrogations() {
 }
 
 export default Interrogations;
+

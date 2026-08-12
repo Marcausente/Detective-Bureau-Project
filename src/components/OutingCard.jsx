@@ -64,22 +64,78 @@ function OutingCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
                             </span>
                         )}
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                        📅 {new Date(data.occurred_at).toLocaleString()}
-                        {data.author_name && <span style={{ marginLeft: '10px' }}>by {data.author_rank} {data.author_name}</span>}
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
+                        {new Date(data.occurred_at).toLocaleString()}
+                        {data.author_name && <span style={{ marginLeft: '6px', color: '#94a3b8' }}>• por {data.author_rank} {data.author_name}</span>}
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                     {data.can_delete && (
                         <>
-                            <button onClick={() => onEdit && onEdit(data)} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '1.2rem', padding: '0 5px' }} title="Edit">✎</button>
-                            <button onClick={() => onDelete(data.record_id)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '1.2rem', padding: '0 5px' }} title="Delete">&times;</button>
+                            <button
+                                onClick={() => onEdit && onEdit(data)}
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.06)',
+                                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                                    color: 'var(--accent-gold)',
+                                    borderRadius: '6px',
+                                    width: '26px',
+                                    height: '26px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justify: 'center',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                title="Editar"
+                            >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                </svg>
+                            </button>
+                            <button
+                                onClick={() => onDelete(data.record_id)}
+                                style={{
+                                    background: 'rgba(239, 68, 68, 0.1)',
+                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                    color: '#f87171',
+                                    borderRadius: '6px',
+                                    width: '26px',
+                                    height: '26px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justify: 'center',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                title="Eliminar"
+                            >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                </svg>
+                            </button>
                         </>
                     )}
                 </div>
             </div>
 
-            <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 'bold', color: '#ccc' }}>👥 Detecting Team</div>
+            <div style={{ fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 700, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                Equipo de Detectives
+            </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
                 {data.detectives && data.detectives.length > 0 ? (
                     data.detectives.map((d, i) => (
@@ -89,28 +145,32 @@ function OutingCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
                         </div>
                     ))
                 ) : (
-                    <span style={{ fontStyle: 'italic', color: '#666', fontSize: '0.8rem' }}>No detectives assigned</span>
+                    <span style={{ fontStyle: 'italic', color: '#666', fontSize: '0.8rem' }}>Sin detectives asignados</span>
                 )}
             </div>
 
             {data.reason && (
                 <div style={{ marginBottom: '0.5rem' }}>
-                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Reason:</strong>
+                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Motivo:</strong>
                     <div style={{ fontSize: '0.9rem' }}>{data.reason}</div>
                 </div>
             )}
 
             {data.info_obtained && (
                 <div style={{ marginBottom: '0.5rem' }}>
-                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Intel Obtained:</strong>
+                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Información Obtenida:</strong>
                     <div style={{ fontSize: '0.9rem', whiteSpace: 'pre-line' }}>{data.info_obtained}</div>
                 </div>
             )}
 
             {data.gang_names && data.gang_names.length > 0 && (
                 <div style={{ marginBottom: '0.5rem' }}>
-                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Linked Syndicates:</strong>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--accent-gold)' }}>
+                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '3px' }}>Bandas Vinculadas:</strong>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                            <line x1="4" y1="22" x2="4" y2="15" />
+                        </svg>
                         {data.gang_names.join(', ')}
                     </div>
                 </div>
@@ -118,11 +178,25 @@ function OutingCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
 
             {data.interrogations && data.interrogations.length > 0 && (
                 <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>Linked Interrogations:</strong>
+                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.3rem' }}>Interrogatorios Vinculados:</strong>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                         {data.interrogations.map(int => (
-                            <span key={int.id} style={{ fontSize: '0.75rem', background: 'var(--color-blue-dark)', color: 'white', padding: '2px 8px', borderRadius: '12px' }}>
-                                📄 {int.title}
+                            <span key={int.id} style={{
+                                fontSize: '0.72rem',
+                                background: 'rgba(59, 130, 246, 0.15)',
+                                color: '#93c5fd',
+                                padding: '2px 8px',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                </svg>
+                                {int.title}
                             </span>
                         ))}
                     </div>
@@ -143,3 +217,4 @@ function OutingCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
 }
 
 export default OutingCard;
+
