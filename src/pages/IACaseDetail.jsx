@@ -37,9 +37,9 @@ function IACaseDetail() {
     const [editLocation, setEditLocation] = useState('');
     const [editOccurredAt, setEditOccurredAt] = useState('');
     const [editDescription, setEditDescription] = useState('');
-    const [editInitialImage, setEditInitialImage] = useState(null); // null = no change, '' = remove, base64 = new image
+    const [editInitialImage, setEditInitialImage] = useState(null);
 
-    // Quill config – memoized so the object reference is stable across renders
+    // Quill config
     const quillModules = useMemo(() => makeQuillModules(), []);
 
     // Image Viewer
@@ -63,6 +63,36 @@ function IACaseDetail() {
     // Linked Complaints State
     const [complaints, setComplaints] = useState([]);
     const [selectedComplaint, setSelectedComplaint] = useState(null);
+    const [showLinkComplaintModal, setShowLinkComplaintModal] = useState(false);
+    const [availableComplaints, setAvailableComplaints] = useState([]);
+
+    useEffect(() => {
+        loadCaseDetails();
+        loadCurrentUser();
+        loadComplaints();
+    }, [id]);
+
+    const loadCurrentUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single();
+            setCurrentUser(profile);
+        }
+    };
+
+    const loadCaseDetails = async (showLoading = true) => {
+        if (showLoading) setLoading(true);
+        const { data, error } = await supabase.rpc('get_ia_case_details', { p_case_id: id });
+        if (error) {
+            console.error('Error loading IA case:', error);
+            alert('Failed to load investigation details.');
+        } else {
+            setCaseData(data);
+            const currentIds = data.assignments ? data.assignments.map(a => a.user_id) : [];
+            setSelectedAssignments(currentIds);
+        }
+        setLoading(false);
+    };
 
     const loadComplaints = async () => {
         try {
@@ -78,8 +108,37 @@ function IACaseDetail() {
         }
     };
 
+    const openLinkComplaintModal = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('ia_complaints')
+                .select('*')
+                .or('case_id.is.null,status.neq.With Case')
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            setAvailableComplaints(data || []);
+            setShowLinkComplaintModal(true);
+        } catch (err) {
+            alert('Error al cargar denuncias disponibles: ' + err.message);
+        }
+    };
+
+    const handleLinkComplaint = async (complaintId) => {
+        try {
+            const { error } = await supabase
+                .from('ia_complaints')
+                .update({ case_id: id, status: 'With Case' })
+                .eq('id', complaintId);
+            if (error) throw error;
+            setShowLinkComplaintModal(false);
+            loadComplaints();
+        } catch (err) {
+            alert('Error al vincular la denuncia: ' + err.message);
+        }
+    };
+
     const handleUnlinkComplaint = async (complaintId) => {
-        if (!window.confirm("¿Desvincular esta denuncia del caso? Volverá al receptor de denuncias como 'Entrante'.")) return;
+        if (!window.confirm(language === 'es' ? "¿Desvincular esta denuncia del caso? Volverá al receptor de denuncias como 'Entrante'." : "Unlink this complaint from the case?")) return;
         try {
             const { error } = await supabase
                 .from('ia_complaints')
@@ -119,7 +178,7 @@ function IACaseDetail() {
     };
 
     const handleUnlinkInterrogation = async (interrogationId) => {
-        if (!window.confirm("Unlink this interrogation? It will remain in the system but attached to no case.")) return;
+        if (!window.confirm(language === 'es' ? "¿Desvincular este interrogatorio?" : "Unlink this interrogation?")) return;
         try {
             const { error } = await supabase.rpc('manage_ia_interrogation', {
                 p_action: 'unlink',
@@ -132,54 +191,9 @@ function IACaseDetail() {
         }
     };
 
-    const handleGoToUpdate = (updateId) => {
-        setActiveTab('updates');
-        setTimeout(() => {
-            const el = document.getElementById(`ia-update-${updateId}`) || document.getElementById(`update-${updateId}`);
-            if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                el.style.transition = 'box-shadow 0.3s, border-color 0.3s';
-                el.style.boxShadow = '0 0 25px rgba(212, 175, 55, 0.9)';
-                el.style.borderColor = 'var(--accent-gold)';
-                setTimeout(() => {
-                    el.style.boxShadow = 'none';
-                    el.style.borderColor = 'rgba(255,255,255,0.1)';
-                }, 2500);
-            }
-        }, 100);
-    };
-
-    useEffect(() => {
-        loadCaseDetails();
-        loadCurrentUser();
-        loadComplaints();
-    }, [id]);
-
-    const loadCurrentUser = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single();
-            setCurrentUser(profile);
-        }
-    };
-
-    const loadCaseDetails = async (showLoading = true) => {
-        if (showLoading) setLoading(true);
-        const { data, error } = await supabase.rpc('get_ia_case_details', { p_case_id: id });
-        if (error) {
-            console.error('Error loading IA case:', error);
-            alert('Failed to load investigation details.');
-        } else {
-            setCaseData(data);
-            const currentIds = data.assignments ? data.assignments.map(a => a.user_id) : [];
-            setSelectedAssignments(currentIds);
-        }
-        setLoading(false);
-    };
-
     const openAssignModal = async () => {
         if (users.length === 0) {
-            const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, divisions').order('rango');
+            const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, divisions, profile_image').order('rango');
             if (data) {
                 const iaUsers = data.filter(u =>
                     (u.divisions && u.divisions.includes('Internal Affairs')) ||
@@ -194,63 +208,11 @@ function IACaseDetail() {
         setShowAssignModal(true);
     };
 
-    const openPrivacyModal = async () => {
-        if (users.length === 0) {
-            const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, divisions').order('rango');
-            if (data) {
-                const iaUsers = data.filter(u =>
-                    (u.divisions && u.divisions.includes('Internal Affairs')) ||
-                    u.rol === 'Administrador'
-                );
-                setUsers(iaUsers);
-            }
-        }
-        setSelectedHiddenUsers(caseData?.info?.hidden_user_ids || []);
-        setIsHiddenFromAll(!!caseData?.info?.is_hidden_from_all);
-        setShowPrivacyModal(true);
-    };
-
-    const togglePrivacyHiddenUser = (userId) => {
-        setSelectedHiddenUsers(prev =>
-            prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
-        );
-    };
-
-    const handleSavePrivacy = async () => {
-        setSavingPrivacy(true);
-        try {
-            const { error } = await supabase.rpc('update_ia_case_privacy', {
-                p_case_id: id,
-                p_hidden_user_ids: selectedHiddenUsers,
-                p_is_hidden_from_all: isHiddenFromAll
-            });
-            if (error) throw error;
-            setShowPrivacyModal(false);
-            loadCaseDetails();
-        } catch (err) {
-            alert('Error updating privacy settings: ' + err.message);
-        } finally {
-            setSavingPrivacy(false);
-        }
-    };
-
-    const handleUpdateRole = async (userId, newRole) => {
-        // Optimistic update
-        setCaseData(prev => {
-            const newAssignments = prev.assignments.map(a => a.user_id === userId ? { ...a, role: newRole } : a);
-            return { ...prev, assignments: newAssignments };
-        });
-
-        try {
-            const { error } = await supabase.rpc('update_ia_case_assignment_role', {
-                p_case_id: id,
-                p_user_id: userId,
-                p_role: newRole
-            });
-            if (error) throw error;
-        } catch (err) {
-            alert('Error updating role: ' + err.message);
-            loadCaseDetails(false); // Reload silently to revert if error
+    const toggleAssignmentSelection = (isAdding, userId) => {
+        if (isAdding) {
+            setSelectedAssignments(prev => [...prev, userId]);
+        } else {
+            setSelectedAssignments(prev => prev.filter(id => id !== userId));
         }
     };
 
@@ -268,11 +230,90 @@ function IACaseDetail() {
         }
     };
 
-    const toggleAssignmentSelection = (status, userId) => {
-        if (status) {
-            setSelectedAssignments(prev => [...prev, userId]);
+    const handleUpdateRole = async (userId, newRole) => {
+        try {
+            const { error } = await supabase.rpc('update_ia_case_assignment_role', {
+                p_case_id: id,
+                p_user_id: userId,
+                p_role: newRole
+            });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error updating role: ' + err.message);
+        }
+    };
+
+    const openPrivacyModal = async () => {
+        if (users.length === 0) {
+            const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, divisions, profile_image').order('rango');
+            if (data) {
+                const iaUsers = data.filter(u =>
+                    (u.divisions && u.divisions.includes('Internal Affairs')) ||
+                    u.rol === 'Administrador'
+                );
+                setUsers(iaUsers);
+            }
+        }
+        setSelectedHiddenUsers(caseData?.info?.hidden_user_ids || []);
+        setIsHiddenFromAll(caseData?.info?.is_hidden_from_all || false);
+        setShowPrivacyModal(true);
+    };
+
+    const togglePrivacyHiddenUser = (userId) => {
+        if (selectedHiddenUsers.includes(userId)) {
+            setSelectedHiddenUsers(prev => prev.filter(uId => uId !== userId));
         } else {
-            setSelectedAssignments(prev => prev.filter(uid => uid !== userId));
+            setSelectedHiddenUsers(prev => [...prev, userId]);
+        }
+    };
+
+    const handleSavePrivacy = async () => {
+        setSavingPrivacy(true);
+        try {
+            const { error } = await supabase.rpc('update_ia_case_privacy', {
+                p_case_id: id,
+                p_hidden_user_ids: selectedHiddenUsers,
+                p_is_hidden_from_all: isHiddenFromAll
+            });
+            if (error) throw error;
+            setShowPrivacyModal(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error saving privacy settings: ' + err.message);
+        } finally {
+            setSavingPrivacy(false);
+        }
+    };
+
+    const handlePostUpdate = async (e) => {
+        e.preventDefault();
+        if (!newUpdateContent || newUpdateContent === '<p><br></p>') return;
+        setSubmittingUpdate(true);
+        try {
+            const finalContent = await processHtmlImages(newUpdateContent, 'cases');
+
+            let uploadedImages = [];
+            if (newUpdateImages.length > 0) {
+                uploadedImages = await Promise.all(
+                    newUpdateImages.map(img => img.startsWith('data:') ? uploadImageToStorage(img, 'cases') : img)
+                );
+            }
+
+            const { error } = await supabase.rpc('create_ia_case_update', {
+                p_case_id: id,
+                p_content: finalContent,
+                p_images: uploadedImages
+            });
+            if (error) throw error;
+
+            setNewUpdateContent('');
+            setNewUpdateImages([]);
+            loadCaseDetails(false);
+        } catch (err) {
+            alert("Error posting update: " + err.message);
+        } finally {
+            setSubmittingUpdate(false);
         }
     };
 
@@ -301,143 +342,60 @@ function IACaseDetail() {
         });
     };
 
-    const handlePostUpdate = async (e) => {
-        e.preventDefault();
-        const isTextEmpty = newUpdateContent.replace(/<[^>]*>/g, '').trim() === '';
-        if (isTextEmpty && newUpdateImages.length === 0) {
-            alert("Please enter text or attach an image.");
-            return;
-        }
-
-        setSubmittingUpdate(true);
-        try {
-            let uploadedImages = [];
-            if (newUpdateImages.length > 0) {
-                uploadedImages = await Promise.all(
-                    newUpdateImages.map(async img => {
-                        if (img && img.startsWith('data:')) {
-                            return await uploadImageToStorage(img, 'cases');
-                        }
-                        return img;
-                    })
-                );
-            }
-
-            const finalContent = await processHtmlImages(newUpdateContent, 'cases');
-
-            const { error } = await supabase.rpc('add_ia_case_update', {
-                p_case_id: id,
-                p_content: finalContent,
-                p_images: uploadedImages
-            });
-
-            if (error) throw error;
-
-            setNewUpdateContent('');
-            setNewUpdateImages([]);
-            loadCaseDetails();
-        } catch (err) {
-            alert('Error posting update: ' + err.message);
-        } finally {
-            setSubmittingUpdate(false);
-        }
-    };
-
     const handleStartEdit = (update) => {
         setEditingId(update.id);
         setEditContent(update.content || "");
-        const initialImgs = update.images && update.images.length > 0 
-            ? [...update.images] 
-            : (update.image ? [update.image] : []);
-        setEditImages(initialImgs);
-    };
-
-    const handleEditImageUpload = (e) => {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
-
-        files.forEach(file => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (event) => {
-                const img = new Image();
-                img.src = event.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 800;
-                    const scaleSize = img.width > MAX_WIDTH ? (MAX_WIDTH / img.width) : 1;
-                    canvas.width = img.width * scaleSize;
-                    canvas.height = img.height * scaleSize;
-
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                    setEditImages(prev => [...prev, dataUrl]);
-                };
-            };
-        });
+        let existingImgs = [];
+        if (update.images && update.images.length > 0) existingImgs = [...update.images];
+        else if (update.image) existingImgs = [update.image];
+        setEditImages(existingImgs);
     };
 
     const handleSaveEdit = async (updateId) => {
-        const isTextEmpty = editContent.replace(/<[^>]*>/g, '').trim() === '';
-        if (isTextEmpty && editImages.length === 0) {
-            alert(language === 'es' ? "Por favor ingrese texto o adjunte una imagen." : "Please enter text or attach an image.");
-            return;
-        }
-
+        if (!editContent || editContent === '<p><br></p>') return;
         setSubmittingEdit(true);
         try {
-            let uploadedImages = [];
+            const finalContent = await processHtmlImages(editContent, 'cases');
+
+            let finalImages = [];
             if (editImages.length > 0) {
-                uploadedImages = await Promise.all(
-                    editImages.map(async img => {
-                        if (img && img.startsWith('data:')) {
-                            return await uploadImageToStorage(img, 'cases');
-                        }
-                        return img;
-                    })
+                finalImages = await Promise.all(
+                    editImages.map(img => img.startsWith('data:') ? uploadImageToStorage(img, 'cases') : img)
                 );
             }
 
-            const finalContent = await processHtmlImages(editContent, 'cases');
-
-            const { error } = await supabase.rpc('update_ia_case_update_content', {
+            const { error } = await supabase.rpc('update_ia_case_update', {
                 p_update_id: updateId,
                 p_content: finalContent,
-                p_images: uploadedImages
+                p_images: finalImages
             });
             if (error) throw error;
+
             setEditingId(null);
             setEditContent("");
             setEditImages([]);
-            loadCaseDetails();
+            loadCaseDetails(false);
         } catch (err) {
-            alert("Error updating: " + err.message);
+            alert("Error saving edit: " + err.message);
         } finally {
             setSubmittingEdit(false);
         }
     };
 
     const handleDeleteUpdate = async (updateId) => {
-        if (!window.confirm(language === 'es' ? '¿Está seguro de que desea eliminar este mensaje?' : 'Are you sure you want to delete this message?')) return;
+        if (!window.confirm(language === 'es' ? "¿Eliminar esta actualización?" : "Delete this update?")) return;
         try {
             const { error } = await supabase.rpc('delete_ia_case_update', { p_update_id: updateId });
             if (error) throw error;
-            loadCaseDetails();
+            loadCaseDetails(false);
         } catch (err) {
-            alert("Error deleting: " + err.message);
+            alert("Error deleting update: " + err.message);
         }
     };
 
     const handleStatusChange = async (newStatus) => {
-        const confirmMsg = language === 'es'
-            ? `¿Está seguro de que desea cambiar el estado a ${newStatus === 'Closed' ? 'Cerrado' : newStatus === 'Archived' ? 'Archivado' : 'Abierto'}?`
-            : `Are you sure you want to change status to ${newStatus}?`;
-        if (!window.confirm(confirmMsg)) return;
-
         try {
-            const { error } = await supabase.rpc('set_ia_case_status', { p_case_id: id, p_status: newStatus });
+            const { error } = await supabase.rpc('update_ia_case_status', { p_case_id: id, p_status: newStatus });
             if (error) throw error;
             loadCaseDetails();
         } catch (err) {
@@ -445,54 +403,10 @@ function IACaseDetail() {
         }
     };
 
-    const startEditingInfo = () => {
-        setEditTitle(info.title);
-        setEditLocation(info.location || '');
-        const dt = new Date(info.occurred_at);
-        dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
-        setEditOccurredAt(dt.toISOString().slice(0, 16));
-        setEditDescription(info.description || '');
-        setEditInitialImage(null);
-        setIsEditingInfo(true);
-    };
-
-    const handleSaveInfo = async () => {
-        try {
-            const finalDescription = await processHtmlImages(editDescription, 'cases');
-
-            const { error } = await supabase.rpc('update_ia_case_details', {
-                p_case_id: id,
-                p_title: editTitle,
-                p_location: editLocation,
-                p_occurred_at: editOccurredAt,
-                p_description: finalDescription
-            });
-            if (error) throw error;
-
-            if (editInitialImage !== null) {
-                let finalInitialImage = editInitialImage;
-                if (finalInitialImage && finalInitialImage.startsWith('data:')) {
-                    finalInitialImage = await uploadImageToStorage(finalInitialImage, 'cases');
-                }
-                const { error: imgError } = await supabase
-                    .from('ia_cases')
-                    .update({ initial_image_url: finalInitialImage || null })
-                    .eq('id', id);
-                if (imgError) throw imgError;
-            }
-
-            setIsEditingInfo(false);
-            setEditInitialImage(null);
-            loadCaseDetails();
-        } catch (err) {
-            alert('Error updating case details: ' + err.message);
-        }
-    };
-
     const handleDeleteCase = async () => {
         const confirmMsg = language === 'es'
-            ? "🛑 ZONA DE PELIGRO 🛑\n\n¿Está seguro de que desea ELIMINAR PERMANENTEMENTE este caso de IA?\nEsto incluye todos los mensajes, imágenes de evidencia y asignaciones.\nLas denuncias e interrogatorios vinculados se conservarán pero se desvincularán.\n\nEsta acción NO se puede deshacer."
-            : "🛑 DANGER ZONE 🛑\n\nAre you sure you want to PERMANENTLY DELETE this IA case?\nThis includes all updates, evidence images, and assignments.\nLinked complaints and interrogations will be preserved but unlinked.\n\nThis action CANNOT be undone.";
+            ? "¿Estás seguro de eliminar PERMANENTEMENTE este caso de Asuntos Internos? Esta acción no se puede deshacer."
+            : "Are you sure you want to PERMANENTLY DELETE this IA case?";
         if (!window.confirm(confirmMsg)) return;
 
         try {
@@ -510,10 +424,62 @@ function IACaseDetail() {
         }
     };
 
-    if (loading) return <div className="loading-screen">{language === 'es' ? 'Cargando Investigación...' : 'Loading Investigation...'}</div>;
-    if (!caseData) return <div className="loading-screen" style={{ color: '#f87171' }}>{language === 'es' ? 'Investigación no encontrada.' : 'Investigation Not Found.'}</div>;
+    const startEditingInfo = () => {
+        setEditTitle(caseData.info.title);
+        setEditLocation(caseData.info.location || '');
+        const dt = new Date(caseData.info.occurred_at);
+        dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+        setEditOccurredAt(dt.toISOString().slice(0, 16));
+        setEditDescription(caseData.info.description || '');
+        setEditInitialImage(null);
+        setIsEditingInfo(true);
+    };
 
-    const { info, assignments, updates, interrogations } = caseData;
+    const handleSaveInfo = async () => {
+        try {
+            const finalDescription = await processHtmlImages(editDescription, 'cases');
+            const { error } = await supabase.rpc('update_ia_case_details', {
+                p_case_id: id,
+                p_title: editTitle,
+                p_location: editLocation,
+                p_occurred_at: editOccurredAt,
+                p_description: finalDescription
+            });
+            if (error) throw error;
+
+            if (editInitialImage !== null) {
+                let finalInitialImage = editInitialImage;
+                if (finalInitialImage && finalInitialImage.startsWith('data:')) {
+                    finalInitialImage = await uploadImageToStorage(finalInitialImage, 'cases');
+                }
+                await supabase
+                    .from('ia_cases')
+                    .update({ initial_image_url: finalInitialImage || null })
+                    .eq('id', id);
+            }
+
+            setIsEditingInfo(false);
+            setEditInitialImage(null);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error updating case details: ' + err.message);
+        }
+    };
+
+    if (loading) return (
+        <div className="mac-doc-empty">
+            <span className="mac-status-dot" style={{ animation: 'pulse 1s infinite', backgroundColor: '#ef4444' }}></span>
+            <span>{language === 'es' ? 'Cargando investigación de Asuntos Internos...' : 'Loading IA investigation...'}</span>
+        </div>
+    );
+
+    if (!caseData) return (
+        <div className="mac-doc-empty">
+            <span>{language === 'es' ? 'No se encontró la investigación solicitada.' : 'Requested IA case not found.'}</span>
+        </div>
+    );
+
+    const { info, assignments = [], updates = [], interrogations = [] } = caseData;
 
     const userIsHighCommand = currentUser && (
         ['Coordinador', 'Administrador', 'Comisionado', 'Director', 'Fundador'].includes(currentUser.rol) ||
@@ -527,255 +493,280 @@ function IACaseDetail() {
 
     const isAssigned = currentUser && assignments && assignments.some(a => a.user_id === currentUser.id);
     const canEditCase = userIsIAUser && (userIsHighCommand || info.created_by === currentUser?.id || isAssigned);
+    const isCaseOpen = !info || !info.status || info.status.toLowerCase() === 'open' || info.status.toLowerCase() === 'abierto';
+
+    const statusColor = isCaseOpen ? '#10b981' : info.status === 'Closed' || info.status === 'Cerrado' ? '#ef4444' : '#64748b';
+    const statusText = isCaseOpen ? (language === 'es' ? 'ABIERTO' : 'OPEN') : info.status === 'Closed' || info.status === 'Cerrado' ? (language === 'es' ? 'CERRADO' : 'CLOSED') : (language === 'es' ? 'ARCHIVADO' : 'ARCHIVED');
+    const isRestricted = info.is_hidden_from_all || (info.hidden_user_ids && info.hidden_user_ids.length > 0);
 
     return (
-        <div className="documentation-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
-            <div className="case-detail-header" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem', marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <button onClick={() => navigate('/internal-affairs/cases')} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', marginBottom: '1rem' }}>
-                        {language === 'es' ? '← Volver a Casos de IA' : '← Back to IA Cases'}
-                    </button>
+        <div className="mac-dashboard-container">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <button
+                    onClick={() => navigate('/internal-affairs/cases')}
+                    style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#94a3b8',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: 0
+                    }}
+                >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                    <span>{language === 'es' ? 'Volver a Investigaciones' : 'Back to IA Cases'}</span>
+                </button>
 
-                    {!isEditingInfo && canEditCase && (
-                        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-                            <button onClick={openPrivacyModal} style={{ background: 'rgba(248, 113, 113, 0.15)', border: '1px solid rgba(248, 113, 113, 0.4)', color: '#f87171', borderRadius: '4px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                                🔒 {language === 'es' ? 'Ocultar / Privacidad' : 'Hide / Privacy'}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    {canEditCase && (
+                        <button
+                            className="mac-btn mac-btn-secondary"
+                            onClick={openPrivacyModal}
+                            style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.3rem', borderRadius: '6px', color: '#f87171' }}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            <span>{language === 'es' ? 'Privacidad' : 'Privacy'}</span>
+                        </button>
+                    )}
+
+                    {canEditCase && !isEditingInfo && (
+                        <button
+                            className="mac-btn mac-btn-secondary"
+                            onClick={startEditingInfo}
+                            style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.3rem', borderRadius: '6px' }}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                            <span>{language === 'es' ? 'Editar Detalles' : 'Edit Details'}</span>
+                        </button>
+                    )}
+
+                    {isCaseOpen && userIsIAUser && (
+                        <>
+                            <button
+                                className="mac-btn mac-btn-secondary"
+                                onClick={() => handleStatusChange('Closed')}
+                                style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#f87171' }}
+                            >
+                                {language === 'es' ? 'Cerrar Caso' : 'Close Case'}
                             </button>
-                            <button onClick={startEditingInfo} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline' }}>
-                                {language === 'es' ? 'Editar Detalles' : 'Edit Details'}
+                            <button
+                                className="mac-btn mac-btn-secondary"
+                                onClick={() => handleStatusChange('Archived')}
+                                style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#94a3b8' }}
+                            >
+                                {language === 'es' ? 'Archivar' : 'Archive'}
                             </button>
-                        </div>
+                        </>
+                    )}
+
+                    {!isCaseOpen && userIsIAUser && (
+                        <button
+                            className="mac-btn mac-btn-secondary"
+                            onClick={() => handleStatusChange('Open')}
+                            style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#10b981' }}
+                        >
+                            {language === 'es' ? 'Reabrir Caso' : 'Reopen Case'}
+                        </button>
+                    )}
+
+                    {userIsHighCommand && (
+                        <button
+                            className="mac-btn"
+                            onClick={handleDeleteCase}
+                            style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                            <span>{language === 'es' ? 'Eliminar' : 'Delete'}</span>
+                        </button>
                     )}
                 </div>
-
-                {isEditingInfo ? (
-                    <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--accent-gold)' }}>
-                        <div style={{ display: 'grid', gap: '1rem', marginBottom: '1rem' }}>
-                            <div>
-                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
-                                    {language === 'es' ? 'Título del Caso' : 'Case Title'}
-                                </label>
-                                <input type="text" className="form-input" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                <div>
-                                    <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
-                                        {language === 'es' ? 'Ubicación' : 'Location'}
-                                    </label>
-                                    <input type="text" className="form-input" value={editLocation} onChange={e => setEditLocation(e.target.value)} />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
-                                        {language === 'es' ? 'Fecha de los hechos' : 'Date of Occurrence'}
-                                    </label>
-                                    <input type="datetime-local" className="form-input" value={editOccurredAt} onChange={e => setEditOccurredAt(e.target.value)} />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
-                                    {language === 'es' ? 'Reporte Inicial / Descripción' : 'Initial Report / Description'}
-                                </label>
-                                <textarea
-                                    className="form-input"
-                                    rows="10"
-                                    value={editDescription}
-                                    onChange={e => setEditDescription(e.target.value)}
-                                    placeholder={language === 'es' ? 'Describa los detalles del incidente...' : 'Describe the incident details...'}
-                                />
-                            </div>
-
-                            {/* Initial Image section */}
-                            <div>
-                                <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
-                                    {language === 'es' ? 'Reporte Inicial — Imagen' : 'Initial Report — Image'}
-                                </label>
-
-                                {(editInitialImage || (editInitialImage === null && info.initial_image_url)) && (
-                                    <div style={{ position: 'relative', display: 'inline-block', marginBottom: '0.75rem' }}>
-                                        <img
-                                            src={editInitialImage || info.initial_image_url}
-                                            alt="Initial Evidence Preview"
-                                            style={{ maxHeight: '150px', borderRadius: '4px', border: '1px solid var(--accent-gold)' }}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setEditInitialImage('')}
-                                            style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                            title={language === 'es' ? 'Eliminar imagen' : 'Remove image'}
-                                        >
-                                            &times;
-                                        </button>
-                                    </div>
-                                )}
-
-                                <label className="custom-file-upload" style={{ display: 'inline-block', width: 'auto', margin: 0, fontSize: '0.85rem', padding: '0.4rem 1rem' }}>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => {
-                                            const file = e.target.files[0];
-                                            if (!file) return;
-                                            const reader = new FileReader();
-                                            reader.readAsDataURL(file);
-                                            reader.onload = (ev) => {
-                                                const img = new Image();
-                                                img.src = ev.target.result;
-                                                img.onload = () => {
-                                                    const canvas = document.createElement('canvas');
-                                                    const MAX_W = 800;
-                                                    const scale = img.width > MAX_W ? MAX_W / img.width : 1;
-                                                    canvas.width = img.width * scale;
-                                                    canvas.height = img.height * scale;
-                                                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                                                    setEditInitialImage(canvas.toDataURL('image/jpeg', 0.75));
-                                                };
-                                            };
-                                        }}
-                                    />
-                                    📸 {editInitialImage === null && info.initial_image_url
-                                        ? (language === 'es' ? 'Cambiar imagen' : 'Change image')
-                                        : (language === 'es' ? 'Subir imagen' : 'Upload image')}
-                                </label>
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                            <button className="login-button btn-secondary" onClick={() => setIsEditingInfo(false)} style={{ width: 'auto' }}>
-                                {language === 'es' ? 'Cancelar' : 'Cancel'}
-                            </button>
-                            <button className="login-button" onClick={handleSaveInfo} style={{ width: 'auto' }}>
-                                {language === 'es' ? 'Guardar Cambios' : 'Save Changes'}
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div>
-                                <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#f87171', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                                    <span style={{ color: 'var(--text-secondary)' }}>IA-#{String(info.case_number).padStart(3, '0')}</span>
-                                    <span>{info.title}</span>
-                                    {(info.is_hidden_from_all || (info.hidden_user_ids && info.hidden_user_ids.length > 0)) && (
-                                        <span style={{ fontSize: '0.8rem', padding: '4px 8px', borderRadius: '4px', background: 'rgba(248, 113, 113, 0.2)', color: '#f87171', border: '1px solid rgba(248, 113, 113, 0.4)', fontWeight: 'normal' }}>
-                                            🔒 {language === 'es' ? 'Caso Oculto / Restringido' : 'Hidden / Restricted Case'}
-                                        </span>
-                                    )}
-                                </h1>
-                                <div style={{ color: 'var(--text-secondary)' }}>
-                                    {language === 'es' ? 'Ubicado en ' : 'Located at '}<strong>{info.location}</strong> • {language === 'es' ? 'Ocurrió el ' : 'Occurred on '}{new Date(info.occurred_at).toLocaleString()}
-                                </div>
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <div className={`status-badge ${info.status.toLowerCase()}`}
-                                    style={{
-                                        display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase',
-                                        backgroundColor: info.status === 'Open' ? 'rgba(74, 222, 128, 0.2)' : info.status === 'Closed' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(148, 163, 184, 0.2)',
-                                        color: info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#ef4444' : '#94a3b8',
-                                        border: `1px solid ${info.status === 'Open' ? '#4ade80' : info.status === 'Closed' ? '#ef4444' : '#94a3b8'}`
-                                    }}>
-                                    {info.status === 'Open' ? (language === 'es' ? 'ABIERTO' : 'OPEN') : info.status === 'Closed' ? (language === 'es' ? 'CERRADO' : 'CLOSED') : (language === 'es' ? 'ARCHIVADO' : 'ARCHIVED')}
-                                </div>
-
-                                <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                                    {info.status === 'Open' && userIsIAUser && (
-                                        <>
-                                            <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Closed')}>
-                                                {language === 'es' ? 'Cerrar Caso' : 'Close Case'}
-                                            </button>
-                                            <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Archived')}>
-                                                {language === 'es' ? 'Archivar' : 'Archive'}
-                                            </button>
-                                        </>
-                                    )}
-                                    {info.status !== 'Open' && userIsIAUser && (
-                                        <button className="login-button btn-secondary" style={{ width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem' }} onClick={() => handleStatusChange('Open')}>
-                                            {language === 'es' ? 'Reabrir Caso' : 'Reopen Case'}
-                                        </button>
-                                    )}
-
-                                    {/* DELETE BUTTON: Only for userIsHighCommand */}
-                                    {userIsHighCommand && (
-                                        <button
-                                            className="login-button"
-                                            style={{
-                                                width: 'auto', fontSize: '0.8rem', padding: '0.3rem 0.8rem',
-                                                backgroundColor: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444'
-                                            }}
-                                            onClick={handleDeleteCase}
-                                        >
-                                            {language === 'es' ? 'Borrar Caso' : 'Delete Case'}
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', borderLeft: '4px solid var(--accent-gold)' }}>
-                            <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-gold)' }}>{language === 'es' ? 'REPORTE INICIAL' : 'INITIAL REPORT'}</h4>
-                            {info.initial_image_url && (
-                                <div style={{ marginBottom: '1rem', borderRadius: '4px', overflow: 'hidden', cursor: 'pointer', maxWidth: '400px', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => setExpandedImage(info.initial_image_url)}>
-                                    <img src={info.initial_image_url} alt="Initial Evidence" style={{ width: '100%', display: 'block' }} />
-                                </div>
-                            )}
-                            <p style={{ margin: 0, whiteSpace: 'pre-line', color: 'var(--text-secondary)' }}>{info.description}</p>
-                        </div>
-                    </>
-                )}
             </div>
 
-            <div className="case-layout" style={{ display: 'grid', gridTemplateColumns: activeTab === 'board' ? '1fr' : '2fr 1fr', gap: '2rem' }}>
-                <div className="case-main-content">
-                    <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '1.5rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '1.3rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.015em' }}>
+                        CASO-IA #{String(info.case_number).padStart(3, '0')} {info.title}
+                    </span>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 800, color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}33`, padding: '0.15rem 0.5rem', borderRadius: '6px', textTransform: 'uppercase' }}>
+                        {statusText}
+                    </span>
+                    {isRestricted && (
+                        <span style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '6px',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            color: '#f87171',
+                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                        }}>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            <span>{language === 'es' ? 'Restringido' : 'Restricted'}</span>
+                        </span>
+                    )}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.25rem', display: 'flex', gap: '0.8rem' }}>
+                    <span>📍 {info.location || (language === 'es' ? 'Ubicación no especificada' : 'Unspecified location')}</span>
+                    <span>📅 {new Date(info.occurred_at).toLocaleString()}</span>
+                </div>
+            </div>
+
+            {isEditingInfo && (
+                <div className="mac-widget-card" style={{ padding: '1rem', marginBottom: '1rem' }}>
+                    <h4 style={{ margin: '0 0 0.75rem 0', color: '#ffffff', fontSize: '0.9rem' }}>{language === 'es' ? 'Editar Detalles' : 'Edit Details'}</h4>
+                    <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                        <div className="mac-form-group">
+                            <label className="mac-form-label">{language === 'es' ? 'Título del Caso' : 'Case Title'}</label>
+                            <input type="text" className="mac-form-input" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                            <div className="mac-form-group">
+                                <label className="mac-form-label">{language === 'es' ? 'Ubicación' : 'Location'}</label>
+                                <input type="text" className="mac-form-input" value={editLocation} onChange={e => setEditLocation(e.target.value)} />
+                            </div>
+                            <div className="mac-form-group">
+                                <label className="mac-form-label">{language === 'es' ? 'Fecha y Hora' : 'Date & Time'}</label>
+                                <input type="datetime-local" className="mac-form-input" value={editOccurredAt} onChange={e => setEditOccurredAt(e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="mac-form-group">
+                            <label className="mac-form-label">{language === 'es' ? 'Reporte Inicial' : 'Initial Report'}</label>
+                            <textarea
+                                className="eval-textarea"
+                                rows="5"
+                                value={editDescription}
+                                onChange={e => setEditDescription(e.target.value)}
+                                style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', color: '#fff', padding: '0.65rem' }}
+                            />
+                        </div>
+                        <div className="mac-form-group">
+                            <label className="mac-form-label">{language === 'es' ? 'Imagen Inicial de Evidencia' : 'Initial Evidence Image'}</label>
+                            {(editInitialImage || (editInitialImage === null && info.initial_image_url)) && (
+                                <div style={{ position: 'relative', display: 'inline-block', marginBottom: '0.75rem' }}>
+                                    <img src={editInitialImage || info.initial_image_url} alt="" style={{ maxHeight: '140px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)' }} />
+                                    <button type="button" onClick={() => setEditInitialImage('')} style={{ position: 'absolute', top: -5, right: -5, background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                                </div>
+                            )}
+                            <label className="mac-btn btn-secondary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', height: '40px', borderStyle: 'dashed' }}>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                    <circle cx="12" cy="13" r="4"/>
+                                </svg>
+                                <span>{language === 'es' ? 'Cambiar Imagen' : 'Change Image'}</span>
+                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (!file) return;
+                                    const reader = new FileReader();
+                                    reader.readAsDataURL(file);
+                                    reader.onload = (ev) => setEditInitialImage(ev.target.result);
+                                }} />
+                            </label>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                        <button className="mac-btn mac-btn-secondary" onClick={() => setIsEditingInfo(false)}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                        <button className="mac-btn mac-btn-primary" onClick={handleSaveInfo}>{language === 'es' ? 'Guardar Cambios' : 'Save Changes'}</button>
+                    </div>
+                </div>
+            )}
+
+            {!isEditingInfo && (
+                <div className="mac-widget-card" style={{ padding: '0.85rem 1.1rem', marginBottom: '1.25rem', borderLeft: '3px solid #ef4444' }}>
+                    <h4 style={{ margin: '0 0 0.4rem 0', color: '#f87171', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+                        {language === 'es' ? 'CLAVES DE LA INVESTIGACIÓN' : 'CASE KEYS'}
+                    </h4>
+                    {info.initial_image_url && (
+                        <div
+                            style={{ marginBottom: '0.6rem', borderRadius: '6px', overflow: 'hidden', cursor: 'pointer', maxWidth: '320px', border: '1px solid rgba(255,255,255,0.12)' }}
+                            onClick={() => setExpandedImage(info.initial_image_url)}
+                        >
+                            <img src={info.initial_image_url} alt="Initial Evidence" style={{ width: '100%', display: 'block' }} />
+                        </div>
+                    )}
+                    <div style={{ color: '#cbd5e1', fontSize: '0.84rem', lineHeight: '1.5', whiteSpace: 'pre-line' }}>
+                        {info.description}
+                    </div>
+                </div>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: activeTab === 'board' ? '1fr' : '2.2fr 1fr', gap: '1.25rem' }}>
+                <div>
+                    <div className="mac-doc-tabs" style={{ marginBottom: '1rem', padding: '0.25rem' }}>
                         <button
+                            className={`mac-doc-tab ${activeTab === 'updates' ? 'active' : ''}`}
                             onClick={() => setActiveTab('updates')}
-                            style={{
-                                background: 'none', border: 'none',
-                                borderBottom: activeTab === 'updates' ? '2px solid var(--accent-gold)' : '2px solid transparent',
-                                color: activeTab === 'updates' ? 'var(--accent-gold)' : 'var(--text-secondary)',
-                                padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer'
-                            }}>
-                            {language === 'es' ? 'Bitácora de Investigación' : 'Investigation Log'}
+                            style={{ padding: '0.4rem 0.9rem', fontSize: '0.8rem' }}
+                        >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                            </svg>
+                            <span>{language === 'es' ? 'Bitácora de Investigación' : 'Investigation Log'}</span>
                         </button>
                         <button
+                            className={`mac-doc-tab ${activeTab === 'todo' ? 'active' : ''}`}
                             onClick={() => setActiveTab('todo')}
-                            style={{
-                                background: 'none', border: 'none',
-                                borderBottom: activeTab === 'todo' ? '2px solid var(--accent-gold)' : '2px solid transparent',
-                                color: activeTab === 'todo' ? 'var(--accent-gold)' : 'var(--text-secondary)',
-                                padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer'
-                            }}>
-                            {language === 'es' ? 'Lista de Tareas' : 'To-Do List'}
+                            style={{ padding: '0.4rem 0.9rem', fontSize: '0.8rem' }}
+                        >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 11l3 3L22 4" />
+                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                            </svg>
+                            <span>{language === 'es' ? 'Lista de Tareas' : 'To-Do List'}</span>
                         </button>
                         <button
+                            className={`mac-doc-tab ${activeTab === 'sanction_votes' ? 'active' : ''}`}
                             onClick={() => setActiveTab('sanction_votes')}
-                            style={{
-                                background: 'none', border: 'none',
-                                borderBottom: activeTab === 'sanction_votes' ? '2px solid var(--accent-gold)' : '2px solid transparent',
-                                color: activeTab === 'sanction_votes' ? 'var(--accent-gold)' : 'var(--text-secondary)',
-                                padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer'
-                            }}>
-                            {language === 'es' ? 'Votación de Sanciones' : 'Sanction Voting'}
+                            style={{ padding: '0.4rem 0.9rem', fontSize: '0.8rem' }}
+                        >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 3v18"/>
+                                <path d="M5 8l7-5 7 5"/>
+                                <path d="M5 12h14"/>
+                            </svg>
+                            <span>{language === 'es' ? 'Votación de Sanción' : 'Sanction Voting'}</span>
                         </button>
                         <button
+                            className={`mac-doc-tab ${activeTab === 'board' ? 'active' : ''}`}
                             onClick={() => setActiveTab('board')}
-                            style={{
-                                background: 'none', border: 'none',
-                                borderBottom: activeTab === 'board' ? '2px solid var(--accent-gold)' : '2px solid transparent',
-                                color: activeTab === 'board' ? 'var(--accent-gold)' : 'var(--text-secondary)',
-                                padding: '0.5rem 1rem', fontWeight: 'bold', cursor: 'pointer'
-                            }}>
-                            📌 {language === 'es' ? 'Pizarra' : 'Whiteboard'}
+                            style={{ padding: '0.4rem 0.9rem', fontSize: '0.8rem' }}
+                        >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                <line x1="3" y1="9" x2="21" y2="9" />
+                                <line x1="9" y1="21" x2="9" y2="9" />
+                            </svg>
+                            <span>{language === 'es' ? 'Pizarra' : 'Whiteboard'}</span>
                         </button>
                     </div>
 
                     {activeTab === 'updates' && (
                         <>
-
-                            {/* New Update Box */}
                             {info.status === 'Open' && (
-                                <div className="new-update-box" style={{ background: 'var(--glass-bg)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', border: '1px solid var(--glass-border)' }}>
+                                <div className="mac-widget-card" style={{ marginBottom: '1rem', padding: '0.9rem 1.1rem' }}>
+                                    <h4 style={{ margin: '0 0 0.6rem 0', color: '#ffffff', fontSize: '0.85rem', fontWeight: 700 }}>
+                                        {language === 'es' ? 'Registrar Nueva Novedad / Evidencia' : 'Log New Update / Evidence'}
+                                    </h4>
                                     <form onSubmit={handlePostUpdate}>
                                         <ReactQuill
                                             theme="snow"
@@ -784,71 +775,102 @@ function IACaseDetail() {
                                             placeholder={language === 'es' ? 'Registrar un nuevo hallazgo, evidencia o declaración...' : 'Log a new finding, evidence or statement...'}
                                             value={newUpdateContent}
                                             onChange={setNewUpdateContent}
-                                            style={{ marginBottom: '1rem' }}
+                                            style={{ marginBottom: '0.75rem' }}
                                         />
+
                                         {newUpdateImages.length > 0 && (
-                                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
                                                 {newUpdateImages.map((imgSrc, idx) => (
                                                     <div key={idx} style={{ position: 'relative' }}>
-                                                        <img src={imgSrc} alt="" style={{ height: '80px', borderRadius: '4px', border: '1px solid var(--accent-gold)' }} />
-                                                        <button type="button" onClick={() => setNewUpdateImages(prev => prev.filter((_, i) => i !== idx))} style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '20px', height: '20px', border: 'none', cursor: 'pointer' }}>&times;</button>
+                                                        <img src={imgSrc} alt="" style={{ height: '64px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)' }} />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setNewUpdateImages(prev => prev.filter((_, i) => i !== idx))}
+                                                            style={{ position: 'absolute', top: -4, right: -4, background: '#ef4444', color: 'white', borderRadius: '50%', width: '16px', height: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}
+                                                        >
+                                                            ✕
+                                                        </button>
                                                     </div>
                                                 ))}
                                             </div>
                                         )}
+
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <label className="custom-file-upload" style={{ margin: 0, fontSize: '0.9rem', padding: '0.4rem 1rem', width: 'auto' }}>
-                                                <input type="file" accept="image/*" multiple onChange={handleImageUpload} />
-                                                {language === 'es' ? '📸 Añadir Evidencia' : '📸 Add Evidence'}
+                                            <label style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.35rem',
+                                                padding: '0.35rem 0.75rem',
+                                                background: 'rgba(255,255,255,0.06)',
+                                                border: '1px solid rgba(255,255,255,0.12)',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontSize: '0.78rem',
+                                                color: '#cbd5e1'
+                                            }}>
+                                                <input type="file" accept="image/*" multiple onChange={handleImageUpload} style={{ display: 'none' }} />
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                                    <circle cx="12" cy="13" r="4" />
+                                                </svg>
+                                                <span>{language === 'es' ? 'Adjuntar Evidencia' : 'Attach Evidence'}</span>
                                             </label>
-                                            <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submittingUpdate}>
-                                                {submittingUpdate ? (language === 'es' ? 'Publicando...' : 'Posting...') : (language === 'es' ? 'Publicar Actualización' : 'Post Update')}
+
+                                            <button type="submit" className="mac-btn mac-btn-primary" style={{ padding: '0.38rem 0.9rem', fontSize: '0.78rem', background: 'rgba(239,68,68,0.25)', borderColor: 'rgba(239,68,68,0.5)', color: '#f87171' }} disabled={submittingUpdate}>
+                                                {submittingUpdate ? (language === 'es' ? 'Publicando...' : 'Posting...') : (language === 'es' ? 'Publicar Novedad' : 'Post Update')}
                                             </button>
                                         </div>
                                     </form>
                                 </div>
                             )}
 
-                            <div className="updates-feed">
-                                {updates.length === 0 ? <div className="empty-list">{language === 'es' ? 'Aún no se han registrado actualizaciones o novedades.' : 'No updates or developments recorded yet.'}</div> : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                                {updates.length === 0 ? (
+                                    <div className="mac-doc-empty">
+                                        <span>{language === 'es' ? 'No se han registrado novedades en esta investigación.' : 'No updates recorded yet.'}</span>
+                                    </div>
+                                ) : (
                                     updates.map(update => {
                                         const isAuthor = currentUser && (currentUser.id === update.user_id || currentUser.id === update.author_id);
-                                        const isHighCommand = currentUser && (
-                                            ['Coordinador', 'Administrador', 'Comisionado', 'Director', 'Fundador'].includes(currentUser.rol) ||
-                                            ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente'].includes(currentUser.rango)
-                                        );
-                                        const canEdit = isAuthor || isHighCommand || (currentUser && ['Administrador', 'Coordinador', 'Comisionado'].includes(currentUser.rol));
-                                        const canDelete = isAuthor || isHighCommand;
+                                        const canEditThisUpdate = (isAuthor || userIsHighCommand) && !currentUser?.rol?.includes('Ayudante');
                                         const isEditing = editingId === update.id;
 
                                         return (
-                                            <div key={update.id} id={`ia-update-${update.id}`} className="case-update-card" style={{
-                                                background: 'rgba(var(--secondary-rgb), 0.4)', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem',
-                                                borderLeft: '2px solid rgba(255,255,255,0.1)'
-                                            }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                        <img src={update.author_avatar || '/logowebp/anon.webp'} alt="" style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px' }} />
+                                            <div
+                                                key={update.id}
+                                                id={`ia-update-${update.id}`}
+                                                className="mac-widget-card"
+                                                style={{ position: 'relative', padding: '0.9rem 1.1rem' }}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', paddingBottom: '0.45rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <img src={update.author_avatar || '/logowebp/anon.webp'} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} />
                                                         <div>
-                                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{update.author_rank} {update.author_name}</div>
-                                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(update.created_at).toLocaleString()}</div>
+                                                            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#ffffff' }}>{update.author_rank} {update.author_name}</div>
+                                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{new Date(update.created_at).toLocaleString()}</div>
                                                         </div>
                                                     </div>
 
-                                                    {(canEdit || canDelete) && !isEditing && (
-                                                        <div style={{ display: 'flex', gap: '5px' }}>
-                                                            {canEdit && (
-                                                                <button onClick={() => handleStartEdit(update)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }} title="Edit Message">✏️</button>
-                                                            )}
-                                                            {canDelete && (
-                                                                <button onClick={() => handleDeleteUpdate(update.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.7 }} title="Delete Message">🗑️</button>
-                                                            )}
+                                                    {canEditThisUpdate && !isEditing && (
+                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                            <button onClick={() => handleStartEdit(update)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px 4px' }} title="Editar">
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                                </svg>
+                                                            </button>
+                                                            <button onClick={() => handleDeleteUpdate(update.id)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', padding: '2px 4px' }} title="Eliminar">
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <polyline points="3 6 5 6 21 6" />
+                                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                                </svg>
+                                                            </button>
                                                         </div>
                                                     )}
                                                 </div>
 
                                                 {isEditing ? (
-                                                    <div style={{ marginBottom: '1rem' }}>
+                                                    <div>
                                                         <ReactQuill
                                                             theme="snow"
                                                             modules={quillModules}
@@ -857,400 +879,473 @@ function IACaseDetail() {
                                                             onChange={setEditContent}
                                                             style={{ marginBottom: '0.5rem' }}
                                                         />
-
-                                                        {/* Edit Image Previews */}
-                                                        {editImages.length > 0 && (
-                                                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '1rem', marginTop: '0.5rem' }}>
-                                                                {editImages.map((imgSrc, idx) => (
-                                                                    <div key={idx} style={{ position: 'relative' }}>
-                                                                        <img src={imgSrc} alt="" style={{ height: '80px', borderRadius: '4px', border: '1px solid var(--accent-gold)' }} />
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => setEditImages(prev => prev.filter((_, i) => i !== idx))}
-                                                                            style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '20px', height: '20px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}
-                                                                        >
-                                                                            &times;
-                                                                        </button>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                                <label className="custom-file-upload" style={{ display: 'inline-block', width: 'auto', margin: 0, fontSize: '0.8rem', padding: '0.3rem 0.8rem' }}>
-                                                                    <input type="file" accept="image/*" multiple onChange={handleEditImageUpload} />
-                                                                    {language === 'es' ? '📸 Añadir Imágenes' : '📸 Add Images'}
-                                                                </label>
-                                                            </div>
-                                                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                                <button className="login-button btn-secondary" onClick={() => { setEditingId(null); setEditImages([]); }} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
-                                                                <button className="login-button" onClick={() => handleSaveEdit(update.id)} disabled={submittingEdit} style={{ width: 'auto', padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>
-                                                                    {submittingEdit ? (language === 'es' ? 'Guardando...' : 'Saving...') : (language === 'es' ? 'Guardar Cambios' : 'Save Changes')}
-                                                                </button>
-                                                            </div>
+                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                            <button className="mac-btn mac-btn-secondary" onClick={() => setEditingId(null)} style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}>Cancelar</button>
+                                                            <button className="mac-btn mac-btn-primary" onClick={() => handleSaveEdit(update.id)} style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }} disabled={submittingEdit}>Guardar</button>
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div style={{ marginBottom: '1rem', color: 'var(--text-primary)' }} className="quill-content" dangerouslySetInnerHTML={{ __html: update.content }} />
-                                                )}
-                                                {(update.images && update.images.length > 0) && (
-                                                    <div style={{ marginTop: '1rem', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                                                        {update.images.map((imgSrc, i) => (
-                                                            <div key={i} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }} onClick={() => setExpandedImage(imgSrc)}>
-                                                                <img src={imgSrc} alt="Evidence" style={{ display: 'block', maxHeight: '200px', maxWidth: '100%', objectFit: 'cover' }} />
+                                                    <>
+                                                        <div
+                                                            className="quill-content"
+                                                            style={{ color: '#cbd5e1', fontSize: '0.84rem', lineHeight: '1.5', marginBottom: (update.images?.length > 0 || update.image) ? '0.6rem' : '0' }}
+                                                            dangerouslySetInnerHTML={{ __html: update.content }}
+                                                        />
+
+                                                        {(update.images && update.images.length > 0) ? (
+                                                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                                {update.images.map((imgUrl, i) => (
+                                                                    <div key={i} style={{ borderRadius: '6px', overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => setExpandedImage(imgUrl)}>
+                                                                        <img src={imgUrl} alt="" style={{ height: '90px', display: 'block', objectFit: 'cover' }} />
+                                                                    </div>
+                                                                ))}
                                                             </div>
-                                                        ))}
-                                                    </div>
+                                                        ) : update.image ? (
+                                                            <div style={{ borderRadius: '6px', overflow: 'hidden', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)', display: 'inline-block' }} onClick={() => setExpandedImage(update.image)}>
+                                                                <img src={update.image} alt="" style={{ height: '90px', display: 'block', objectFit: 'cover' }} />
+                                                            </div>
+                                                        ) : null}
+                                                    </>
                                                 )}
                                             </div>
-                                        )
+                                        );
                                     })
                                 )}
                             </div>
                         </>
                     )}
-                    {activeTab === 'todo' && (
-                        <IACaseTodoList caseId={id} />
-                    )}
-                    {activeTab === 'sanction_votes' && (
-                        <IASanctionVoting
-                            caseId={id}
-                            currentUser={currentUser}
-                            userIsIAUser={userIsIAUser}
-                            canEditCase={canEditCase}
-                        />
-                    )}
-                    {activeTab === 'board' && (
-                        <CaseWhiteboard caseId={id} isIA={true} caseData={caseData} onGoToUpdate={handleGoToUpdate} />
-                    )}
+
+                    {activeTab === 'todo' && <IACaseTodoList caseId={id} isClosed={!isCaseOpen} />}
+                    {activeTab === 'sanction_votes' && <IASanctionVoting caseId={id} isClosed={!isCaseOpen} />}
+                    {activeTab === 'board' && <CaseWhiteboard caseId={id} storagePrefix="ia_case" onNavigateToUpdate={handleGoToUpdate} />}
                 </div>
 
                 {activeTab !== 'board' && (
-                    <div className="case-sidebar">
-                    <div className="sidebar-section">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>{language === 'es' ? 'Agentes Asignados' : 'Assigned Agents'}</h4>
-                            {info.status === 'Open' && (
-                                <button onClick={openAssignModal} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>{language === 'es' ? 'Gestionar' : 'Manage'}</button>
-                            )}
-                        </div>
-                        <div className="assigned-list">
-                            {assignments.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{language === 'es' ? 'Sin agentes asignados.' : 'No agents assigned.'}</div> : (
-                                assignments.map(user => (
-                                    <div key={user.user_id} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '4px' }}>
-                                        <img src={user.avatar || '/logowebp/anon.webp'} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', marginRight: '10px', border: '1px solid var(--accent-gold)' }} />
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{user.rank}</div>
-                                            <div style={{ fontSize: '0.85rem' }}>{user.full_name}</div>
-                                        </div>
-                                        {info.status === 'Open' ? (
-                                            <select
-                                                value={user.role || 'Investigador'}
-                                                onChange={(e) => handleUpdateRole(user.user_id, e.target.value)}
-                                                style={{ background: 'rgba(0,0,0,0.5)', color: 'var(--accent-gold)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', padding: '2px 5px', fontSize: '0.8rem', cursor: 'pointer', outline: 'none' }}
-                                            >
-                                                <option value="Supervisor" style={{ background: '#1e293b', color: '#fff' }}>Supervisor</option>
-                                                <option value="Encargado" style={{ background: '#1e293b', color: '#fff' }}>Encargado</option>
-                                                <option value="Investigador" style={{ background: '#1e293b', color: '#fff' }}>Investigador</option>
-                                                <option value="Ayudante" style={{ background: '#1e293b', color: '#fff' }}>Ayudante</option>
-                                                <option value="Externo" style={{ background: '#1e293b', color: '#fff' }}>Externo</option>
-                                            </select>
-                                        ) : (
-                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '2px 5px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}>
-                                                {user.role || 'Investigador'}
-                                            </span>
-                                        )}
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="sidebar-section" style={{ marginTop: '2rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>{language === 'es' ? 'Interrogatorios' : 'Interrogations'}</h4>
-                            {info.status === 'Open' && (
-                                <button onClick={loadAvailableInterrogations} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.8rem' }}>{language === 'es' ? '+ Vincular' : '+ Link'}</button>
-                            )}
-                        </div>
-                        <div className="assigned-list">
-                            {(!interrogations || interrogations.length === 0) ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{language === 'es' ? 'Sin interrogatorios vinculados.' : 'No interrogations linked.'}</div> : (
-                                interrogations.map(int => (
-                                    <div key={int.id} style={{ marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '4px', borderLeft: '3px solid #f87171' }}>
-                                        <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>
-                                            <a href={`/internal-affairs/interrogations?id=${int.id}`} onClick={(e) => { e.preventDefault(); navigate(`/internal-affairs/interrogations?search=${encodeURIComponent(int.title)}`); }} style={{ color: 'inherit', textDecoration: 'none' }}>
-                                                {int.title}
-                                            </a>
-                                        </div>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                            {new Date(int.created_at).toLocaleDateString()}
-                                        </div>
-                                        {info.status === 'Open' && (
-                                            <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
-                                                <button onClick={() => handleUnlinkInterrogation(int.id)} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer', opacity: 0.8 }}>
-                                                    {language === 'es' ? 'Desvincular' : 'Unlink'}
-                                                </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                        <circle cx="9" cy="7" r="4" />
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                    </svg>
+                                    <h4 style={{ margin: 0, fontSize: '0.78rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>AGENTES ASIGNADOS</h4>
+                                </div>
+                                {isCaseOpen && userIsIAUser && (
+                                    <button onClick={openAssignModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                        Gestionar
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                {assignments.length === 0 ? (
+                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin agentes asignados</span>
+                                ) : (
+                                    assignments.map(user => (
+                                        <div key={user.user_id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '0.35rem 0.5rem', borderRadius: '6px' }}>
+                                            <img src={user.avatar || '/logowebp/anon.webp'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '6px', objectFit: 'cover' }} />
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {user.rank} {user.full_name}
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-                                ))
-                            )}
+                                            {isCaseOpen && userIsIAUser ? (
+                                                <select
+                                                    value={user.role || 'Investigador'}
+                                                    onChange={(e) => handleUpdateRole(user.user_id, e.target.value)}
+                                                    style={{ background: 'rgba(0,0,0,0.5)', color: '#f87171', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', padding: '1px 4px', fontSize: '0.7rem', cursor: 'pointer' }}
+                                                >
+                                                    <option value="Supervisor" style={{ background: '#1e293b', color: '#fff' }}>Supervisor</option>
+                                                    <option value="Encargado" style={{ background: '#1e293b', color: '#fff' }}>Encargado</option>
+                                                    <option value="Investigador" style={{ background: '#1e293b', color: '#fff' }}>Investigador</option>
+                                                    <option value="Ayudante" style={{ background: '#1e293b', color: '#fff' }}>Ayudante</option>
+                                                    <option value="Externo" style={{ background: '#1e293b', color: '#fff' }}>Externo</option>
+                                                </select>
+                                            ) : (
+                                                <span style={{ fontSize: '0.68rem', color: '#f87171', background: 'rgba(239,68,68,0.15)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 600 }}>
+                                                    {user.role || 'Investigador'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Complaints Section */}
-                    <div className="sidebar-section" style={{ marginTop: '2rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h4 className="section-title" style={{ fontSize: '1.1rem', margin: 0 }}>{language === 'es' ? 'Denuncias Vinculadas' : 'Linked Complaints'}</h4>
-                        </div>
-                        <div className="assigned-list">
-                            {complaints.length === 0 ? <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{language === 'es' ? 'Sin denuncias vinculadas.' : 'No complaints linked.'}</div> : (
-                                complaints.map(comp => (
-                                    <div key={comp.id} style={{ marginBottom: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '4px', borderLeft: '3px solid var(--accent-gold)' }}>
-                                        <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.2rem' }}>
-                                            <span onClick={() => setSelectedComplaint(comp)} style={{ color: 'var(--accent-gold)', cursor: 'pointer', textDecoration: 'underline' }}>
-                                                {comp.motivo}
-                                            </span>
-                                        </div>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
-                                            Por: {comp.denunciante_nombre}
-                                        </div>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                            Fecha: {new Date(comp.created_at).toLocaleDateString()}
-                                        </div>
-                                        {info.status === 'Open' && (
-                                            <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
-                                                <button onClick={() => handleUnlinkComplaint(comp.id)} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer', opacity: 0.8 }}>
-                                                    {language === 'es' ? 'Desvincular' : 'Unlink'}
-                                                </button>
+                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                    </svg>
+                                    <h4 style={{ margin: 0, fontSize: '0.78rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>INTERROGATORIOS</h4>
+                                </div>
+                                {isCaseOpen && userIsIAUser && (
+                                    <button onClick={loadAvailableInterrogations} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                        Vincular
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                {interrogations.length === 0 ? (
+                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin interrogatorios vinculados</span>
+                                ) : (
+                                    interrogations.map(inv => (
+                                        <div key={inv.id} onClick={() => navigate(`/internal-affairs/interrogations?search=${encodeURIComponent(inv.title)}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #14b8a6', position: 'relative' }}>
+                                            <div style={{ paddingRight: '18px' }}>
+                                                <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{inv.title}</div>
+                                                <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{new Date(inv.created_at).toLocaleDateString()}</div>
                                             </div>
-                                        )}
-                                    </div>
-                                ))
-                            )}
+                                            {isCaseOpen && userIsIAUser && (
+                                                <button onClick={(e) => { e.stopPropagation(); handleUnlinkInterrogation(inv.id); }} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '0.9rem', cursor: 'pointer' }} title="Desvincular">
+                                                    ✕
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
+                                        <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+                                    </svg>
+                                    <h4 style={{ margin: 0, fontSize: '0.78rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>DENUNCIAS VINCULADAS</h4>
+                                </div>
+                                {isCaseOpen && userIsIAUser && (
+                                    <button onClick={openLinkComplaintModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                        Vincular
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                {complaints.length === 0 ? (
+                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin denuncias vinculadas</span>
+                                ) : (
+                                    complaints.map(comp => (
+                                        <div key={comp.id} onClick={() => setSelectedComplaint(comp)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #38bdf8', position: 'relative' }}>
+                                            <div style={{ paddingRight: '18px' }}>
+                                                <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#38bdf8', textDecoration: 'underline' }}>{comp.motivo || comp.titulo}</div>
+                                                <div style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>Por: {comp.denunciante_nombre}</div>
+                                                <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{new Date(comp.created_at).toLocaleDateString()}</div>
+                                            </div>
+                                            {isCaseOpen && userIsIAUser && (
+                                                <button onClick={(e) => { e.stopPropagation(); handleUnlinkComplaint(comp.id); }} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '0.9rem', cursor: 'pointer' }} title="Desvincular">
+                                                    ✕
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
                 )}
             </div>
 
-            {/* Assignments Modal */}
             {showAssignModal && (
-                <div className="cropper-modal-overlay">
-                    <div className="cropper-modal-content" style={{ maxWidth: '400px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-                        <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>{language === 'es' ? 'Gestionar Asignación' : 'Manage Assignment'}</h3>
-                        <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', border: '1px solid var(--glass-border)', borderRadius: '4px' }}>
-                            {users.map(u => (
-                                <div key={u.id}
-                                    onClick={() => toggleAssignmentSelection(!selectedAssignments.includes(u.id), u.id)}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', padding: '0.8rem',
-                                        cursor: 'pointer', background: selectedAssignments.includes(u.id) ? 'rgba(212, 175, 55, 0.2)' : 'transparent',
-                                        borderBottom: '1px solid rgba(255,255,255,0.05)'
-                                    }}>
-                                    <input type="checkbox" checked={selectedAssignments.includes(u.id)} readOnly style={{ marginRight: '10px', pointerEvents: 'none' }} />
-                                    <img src={u.profile_image || '/logowebp/anon.webp'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '10px' }} />
-                                    <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
-                                </div>
-                            ))}
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '420px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowAssignModal(false)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">{language === 'es' ? 'Gestionar Asignación de IA' : 'Manage IA Assignment'}</span>
+                            <div style={{ width: 52 }} />
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                            <button className="login-button btn-secondary" onClick={() => setShowAssignModal(false)} style={{ width: 'auto' }}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
-                            <button className="login-button" onClick={handleUpdateAssignments} style={{ width: 'auto' }}>{language === 'es' ? 'Guardar Cambios' : 'Save Changes'}</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Link Interrogation Modal */}
-            {showLinkModal && (
-                <div className="cropper-modal-overlay">
-                    <div className="cropper-modal-content" style={{ maxWidth: '500px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-                        <h3 style={{ marginBottom: '1rem', color: '#f87171' }}>{language === 'es' ? 'Vincular Interrogatorio' : 'Link Interrogation'}</h3>
-                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>{language === 'es' ? 'Seleccione un interrogatorio suelto para adjuntar a este expediente de caso.' : 'Select a loose interrogation to attach to this case file.'}</p>
-
-                        <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', border: '1px solid var(--glass-border)', borderRadius: '4px' }}>
-                            {availableInterrogations.length === 0 ? (
-                                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>{language === 'es' ? 'No se encontraron interrogatorios sin vincular.' : 'No unlinked interrogations found.'}</div>
-                            ) : (
-                                availableInterrogations.map(int => (
-                                    <div key={int.id}
-                                        onClick={() => handleLinkInterrogation(int.id)}
+                        <div className="mac-modal-body">
+                            <div style={{ maxHeight: '220px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '1rem' }}>
+                                {users.map(u => (
+                                    <div
+                                        key={u.id}
+                                        onClick={() => toggleAssignmentSelection(!selectedAssignments.includes(u.id), u.id)}
                                         style={{
-                                            padding: '1rem',
-                                            cursor: 'pointer',
-                                            borderBottom: '1px solid rgba(255,255,255,0.05)',
-                                            background: 'rgba(0,0,0,0.2)',
-                                            transition: 'background 0.2s'
+                                            display: 'flex', alignItems: 'center', padding: '0.5rem 0.75rem',
+                                            cursor: 'pointer', background: selectedAssignments.includes(u.id) ? 'rgba(239, 68, 68, 0.18)' : 'transparent',
+                                            borderBottom: '1px solid rgba(255,255,255,0.05)'
                                         }}
-                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.2)'}
                                     >
-                                        <div style={{ fontWeight: 'bold' }}>{int.title}</div>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{language === 'es' ? 'Sujeto: ' : 'Subject: '}{int.subjects}</div>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{language === 'es' ? 'Fecha: ' : 'Date: '}{new Date(int.created_at).toLocaleDateString()}</div>
+                                        <input type="checkbox" checked={selectedAssignments.includes(u.id)} readOnly style={{ marginRight: '10px', pointerEvents: 'none' }} />
+                                        <img src={u.profile_image || '/logowebp/anon.webp'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '8px', objectFit: 'cover' }} />
+                                        <span style={{ fontSize: '0.85rem', color: '#fff' }}>{u.rango} {u.nombre} {u.apellido}</span>
                                     </div>
-                                ))
-                            )}
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <button className="login-button btn-secondary" onClick={() => setShowLinkModal(false)} style={{ width: 'auto' }}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                                ))}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                <button className="mac-btn mac-btn-secondary" onClick={() => setShowAssignModal(false)}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                                <button className="mac-btn mac-btn-primary" onClick={handleUpdateAssignments}>{language === 'es' ? 'Guardar Cambios' : 'Save Changes'}</button>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Modal: View Complaint Details */}
-            {selectedComplaint && (
-                <div className="cropper-modal-overlay" onClick={() => setSelectedComplaint(null)}>
-                    <div className="cropper-modal-content" style={{ maxWidth: '600px', width: '90%', textAlign: 'left' }} onClick={e => e.stopPropagation()}>
-                        <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem', color: 'var(--accent-gold)', fontSize: '1.3rem' }}>
-                            Detalle de Denuncia Confidencial
-                        </h3>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', margin: '1rem 0' }}>
-                            <div>
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Denunciante:</span>
-                                <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', margin: '0.1rem 0 0 0', fontWeight: 'bold' }}>{selectedComplaint.denunciante_nombre}</p>
-                            </div>
-                            <div>
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Nº Teléfono:</span>
-                                <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', margin: '0.1rem 0 0 0', fontWeight: 'bold' }}>{selectedComplaint.denunciante_telefono}</p>
-                            </div>
-                            <div>
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Denunciado:</span>
-                                <p style={{ color: '#ef4444', fontSize: '0.95rem', margin: '0.1rem 0 0 0', fontWeight: 'bold' }}>{selectedComplaint.denunciado_nombre_placa}</p>
-                            </div>
-                            <div>
-                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Fecha de los hechos:</span>
-                                <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', margin: '0.1rem 0 0 0' }}>{selectedComplaint.fecha_hechos}</p>
-                            </div>
-                        </div>
-
-                        <div style={{ margin: '1rem 0' }}>
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Motivo de la denuncia:</span>
-                            <p style={{ color: 'var(--text-primary)', fontSize: '1.05rem', margin: '0.1rem 0 0 0', fontWeight: 'bold' }}>{selectedComplaint.motivo}</p>
-                        </div>
-
-                        <div style={{ margin: '1rem 0', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Declaración de los hechos:</span>
-                            <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', margin: '0.3rem 0 0 0', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-                                {selectedComplaint.declaracion}
-                            </p>
-                        </div>
-
-                        <div style={{ margin: '1rem 0' }}>
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: '600' }}>Pruebas aportadas:</span>
-                            {selectedComplaint.pruebas ? (
-                                <div style={{ marginTop: '0.5rem', whiteSpace: 'pre-wrap', fontSize: '0.9rem' }}>
-                                    {selectedComplaint.pruebas.includes('Imagen adjunta:') ? (
-                                        (() => {
-                                            const parts = selectedComplaint.pruebas.split('Imagen adjunta:');
-                                            const linkPart = parts[0].replace('Enlace: ', '').trim();
-                                            const imagePart = parts[1].trim();
-                                            return (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                                                    {linkPart && (
-                                                        <div>
-                                                            <a href={linkPart} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-gold)', textDecoration: 'underline' }}>{linkPart}</a>
-                                                        </div>
-                                                    )}
-                                                    {imagePart && (
-                                                        <div>
-                                                            <img src={imagePart} alt="Evidencia" style={{ maxWidth: '100%', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }} />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })()
-                                    ) : (
-                                        selectedComplaint.pruebas.startsWith('data:image') ? (
-                                            <img src={selectedComplaint.pruebas} alt="Evidencia" style={{ maxWidth: '100%', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }} />
-                                        ) : (
-                                            <a href={selectedComplaint.pruebas} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-gold)', textDecoration: 'underline' }}>{selectedComplaint.pruebas}</a>
-                                        )
-                                    )}
-                                </div>
-                            ) : (
-                                <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic', margin: 0, fontSize: '0.9rem' }}>Ninguna prueba adjunta</p>
-                            )}
-                        </div>
-
-                        <div className="cropper-actions" style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
-                            <button className="login-button btn-secondary" onClick={() => setSelectedComplaint(null)}>
-                                Cerrar Detalles
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Privacy Management Modal */}
             {showPrivacyModal && (
-                <div className="cropper-modal-overlay">
-                    <div className="cropper-modal-content" style={{ maxWidth: '480px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
-                        <h3 style={{ marginBottom: '1rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            🔒 {language === 'es' ? 'Ocultar Caso / Restringir Visibilidad' : 'Hide Case / Restrict Visibility'}
-                        </h3>
-
-                        <div style={{ marginBottom: '1rem', padding: '0.8rem', background: 'rgba(248, 113, 113, 0.1)', borderRadius: '6px', border: '1px solid rgba(248, 113, 113, 0.3)' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '0.95rem', color: '#f87171', fontWeight: 'bold' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={isHiddenFromAll}
-                                    onChange={e => setIsHiddenFromAll(e.target.checked)}
-                                    style={{ marginRight: '10px' }}
-                                />
-                                {language === 'es' ? 'Ocultar caso a todos los miembros de IA' : 'Hide case from all IA members'}
-                            </label>
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '480px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowPrivacyModal(false)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">{language === 'es' ? 'Ajustes de Privacidad' : 'Privacy Settings'}</span>
+                            <div style={{ width: 52 }} />
                         </div>
+                        <div className="mac-modal-body">
+                            <div style={{ marginBottom: '1rem', padding: '0.8rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '0.85rem', color: '#f87171', fontWeight: 700 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isHiddenFromAll}
+                                        onChange={e => setIsHiddenFromAll(e.target.checked)}
+                                        style={{ marginRight: '10px' }}
+                                    />
+                                    {language === 'es' ? 'Ocultar caso a todos los miembros de IA' : 'Hide case from all IA members'}
+                                </label>
+                            </div>
 
-                        {!isHiddenFromAll && (
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                                    {language === 'es' ? 'Seleccione los miembros de IA a los que desea ocultar este caso:' : 'Select IA members to hide this case from:'}
-                                </p>
-                                <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'rgba(0,0,0,0.2)' }}>
-                                    {users.length === 0 ? (
-                                        <div style={{ padding: '1rem', color: '#aaa' }}>{language === 'es' ? 'Cargando agentes...' : 'Loading agents...'}</div>
-                                    ) : (
-                                        users.map(u => (
-                                            <div key={u.id}
+                            {!isHiddenFromAll && (
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <span style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '0.4rem' }}>
+                                        {language === 'es' ? 'Seleccione los miembros a los que desea ocultar este caso:' : 'Select members to hide this case from:'}
+                                    </span>
+                                    <div style={{ maxHeight: '180px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                        {users.map(u => (
+                                            <div
+                                                key={u.id}
                                                 onClick={() => togglePrivacyHiddenUser(u.id)}
                                                 style={{
-                                                    display: 'flex', alignItems: 'center', padding: '0.8rem',
-                                                    cursor: 'pointer', background: selectedHiddenUsers.includes(u.id) ? 'rgba(248, 113, 113, 0.2)' : 'transparent',
+                                                    display: 'flex', alignItems: 'center', padding: '0.5rem 0.75rem',
+                                                    cursor: 'pointer', background: selectedHiddenUsers.includes(u.id) ? 'rgba(239, 68, 68, 0.2)' : 'transparent',
                                                     borderBottom: '1px solid rgba(255,255,255,0.05)'
-                                                }}>
+                                                }}
+                                            >
                                                 <input type="checkbox" checked={selectedHiddenUsers.includes(u.id)} readOnly style={{ marginRight: '10px', pointerEvents: 'none' }} />
-                                                <img src={u.profile_image || '/logowebp/anon.webp'} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', marginRight: '10px' }} />
-                                                <span style={{ fontSize: '0.9rem' }}>{u.rango} {u.nombre} {u.apellido}</span>
+                                                <img src={u.profile_image || '/logowebp/anon.webp'} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%', marginRight: '8px', objectFit: 'cover' }} />
+                                                <span style={{ fontSize: '0.85rem', color: '#fff' }}>{u.rango} {u.nombre} {u.apellido}</span>
                                             </div>
-                                        ))
-                                    )}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
-                            <button className="login-button btn-secondary" onClick={() => setShowPrivacyModal(false)} style={{ width: 'auto' }}>
-                                {language === 'es' ? 'Cancelar' : 'Cancel'}
-                            </button>
-                            <button className="login-button" onClick={handleSavePrivacy} disabled={savingPrivacy} style={{ width: 'auto', backgroundColor: '#7f1d1d' }}>
-                                {savingPrivacy ? (language === 'es' ? 'Guardando...' : 'Saving...') : (language === 'es' ? 'Guardar Cambios' : 'Save Changes')}
-                            </button>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                <button className="mac-btn mac-btn-secondary" onClick={() => setShowPrivacyModal(false)}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                                <button className="mac-btn mac-btn-primary" onClick={handleSavePrivacy} disabled={savingPrivacy} style={{ background: 'rgba(239, 68, 68, 0.3)', borderColor: 'rgba(239, 68, 68, 0.6)', color: '#f87171' }}>
+                                    {savingPrivacy ? (language === 'es' ? 'Guardando...' : 'Saving...') : (language === 'es' ? 'Guardar Cambios' : 'Save Changes')}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* FULL SCREEN IMAGE VIEWER */}
+            {showLinkModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '480px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowLinkModal(false)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">{language === 'es' ? 'Vincular Interrogatorio de IA' : 'Link IA Interrogation'}</span>
+                            <div style={{ width: 52 }} />
+                        </div>
+                        <div className="mac-modal-body">
+                            <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
+                                {language === 'es' ? 'Seleccione un interrogatorio registrado para asociarlo a este expediente.' : 'Select an interrogation to attach to this case.'}
+                            </p>
+                            <div style={{ maxHeight: '220px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '1rem' }}>
+                                {availableInterrogations.length === 0 ? (
+                                    <div style={{ padding: '1.5rem', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+                                        {language === 'es' ? 'No se encontraron interrogatorios disponibles para vincular.' : 'No available interrogations found.'}
+                                    </div>
+                                ) : (
+                                    availableInterrogations.map(int => (
+                                        <div
+                                            key={int.id}
+                                            onClick={() => handleLinkInterrogation(int.id)}
+                                            style={{
+                                                padding: '0.65rem 0.85rem',
+                                                cursor: 'pointer',
+                                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                                background: 'transparent',
+                                                transition: 'background 0.2s'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#ffffff' }}>{int.title}</div>
+                                            <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>{language === 'es' ? 'Sujeto: ' : 'Subject: '}{int.subjects}</div>
+                                            <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{new Date(int.created_at).toLocaleDateString()}</div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <button className="mac-btn mac-btn-secondary" onClick={() => setShowLinkModal(false)}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showLinkComplaintModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '520px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowLinkComplaintModal(false)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">{language === 'es' ? 'Vincular Denuncia de IA' : 'Link IA Complaint'}</span>
+                            <div style={{ width: 52 }} />
+                        </div>
+                        <div className="mac-modal-body">
+                            <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
+                                {language === 'es' ? 'Seleccione una denuncia entrante o no asignada para vincularla a este caso.' : 'Select an incoming complaint to attach to this case.'}
+                            </p>
+                            <div style={{ maxHeight: '240px', overflowY: 'auto', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '1rem' }}>
+                                {availableComplaints.length === 0 ? (
+                                    <div style={{ padding: '1.5rem', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+                                        {language === 'es' ? 'No se encontraron denuncias disponibles para vincular.' : 'No available complaints found.'}
+                                    </div>
+                                ) : (
+                                    availableComplaints.map(comp => (
+                                        <div
+                                            key={comp.id}
+                                            onClick={() => handleLinkComplaint(comp.id)}
+                                            style={{
+                                                padding: '0.65rem 0.85rem',
+                                                cursor: 'pointer',
+                                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                                background: 'transparent',
+                                                transition: 'background 0.2s',
+                                                borderLeft: '3px solid #38bdf8'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#38bdf8' }}>{comp.motivo || comp.titulo || 'Denuncia sin título'}</div>
+                                            <div style={{ fontSize: '0.78rem', color: '#cbd5e1' }}>Por: {comp.denunciante_nombre || 'Anónimo'}</div>
+                                            <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Fecha: {new Date(comp.created_at).toLocaleDateString()}</div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <button className="mac-btn mac-btn-secondary" onClick={() => setShowLinkComplaintModal(false)}>{language === 'es' ? 'Cancelar' : 'Cancel'}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {selectedComplaint && (
+                <div className="mac-modal-overlay" onClick={() => setSelectedComplaint(null)}>
+                    <div className="mac-modal-card" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setSelectedComplaint(null)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">{language === 'es' ? 'Detalle de Denuncia Confidencial' : 'Confidential Complaint Details'}</span>
+                            <div style={{ width: 52 }} />
+                        </div>
+                        <div className="mac-modal-body">
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginBottom: '0.85rem' }}>
+                                <div>
+                                    <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Denunciante:</span>
+                                    <p style={{ color: '#ffffff', fontSize: '0.9rem', margin: '0.1rem 0 0 0', fontWeight: 700 }}>{selectedComplaint.denunciante_nombre}</p>
+                                </div>
+                                <div>
+                                    <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Nº Teléfono:</span>
+                                    <p style={{ color: '#ffffff', fontSize: '0.9rem', margin: '0.1rem 0 0 0', fontWeight: 700 }}>{selectedComplaint.denunciante_telefono || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Denunciado:</span>
+                                    <p style={{ color: '#f87171', fontSize: '0.9rem', margin: '0.1rem 0 0 0', fontWeight: 700 }}>{selectedComplaint.denunciado_nombre_placa || 'Desconocido'}</p>
+                                </div>
+                                <div>
+                                    <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Fecha de los Hechos:</span>
+                                    <p style={{ color: '#ffffff', fontSize: '0.9rem', margin: '0.1rem 0 0 0' }}>{selectedComplaint.fecha_hechos || 'N/A'}</p>
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: '0.85rem' }}>
+                                <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Motivo de la Denuncia:</span>
+                                <p style={{ color: '#38bdf8', fontSize: '0.95rem', margin: '0.1rem 0 0 0', fontWeight: 700 }}>{selectedComplaint.motivo || selectedComplaint.titulo}</p>
+                            </div>
+
+                            <div style={{ marginBottom: '0.85rem', background: 'rgba(0,0,0,0.3)', padding: '0.85rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Declaración de los Hechos:</span>
+                                <p style={{ color: '#cbd5e1', fontSize: '0.85rem', margin: '0.3rem 0 0 0', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                                    {selectedComplaint.declaracion || selectedComplaint.descripcion || 'Sin declaración registrada'}
+                                </p>
+                            </div>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Pruebas Aportadas:</span>
+                                {selectedComplaint.pruebas ? (
+                                    <div style={{ marginTop: '0.4rem', whiteSpace: 'pre-wrap', fontSize: '0.85rem' }}>
+                                        {selectedComplaint.pruebas.includes('Imagen adjunta:') ? (
+                                            (() => {
+                                                const parts = selectedComplaint.pruebas.split('Imagen adjunta:');
+                                                const linkPart = parts[0].replace('Enlace: ', '').trim();
+                                                const imagePart = parts[1].trim();
+                                                return (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                                        {linkPart && (
+                                                            <div>
+                                                                <a href={linkPart} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'underline' }}>{linkPart}</a>
+                                                            </div>
+                                                        )}
+                                                        {imagePart && (
+                                                            <div>
+                                                                <img src={imagePart} alt="Evidencia" style={{ maxWidth: '100%', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()
+                                        ) : (
+                                            selectedComplaint.pruebas.startsWith('data:image') ? (
+                                                <img src={selectedComplaint.pruebas} alt="Evidencia" style={{ maxWidth: '100%', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                            ) : (
+                                                <a href={selectedComplaint.pruebas} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', textDecoration: 'underline' }}>{selectedComplaint.pruebas}</a>
+                                            )
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p style={{ color: '#64748b', fontStyle: 'italic', margin: '0.2rem 0 0 0', fontSize: '0.82rem' }}>Ninguna prueba adjunta</p>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                                <button className="mac-btn mac-btn-secondary" onClick={() => setSelectedComplaint(null)}>
+                                    {language === 'es' ? 'Cerrar Detalles' : 'Close Details'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {expandedImage && (
-                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0, 0, 0, 0.95)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }} onClick={() => setExpandedImage(null)}>
-                    <img src={expandedImage} alt="Expanded" style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', borderRadius: '4px', boxShadow: '0 0 20px rgba(0,0,0,0.5)' }} />
-                    <button onClick={() => setExpandedImage(null)} style={{ position: 'absolute', top: '20px', right: '30px', background: 'none', border: 'none', color: '#fff', fontSize: '2rem', cursor: 'pointer' }}>&times;</button>
+                <div className="mac-modal-overlay" style={{ zIndex: 9999, cursor: 'zoom-out' }} onClick={() => setExpandedImage(null)}>
+                    <img src={expandedImage} alt="Expanded" style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: '8px' }} />
                 </div>
             )}
         </div>
