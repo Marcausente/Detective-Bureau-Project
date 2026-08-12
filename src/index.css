@@ -54,6 +54,246 @@ body.theme-lssd {
     #08090d !important;
 }
 
+/* ==========================================
+   Multi-Theme System (Gris, Verde, Negro, Azul, Claro)
+   ========================================== */
+
+/* 1. Theme Gris (Default macOS Dark Slate Graphite) */
+body.theme-gris .layout-content {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(59, 130, 246, 0.1), transparent 48%),
+    radial-gradient(circle at 88% 12%, rgba(139, 92, 246, 0.08), transparent 48%),
+    radial-gradient(circle at 50% 80%, rgba(16, 185, 129, 0.05), transparent 60%),
+    #08090d !important;
+}
+
+/* 2. Theme Verde (LSSD Emerald Green - User Screenshot Style) */
+body.theme-lssd .layout-content,
+body.theme-verde .layout-content {
+  background:
+    radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.18), transparent 50%),
+    radial-gradient(circle at 85% 20%, rgba(212, 175, 55, 0.08), transparent 50%),
+    radial-gradient(circle at 50% 85%, rgba(59, 130, 246, 0.05), transparent 60%),
+    #040d07 !important;
+}
+
+body.theme-lssd .mac-topbar-header,
+body.theme-verde .mac-topbar-header {
+  background: rgba(4, 18, 11, 0.9) !important;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.2) !important;
+}
+
+body.theme-lssd .mac-nav-dock,
+body.theme-verde .mac-nav-dock {
+  background: rgba(2, 14, 8, 0.65) !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+}
+
+body.theme-lssd .mac-dock-item.active,
+body.theme-verde .mac-dock-item.active {
+  background: rgba(16, 185, 129, 0.28) !important;
+  border: 1px solid rgba(16, 185, 129, 0.5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.35) !important;
+}
+
+body.theme-lssd .mac-command-banner,
+body.theme-lssd .mac-widget-card,
+body.theme-lssd .mac-ann-card,
+body.theme-lssd .mac-profile-card,
+body.theme-lssd .mac-profile-panel,
+body.theme-lssd .mac-doc-card,
+body.theme-verde .mac-command-banner,
+body.theme-verde .mac-widget-card,
+body.theme-verde .mac-ann-card,
+body.theme-verde .mac-profile-card,
+body.theme-verde .mac-profile-panel,
+body.theme-verde .mac-doc-card {
+  background: rgba(6, 22, 14, 0.82) !important;
+  border: 1px solid rgba(16, 185, 129, 0.22) !important;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(16, 185, 129, 0.2) !important;
+}
+
+body.theme-lssd .mac-btn-primary,
+body.theme-verde .mac-btn-primary {
+  background: linear-gradient(135deg, #10b981 0%, #047857 100%) !important;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+body.theme-lssd .mac-status-dot,
+body.theme-verde .mac-status-dot {
+  background: #34d399 !important;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.8) !important;
+}
+
+/* 3. Theme Negro (OLED Pitch Black) */
+body.theme-negro .layout-content {
+  background: #020204 !important;
+}
+
+body.theme-negro .mac-topbar-header {
+  background: rgba(8, 8, 12, 0.95) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+body.theme-negro .mac-nav-dock {
+  background: rgba(12, 12, 16, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+}
+
+body.theme-negro .mac-dock-item.active {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.2) !important;
+}
+
+body.theme-negro .mac-command-banner,
+body.theme-negro .mac-widget-card,
+body.theme-negro .mac-ann-card,
+body.theme-negro .mac-profile-card,
+body.theme-negro .mac-profile-panel,
+body.theme-negro .mac-doc-card {
+  background: rgba(10, 10, 15, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+body.theme-negro .mac-btn-primary {
+  background: linear-gradient(135deg, #38bdf8 0%, #1d4ed8 100%) !important;
+  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.4) !important;
+}
+
+/* 4. Theme Azul (SAPD Royal Navy Sapphire) */
+body.theme-azul .layout-content {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.2), transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(96, 165, 250, 0.14), transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(147, 51, 234, 0.1), transparent 60%),
+    #040a16 !important;
+}
+
+body.theme-azul .mac-topbar-header {
+  background: rgba(6, 16, 36, 0.92) !important;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.28) !important;
+}
+
+body.theme-azul .mac-nav-dock {
+  background: rgba(4, 12, 28, 0.75) !important;
+  border: 1px solid rgba(59, 130, 246, 0.32) !important;
+}
+
+body.theme-azul .mac-dock-item.active {
+  background: rgba(37, 99, 235, 0.35) !important;
+  border: 1px solid rgba(59, 130, 246, 0.55) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(37, 99, 235, 0.45) !important;
+}
+
+body.theme-azul .mac-command-banner,
+body.theme-azul .mac-widget-card,
+body.theme-azul .mac-ann-card,
+body.theme-azul .mac-profile-card,
+body.theme-azul .mac-profile-panel,
+body.theme-azul .mac-doc-card {
+  background: rgba(8, 20, 42, 0.88) !important;
+  border: 1px solid rgba(59, 130, 246, 0.25) !important;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(59, 130, 246, 0.2) !important;
+}
+
+body.theme-azul .mac-btn-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.45) !important;
+}
+
+/* 5. Theme Claro (macOS Light Mode) */
+body.theme-claro {
+  color: #0f172a !important;
+}
+
+body.theme-claro .layout-content {
+  background:
+    radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.08), transparent 50%),
+    radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.06), transparent 50%),
+    #f8fafc !important;
+}
+
+body.theme-claro .mac-topbar-header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-claro .mac-topbar-brand {
+  color: #0f172a !important;
+}
+
+body.theme-claro .mac-nav-dock {
+  background: rgba(226, 232, 240, 0.85) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+body.theme-claro .mac-dock-item {
+  color: #475569 !important;
+}
+
+body.theme-claro .mac-dock-item.active,
+body.theme-claro .mac-dock-item:hover {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+body.theme-claro .mac-command-banner,
+body.theme-claro .mac-widget-card,
+body.theme-claro .mac-ann-card,
+body.theme-claro .mac-profile-card,
+body.theme-claro .mac-profile-panel,
+body.theme-claro .mac-doc-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05) !important;
+  color: #0f172a !important;
+}
+
+body.theme-claro .mac-title-text,
+body.theme-claro .mac-section-title,
+body.theme-claro .mac-profile-name,
+body.theme-claro .mac-profile-section-title,
+body.theme-claro .mac-widget-val,
+body.theme-claro .mac-doc-card-title {
+  color: #0f172a !important;
+  background: none !important;
+  -webkit-text-fill-color: initial !important;
+}
+
+body.theme-claro .mac-subtitle-text,
+body.theme-claro .mac-doc-card-desc,
+body.theme-claro .mac-widget-sub,
+body.theme-claro .mac-form-label {
+  color: #64748b !important;
+}
+
+body.theme-claro .mac-form-input,
+body.theme-claro .mac-form-textarea {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+  color: #0f172a !important;
+}
+
+body.theme-claro .mac-spotlight-trigger-btn {
+  background: rgba(0, 0, 0, 0.06) !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: #475569 !important;
+}
+
+body.theme-claro .mac-spotlight-key-badge {
+  background: rgba(0, 0, 0, 0.08) !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+  color: #0f172a !important;
+}
+
 body.theme-lssd .layout-content {
   background:
     radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.12), transparent 50%),

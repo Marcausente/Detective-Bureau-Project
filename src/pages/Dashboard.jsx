@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { makeQuillModules, quillFormats } from '../utils/quillConfig';
@@ -89,6 +90,7 @@ function Dashboard() {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const { t } = useLanguage();
+    const { isLSSD } = useTheme();
 
     const [activeTab, setActiveTab] = useState('all');
 
@@ -365,8 +367,6 @@ function Dashboard() {
     const canPost = user && ['Detective', 'Coordinador', 'Comisionado', 'Administrador'].includes(user.rol);
     const canPin = user && ['Coordinador', 'Comisionado', 'Administrador'].includes(user.rol);
     const canCreateEvent = user && ['Detective', 'Coordinador', 'Comisionado', 'Administrador', 'DOJ General', 'Fiscal General', 'Juez', 'Juez Supremo'].includes(user.rol);
-
-    const isLSSD = document.body.classList.contains('theme-lssd');
 
     const pinnedCount = announcements.filter(a => a.pinned).length;
     const myCount = announcements.filter(a => a.cur_user_can_delete).length;

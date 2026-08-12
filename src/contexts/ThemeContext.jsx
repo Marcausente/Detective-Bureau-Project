@@ -4,7 +4,10 @@ import { supabase } from '../supabaseClient';
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-    const [theme, setTheme] = useState('LSPD'); // Default theme
+    const [theme, setTheme] = useState('LSPD'); // Department theme
+    const [userTheme, setUserThemeState] = useState(() => {
+        return localStorage.getItem('user_selected_theme') || 'gris';
+    });
     const [loadingTheme, setLoadingTheme] = useState(true);
 
     useEffect(() => {
@@ -30,7 +33,6 @@ export function ThemeProvider({ children }) {
 
         fetchTheme();
 
-        // Subscribe to real-time changes
         const subscription = supabase
             .channel('public:app_settings')
             .on(
@@ -50,25 +52,38 @@ export function ThemeProvider({ children }) {
         };
     }, []);
 
-    // Apply CSS class to body and update favicon/title when theme changes
+    const setUserTheme = (newTheme) => {
+        setUserThemeState(newTheme);
+        localStorage.setItem('user_selected_theme', newTheme);
+    };
+
+    // Apply CSS classes to body
     useEffect(() => {
         const favicon = document.querySelector("link[rel~='icon']");
-        if (theme === 'LSSD') {
-            document.body.classList.add('theme-lssd');
+        if (theme === 'LSSD' || userTheme === 'verde') {
             document.title = "Sheriff Criminal Unit Bureau";
             if (favicon) favicon.href = '/logowebp/SCUB.webp';
         } else {
-            document.body.classList.remove('theme-lssd');
             document.title = "Detective Bureau";
             if (favicon) favicon.href = '/logowebp/dblogo.webp';
         }
-    }, [theme]);
+
+        // Apply active theme class to document body
+        document.body.classList.remove('theme-gris', 'theme-lssd', 'theme-verde', 'theme-negro', 'theme-azul', 'theme-claro');
+        
+        if (userTheme === 'verde') {
+            document.body.classList.add('theme-lssd');
+        } else if (userTheme && userTheme !== 'gris') {
+            document.body.classList.add(`theme-${userTheme}`);
+        } else {
+            document.body.classList.add('theme-gris');
+        }
+    }, [theme, userTheme]);
 
     const changeTheme = async (newTheme) => {
         try {
             const { error } = await supabase.rpc('update_app_theme', { p_theme: newTheme });
             if (error) throw error;
-            // The real-time subscription will update the local state for everyone, including the caller.
         } catch (err) {
             console.error("Error updating theme:", err);
             throw err;
@@ -76,7 +91,14 @@ export function ThemeProvider({ children }) {
     };
 
     return (
-        <ThemeContext.Provider value={{ theme, changeTheme, loadingTheme, isLSSD: theme === 'LSSD' }}>
+        <ThemeContext.Provider value={{
+            theme,
+            changeTheme,
+            loadingTheme,
+            isLSSD: theme === 'LSSD' || userTheme === 'verde',
+            userTheme,
+            setUserTheme
+        }}>
             {children}
         </ThemeContext.Provider>
     );
