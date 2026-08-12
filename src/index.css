@@ -5998,6 +5998,139 @@ body.theme-azul .mac-doc-tab.active {
   }
 }
 
+/* ==========================================
+   macOS Modal Overlay & Cards
+   ========================================== */
+
+.mac-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+.mac-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+body.theme-lssd .mac-modal-card,
+body.theme-verde .mac-modal-card {
+  background: #08120c !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.mac-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  background: rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mac-modal-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.mac-modal-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.mac-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+/* ==========================================
+   macOS Premium Custom Select Elements
+   ========================================== */
+
+select.mac-form-input,
+.mac-form-select,
+.form-input.custom-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: rgba(15, 23, 42, 0.9) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2334d399' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.85rem center !important;
+  background-size: 14px !important;
+  padding-right: 2.5rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 10px !important;
+  color: #ffffff !important;
+  font-size: 0.85rem !important;
+  font-family: inherit !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  outline: none !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+select.mac-form-input:hover,
+.mac-form-select:hover,
+.form-input.custom-select:hover {
+  border-color: rgba(52, 211, 153, 0.4) !important;
+  background-color: rgba(15, 23, 42, 0.98) !important;
+}
+
+select.mac-form-input:focus,
+.mac-form-select:focus,
+.form-input.custom-select:focus {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
+}
+
+body.theme-lssd select.mac-form-input,
+body.theme-verde select.mac-form-input {
+  background-color: rgba(8, 18, 12, 0.95) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+select.mac-form-input option,
+.mac-form-select option,
+.form-input.custom-select option {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  padding: 10px !important;
+  font-weight: 500 !important;
+}
+
+body.theme-lssd select.mac-form-input option,
+body.theme-verde select.mac-form-input option {
+  background-color: #08120c !important;
+  color: #ffffff !important;
+}
+
 
 
 

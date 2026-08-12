@@ -34,16 +34,22 @@ function CaseDetail() {
     const [users, setUsers] = useState([]);
     const [availableInterrogations, setAvailableInterrogations] = useState([]);
     const [availableIncidents, setAvailableIncidents] = useState([]);
+    const [availableOutings, setAvailableOutings] = useState([]);
+    const [availableComplaints, setAvailableComplaints] = useState([]);
 
     // Modals Visibility
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [showLinkModal, setShowLinkModal] = useState(false);
     const [showLinkIncidentModal, setShowLinkIncidentModal] = useState(false);
+    const [showLinkOutingModal, setShowLinkOutingModal] = useState(false);
+    const [showLinkComplaintModal, setShowLinkComplaintModal] = useState(false);
 
     // Temp Selection State
     const [selectedAssignments, setSelectedAssignments] = useState([]);
     const [selectedInterrogation, setSelectedInterrogation] = useState('');
     const [selectedIncident, setSelectedIncident] = useState('');
+    const [selectedOuting, setSelectedOuting] = useState('');
+    const [selectedComplaint, setSelectedComplaint] = useState('');
 
     // Edit/Delete Permissions State
     const [currentUser, setCurrentUser] = useState(null);
@@ -115,19 +121,71 @@ function CaseDetail() {
     };
 
     const openLinkModal = async () => {
-        const { data, error } = await supabase.rpc('get_available_interrogations_to_link');
-        if (error) console.error(error);
-        else setAvailableInterrogations(data || []);
+        try {
+            const { data, error } = await supabase.rpc('get_available_interrogations_to_link');
+            if (!error && data) {
+                setAvailableInterrogations(data);
+            } else {
+                const { data: invData } = await supabase.from('interrogations').select('id, title, created_at').is('case_id', null).order('created_at', { ascending: false });
+                setAvailableInterrogations(invData || []);
+            }
+        } catch (err) {
+            console.error(err);
+            setAvailableInterrogations([]);
+        }
         setSelectedInterrogation('');
         setShowLinkModal(true);
     };
 
     const openLinkIncidentModal = async () => {
-        const { data, error } = await supabase.rpc('get_available_incidents_to_link', { p_case_id: id });
-        if (error) console.error(error);
-        else setAvailableIncidents(data || []);
+        try {
+            const { data, error } = await supabase.rpc('get_available_incidents_to_link', { p_case_id: id });
+            if (!error && data) {
+                setAvailableIncidents(data);
+            } else {
+                const { data: incData } = await supabase.from('incidents').select('id, title, occurred_at').is('case_id', null).order('occurred_at', { ascending: false });
+                setAvailableIncidents(incData || []);
+            }
+        } catch (err) {
+            console.error(err);
+            setAvailableIncidents([]);
+        }
         setSelectedIncident('');
         setShowLinkIncidentModal(true);
+    };
+
+    const openLinkOutingModal = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_available_outings_to_link', { p_case_id: id });
+            if (!error && data) {
+                setAvailableOutings(data);
+            } else {
+                const { data: outData } = await supabase.from('outings').select('id, title, occurred_at').is('case_id', null).order('occurred_at', { ascending: false });
+                setAvailableOutings(outData || []);
+            }
+        } catch (err) {
+            console.error(err);
+            setAvailableOutings([]);
+        }
+        setSelectedOuting('');
+        setShowLinkOutingModal(true);
+    };
+
+    const openLinkComplaintModal = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_available_complaints_to_link', { p_case_id: id });
+            if (!error && data) {
+                setAvailableComplaints(data);
+            } else {
+                const { data: compData } = await supabase.from('denuncias').select('id, titulo, created_at').is('case_id', null).order('created_at', { ascending: false });
+                setAvailableComplaints(compData || []);
+            }
+        } catch (err) {
+            console.error(err);
+            setAvailableComplaints([]);
+        }
+        setSelectedComplaint('');
+        setShowLinkComplaintModal(true);
     };
 
     const handleUpdateRole = async (userId, newRole) => {
@@ -170,11 +228,31 @@ function CaseDetail() {
                 p_interrogation_id: selectedInterrogation,
                 p_case_id: id
             });
-            if (error) throw error;
+            if (error) {
+                const { error: updErr } = await supabase.from('interrogations').update({ case_id: id }).eq('id', selectedInterrogation);
+                if (updErr) throw updErr;
+            }
             setShowLinkModal(false);
             loadCaseDetails();
         } catch (err) {
             alert('Error linking interrogation: ' + err.message);
+        }
+    };
+
+    const handleUnlink = async (e, interrogationId) => {
+        e.stopPropagation();
+        if (!window.confirm('¿Deseas desvincular este interrogatorio del caso?')) return;
+        try {
+            const { error } = await supabase.rpc('unlink_interrogation_from_case', {
+                p_interrogation_id: interrogationId
+            });
+            if (error) {
+                const { error: updErr } = await supabase.from('interrogations').update({ case_id: null }).eq('id', interrogationId);
+                if (updErr) throw updErr;
+            }
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error unlinking interrogation: ' + err.message);
         }
     };
 
@@ -185,11 +263,103 @@ function CaseDetail() {
                 p_incident_id: selectedIncident,
                 p_case_id: id
             });
-            if (error) throw error;
+            if (error) {
+                const { error: updErr } = await supabase.from('incidents').update({ case_id: id }).eq('id', selectedIncident);
+                if (updErr) throw updErr;
+            }
             setShowLinkIncidentModal(false);
             loadCaseDetails();
         } catch (err) {
             alert('Error linking incident: ' + err.message);
+        }
+    };
+
+    const handleUnlinkIncident = async (e, incidentId) => {
+        e.stopPropagation();
+        if (!window.confirm('¿Deseas desvincular este informe del caso?')) return;
+        try {
+            const { error } = await supabase.rpc('unlink_incident_from_case', {
+                p_incident_id: incidentId,
+                p_case_id: id
+            });
+            if (error) {
+                const { error: updErr } = await supabase.from('incidents').update({ case_id: null }).eq('id', incidentId);
+                if (updErr) throw updErr;
+            }
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error unlinking incident: ' + err.message);
+        }
+    };
+
+    const handleLinkOuting = async () => {
+        if (!selectedOuting) return;
+        try {
+            const { error } = await supabase.rpc('link_outing_to_case', {
+                p_outing_id: selectedOuting,
+                p_case_id: id
+            });
+            if (error) {
+                const { error: updErr } = await supabase.from('outings').update({ case_id: id }).eq('id', selectedOuting);
+                if (updErr) throw updErr;
+            }
+            setShowLinkOutingModal(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error linking outing: ' + err.message);
+        }
+    };
+
+    const handleUnlinkOuting = async (e, outingId) => {
+        e.stopPropagation();
+        if (!window.confirm('¿Deseas desvincular este outing del caso?')) return;
+        try {
+            const { error } = await supabase.rpc('unlink_outing_from_case', {
+                p_outing_id: outingId,
+                p_case_id: id
+            });
+            if (error) {
+                const { error: updErr } = await supabase.from('outings').update({ case_id: null }).eq('id', outingId);
+                if (updErr) throw updErr;
+            }
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error unlinking outing: ' + err.message);
+        }
+    };
+
+    const handleLinkComplaint = async () => {
+        if (!selectedComplaint) return;
+        try {
+            const { error } = await supabase.rpc('link_complaint_to_case', {
+                p_complaint_id: selectedComplaint,
+                p_case_id: id
+            });
+            if (error) {
+                const { error: updErr } = await supabase.from('denuncias').update({ case_id: id }).eq('id', selectedComplaint);
+                if (updErr) throw updErr;
+            }
+            setShowLinkComplaintModal(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error linking complaint: ' + err.message);
+        }
+    };
+
+    const handleUnlinkComplaint = async (e, complaintId) => {
+        e.stopPropagation();
+        if (!window.confirm(language === 'es' ? '¿Deseas desvincular esta denuncia del caso?' : 'Do you want to unlink this complaint from the case?')) return;
+        try {
+            const { error } = await supabase.rpc('unlink_complaint', {
+                p_complaint_id: complaintId
+            });
+            if (error) {
+                const { error: updErr } = await supabase.from('denuncias').update({ case_id: null }).eq('id', complaintId);
+                if (updErr) throw updErr;
+            }
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error unlinking complaint: ' + err.message);
         }
     };
 
@@ -390,13 +560,23 @@ function CaseDetail() {
         </div>
     );
 
-    const { info, assignments, updates, interrogations, incidents: linkedIncidents } = caseData;
+    const { 
+        info, 
+        assignments = [], 
+        updates = [], 
+        interrogations = [], 
+        incidents: linkedIncidents = [], 
+        outings: linkedOutings = [], 
+        complaints: linkedComplaints = [] 
+    } = caseData;
 
     const isHighCommand = currentUser && ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol);
     const isCreator = currentUser && info.created_by === currentUser.id;
     const isAssignedEncargado = currentUser && assignments && assignments.some(a => a.user_id === currentUser.id && a.role === 'Encargado');
     const isAyudante = currentUser && currentUser.rol === 'Ayudante';
     const canEditCase = (isHighCommand || isCreator || isAssignedEncargado) && !isAyudante;
+
+    const isCaseOpen = !info || !info.status || info.status.toLowerCase() === 'open' || info.status.toLowerCase() === 'abierto';
 
     const startEditingInfo = () => {
         setEditTitle(info.title);
@@ -409,8 +589,8 @@ function CaseDetail() {
         setIsEditingInfo(true);
     };
 
-    const statusColor = info.status === 'Open' ? '#10b981' : info.status === 'Closed' ? '#ef4444' : '#64748b';
-    const statusText = info.status === 'Open' ? 'ABIERTO' : info.status === 'Closed' ? 'CERRADO' : 'ARCHIVADO';
+    const statusColor = isCaseOpen ? '#10b981' : info.status === 'Closed' || info.status === 'Cerrado' ? '#ef4444' : '#64748b';
+    const statusText = isCaseOpen ? 'ABIERTO' : info.status === 'Closed' || info.status === 'Cerrado' ? 'CERRADO' : 'ARCHIVADO';
 
     return (
         <div className="mac-dashboard-container">
@@ -467,7 +647,7 @@ function CaseDetail() {
                         </button>
                     )}
 
-                    {info.status === 'Open' && (
+                    {isCaseOpen && (
                         <>
                             <button 
                                 className="mac-btn mac-btn-secondary"
@@ -787,10 +967,10 @@ function CaseDetail() {
                     )}
                 </div>
 
-                {/* Right Compact Sidebar */}
+                {/* Right Sidebar: All 5 Link Categories */}
                 {activeTab !== 'board' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                        {/* Assigned Detectives */}
+                        {/* 1. Assigned Detectives */}
                         <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -802,7 +982,7 @@ function CaseDetail() {
                                     </svg>
                                     <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>DETECTIVES ASIGNADOS</h4>
                                 </div>
-                                {info.status === 'Open' && !isAyudante && (
+                                {isCaseOpen && (
                                     <button onClick={openAssignModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
                                         Gestionar
                                     </button>
@@ -820,16 +1000,30 @@ function CaseDetail() {
                                                     {user.rank} {user.full_name}
                                                 </div>
                                             </div>
-                                            <span style={{ fontSize: '0.68rem', color: '#10b981', background: 'rgba(16,185,129,0.15)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 600 }}>
-                                                {user.role || 'Investigador'}
-                                            </span>
+                                            {isCaseOpen && !isAyudante ? (
+                                                <select
+                                                    value={user.role || 'Investigador'}
+                                                    onChange={(e) => handleUpdateRole(user.user_id, e.target.value)}
+                                                    style={{ background: 'rgba(0,0,0,0.5)', color: '#34d399', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', padding: '1px 4px', fontSize: '0.7rem', cursor: 'pointer' }}
+                                                >
+                                                    <option value="Supervisor" style={{ background: '#1e293b', color: '#fff' }}>Supervisor</option>
+                                                    <option value="Encargado" style={{ background: '#1e293b', color: '#fff' }}>Encargado</option>
+                                                    <option value="Investigador" style={{ background: '#1e293b', color: '#fff' }}>Investigador</option>
+                                                    <option value="Ayudante" style={{ background: '#1e293b', color: '#fff' }}>Ayudante</option>
+                                                    <option value="Externo" style={{ background: '#1e293b', color: '#fff' }}>Externo</option>
+                                                </select>
+                                            ) : (
+                                                <span style={{ fontSize: '0.68rem', color: '#10b981', background: 'rgba(16,185,129,0.15)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 600 }}>
+                                                    {user.role || 'Investigador'}
+                                                </span>
+                                            )}
                                         </div>
                                     ))
                                 )}
                             </div>
                         </div>
 
-                        {/* Linked Interrogations */}
+                        {/* 2. Linked Interrogations */}
                         <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -838,7 +1032,7 @@ function CaseDetail() {
                                     </svg>
                                     <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>INTERROGATORIOS</h4>
                                 </div>
-                                {info.status === 'Open' && (
+                                {isCaseOpen && (
                                     <button onClick={openLinkModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
                                         Vincular
                                     </button>
@@ -846,19 +1040,26 @@ function CaseDetail() {
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                 {interrogations.length === 0 ? (
-                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin interrogatorios</span>
+                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin interrogatorios vinculados</span>
                                 ) : (
                                     interrogations.map(inv => (
-                                        <div key={inv.id} onClick={() => navigate(`/interrogations?id=${inv.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #10b981' }}>
-                                            <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{inv.title}</div>
-                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{new Date(inv.created_at).toLocaleDateString()}</div>
+                                        <div key={inv.id} onClick={() => navigate(`/interrogations?id=${inv.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #10b981', position: 'relative' }}>
+                                            <div style={{ paddingRight: '18px' }}>
+                                                <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{inv.title}</div>
+                                                <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{new Date(inv.created_at).toLocaleDateString()}</div>
+                                            </div>
+                                            {isCaseOpen && (
+                                                <button onClick={(e) => handleUnlink(e, inv.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                    ✕
+                                                </button>
+                                            )}
                                         </div>
                                     ))
                                 )}
                             </div>
                         </div>
 
-                        {/* Linked Incidents */}
+                        {/* 3. Linked Incidents (Informes) */}
                         <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -868,7 +1069,7 @@ function CaseDetail() {
                                     </svg>
                                     <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>INFORMES VINCULADOS</h4>
                                 </div>
-                                {info.status === 'Open' && (
+                                {isCaseOpen && (
                                     <button onClick={openLinkIncidentModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
                                         Vincular
                                     </button>
@@ -879,8 +1080,90 @@ function CaseDetail() {
                                     <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin informes vinculados</span>
                                 ) : (
                                     linkedIncidents.map(inc => (
-                                        <div key={inc.id} onClick={() => navigate(`/incidents?id=${inc.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #60a5fa' }}>
-                                            <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{inc.title}</div>
+                                        <div key={inc.id} onClick={() => navigate(`/incidents?id=${inc.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #60a5fa', position: 'relative' }}>
+                                            <div style={{ paddingRight: '18px' }}>
+                                                <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{inc.title}</div>
+                                            </div>
+                                            {isCaseOpen && (
+                                                <button onClick={(e) => handleUnlinkIncident(e, inc.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                    ✕
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 4. Linked Outings (Información / Outings) */}
+                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="1" y="3" width="15" height="13" rx="2" />
+                                        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                                        <circle cx="5.5" cy="18.5" r="2.5" />
+                                        <circle cx="18.5" cy="18.5" r="2.5" />
+                                    </svg>
+                                    <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>INFORMACIÓN / OUTINGS</h4>
+                                </div>
+                                {isCaseOpen && (
+                                    <button onClick={openLinkOutingModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                        Vincular
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                {linkedOutings.length === 0 ? (
+                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin información/outings vinculados</span>
+                                ) : (
+                                    linkedOutings.map(out => (
+                                        <div key={out.id} onClick={() => navigate(`/outings?id=${out.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #a855f7', position: 'relative' }}>
+                                            <div style={{ paddingRight: '18px' }}>
+                                                <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{out.title}</div>
+                                            </div>
+                                            {isCaseOpen && (
+                                                <button onClick={(e) => handleUnlinkOuting(e, out.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                    ✕
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 5. Linked Complaints (Denuncias) */}
+                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 3v18" />
+                                        <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z" />
+                                        <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z" />
+                                    </svg>
+                                    <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>DENUNCIAS VINCULADAS</h4>
+                                </div>
+                                {isCaseOpen && (
+                                    <button onClick={openLinkComplaintModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                        Vincular
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                {linkedComplaints.length === 0 ? (
+                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin denuncias vinculadas</span>
+                                ) : (
+                                    linkedComplaints.map(comp => (
+                                        <div key={comp.id} onClick={() => navigate(`/complaints?id=${comp.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #f59e0b', position: 'relative' }}>
+                                            <div style={{ paddingRight: '18px' }}>
+                                                <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{comp.titulo}</div>
+                                            </div>
+                                            {isCaseOpen && (
+                                                <button onClick={(e) => handleUnlinkComplaint(e, comp.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                    ✕
+                                                </button>
+                                            )}
                                         </div>
                                     ))
                                 )}
@@ -890,13 +1173,17 @@ function CaseDetail() {
                 )}
             </div>
 
-            {/* Modals for Links */}
+            {/* MODALS SECTION */}
+
+            {/* 1. Assign Detectives Modal */}
             {showAssignModal && (
                 <div className="mac-modal-overlay">
                     <div className="mac-modal-card" style={{ maxWidth: '460px' }}>
                         <div className="mac-modal-header">
                             <div className="mac-window-dots">
                                 <div className="mac-window-dot close" onClick={() => setShowAssignModal(false)}></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
                             </div>
                             <span className="mac-modal-title">Asignar Detectives al Caso</span>
                             <div style={{ width: 52 }} />
@@ -913,6 +1200,170 @@ function CaseDetail() {
                             <div className="mac-modal-actions">
                                 <button className="mac-btn mac-btn-secondary" onClick={() => setShowAssignModal(false)}>Cancelar</button>
                                 <button className="mac-btn mac-btn-primary" onClick={handleSaveAssignments}>Guardar Asignaciones</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 2. Link Interrogation Modal */}
+            {showLinkModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '460px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowLinkModal(false)}></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">Vincular Interrogatorio</span>
+                            <div style={{ width: 52 }} />
+                        </div>
+                        <div className="mac-modal-body">
+                            <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
+                                Selecciona un interrogatorio para vincularlo a este expediente.
+                            </p>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <select
+                                    className="mac-form-input"
+                                    value={selectedInterrogation}
+                                    onChange={e => setSelectedInterrogation(e.target.value)}
+                                    style={{ width: '100%' }}
+                                >
+                                    <option value="">-- Seleccionar Interrogatorio --</option>
+                                    {availableInterrogations.map(inv => (
+                                        <option key={inv.id} value={inv.id}>
+                                            {inv.title} ({new Date(inv.created_at).toLocaleDateString()})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="mac-modal-actions">
+                                <button className="mac-btn mac-btn-secondary" onClick={() => setShowLinkModal(false)}>Cancelar</button>
+                                <button className="mac-btn mac-btn-primary" onClick={handleLinkInterrogation} disabled={!selectedInterrogation}>Vincular</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 3. Link Incident Modal */}
+            {showLinkIncidentModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '460px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowLinkIncidentModal(false)}></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">Vincular Informe</span>
+                            <div style={{ width: 52 }} />
+                        </div>
+                        <div className="mac-modal-body">
+                            <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
+                                Selecciona un informe para vincularlo a este expediente.
+                            </p>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <select
+                                    className="mac-form-input"
+                                    value={selectedIncident}
+                                    onChange={e => setSelectedIncident(e.target.value)}
+                                    style={{ width: '100%' }}
+                                >
+                                    <option value="">-- Seleccionar Informe --</option>
+                                    {availableIncidents.map(inc => (
+                                        <option key={inc.id} value={inc.id}>
+                                            {inc.title} ({new Date(inc.occurred_at).toLocaleDateString()})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="mac-modal-actions">
+                                <button className="mac-btn mac-btn-secondary" onClick={() => setShowLinkIncidentModal(false)}>Cancelar</button>
+                                <button className="mac-btn mac-btn-primary" onClick={handleLinkIncident} disabled={!selectedIncident}>Vincular</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 4. Link Outing Modal */}
+            {showLinkOutingModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '460px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowLinkOutingModal(false)}></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">Vincular Información / Outing</span>
+                            <div style={{ width: 52 }} />
+                        </div>
+                        <div className="mac-modal-body">
+                            <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
+                                Selecciona un registro de información u outing para vincularlo a este expediente.
+                            </p>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <select
+                                    className="mac-form-input"
+                                    value={selectedOuting}
+                                    onChange={e => setSelectedOuting(e.target.value)}
+                                    style={{ width: '100%' }}
+                                >
+                                    <option value="">-- Seleccionar Registro --</option>
+                                    {availableOutings.map(out => (
+                                        <option key={out.id} value={out.id}>
+                                            {out.title} ({new Date(out.occurred_at).toLocaleDateString()})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="mac-modal-actions">
+                                <button className="mac-btn mac-btn-secondary" onClick={() => setShowLinkOutingModal(false)}>Cancelar</button>
+                                <button className="mac-btn mac-btn-primary" onClick={handleLinkOuting} disabled={!selectedOuting}>Vincular</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 5. Link Complaint Modal */}
+            {showLinkComplaintModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '460px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowLinkComplaintModal(false)}></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">Vincular Denuncia</span>
+                            <div style={{ width: 52 }} />
+                        </div>
+                        <div className="mac-modal-body">
+                            <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
+                                Selecciona una denuncia para vincularla a este expediente.
+                            </p>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <select
+                                    className="mac-form-input"
+                                    value={selectedComplaint}
+                                    onChange={e => setSelectedComplaint(e.target.value)}
+                                    style={{ width: '100%' }}
+                                >
+                                    <option value="">-- Seleccionar Denuncia --</option>
+                                    {availableComplaints.map(comp => (
+                                        <option key={comp.id} value={comp.id}>
+                                            {comp.titulo} ({new Date(comp.created_at).toLocaleDateString()})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="mac-modal-actions">
+                                <button className="mac-btn mac-btn-secondary" onClick={() => setShowLinkComplaintModal(false)}>Cancelar</button>
+                                <button className="mac-btn mac-btn-primary" onClick={handleLinkComplaint} disabled={!selectedComplaint}>Vincular</button>
                             </div>
                         </div>
                     </div>
