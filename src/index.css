@@ -67,34 +67,30 @@ body.theme-gris .layout-content {
     #08090d !important;
 }
 
-/* 2. Theme Verde (LSSD Emerald Green - User Screenshot Style) */
+/* 2. Theme Verde (LSSD Dark Slate Green - Flat Elegant Dark Style) */
 body.theme-lssd .layout-content,
 body.theme-verde .layout-content {
-  background:
-    radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.18), transparent 50%),
-    radial-gradient(circle at 85% 20%, rgba(212, 175, 55, 0.08), transparent 50%),
-    radial-gradient(circle at 50% 85%, rgba(59, 130, 246, 0.05), transparent 60%),
-    #040d07 !important;
+  background: #08120c !important;
 }
 
 body.theme-lssd .mac-topbar-header,
 body.theme-verde .mac-topbar-header {
-  background: rgba(4, 18, 11, 0.9) !important;
-  border-bottom: 1px solid rgba(16, 185, 129, 0.2) !important;
+  background: rgba(10, 22, 15, 0.92) !important;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.15) !important;
 }
 
 body.theme-lssd .mac-nav-dock,
 body.theme-verde .mac-nav-dock {
-  background: rgba(2, 14, 8, 0.65) !important;
-  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+  background: rgba(6, 16, 11, 0.75) !important;
+  border: 1px solid rgba(16, 185, 129, 0.18) !important;
 }
 
 body.theme-lssd .mac-dock-item.active,
 body.theme-verde .mac-dock-item.active {
-  background: rgba(16, 185, 129, 0.28) !important;
-  border: 1px solid rgba(16, 185, 129, 0.5) !important;
+  background: rgba(16, 185, 129, 0.2) !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
   color: #ffffff !important;
-  box-shadow: 0 0 14px rgba(16, 185, 129, 0.35) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
 body.theme-lssd .mac-command-banner,
@@ -109,15 +105,23 @@ body.theme-verde .mac-ann-card,
 body.theme-verde .mac-profile-card,
 body.theme-verde .mac-profile-panel,
 body.theme-verde .mac-doc-card {
-  background: rgba(6, 22, 14, 0.82) !important;
-  border: 1px solid rgba(16, 185, 129, 0.22) !important;
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(16, 185, 129, 0.2) !important;
+  background: rgba(12, 26, 18, 0.85) !important;
+  border: 1px solid rgba(16, 185, 129, 0.16) !important;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
 body.theme-lssd .mac-btn-primary,
 body.theme-verde .mac-btn-primary {
-  background: linear-gradient(135deg, #10b981 0%, #047857 100%) !important;
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  background: #0e6b48 !important;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  color: #ffffff !important;
+}
+
+body.theme-lssd .mac-btn-primary:hover,
+body.theme-verde .mac-btn-primary:hover {
+  background: #127f56 !important;
+  border-color: rgba(52, 211, 153, 0.4) !important;
 }
 
 body.theme-lssd .mac-status-dot,
@@ -4114,12 +4118,16 @@ body.theme-lssd .dtp-status-registered {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-body.theme-lssd .mac-btn-primary {
-  background: linear-gradient(135deg, #10b981 0%, #047857 100%) !important;
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+body.theme-lssd .mac-btn-primary,
+body.theme-verde .mac-btn-primary {
+  background: linear-gradient(180deg, #10b981 0%, #057a55 100%) !important;
+  border: 1px solid rgba(52, 211, 153, 0.3) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
 }
 
-body.theme-lssd .mac-btn-primary:hover {
+body.theme-lssd .mac-btn-primary:hover,
+body.theme-verde .mac-btn-primary:hover {
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
 }
 
@@ -5387,6 +5395,14 @@ body.theme-lssd .mac-doc-card-footer {
   margin-bottom: 1.25rem;
 }
 
+.mac-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
+}
+
 .mac-form-label {
   font-size: 0.82rem;
   font-weight: 600;
@@ -5395,15 +5411,17 @@ body.theme-lssd .mac-doc-card-footer {
 
 .mac-form-input,
 .mac-form-textarea {
+  width: 100%;
+  box-sizing: border-box;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
-  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
   color: #ffffff;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-family: inherit;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
 
 .mac-form-input:focus,
@@ -5668,6 +5686,234 @@ body.theme-lssd .mac-spotlight-enter-hint {
   font-size: 0.7rem;
   color: #cbd5e1;
   font-family: inherit;
+}
+
+/* ==========================================
+   macOS & SwiftUI Redesigned Login Screen
+   ========================================== */
+
+.mac-login-wrapper {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
+}
+
+.mac-login-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.mac-login-bg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.35) contrast(1.15) blur(4px);
+  transform: scale(1.06);
+}
+
+.mac-login-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(8, 12, 20, 0.7), rgba(4, 6, 10, 0.92));
+}
+
+body.theme-lssd .mac-login-bg-overlay,
+body.theme-verde .mac-login-bg-overlay {
+  background: rgba(8, 18, 12, 0.88) !important;
+}
+
+.mac-login-header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+  animation: macFadeIn 0.4s ease;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 0.6rem 1.4rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.mac-login-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+}
+
+.mac-login-header-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.mac-login-dept-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  text-transform: uppercase;
+}
+
+.mac-login-bureau-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #60a5fa;
+  text-transform: uppercase;
+}
+
+body.theme-lssd .mac-login-bureau-title,
+body.theme-verde .mac-login-bureau-title {
+  color: #34d399 !important;
+}
+
+/* Central macOS Login Window Card */
+.mac-login-card {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 440px;
+  background: rgba(16, 22, 36, 0.82);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 28px;
+  box-shadow: 0 30px 70px -15px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.theme-lssd .mac-login-card,
+body.theme-verde .mac-login-card {
+  background: rgba(6, 22, 14, 0.88) !important;
+  border-color: rgba(16, 185, 129, 0.28) !important;
+  box-shadow: 0 30px 70px -15px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(16, 185, 129, 0.25) !important;
+}
+
+.mac-login-window-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  background: rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mac-login-window-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.mac-login-body {
+  padding: 2.25rem 2.25rem 2.25rem 2.25rem;
+}
+
+.mac-login-badge-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.mac-login-crest-icon {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  margin-bottom: 1.1rem;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.6));
+}
+
+body.theme-lssd .mac-login-crest-icon,
+body.theme-verde .mac-login-crest-icon {
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.6)) !important;
+}
+
+.mac-login-headline {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.4rem 0;
+}
+
+.mac-login-subtext {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.mac-input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mac-input-icon {
+  position: absolute;
+  left: 1.1rem;
+  color: #94a3b8;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.mac-form-input.has-icon {
+  padding-left: 2.9rem !important;
+  width: 100% !important;
+}
+
+.mac-password-toggle-btn {
+  position: absolute;
+  right: 0.85rem;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.mac-password-toggle-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mac-login-footer-bar {
+  position: relative;
+  z-index: 10;
+  margin-top: 2.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
 }
 
 
