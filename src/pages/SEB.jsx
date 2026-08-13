@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getProfileImage } from '../utils/imageStorage';
 import '../index.css';
 
 function SEB() {
@@ -537,7 +538,7 @@ function SEB() {
                                         flexShrink: 0
                                     }}>
                                         <img 
-                                            src={member.profile_image || "/logowebp/anon.webp"} 
+                                            src={getProfileImage(member.profile_image, '/logowebp/anon.webp')} 
                                             alt={member.nombre}
                                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         />

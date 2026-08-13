@@ -27,9 +27,24 @@ function Welcome() {
                 navigate('/dashboard'); // Fallback
             } else {
                 setProfile(data);
+                
+                // Determine target route based on division & rank
+                let targetRoute = '/dashboard';
+                const div = data.divisions || [];
+                const rank = data.rango || '';
+                const isDB = div.includes('Detective Bureau');
+
+                if (rank === 'SEB Agent' || (div.includes('SEB') && !isDB)) {
+                    targetRoute = '/seb';
+                } else if (rank === 'Internal Affairs Agent' || (div.includes('Internal Affairs') && !isDB)) {
+                    targetRoute = '/internal-affairs';
+                } else if (rank === 'Department of Justice Agent' || (div.includes('DOJ') && !isDB)) {
+                    targetRoute = '/doj';
+                }
+
                 // Redirect after delay
                 setTimeout(() => {
-                    navigate('/dashboard');
+                    navigate(targetRoute);
                 }, 4000); // 4 seconds total welcome time
             }
         };

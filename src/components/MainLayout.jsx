@@ -302,7 +302,7 @@ function MainLayout() {
         { name: t('ballistics'), path: '/ballistics', divisions: ['Detective Bureau'] },
         { name: t('personnel'), path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB'] },
         { name: t('trainingProgram'), path: '/training', divisions: ['Detective Bureau'], roles: ['detective', 'coordinador', 'ayudante'] },
-        { name: t('judicialOrders'), path: '/warrants', divisions: ['Detective Bureau'] },
+        { name: t('judicialOrders'), path: '/warrants', divisions: ['Detective Bureau', 'DOJ'] },
         { name: t('internalAffairs'), path: '/internal-affairs', divisions: ['Internal Affairs'] },
         { name: t('doj'), path: '/doj', divisions: ['DOJ'] },
         { name: t('seb'), path: '/seb', divisions: ['SEB'] },
