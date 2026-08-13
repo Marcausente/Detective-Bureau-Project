@@ -1539,10 +1539,10 @@ function Gangs() {
                 </Modal>
             )}
 
-            {/* Patrol Logs Table Modal (Apple macOS Glassmorphic Window) */}
+            {/* Patrol Logs Table Modal (Apple macOS Glassmorphic Window - Full Width 98vw) */}
             {activeModal === 'patrolTable' && (
                 <div className="mac-modal-overlay" onClick={closeModal}>
-                    <div className="mac-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '1100px', width: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+                    <div className="mac-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '98vw', width: '98vw', maxHeight: '94vh', display: 'flex', flexDirection: 'column' }}>
                         <div className="mac-modal-header">
                             <div className="mac-window-dots">
                                 <div className="mac-window-dot close" onClick={closeModal} title="Cerrar"></div>
@@ -1559,7 +1559,7 @@ function Gangs() {
                             <div style={{ width: 52 }} />
                         </div>
 
-                        <div className="mac-modal-body" style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
+                        <div className="mac-modal-body" style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem' }}>
                             {loadingActivity ? (
                                 <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                     <span style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid #eab308', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></span>
@@ -1576,12 +1576,6 @@ function Gangs() {
                                     )}
                                 </div>
                             )}
-                        </div>
-
-                        <div style={{ padding: '0.85rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', background: 'rgba(15, 23, 42, 0.4)' }}>
-                            <button className="mac-btn mac-btn-secondary" onClick={closeModal}>
-                                Cerrar Ventana
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -2581,7 +2575,7 @@ function PatrolMatrix({ logs, onSelectLog }) {
             <div style={{
                 overflowX: 'auto',
                 overflowY: 'auto',
-                maxHeight: '62vh',
+                maxHeight: '76vh',
                 borderRadius: '12px',
                 border: '1px solid rgba(255,255,255,0.1)',
                 background: 'rgba(9, 13, 22, 0.8)',
