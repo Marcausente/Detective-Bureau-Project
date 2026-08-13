@@ -3,11 +3,12 @@ import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import CoordinationTodoList from '../components/CoordinationTodoList';
 import CoordinationSanctions from '../components/CoordinationSanctions';
+import CoordinationInternalRanks from '../components/CoordinationInternalRanks';
 import '../index.css';
 
 function Coordination() {
     const { t } = useLanguage();
-    const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'sanctions'
+    const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'sanctions' | 'internal_ranks'
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -185,7 +186,8 @@ function Coordination() {
                 borderRadius: '16px',
                 marginBottom: '2rem',
                 width: 'fit-content',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.3)'
+                boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                flexWrap: 'wrap'
             }}>
                 <button
                     onClick={() => setActiveTab('todos')}
@@ -239,12 +241,37 @@ function Coordination() {
                     </svg>
                     <span>{t('sanctionsRegister') || 'Registro Disciplinario'}</span>
                 </button>
+
+                <button
+                    onClick={() => setActiveTab('internal_ranks')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        padding: '0.65rem 1.4rem',
+                        borderRadius: '12px',
+                        fontSize: '0.88rem',
+                        fontWeight: 700,
+                        border: activeTab === 'internal_ranks' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid transparent',
+                        background: activeTab === 'internal_ranks' ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))' : 'transparent',
+                        color: activeTab === 'internal_ranks' ? '#ffffff' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        boxShadow: activeTab === 'internal_ranks' ? '0 4px 14px rgba(245, 158, 11, 0.25)' : 'none'
+                    }}
+                >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={activeTab === 'internal_ranks' ? '#fbbf24' : '#94a3b8'} strokeWidth="2">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                    <span>Rangos Internos</span>
+                </button>
             </div>
 
             {/* Active Tab Component */}
             <div>
                 {activeTab === 'todos' && <CoordinationTodoList />}
                 {activeTab === 'sanctions' && <CoordinationSanctions />}
+                {activeTab === 'internal_ranks' && <CoordinationInternalRanks />}
             </div>
         </div>
     );

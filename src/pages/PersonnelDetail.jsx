@@ -443,6 +443,10 @@ function PersonnelDetail() {
                         <h1 className="detail-name">{user.nombre} {user.apellido}</h1>
                         <h2 className="detail-rank">{user.rango}</h2>
                         <span className="detail-badge">Badge #{user.no_placa || '---'}</span>
+                        <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <span style={{ color: '#fbbf24', fontSize: '0.7rem' }}>❖</span>
+                            <span>Rango Interno: {user.rango_interno || 'Auxiliar de Investigación'}</span>
+                        </div>
                     </div>
                 </div>
 

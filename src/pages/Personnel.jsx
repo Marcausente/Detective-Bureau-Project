@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
 import { uploadImageToStorage, getProfileImage } from '../utils/imageStorage';
+import { getInternalRanks } from '../utils/internalRanks';
 import { usePresence } from '../contexts/PresenceContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -34,6 +35,7 @@ function Personnel() {
     const { isLSSD } = useTheme();
     const { t } = useLanguage();
     const [users, setUsers] = useState([]);
+    const [availableInternalRanks, setAvailableInternalRanks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -79,6 +81,7 @@ function Personnel() {
         no_placa: '',
         rango: 'Oficial II',
         rol: 'Ayudante',
+        rango_interno: 'Auxiliar de Investigación',
         fecha_ingreso: '',
         profile_image: '',
         divisions: ['Detective Bureau']
@@ -88,7 +91,13 @@ function Personnel() {
 
     useEffect(() => {
         fetchData();
+        loadInternalRanksList();
     }, []);
+
+    const loadInternalRanksList = async () => {
+        const ranks = await getInternalRanks();
+        setAvailableInternalRanks(ranks || []);
+    };
 
     const fetchData = async () => {
         try {
@@ -295,7 +304,7 @@ function Personnel() {
         setEditingUserId(null);
         setFormData({
             email: '', password: '', nombre: '', apellido: '', no_placa: '',
-            rango: 'Oficial II', rol: 'Ayudante', fecha_ingreso: '', profile_image: '',
+            rango: 'Oficial II', rol: 'Ayudante', rango_interno: 'Auxiliar de Investigación', fecha_ingreso: '', profile_image: '',
             divisions: ['Detective Bureau']
         });
         setMessage(null);
@@ -313,6 +322,7 @@ function Personnel() {
             no_placa: user.no_placa || '',
             rango: user.rango || 'Oficial II',
             rol: user.rol || 'Ayudante',
+            rango_interno: user.rango_interno || 'Auxiliar de Investigación',
             fecha_ingreso: user.fecha_ingreso ? user.fecha_ingreso.split('T')[0] : '',
             profile_image: user.profile_image || '',
             divisions: user.divisions || ['Detective Bureau']
@@ -361,6 +371,20 @@ function Personnel() {
                     p_divisions: formData.divisions
                 });
                 if (error) throw error;
+
+                // Sync rango_interno
+                const { data: newUser } = await supabase
+                    .from('users')
+                    .select('id')
+                    .eq('email', formData.email)
+                    .single();
+                if (newUser) {
+                    await supabase
+                        .from('users')
+                        .update({ rango_interno: formData.rango_interno || 'Auxiliar de Investigación' })
+                        .eq('id', newUser.id);
+                }
+
                 setMessage({ type: 'success', text: '¡Personal añadido correctamente!' });
             } else {
                 const { error } = await supabase.rpc('update_personnel_admin', {
@@ -378,6 +402,13 @@ function Personnel() {
                     p_divisions: formData.divisions
                 });
                 if (error) throw error;
+
+                // Sync rango_interno
+                await supabase
+                    .from('users')
+                    .update({ rango_interno: formData.rango_interno || 'Auxiliar de Investigación' })
+                    .eq('id', editingUserId);
+
                 setMessage({ type: 'success', text: '¡Personal actualizado correctamente!' });
             }
 
@@ -506,6 +537,10 @@ function Personnel() {
                     </div>
                     <div style={{ fontSize: '1.02rem', fontWeight: 700, color: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {user.nombre} {user.apellido}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '-1px' }}>
+                        <span style={{ color: '#fbbf24', fontSize: '0.65rem' }}>❖</span>
+                        <span>{user.rango_interno || 'Auxiliar de Investigación'}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
                         <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: 700, color: '#fbbf24', background: 'rgba(251, 191, 36, 0.12)', padding: '1px 6px', borderRadius: '5px' }}>
@@ -1072,6 +1107,19 @@ function Personnel() {
                                     <option value="Assistant Sheriff">Assistant Sheriff</option>
                                     <option value="Undersheriff">Undersheriff</option>
                                     <option value="Sheriff">Sheriff</option>
+                                </select>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#fbbf24', fontWeight: 700, marginBottom: '0.35rem', display: 'block' }}>Rango Interno en la División</label>
+                                <select
+                                    name="rango_interno" className="form-input custom-select" value={formData.rango_interno || 'Auxiliar de Investigación'} onChange={handleInputChange}
+                                    style={{ background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '10px', color: '#ffffff', fontSize: '0.88rem', padding: '0.65rem 0.9rem' }}
+                                >
+                                    {availableInternalRanks.map(r => {
+                                        const name = typeof r === 'string' ? r : r.name;
+                                        return <option key={name} value={name} style={{ background: '#0f172a' }}>{name}</option>;
+                                    })}
                                 </select>
                             </div>
 
