@@ -770,31 +770,39 @@ function SEB() {
             const isImage = el && el.type === 'image';
 
             if (resizeDir === 'e') {
+                // Estirar solo ancho (derecha)
                 newW = Math.max(60, initW + dx);
-                if (isImage && aspectRatio) newH = Math.round(newW / aspectRatio);
+                newH = initH;
             } else if (resizeDir === 'w') {
+                // Estirar solo ancho (izquierda)
                 newW = Math.max(60, initW - dx);
                 newX = initX + (initW - newW);
-                if (isImage && aspectRatio) newH = Math.round(newW / aspectRatio);
+                newH = initH;
             } else if (resizeDir === 's') {
+                // Estirar solo alto (abajo)
                 newH = Math.max(40, initH + dy);
-                if (isImage && aspectRatio) newW = Math.round(newH * aspectRatio);
+                newW = initW;
             } else if (resizeDir === 'n') {
+                // Estirar solo alto (arriba)
                 newH = Math.max(40, initH - dy);
                 newY = initY + (initH - newH);
-                if (isImage && aspectRatio) newW = Math.round(newH * aspectRatio);
+                newW = initW;
             } else if (resizeDir === 'se') {
+                // Esquina inferior derecha: ambos
                 newW = Math.max(60, initW + dx);
                 newH = isImage && aspectRatio ? Math.round(newW / aspectRatio) : Math.max(40, initH + dy);
             } else if (resizeDir === 'sw') {
+                // Esquina inferior izquierda: ambos
                 newW = Math.max(60, initW - dx);
                 newX = initX + (initW - newW);
                 newH = isImage && aspectRatio ? Math.round(newW / aspectRatio) : Math.max(40, initH + dy);
             } else if (resizeDir === 'ne') {
+                // Esquina superior derecha: ambos
                 newW = Math.max(60, initW + dx);
                 newH = isImage && aspectRatio ? Math.round(newW / aspectRatio) : Math.max(40, initH - dy);
                 if (!isImage || !aspectRatio) newY = initY + (initH - newH);
             } else if (resizeDir === 'nw') {
+                // Esquina superior izquierda: ambos
                 newW = Math.max(60, initW - dx);
                 newX = initX + (initW - newW);
                 newH = isImage && aspectRatio ? Math.round(newW / aspectRatio) : Math.max(40, initH - dy);
@@ -2343,7 +2351,7 @@ function SEB() {
                                                 style={{
                                                     width: '100%',
                                                     height: el.height ? '100%' : 'auto',
-                                                    objectFit: 'contain',
+                                                    objectFit: el.height ? 'fill' : 'contain',
                                                     borderRadius: '8px',
                                                     display: 'block',
                                                     pointerEvents: 'none'
