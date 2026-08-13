@@ -32,10 +32,19 @@ function SEB() {
     // Tactical Board Canvas State
     const [boardElements, setBoardElements] = useState([]);
     const [selectedElementId, setSelectedElementId] = useState(null);
+    const [connectingSourceId, setConnectingSourceId] = useState(null); // Thread connection source
+    const [zoom, setZoom] = useState(1); // Zoom scale factor (1 = 100%)
+    const [pan, setPan] = useState({ x: 0, y: 0 }); // Pan offset (x, y)
+    const [isPanning, setIsPanning] = useState(false);
+    const panStartRef = useRef({ x: 0, y: 0 });
+
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [savingBoard, setSavingBoard] = useState(false);
     
-    // Drag state
+    // Image Preview Modal
+    const [expandedImage, setExpandedImage] = useState(null);
+
+    // Drag element state
     const [isDragging, setIsDragging] = useState(false);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
     const boardRef = useRef(null);
@@ -51,6 +60,27 @@ function SEB() {
             fetchSEBPersonnel();
         }
     }, [profile]);
+
+    // Prevent page scroll when wheel zooming inside tactical board
+    useEffect(() => {
+        const boardEl = boardRef.current;
+        if (!boardEl) return;
+
+        const handleWheel = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.deltaY < 0) {
+                setZoom(z => Math.min(2.5, +(z + 0.05).toFixed(2)));
+            } else {
+                setZoom(z => Math.max(0.4, +(z - 0.05).toFixed(2)));
+            }
+        };
+
+        boardEl.addEventListener('wheel', handleWheel, { passive: false });
+        return () => {
+            boardEl.removeEventListener('wheel', handleWheel);
+        };
+    }, [selectedOp]);
 
     const loadUserProfile = async () => {
         try {
@@ -100,7 +130,6 @@ function SEB() {
                             location: 'Almacén Industrial El Burro Heights',
                             type: 'Asalto Táctico & Rescate',
                             details: 'Asegurar el perímetro del edificio B, neutralizar la resistencia enemiga y rescatar a los rehenes retenidos en el segundo nivel.',
-                            operatives: 'SEB Agent Martinez, SEB Agent Vance, SEB Agent Kowalski',
                             status: 'En Progreso',
                             created_at: new Date().toISOString(),
                             board_data: [
@@ -108,8 +137,9 @@ function SEB() {
                                     id: 'elem-1',
                                     type: 'note',
                                     content: 'Punto de Entrada Principal (Puerta Norte)',
+                                    category: 'Perímetro',
                                     x: 80,
-                                    y: 60,
+                                    y: 80,
                                     width: 260,
                                     height: 120,
                                     zIndex: 2
@@ -118,11 +148,19 @@ function SEB() {
                                     id: 'elem-2',
                                     type: 'note',
                                     content: 'Tirador de Cobertura Alpha (Azotea Sur)',
-                                    x: 380,
-                                    y: 60,
+                                    category: 'Tirador',
+                                    x: 420,
+                                    y: 80,
                                     width: 260,
                                     height: 120,
                                     zIndex: 3
+                                },
+                                {
+                                    id: 'thread-demo-1',
+                                    type: 'thread',
+                                    sourceId: 'elem-1',
+                                    targetId: 'elem-2',
+                                    label: 'Línea de Visión & Cobertura'
                                 }
                             ]
                         }
@@ -207,6 +245,9 @@ function SEB() {
         const elements = typeof op.board_data === 'string' ? JSON.parse(op.board_data) : (op.board_data || []);
         setBoardElements(elements);
         setSelectedElementId(null);
+        setConnectingSourceId(null);
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
     };
 
     const handleSaveBoard = async () => {
@@ -246,12 +287,11 @@ function SEB() {
                 id: 'img-' + Date.now(),
                 type: 'image',
                 url: publicUrl || URL.createObjectURL(file),
-                x: 100 + (boardElements.length * 20),
-                y: 100 + (boardElements.length * 20),
+                x: 100 - pan.x + (boardElements.length * 20),
+                y: 100 - pan.y + (boardElements.length * 20),
                 width: 320,
                 height: 240,
-                zIndex: maxZ + 1,
-                rotation: 0
+                zIndex: maxZ + 1
             };
 
             setBoardElements([...boardElements, newImageElement]);
@@ -274,10 +314,11 @@ function SEB() {
             id: 'note-' + Date.now(),
             type: 'note',
             content: text,
-            x: 120 + (boardElements.length * 15),
-            y: 120 + (boardElements.length * 15),
-            width: 250,
-            height: 120,
+            category: 'Nota Táctica',
+            x: 120 - pan.x + (boardElements.length * 15),
+            y: 120 - pan.y + (boardElements.length * 15),
+            width: 260,
+            height: 130,
             zIndex: maxZ + 1
         };
 
@@ -285,13 +326,44 @@ function SEB() {
         setSelectedElementId(newNoteElement.id);
     };
 
+    const handleEditNoteContent = (el) => {
+        const updatedText = prompt(language === 'es' ? 'Editar texto de la nota:' : 'Edit note text:', el.content || '');
+        if (updatedText === null) return;
+        updateElement(el.id, { content: updatedText });
+    };
+
+    const startConnectingThread = (sourceId) => {
+        setConnectingSourceId(sourceId);
+    };
+
+    const handleConnectToElement = (targetId) => {
+        if (!connectingSourceId || connectingSourceId === targetId) {
+            setConnectingSourceId(null);
+            return;
+        }
+
+        const label = prompt(language === 'es' ? 'Nombre o etiqueta de la relación / hilo (Opcional):' : 'Thread relationship label (Optional):', 'Conexión Táctica') || '';
+
+        const newThread = {
+            id: 'thread-' + Date.now(),
+            type: 'thread',
+            sourceId: connectingSourceId,
+            targetId: targetId,
+            label: label
+        };
+
+        setBoardElements([...boardElements, newThread]);
+        setConnectingSourceId(null);
+    };
+
     const updateElement = (id, newProps) => {
         setBoardElements(boardElements.map(el => el.id === id ? { ...el, ...newProps } : el));
     };
 
     const handleDeleteElement = (id) => {
-        setBoardElements(boardElements.filter(el => el.id !== id));
+        setBoardElements(boardElements.filter(el => el.id !== id && el.sourceId !== id && el.targetId !== id));
         if (selectedElementId === id) setSelectedElementId(null);
+        if (connectingSourceId === id) setConnectingSourceId(null);
     };
 
     const bringToFront = (id) => {
@@ -304,34 +376,57 @@ function SEB() {
         updateElement(id, { zIndex: Math.max(1, minZ - 1) });
     };
 
+    // Canvas Background Drag to Pan
+    const handleMouseDownBoard = (e) => {
+        setSelectedElementId(null);
+        setConnectingSourceId(null);
+        setIsPanning(true);
+        panStartRef.current = {
+            x: e.clientX - pan.x,
+            y: e.clientY - pan.y
+        };
+    };
+
+    // Element Drag
     const handleMouseDownElement = (e, el) => {
         e.stopPropagation();
+
+        if (connectingSourceId) {
+            handleConnectToElement(el.id);
+            return;
+        }
+
         setSelectedElementId(el.id);
         setIsDragging(true);
         setDragOffset({
-            x: e.clientX - el.x,
-            y: e.clientY - el.y
+            x: (e.clientX - pan.x) / zoom - el.x,
+            y: (e.clientY - pan.y) / zoom - el.y
         });
     };
 
     const handleMouseMoveBoard = (e) => {
-        if (!isDragging || !selectedElementId || !boardRef.current) return;
-        const boardRect = boardRef.current.getBoundingClientRect();
-        
-        let newX = e.clientX - dragOffset.x;
-        let newY = e.clientY - dragOffset.y;
+        if (isPanning) {
+            setPan({
+                x: e.clientX - panStartRef.current.x,
+                y: e.clientY - panStartRef.current.y
+            });
+            return;
+        }
 
-        newX = Math.max(10, Math.min(newX, boardRect.width - 50));
-        newY = Math.max(10, Math.min(newY, boardRect.height - 50));
-
-        updateElement(selectedElementId, { x: newX, y: newY });
+        if (isDragging && selectedElementId) {
+            let newX = (e.clientX - pan.x) / zoom - dragOffset.x;
+            let newY = (e.clientY - pan.y) / zoom - dragOffset.y;
+            updateElement(selectedElementId, { x: newX, y: newY });
+        }
     };
 
     const handleMouseUpBoard = () => {
         setIsDragging(false);
+        setIsPanning(false);
     };
 
-    const selectedElement = boardElements.find(el => el.id === selectedElementId);
+    const selectedElement = boardElements.find(el => el.id === selectedElementId && el.type !== 'thread');
+    const threadsList = boardElements.filter(el => el.type === 'thread');
 
     if (loading) {
         return (
@@ -700,7 +795,7 @@ function SEB() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <button
-                                onClick={() => setSelectedOp(null)}
+                                onClick={() => { setSelectedOp(null); setConnectingSourceId(null); }}
                                 style={{
                                     background: 'rgba(15, 23, 42, 0.7)',
                                     border: '1px solid rgba(255,255,255,0.15)',
@@ -737,7 +832,7 @@ function SEB() {
                         </div>
 
                         {/* Board Controls Toolbar */}
-                        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
                             <input
                                 type="file"
                                 accept="image/*"
@@ -796,6 +891,40 @@ function SEB() {
                                 Añadir Nota Táctica
                             </button>
 
+                            {/* Thread Creation Toggle Button */}
+                            <button
+                                onClick={() => {
+                                    if (connectingSourceId) {
+                                        setConnectingSourceId(null);
+                                    } else if (selectedElementId) {
+                                        startConnectingThread(selectedElementId);
+                                    } else {
+                                        alert(language === 'es' ? 'Selecciona primero un elemento en el tablero para conectarlo con un hilo rojo.' : 'Select an element first to connect it with a red thread.');
+                                    }
+                                }}
+                                style={{
+                                    background: connectingSourceId ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                                    border: `1px solid ${connectingSourceId ? '#ef4444' : 'rgba(255, 255, 255, 0.2)'}`,
+                                    color: connectingSourceId ? '#fca5a5' : '#ffffff',
+                                    padding: '0.55rem 1.1rem',
+                                    borderRadius: '10px',
+                                    fontWeight: 600,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem',
+                                    backdropFilter: 'blur(10px)'
+                                }}
+                            >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={connectingSourceId ? '#ef4444' : 'currentColor'} strokeWidth="2.5">
+                                    <line x1="5" y1="12" x2="19" y2="12"/>
+                                    <circle cx="5" cy="12" r="2.5" fill="#ef4444"/>
+                                    <circle cx="19" cy="12" r="2.5" fill="#ef4444"/>
+                                </svg>
+                                {connectingSourceId ? 'Haz clic en el 2º elemento...' : 'Unir con Hilo Rojo'}
+                            </button>
+
                             <button
                                 onClick={handleSaveBoard}
                                 disabled={savingBoard}
@@ -840,45 +969,88 @@ function SEB() {
                             boxShadow: '0 6px 20px rgba(0,0,0,0.4)'
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#eab308', fontSize: '0.85rem', fontWeight: 600 }}>
-                                <span>Elemento Seleccionado ({selectedElement.type === 'image' ? 'Imagen' : 'Nota'})</span>
+                                <span>Elemento Seleccionado ({selectedElement.type === 'image' ? 'Imagen Táctica' : 'Nota Táctica'})</span>
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', flexWrap: 'wrap' }}>
-                                {/* Resize Controls */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#cbd5e1', fontSize: '0.82rem' }}>
-                                    <span>Tamaño:</span>
-                                    <input
-                                        type="range"
-                                        min="120"
-                                        max="800"
-                                        value={selectedElement.width}
-                                        onChange={e => updateElement(selectedElement.id, { width: parseInt(e.target.value) })}
-                                        style={{ accentColor: '#eab308', cursor: 'pointer' }}
-                                    />
-                                    <span>{selectedElement.width}px</span>
+                                {/* Horizontal & Vertical Resizing Sliders */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: '#cbd5e1', fontSize: '0.82rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <span>Ancho (Horiz):</span>
+                                        <input
+                                            type="range"
+                                            min="100"
+                                            max="1000"
+                                            value={selectedElement.width || 300}
+                                            onChange={e => updateElement(selectedElement.id, { width: parseInt(e.target.value) })}
+                                            style={{ accentColor: '#eab308', cursor: 'pointer', width: '90px' }}
+                                        />
+                                        <span>{selectedElement.width || 300}px</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <span>Alto (Vert):</span>
+                                        <input
+                                            type="range"
+                                            min="80"
+                                            max="800"
+                                            value={selectedElement.height || 200}
+                                            onChange={e => updateElement(selectedElement.id, { height: parseInt(e.target.value) })}
+                                            style={{ accentColor: '#eab308', cursor: 'pointer', width: '90px' }}
+                                        />
+                                        <span>{selectedElement.height || 200}px</span>
+                                    </div>
                                 </div>
 
-                                {/* Layering Controls */}
-                                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                {/* Actions */}
+                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                    {selectedElement.type === 'note' && (
+                                        <button
+                                            onClick={() => handleEditNoteContent(selectedElement)}
+                                            style={{
+                                                background: 'rgba(234, 179, 8, 0.2)',
+                                                border: '1px solid #eab308',
+                                                color: '#fef08a',
+                                                padding: '0.35rem 0.75rem',
+                                                borderRadius: '8px',
+                                                fontSize: '0.78rem',
+                                                fontWeight: 600,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Editar Texto
+                                        </button>
+                                    )}
+
                                     <button
-                                        onClick={() => bringToFront(selectedElement.id)}
+                                        onClick={() => startConnectingThread(selectedElement.id)}
                                         style={{
-                                            background: 'rgba(234, 179, 8, 0.15)',
-                                            border: '1px solid rgba(234, 179, 8, 0.3)',
-                                            color: '#fef08a',
+                                            background: 'rgba(239, 68, 68, 0.2)',
+                                            border: '1px solid #ef4444',
+                                            color: '#fca5a5',
                                             padding: '0.35rem 0.75rem',
                                             borderRadius: '8px',
                                             fontSize: '0.78rem',
                                             fontWeight: 600,
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.3rem'
+                                            cursor: 'pointer'
                                         }}
                                     >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                            <polyline points="18 15 12 9 6 15"/>
-                                        </svg>
+                                        Conectar Hilo
+                                    </button>
+
+                                    <button
+                                        onClick={() => bringToFront(selectedElement.id)}
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            color: '#ffffff',
+                                            padding: '0.35rem 0.75rem',
+                                            borderRadius: '8px',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
                                         Traer al Frente
                                     </button>
 
@@ -892,42 +1064,28 @@ function SEB() {
                                             borderRadius: '8px',
                                             fontSize: '0.78rem',
                                             fontWeight: 600,
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.3rem'
+                                            cursor: 'pointer'
                                         }}
                                     >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                            <polyline points="6 9 12 15 18 9"/>
-                                        </svg>
                                         Enviar al Fondo
                                     </button>
-                                </div>
 
-                                {/* Delete Button */}
-                                <button
-                                    onClick={() => handleDeleteElement(selectedElement.id)}
-                                    style={{
-                                        background: 'rgba(239, 68, 68, 0.15)',
-                                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                                        color: '#f87171',
-                                        padding: '0.35rem 0.75rem',
-                                        borderRadius: '8px',
-                                        fontSize: '0.78rem',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.3rem'
-                                    }}
-                                >
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <polyline points="3 6 5 6 21 6"/>
-                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                    </svg>
-                                    Eliminar
-                                </button>
+                                    <button
+                                        onClick={() => handleDeleteElement(selectedElement.id)}
+                                        style={{
+                                            background: 'rgba(239, 68, 68, 0.15)',
+                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                            color: '#f87171',
+                                            padding: '0.35rem 0.75rem',
+                                            borderRadius: '8px',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Eliminar
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -935,12 +1093,12 @@ function SEB() {
                     {/* INTERACTIVE CANVAS WHITEBOARD */}
                     <div 
                         ref={boardRef}
+                        onMouseDown={handleMouseDownBoard}
                         onMouseMove={handleMouseMoveBoard}
                         onMouseUp={handleMouseUpBoard}
-                        onClick={() => setSelectedElementId(null)}
                         style={{
                             width: '100%',
-                            height: '680px',
+                            height: '700px',
                             background: '#090d16',
                             backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 0)',
                             backgroundSize: '24px 24px',
@@ -949,77 +1107,333 @@ function SEB() {
                             position: 'relative',
                             overflow: 'hidden',
                             boxShadow: 'inset 0 0 40px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.4)',
-                            userSelect: 'none'
+                            userSelect: 'none',
+                            cursor: isPanning ? 'grabbing' : 'grab'
                         }}
                     >
-                        {boardElements.length === 0 && (
-                            <div style={{
+                        {/* Floating Zoom & Pan Controls Badge (Bottom-Right) */}
+                        <div 
+                            onClick={e => e.stopPropagation()}
+                            onMouseDown={e => e.stopPropagation()}
+                            style={{
                                 position: 'absolute',
-                                top: '50%',
-                                left: '50%',
-                                transform: 'translate(-50%, -50%)',
-                                textAlign: 'center',
-                                color: '#64748b',
-                                pointerEvents: 'none'
-                            }}>
-                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginBottom: '1rem', opacity: 0.4 }}>
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                    <line x1="3" y1="9" x2="21" y2="9"/>
-                                    <line x1="9" y1="21" x2="9" y2="9"/>
-                                </svg>
-                                <h3 style={{ margin: 0, color: '#94a3b8', fontSize: '1.05rem', fontWeight: 600 }}>Tablero Táctico Vacío</h3>
-                                <p style={{ fontSize: '0.82rem', marginTop: '0.3rem' }}>Usa las herramientas superiores para añadir imágenes o notas de planificación.</p>
-                            </div>
-                        )}
+                                bottom: '16px',
+                                right: '16px',
+                                background: 'rgba(15, 23, 42, 0.88)',
+                                border: '1px solid rgba(255, 255, 255, 0.18)',
+                                borderRadius: '12px',
+                                padding: '0.3rem 0.6rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                zIndex: 9999,
+                                backdropFilter: 'blur(10px)',
+                                boxShadow: '0 4px 16px rgba(0,0,0,0.5)'
+                            }}
+                        >
+                            <button
+                                onClick={() => setZoom(z => Math.max(0.4, +(z - 0.1).toFixed(2)))}
+                                title="Reducir Zoom"
+                                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.3rem 0.6rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}
+                            >
+                                -
+                            </button>
+                            <span 
+                                onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} 
+                                title="Restablecer Posición y Zoom (100%)"
+                                style={{ color: '#eab308', fontSize: '0.82rem', fontWeight: 700, padding: '0 0.2rem', cursor: 'pointer' }}
+                            >
+                                {Math.round(zoom * 100)}%
+                            </span>
+                            <button
+                                onClick={() => setZoom(z => Math.min(2.5, +(z + 0.1).toFixed(2)))}
+                                title="Aumentar Zoom"
+                                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.3rem 0.6rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}
+                            >
+                                +
+                            </button>
+                            <button
+                                onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+                                title="Recentar Tablero"
+                                style={{ background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.3)', color: '#fef08a', padding: '0.25rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                            >
+                                Recentar
+                            </button>
+                        </div>
 
-                        {/* Render Board Elements */}
-                        {boardElements.map(el => {
-                            const isSelected = el.id === selectedElementId;
+                        {/* Inner Scaled & Panned Canvas Container */}
+                        <div style={{
+                            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                            transformOrigin: 'top left',
+                            width: `${100 / zoom}%`,
+                            height: `${100 / zoom}%`,
+                            position: 'relative'
+                        }}>
 
-                            if (el.type === 'image') {
+                            {/* SVG THREADS LAYER (HILOS DE CONEXIÓN ROJOS) */}
+                            <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
+                                {threadsList.map(thread => {
+                                    const source = boardElements.find(e => e.id === thread.sourceId);
+                                    const target = boardElements.find(e => e.id === thread.targetId);
+                                    if (!source || !target) return null;
+
+                                    const x1 = source.x + (source.width || 260) / 2;
+                                    const y1 = source.y + (source.height || 140) / 2;
+                                    const x2 = target.x + (target.width || 260) / 2;
+                                    const y2 = target.y + (target.height || 140) / 2;
+
+                                    const midX = (x1 + x2) / 2;
+                                    const midY = (y1 + y2) / 2;
+
+                                    return (
+                                        <g key={thread.id}>
+                                            {/* Red Tactical Thread Line */}
+                                            <line
+                                                x1={x1}
+                                                y1={y1}
+                                                x2={x2}
+                                                y2={y2}
+                                                stroke="#ef4444"
+                                                strokeWidth="3.5"
+                                                strokeDasharray="6,4"
+                                            />
+
+                                            {/* Midpoint Knot & Label Button */}
+                                            <g 
+                                                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (confirm(language === 'es' ? '¿Eliminar este hilo conector?' : 'Delete this connecting thread?')) {
+                                                        handleDeleteElement(thread.id);
+                                                    }
+                                                }}
+                                            >
+                                                <circle cx={midX} cy={midY} r="7" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
+                                                {thread.label && (
+                                                    <text
+                                                        x={midX}
+                                                        y={midY - 12}
+                                                        fill="#fca5a5"
+                                                        fontSize="11"
+                                                        fontWeight="700"
+                                                        textAnchor="middle"
+                                                        style={{ background: 'rgba(0,0,0,0.8)', padding: '2px 4px' }}
+                                                    >
+                                                        {thread.label}
+                                                    </text>
+                                                )}
+                                            </g>
+                                        </g>
+                                    );
+                                })}
+                            </svg>
+
+                            {boardElements.length === 0 && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    textAlign: 'center',
+                                    color: '#64748b',
+                                    pointerEvents: 'none'
+                                }}>
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginBottom: '1rem', opacity: 0.4 }}>
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <line x1="3" y1="9" x2="21" y2="9"/>
+                                        <line x1="9" y1="21" x2="9" y2="9"/>
+                                    </svg>
+                                    <h3 style={{ margin: 0, color: '#94a3b8', fontSize: '1.05rem', fontWeight: 600 }}>Tablero Táctico Vacío</h3>
+                                    <p style={{ fontSize: '0.82rem', marginTop: '0.3rem' }}>Usa las herramientas superiores para añadir imágenes, notas o hilos tácticos.</p>
+                                </div>
+                            )}
+
+                            {/* Render Board Elements (Images & Notes) */}
+                            {boardElements.map(el => {
+                                if (el.type === 'thread') return null;
+
+                                const isSelected = el.id === selectedElementId;
+                                const isConnectingSource = el.id === connectingSourceId;
+
+                                if (el.type === 'image') {
+                                    return (
+                                        <div
+                                            key={el.id}
+                                            onMouseDown={e => handleMouseDownElement(e, el)}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                if (connectingSourceId) {
+                                                    handleConnectToElement(el.id);
+                                                } else {
+                                                    setSelectedElementId(el.id);
+                                                }
+                                            }}
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${el.x}px`,
+                                                top: `${el.y}px`,
+                                                width: `${el.width || 300}px`,
+                                                height: el.height ? `${el.height}px` : 'auto',
+                                                zIndex: el.zIndex || 2,
+                                                cursor: isDragging && isSelected ? 'grabbing' : 'grab',
+                                                border: isConnectingSource 
+                                                    ? '2.5px solid #ef4444' 
+                                                    : isSelected 
+                                                    ? '2px solid #eab308' 
+                                                    : '1px solid rgba(255,255,255,0.15)',
+                                                boxShadow: isSelected ? '0 0 25px rgba(234, 179, 8, 0.45)' : '0 6px 16px rgba(0,0,0,0.5)',
+                                                borderRadius: '12px',
+                                                background: '#0f172a',
+                                                padding: '4px',
+                                                backdropFilter: 'blur(10px)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                overflow: 'hidden',
+                                                transition: isDragging ? 'none' : 'border-color 0.2s ease, box-shadow 0.2s ease'
+                                            }}
+                                        >
+                                            <img 
+                                                src={getProfileImage(el.url, el.url)}
+                                                alt="Tactical Element"
+                                                style={{
+                                                    width: '100%',
+                                                    height: el.height ? '100%' : 'auto',
+                                                    objectFit: 'cover',
+                                                    borderRadius: '8px',
+                                                    display: 'block',
+                                                    pointerEvents: 'none'
+                                                }}
+                                            />
+
+                                            {/* Quick On-Card Controls when selected */}
+                                            {isSelected && (
+                                                <div 
+                                                    onClick={e => e.stopPropagation()}
+                                                    onMouseDown={e => e.stopPropagation()}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: '-42px',
+                                                        right: '0',
+                                                        background: 'rgba(15, 23, 42, 0.95)',
+                                                        border: '1px solid #eab308',
+                                                        borderRadius: '10px',
+                                                        padding: '0.25rem 0.5rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.35rem',
+                                                        boxShadow: '0 6px 16px rgba(0,0,0,0.6)',
+                                                        backdropFilter: 'blur(10px)',
+                                                        zIndex: 9999
+                                                    }}
+                                                >
+                                                    <button
+                                                        onClick={() => updateElement(el.id, { width: (el.width || 300) + 40 })}
+                                                        title="Aumentar Ancho (Horizontal)"
+                                                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
+                                                    >
+                                                        Ancho +
+                                                    </button>
+                                                    <button
+                                                        onClick={() => updateElement(el.id, { width: Math.max(100, (el.width || 300) - 40) })}
+                                                        title="Reducir Ancho (Horizontal)"
+                                                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
+                                                    >
+                                                        Ancho -
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => updateElement(el.id, { height: ((el.height || 200) + 40) })}
+                                                        title="Aumentar Alto (Vertical)"
+                                                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
+                                                    >
+                                                        Alto +
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => setExpandedImage(getProfileImage(el.url, el.url))}
+                                                        title="Ver Imagen Completa"
+                                                        style={{ background: 'rgba(59, 130, 246, 0.25)', border: 'none', color: '#60a5fa', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                    >
+                                                        Ampliar
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => startConnectingThread(el.id)}
+                                                        title="Unir con Hilo Rojo"
+                                                        style={{ background: 'rgba(239, 68, 68, 0.25)', border: 'none', color: '#fca5a5', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                    >
+                                                        Hilo
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => handleDeleteElement(el.id)}
+                                                        title="Eliminar"
+                                                        style={{ background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#f87171', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }
+
+                                // Note Element
                                 return (
                                     <div
                                         key={el.id}
                                         onMouseDown={e => handleMouseDownElement(e, el)}
                                         onClick={e => {
                                             e.stopPropagation();
-                                            setSelectedElementId(el.id);
+                                            if (connectingSourceId) {
+                                                handleConnectToElement(el.id);
+                                            } else {
+                                                setSelectedElementId(el.id);
+                                            }
                                         }}
+                                        onDoubleClick={() => handleEditNoteContent(el)}
                                         style={{
                                             position: 'absolute',
                                             left: `${el.x}px`,
                                             top: `${el.y}px`,
-                                            width: `${el.width || 300}px`,
-                                            zIndex: el.zIndex || 1,
+                                            width: `${el.width || 260}px`,
+                                            height: el.height ? `${el.height}px` : 'auto',
+                                            zIndex: el.zIndex || 2,
                                             cursor: isDragging && isSelected ? 'grabbing' : 'grab',
-                                            border: isSelected ? '2px solid #eab308' : '1px solid rgba(255,255,255,0.15)',
-                                            boxShadow: isSelected ? '0 0 25px rgba(234, 179, 8, 0.45)' : '0 6px 16px rgba(0,0,0,0.5)',
+                                            background: 'rgba(15, 23, 42, 0.92)',
+                                            border: isConnectingSource 
+                                                ? '2.5px solid #ef4444' 
+                                                : isSelected 
+                                                ? '2px solid #eab308' 
+                                                : '1px solid rgba(234, 179, 8, 0.35)',
                                             borderRadius: '12px',
-                                            background: '#0f172a',
-                                            padding: '4px',
+                                            padding: '1rem',
+                                            boxShadow: isSelected ? '0 0 20px rgba(234, 179, 8, 0.35)' : '0 6px 16px rgba(0,0,0,0.5)',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            lineHeight: '1.4',
                                             backdropFilter: 'blur(10px)',
-                                            transition: isDragging ? 'none' : 'border-color 0.2s ease, box-shadow 0.2s ease'
+                                            overflow: 'auto'
                                         }}
                                     >
-                                        <img 
-                                            src={getProfileImage(el.url, el.url)}
-                                            alt="Tactical Element"
-                                            style={{
-                                                width: '100%',
-                                                height: 'auto',
-                                                borderRadius: '8px',
-                                                display: 'block',
-                                                pointerEvents: 'none'
-                                            }}
-                                        />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                                            <span style={{ color: '#eab308', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                                {el.category || 'Nota Táctica'}
+                                            </span>
+                                        </div>
+                                        <div style={{ whiteSpace: 'pre-wrap' }}>
+                                            {el.content}
+                                        </div>
 
                                         {/* Quick On-Card Controls when selected */}
                                         {isSelected && (
                                             <div 
                                                 onClick={e => e.stopPropagation()}
+                                                onMouseDown={e => e.stopPropagation()}
                                                 style={{
                                                     position: 'absolute',
-                                                    top: '-42px',
+                                                    top: '-38px',
                                                     right: '0',
                                                     background: 'rgba(15, 23, 42, 0.95)',
                                                     border: '1px solid #eab308',
@@ -1034,33 +1448,37 @@ function SEB() {
                                                 }}
                                             >
                                                 <button
-                                                    onClick={() => updateElement(el.id, { width: (el.width || 300) + 40 })}
-                                                    title="Aumentar Tamaño"
-                                                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                                                    onClick={() => handleEditNoteContent(el)}
+                                                    title="Editar Nota"
+                                                    style={{ background: 'rgba(234, 179, 8, 0.25)', border: 'none', color: '#fef08a', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
                                                 >
-                                                    +
+                                                    Editar
                                                 </button>
+
                                                 <button
-                                                    onClick={() => updateElement(el.id, { width: Math.max(120, (el.width || 300) - 40) })}
-                                                    title="Disminuir Tamaño"
-                                                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                                                    onClick={() => updateElement(el.id, { width: (el.width || 260) + 40 })}
+                                                    title="Aumentar Ancho (Horizontal)"
+                                                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
                                                 >
-                                                    -
+                                                    Ancho +
                                                 </button>
+
                                                 <button
-                                                    onClick={() => bringToFront(el.id)}
-                                                    title="Traer al Frente"
-                                                    style={{ background: 'rgba(234, 179, 8, 0.2)', border: 'none', color: '#fef08a', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                    onClick={() => updateElement(el.id, { height: ((el.height || 130) + 40) })}
+                                                    title="Aumentar Alto (Vertical)"
+                                                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
                                                 >
-                                                    Frente
+                                                    Alto +
                                                 </button>
+
                                                 <button
-                                                    onClick={() => sendToBack(el.id)}
-                                                    title="Enviar al Fondo"
-                                                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#cbd5e1', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                    onClick={() => startConnectingThread(el.id)}
+                                                    title="Unir con Hilo Rojo"
+                                                    style={{ background: 'rgba(239, 68, 68, 0.25)', border: 'none', color: '#fca5a5', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
                                                 >
-                                                    Fondo
+                                                    Hilo
                                                 </button>
+
                                                 <button
                                                     onClick={() => handleDeleteElement(el.id)}
                                                     title="Eliminar"
@@ -1072,100 +1490,8 @@ function SEB() {
                                         )}
                                     </div>
                                 );
-                            }
-
-                            // Note Element
-                            return (
-                                <div
-                                    key={el.id}
-                                    onMouseDown={e => handleMouseDownElement(e, el)}
-                                    onClick={e => {
-                                        e.stopPropagation();
-                                        setSelectedElementId(el.id);
-                                    }}
-                                    style={{
-                                        position: 'absolute',
-                                        left: `${el.x}px`,
-                                        top: `${el.y}px`,
-                                        width: `${el.width || 250}px`,
-                                        zIndex: el.zIndex || 1,
-                                        cursor: isDragging && isSelected ? 'grabbing' : 'grab',
-                                        background: 'rgba(15, 23, 42, 0.9)',
-                                        border: isSelected ? '2px solid #eab308' : '1px solid rgba(234, 179, 8, 0.3)',
-                                        borderRadius: '12px',
-                                        padding: '1rem',
-                                        boxShadow: isSelected ? '0 0 20px rgba(234, 179, 8, 0.35)' : '0 6px 16px rgba(0,0,0,0.5)',
-                                        color: '#ffffff',
-                                        fontSize: '0.88rem',
-                                        lineHeight: '1.4',
-                                        backdropFilter: 'blur(10px)'
-                                    }}
-                                >
-                                    <div style={{ color: '#eab308', fontSize: '0.72rem', fontWeight: 700, marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                        Nota Táctica
-                                    </div>
-                                    {el.content}
-
-                                    {/* Quick On-Card Controls when selected */}
-                                    {isSelected && (
-                                        <div 
-                                            onClick={e => e.stopPropagation()}
-                                            style={{
-                                                position: 'absolute',
-                                                top: '-38px',
-                                                right: '0',
-                                                background: 'rgba(15, 23, 42, 0.95)',
-                                                border: '1px solid #eab308',
-                                                borderRadius: '10px',
-                                                padding: '0.25rem 0.5rem',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.35rem',
-                                                boxShadow: '0 6px 16px rgba(0,0,0,0.6)',
-                                                backdropFilter: 'blur(10px)',
-                                                zIndex: 9999
-                                            }}
-                                        >
-                                            <button
-                                                onClick={() => updateElement(el.id, { width: (el.width || 250) + 40 })}
-                                                title="Aumentar Tamaño"
-                                                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
-                                            >
-                                                +
-                                            </button>
-                                            <button
-                                                onClick={() => updateElement(el.id, { width: Math.max(120, (el.width || 250) - 40) })}
-                                                title="Disminuir Tamaño"
-                                                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
-                                            >
-                                                -
-                                            </button>
-                                            <button
-                                                onClick={() => bringToFront(el.id)}
-                                                title="Traer al Frente"
-                                                style={{ background: 'rgba(234, 179, 8, 0.2)', border: 'none', color: '#fef08a', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
-                                            >
-                                                Frente
-                                            </button>
-                                            <button
-                                                onClick={() => sendToBack(el.id)}
-                                                title="Enviar al Fondo"
-                                                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#cbd5e1', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
-                                            >
-                                                Fondo
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteElement(el.id)}
-                                                title="Eliminar"
-                                                style={{ background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#f87171', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
-                                            >
-                                                ✕
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
+                            })}
+                        </div>
                     </div>
                 </div>
             )}
@@ -1335,6 +1661,34 @@ function SEB() {
                             </div>
                         </form>
                     </div>
+                </div>
+            )}
+
+            {/* EXPANDED IMAGE LIGHTBOX MODAL */}
+            {expandedImage && (
+                <div 
+                    onClick={() => setExpandedImage(null)}
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0,0,0,0.92)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10000,
+                        padding: '2rem',
+                        cursor: 'zoom-out',
+                        backdropFilter: 'blur(10px)'
+                    }}
+                >
+                    <img 
+                        src={expandedImage} 
+                        alt="Tactical Plan Full view" 
+                        style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 20px 60px rgba(0,0,0,0.8)' }}
+                    />
                 </div>
             )}
         </div>
