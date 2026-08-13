@@ -1539,89 +1539,130 @@ function Gangs() {
                 </Modal>
             )}
 
-            {/* Patrol Logs Table Modal */}
+            {/* Patrol Logs Table Modal (Apple macOS Glassmorphic Window) */}
             {activeModal === 'patrolTable' && (
-                <div className="cropper-modal-overlay" onClick={closeModal}>
-                    <div className="cropper-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3 className="section-title" style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
-                            🕐 Patrol Time Control - Activity Matrix
-                        </h3>
-
-                        {loadingActivity ? (
-                            <div style={{ textAlign: 'center', padding: '2rem' }}>Loading patrol logs...</div>
-                        ) : (
-                            <div>
-                                {patrolLogs.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic', opacity: 0.7 }}>No patrol logs found.</div>
-                                ) : (
-                                    <PatrolMatrix logs={patrolLogs} onSelectLog={setSelectedLog} onDeleteLog={handleDeletePatrolLog} onViewImage={setExpandedImage} />
-                                )}
+                <div className="mac-modal-overlay" onClick={closeModal}>
+                    <div className="mac-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '1100px', width: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={closeModal} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
                             </div>
-                        )}
-                        <div style={{ marginTop: '2rem', textAlign: 'right' }}>
-                            <button className="login-button btn-secondary" onClick={closeModal} style={{ width: 'auto' }}>Close</button>
+                            <span className="mac-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12 6 12 12 16 14"/>
+                                </svg>
+                                <span>Control de Tiempos de Patrulla - Matriz de Actividad</span>
+                            </span>
+                            <div style={{ width: 52 }} />
+                        </div>
+
+                        <div className="mac-modal-body" style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
+                            {loadingActivity ? (
+                                <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                    <span style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid #eab308', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></span>
+                                    <span>Cargando matriz de patrullas...</span>
+                                </div>
+                            ) : (
+                                <div>
+                                    {patrolLogs.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b', fontStyle: 'italic', fontSize: '0.85rem' }}>
+                                            No hay registros de patrulla registrados para esta banda.
+                                        </div>
+                                    ) : (
+                                        <PatrolMatrix logs={patrolLogs} onSelectLog={setSelectedLog} onDeleteLog={handleDeletePatrolLog} onViewImage={setExpandedImage} />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ padding: '0.85rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', background: 'rgba(15, 23, 42, 0.4)' }}>
+                            <button className="mac-btn mac-btn-secondary" onClick={closeModal}>
+                                Cerrar Ventana
+                            </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Log Detail Modal */}
+            {/* Log Detail Modal (Apple macOS Glassmorphic Card) */}
             {selectedLog && (
-                <div className="cropper-modal-overlay" onClick={() => setSelectedLog(null)}>
-                    <div className="cropper-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-                        <h3 className="section-title" style={{ marginBottom: '1rem', color: 'var(--accent-gold)' }}>
-                            📋 Patrol Log Details
-                        </h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div>
-                                <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Time:</strong>
-                                <div>{new Date(selectedLog.patrol_time).toLocaleString('es-ES', {
-                                    year: 'numeric', month: '2-digit', day: '2-digit',
-                                    hour: '2-digit', minute: '2-digit'
-                                })}</div>
+                <div className="mac-modal-overlay" onClick={() => setSelectedLog(null)}>
+                    <div className="mac-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setSelectedLog(null)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
                             </div>
-                            <div>
-                                <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>People Count:</strong>
-                                <div style={{ fontSize: '1.5rem', color: 'var(--accent-gold)', fontWeight: 'bold' }}>{selectedLog.people_count}</div>
-                            </div>
-                            {selectedLog.notes && (
-                                <div>
-                                    <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Notes:</strong>
-                                    <div style={{ marginTop: '0.3rem', padding: '0.5rem', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}>
-                                        {selectedLog.notes}
+                            <span className="mac-modal-title" style={{ color: '#fef08a' }}>Detalle de Registro de Patrulla</span>
+                            <div style={{ width: 52 }} />
+                        </div>
+
+                        <div className="mac-modal-body" style={{ padding: '1.25rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div style={{ display: 'flex', gap: '1rem', background: 'rgba(0,0,0,0.3)', padding: '0.85rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '0.2rem' }}>FECHA Y HORA REGISTRADA</span>
+                                        <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '0.9rem' }}>
+                                            {new Date(selectedLog.patrol_time).toLocaleString('es-ES', {
+                                                year: 'numeric', month: '2-digit', day: '2-digit',
+                                                hour: '2-digit', minute: '2-digit'
+                                            })}
+                                        </div>
+                                    </div>
+                                    <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: '1rem', textAlign: 'center' }}>
+                                        <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '0.2rem' }}>PERSONAS</span>
+                                        <div style={{ fontSize: '1.4rem', color: '#eab308', fontWeight: 800 }}>{selectedLog.people_count}</div>
                                     </div>
                                 </div>
-                            )}
-                            <div>
-                                <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Logged by:</strong>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.3rem' }}>
-                                    <img src={selectedLog.detective_avatar || '/logowebp/anon.webp'} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
-                                    <span>{selectedLog.detective_rank} {selectedLog.detective_name}</span>
-                                </div>
-                            </div>
-                            {selectedLog.photo && (
+
+                                {selectedLog.notes && (
+                                    <div>
+                                        <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>NOTAS DE OBSERVACIÓN</span>
+                                        <div style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)', color: '#cbd5e1', fontSize: '0.85rem', lineHeight: '1.4' }}>
+                                            {selectedLog.notes}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div>
-                                    <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Photo:</strong>
-                                    <img
-                                        src={selectedLog.photo}
-                                        onClick={() => setExpandedImage(selectedLog.photo)}
-                                        style={{ width: '100%', marginTop: '0.5rem', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }}
-                                        alt="Patrol"
-                                    />
+                                    <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>REGISTRADO POR</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.5rem 0.75rem', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                        <img src={selectedLog.detective_avatar || '/logowebp/anon.webp'} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} alt="" />
+                                        <span style={{ color: '#ffffff', fontWeight: 700, fontSize: '0.85rem' }}>{selectedLog.detective_rank} {selectedLog.detective_name}</span>
+                                    </div>
                                 </div>
-                            )}
+
+                                {selectedLog.photo && (
+                                    <div>
+                                        <span style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>EVIDENCIA / FOTO</span>
+                                        <img
+                                            src={selectedLog.photo}
+                                            onClick={() => setExpandedImage(selectedLog.photo)}
+                                            style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
+                                            alt="Patrol"
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+
+                        <div style={{ padding: '0.85rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', background: 'rgba(15, 23, 42, 0.4)' }}>
                             {selectedLog.can_delete && (
                                 <button
-                                    className="login-button"
+                                    className="mac-btn"
                                     onClick={() => { handleDeletePatrolLog(selectedLog.id); setSelectedLog(null); }}
-                                    style={{ width: 'auto', background: '#ef4444' }}
+                                    style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.5)', color: '#f87171' }}
                                 >
-                                    🗑️ Delete
+                                    Eliminar Registro
                                 </button>
                             )}
-                            <button className="login-button btn-secondary" onClick={() => setSelectedLog(null)} style={{ width: 'auto' }}>Close</button>
+                            <button className="mac-btn mac-btn-secondary" onClick={() => setSelectedLog(null)}>
+                                Cerrar
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2504,86 +2545,89 @@ function PatrolMatrix({ logs, onSelectLog }) {
 
     return (
         <>
-            {/* Legend - Moved to top with more spacing */}
+            {/* Legend - Apple macOS Glass Badge Bar */}
             <div style={{
-                marginBottom: '1.5rem',
+                marginBottom: '1.25rem',
                 display: 'flex',
-                gap: '1rem',
+                gap: '1.2rem',
                 justifyContent: 'center',
                 flexWrap: 'wrap',
-                fontSize: '0.8rem',
-                padding: '1rem',
-                background: 'rgba(212, 175, 55, 0.05)',
-                borderRadius: '8px',
-                border: '1px solid rgba(212, 175, 55, 0.2)'
+                fontSize: '0.78rem',
+                padding: '0.75rem 1.25rem',
+                background: 'rgba(15, 23, 42, 0.6)',
+                borderRadius: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(10px)'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: '20px', height: '20px', background: '#10b981', borderRadius: '3px' }}></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#cbd5e1' }}>
+                    <div style={{ width: '14px', height: '14px', background: '#10b981', borderRadius: '4px', boxShadow: '0 0 6px rgba(16,185,129,0.4)' }}></div>
                     <span>1-2 personas</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: '20px', height: '20px', background: 'var(--color-blue)', borderRadius: '3px' }}></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#cbd5e1' }}>
+                    <div style={{ width: '14px', height: '14px', background: '#3b82f6', borderRadius: '4px', boxShadow: '0 0 6px rgba(59,130,246,0.4)' }}></div>
                     <span>3-5 personas</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: '20px', height: '20px', background: '#f59e0b', borderRadius: '3px' }}></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#cbd5e1' }}>
+                    <div style={{ width: '14px', height: '14px', background: '#f59e0b', borderRadius: '4px', boxShadow: '0 0 6px rgba(245,158,11,0.4)' }}></div>
                     <span>6-10 personas</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: '20px', height: '20px', background: '#dc2626', borderRadius: '3px' }}></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#cbd5e1' }}>
+                    <div style={{ width: '14px', height: '14px', background: '#ef4444', borderRadius: '4px', boxShadow: '0 0 6px rgba(239,68,68,0.4)' }}></div>
                     <span>11+ personas</span>
                 </div>
             </div>
 
-            {/* Table Container with Custom Scrollbar */}
+            {/* Table Container with Custom Apple Scrollbar */}
             <div style={{
                 overflowX: 'auto',
                 overflowY: 'auto',
-                maxHeight: '65vh',
-                borderRadius: '8px',
+                maxHeight: '62vh',
+                borderRadius: '12px',
                 border: '1px solid rgba(255,255,255,0.1)',
-                background: 'rgba(0,0,0,0.3)',
-                padding: '0.5rem',
-                // Custom scrollbar styling
+                background: 'rgba(9, 13, 22, 0.8)',
+                padding: '0.25rem',
                 scrollbarWidth: 'thin',
-                scrollbarColor: 'var(--accent-gold) rgba(255,255,255,0.1)'
+                scrollbarColor: '#eab308 rgba(255,255,255,0.05)'
             }}
                 className="patrol-matrix-scroll"
             >
                 <style>{`
                     .patrol-matrix-scroll::-webkit-scrollbar {
-                        width: 10px;
-                        height: 10px;
+                        width: 8px;
+                        height: 8px;
                     }
                     .patrol-matrix-scroll::-webkit-scrollbar-track {
-                        background: rgba(255,255,255,0.05);
-                        border-radius: 5px;
+                        background: rgba(255,255,255,0.03);
+                        border-radius: 4px;
                     }
                     .patrol-matrix-scroll::-webkit-scrollbar-thumb {
-                        background: var(--accent-gold);
-                        border-radius: 5px;
-                        border: 2px solid rgba(0,0,0,0.3);
+                        background: rgba(234, 179, 8, 0.4);
+                        border-radius: 4px;
                     }
                     .patrol-matrix-scroll::-webkit-scrollbar-thumb:hover {
-                        background: #ffd700;
+                        background: #eab308;
                     }
                     .patrol-matrix-scroll::-webkit-scrollbar-corner {
-                        background: rgba(255,255,255,0.05);
+                        background: transparent;
                     }
                 `}</style>
-                <table style={{ borderCollapse: 'collapse', fontSize: '0.75rem', minWidth: '100%' }}>
-                    <thead style={{ position: 'sticky', top: 0, background: '#1a1a1a', zIndex: 10 }}>
+                <table style={{ borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.75rem', minWidth: '100%' }}>
+                    <thead style={{ position: 'sticky', top: 0, background: '#0f172a', zIndex: 10 }}>
                         <tr>
                             <th style={{
                                 position: 'sticky',
                                 left: 0,
-                                background: '#1a1a1a',
-                                padding: '0.5rem',
-                                borderBottom: '2px solid rgba(255,255,255,0.2)',
-                                borderRight: '2px solid rgba(255,255,255,0.2)',
-                                color: 'var(--accent-gold)',
+                                background: '#0f172a',
+                                padding: '0.65rem 0.75rem',
+                                borderBottom: '2px solid rgba(234, 179, 8, 0.4)',
+                                borderRight: '2px solid rgba(255,255,255,0.12)',
+                                color: '#eab308',
                                 zIndex: 11,
-                                minWidth: '90px'
+                                minWidth: '95px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                fontSize: '0.7rem',
+                                fontWeight: 800
                             }}>
                                 FECHA
                             </th>
@@ -2591,15 +2635,15 @@ function PatrolMatrix({ logs, onSelectLog }) {
                                 const [h, m] = hour.split(':');
                                 return (
                                     <th key={hour} style={{
-                                        padding: '0.3rem 0.2rem',
-                                        borderBottom: '2px solid rgba(255,255,255,0.2)',
-                                        borderLeft: hour.endsWith(':00') ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.05)',
-                                        color: 'var(--accent-gold)',
-                                        minWidth: '30px',
+                                        padding: '0.35rem 0.2rem',
+                                        borderBottom: '2px solid rgba(234, 179, 8, 0.4)',
+                                        borderLeft: hour.endsWith(':00') ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.04)',
+                                        color: hour.endsWith(':00') ? '#fef08a' : '#94a3b8',
+                                        minWidth: '32px',
                                         fontSize: '0.65rem',
                                         textAlign: 'center',
                                         lineHeight: '1.1',
-                                        fontWeight: hour.endsWith(':00') ? 'bold' : 'normal'
+                                        fontWeight: hour.endsWith(':00') ? 700 : 400
                                     }}>
                                         <div>{h}:</div>
                                         <div>{m}</div>
@@ -2614,13 +2658,14 @@ function PatrolMatrix({ logs, onSelectLog }) {
                                 <td style={{
                                     position: 'sticky',
                                     left: 0,
-                                    background: '#1a1a1a',
-                                    padding: '0.5rem',
-                                    borderBottom: '1px solid rgba(255,255,255,0.1)',
-                                    borderRight: '2px solid rgba(255,255,255,0.2)',
-                                    fontWeight: 'bold',
-                                    color: '#e0e0e0',
-                                    zIndex: 5
+                                    background: '#0f172a',
+                                    padding: '0.6rem 0.75rem',
+                                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                                    borderRight: '2px solid rgba(255,255,255,0.12)',
+                                    fontWeight: 700,
+                                    color: '#cbd5e1',
+                                    zIndex: 5,
+                                    fontSize: '0.78rem'
                                 }}>
                                     {date}
                                 </td>
@@ -2631,32 +2676,37 @@ function PatrolMatrix({ logs, onSelectLog }) {
                                             key={hour}
                                             onClick={() => log && onSelectLog(log)}
                                             style={{
-                                                padding: '0.5rem 0.3rem',
-                                                borderBottom: '1px solid rgba(255,255,255,0.1)',
-                                                borderLeft: hour.endsWith(':00') ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.05)',
+                                                padding: '0.5rem 0.2rem',
+                                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                                borderLeft: hour.endsWith(':00') ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(255,255,255,0.04)',
                                                 textAlign: 'center',
                                                 background: log ? (
-                                                    log.people_count > 10 ? '#dc2626' :
-                                                        log.people_count > 5 ? '#f59e0b' :
-                                                            log.people_count > 2 ? 'var(--color-blue)' :
-                                                                '#10b981'
+                                                    log.people_count > 10 ? 'rgba(239, 68, 68, 0.85)' :
+                                                        log.people_count > 5 ? 'rgba(245, 158, 11, 0.85)' :
+                                                            log.people_count > 2 ? 'rgba(59, 130, 246, 0.85)' :
+                                                                'rgba(16, 185, 129, 0.85)'
                                                 ) : 'transparent',
-                                                color: log ? 'white' : '#666',
-                                                fontWeight: log ? 'bold' : 'normal',
+                                                color: log ? '#ffffff' : 'transparent',
+                                                fontWeight: log ? 800 : 400,
                                                 cursor: log ? 'pointer' : 'default',
-                                                transition: 'all 0.2s',
-                                                fontSize: '0.75rem'
+                                                transition: 'all 0.15s ease',
+                                                fontSize: '0.75rem',
+                                                boxShadow: log ? 'inset 0 0 6px rgba(0,0,0,0.3)' : 'none'
                                             }}
                                             onMouseEnter={e => {
                                                 if (log) {
-                                                    e.currentTarget.style.transform = 'scale(1.1)';
+                                                    e.currentTarget.style.transform = 'scale(1.2)';
                                                     e.currentTarget.style.zIndex = '3';
+                                                    e.currentTarget.style.borderRadius = '4px';
+                                                    e.currentTarget.style.boxShadow = '0 0 10px rgba(255,255,255,0.5)';
                                                 }
                                             }}
                                             onMouseLeave={e => {
                                                 if (log) {
                                                     e.currentTarget.style.transform = 'scale(1)';
                                                     e.currentTarget.style.zIndex = '1';
+                                                    e.currentTarget.style.borderRadius = '0px';
+                                                    e.currentTarget.style.boxShadow = 'inset 0 0 6px rgba(0,0,0,0.3)';
                                                 }
                                             }}
                                         >
