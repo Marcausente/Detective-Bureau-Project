@@ -31,6 +31,7 @@ function SEB() {
 
     // Tactical Board Canvas State
     const [boardElements, setBoardElements] = useState([]);
+    const [history, setHistory] = useState([]); // Undo History Stack for Ctrl+Z
     const [selectedElementId, setSelectedElementId] = useState(null);
     const [connectingSourceId, setConnectingSourceId] = useState(null); // Thread connection source
     const [zoom, setZoom] = useState(1); // Zoom scale factor (1 = 100%)
@@ -38,8 +39,9 @@ function SEB() {
     const [isPanning, setIsPanning] = useState(false);
     const panStartRef = useRef({ x: 0, y: 0 });
 
-    // Tactical Pencil / Freehand Drawing State
+    // Tactical Pencil & Eraser Freehand Drawing State
     const [isPencilActive, setIsPencilActive] = useState(false);
+    const [isEraserActive, setIsEraserActive] = useState(false);
     const [pencilColor, setPencilColor] = useState('#ef4444'); // Default tactical red
     const [pencilWidth, setPencilWidth] = useState(3);
     const [isDrawing, setIsDrawing] = useState(false);
@@ -88,6 +90,44 @@ function SEB() {
             boardEl.removeEventListener('wheel', handleWheel);
         };
     }, [selectedOp]);
+
+    // Push state snapshot to Undo History Stack before mutating elements
+    const pushHistory = (newElements) => {
+        setHistory(prev => [...prev.slice(-25), boardElements]);
+        setBoardElements(newElements);
+    };
+
+    const handleUndo = () => {
+        if (history.length === 0) return;
+        const previousState = history[history.length - 1];
+        setHistory(prev => prev.slice(0, -1));
+        setBoardElements(previousState);
+    };
+
+    // Keyboard shortcuts listener for Ctrl+Z (Undo) and Delete/Backspace
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            const activeTag = document.activeElement?.tagName;
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag) || document.activeElement?.isContentEditable) {
+                return;
+            }
+
+            // Ctrl + Z or Cmd + Z (Undo)
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                handleUndo();
+            }
+
+            // Delete or Backspace key deletes selected element
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElementId) {
+                e.preventDefault();
+                handleDeleteElement(selectedElementId);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [history, selectedElementId, boardElements]);
 
     const loadUserProfile = async () => {
         try {
@@ -251,9 +291,11 @@ function SEB() {
         setSelectedOp(op);
         const elements = typeof op.board_data === 'string' ? JSON.parse(op.board_data) : (op.board_data || []);
         setBoardElements(elements);
+        setHistory([]);
         setSelectedElementId(null);
         setConnectingSourceId(null);
         setIsPencilActive(false);
+        setIsEraserActive(false);
         setZoom(1);
         setPan({ x: 0, y: 0 });
     };
@@ -302,7 +344,7 @@ function SEB() {
                 zIndex: maxZ + 1
             };
 
-            setBoardElements([...boardElements, newImageElement]);
+            pushHistory([...boardElements, newImageElement]);
             setSelectedElementId(newImageElement.id);
         } catch (err) {
             console.error('Error uploading image to board:', err);
@@ -330,7 +372,7 @@ function SEB() {
             zIndex: maxZ + 1
         };
 
-        setBoardElements([...boardElements, newNoteElement]);
+        pushHistory([...boardElements, newNoteElement]);
         setSelectedElementId(newNoteElement.id);
     };
 
@@ -343,6 +385,7 @@ function SEB() {
     const startConnectingThread = (sourceId) => {
         setConnectingSourceId(sourceId);
         setIsPencilActive(false);
+        setIsEraserActive(false);
     };
 
     const handleConnectToElement = (targetId) => {
@@ -361,23 +404,23 @@ function SEB() {
             label: label
         };
 
-        setBoardElements([...boardElements, newThread]);
+        pushHistory([...boardElements, newThread]);
         setConnectingSourceId(null);
     };
 
     const updateElement = (id, newProps) => {
-        setBoardElements(boardElements.map(el => el.id === id ? { ...el, ...newProps } : el));
+        pushHistory(boardElements.map(el => el.id === id ? { ...el, ...newProps } : el));
     };
 
     const handleDeleteElement = (id) => {
-        setBoardElements(boardElements.filter(el => el.id !== id && el.sourceId !== id && el.targetId !== id));
+        pushHistory(boardElements.filter(el => el.id !== id && el.sourceId !== id && el.targetId !== id));
         if (selectedElementId === id) setSelectedElementId(null);
         if (connectingSourceId === id) setConnectingSourceId(null);
     };
 
     const handleClearDrawings = () => {
         if (confirm(language === 'es' ? '¿Borrar todos los trazos de dibujo del tablero?' : 'Clear all freehand drawings on the board?')) {
-            setBoardElements(boardElements.filter(el => el.type !== 'drawing'));
+            pushHistory(boardElements.filter(el => el.type !== 'drawing'));
         }
     };
 
@@ -401,13 +444,18 @@ function SEB() {
         };
     };
 
-    // Canvas Mouse Down: Start Pencil Drawing OR Pan
+    // Canvas Mouse Down: Start Pencil Drawing OR Eraser OR Pan
     const handleMouseDownBoard = (e) => {
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
         if (isPencilActive) {
             setIsDrawing(true);
             setCurrentPoints([{ x: canvasX, y: canvasY }]);
+            return;
+        }
+
+        if (isEraserActive) {
+            setIsDrawing(true); // Active erasing drag mode
             return;
         }
 
@@ -431,6 +479,13 @@ function SEB() {
             return;
         }
 
+        if (isEraserActive) {
+            if (el.type === 'drawing') {
+                handleDeleteElement(el.id);
+            }
+            return;
+        }
+
         if (connectingSourceId) {
             handleConnectToElement(el.id);
             return;
@@ -448,7 +503,7 @@ function SEB() {
     const handleMouseMoveBoard = (e) => {
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
-        if (isDrawing) {
+        if (isPencilActive && isDrawing) {
             setCurrentPoints(prev => [...prev, { x: canvasX, y: canvasY }]);
             return;
         }
@@ -470,7 +525,7 @@ function SEB() {
 
     // Canvas Mouse Up: Save Freehand Stroke OR Finish Drag/Pan
     const handleMouseUpBoard = () => {
-        if (isDrawing) {
+        if (isPencilActive && isDrawing) {
             setIsDrawing(false);
             if (currentPoints.length > 1) {
                 const newDrawing = {
@@ -480,9 +535,14 @@ function SEB() {
                     color: pencilColor,
                     strokeWidth: pencilWidth
                 };
-                setBoardElements(prev => [...prev, newDrawing]);
+                pushHistory([...boardElements, newDrawing]);
             }
             setCurrentPoints([]);
+            return;
+        }
+
+        if (isEraserActive) {
+            setIsDrawing(false);
             return;
         }
 
@@ -496,7 +556,7 @@ function SEB() {
         return pts.reduce((acc, pt, i) => i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '');
     };
 
-    const selectedElement = boardElements.find(el => el.id === selectedElementId && el.type !== 'thread' && el.type !== 'drawing');
+    const selectedElement = boardElements.find(el => el.id === selectedElementId && el.type !== 'thread');
     const threadsList = boardElements.filter(el => el.type === 'thread');
     const drawingsList = boardElements.filter(el => el.type === 'drawing');
 
@@ -867,7 +927,7 @@ function SEB() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <button
-                                onClick={() => { setSelectedOp(null); setConnectingSourceId(null); setIsPencilActive(false); }}
+                                onClick={() => { setSelectedOp(null); setConnectingSourceId(null); setIsPencilActive(false); setIsEraserActive(false); }}
                                 style={{
                                     background: 'rgba(15, 23, 42, 0.7)',
                                     border: '1px solid rgba(255,255,255,0.15)',
@@ -912,6 +972,33 @@ function SEB() {
                                 onChange={handleImageUploadToBoard}
                                 style={{ display: 'none' }}
                             />
+
+                            {/* Undo (Ctrl + Z) Button */}
+                            <button
+                                onClick={handleUndo}
+                                disabled={history.length === 0}
+                                title="Deshacer última acción (Ctrl + Z)"
+                                style={{
+                                    background: history.length > 0 ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.04)',
+                                    border: `1px solid ${history.length > 0 ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.08)'}`,
+                                    color: history.length > 0 ? '#ffffff' : '#64748b',
+                                    padding: '0.55rem 0.9rem',
+                                    borderRadius: '10px',
+                                    fontWeight: 600,
+                                    fontSize: '0.85rem',
+                                    cursor: history.length > 0 ? 'pointer' : 'not-allowed',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem',
+                                    backdropFilter: 'blur(10px)'
+                                }}
+                            >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="1 4 1 10 7 10"/>
+                                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                                </svg>
+                                Deshacer (Ctrl+Z)
+                            </button>
 
                             <button
                                 onClick={() => fileInputRef.current?.click()}
@@ -960,13 +1047,14 @@ function SEB() {
                                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                 </svg>
-                                Añadir Nota Táctica
+                                Añadir Nota
                             </button>
 
                             {/* Tactical Pencil Tool Button */}
                             <button
                                 onClick={() => {
                                     setIsPencilActive(!isPencilActive);
+                                    setIsEraserActive(false);
                                     setConnectingSourceId(null);
                                 }}
                                 style={{
@@ -988,7 +1076,36 @@ function SEB() {
                                     <path d="M12 20h9"/>
                                     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
                                 </svg>
-                                {isPencilActive ? 'Modo Lápiz Activo' : 'Dibujar con Lápiz'}
+                                {isPencilActive ? 'Modo Lápiz Activo' : 'Lápiz'}
+                            </button>
+
+                            {/* Eraser Tool Button */}
+                            <button
+                                onClick={() => {
+                                    setIsEraserActive(!isEraserActive);
+                                    setIsPencilActive(false);
+                                    setConnectingSourceId(null);
+                                }}
+                                style={{
+                                    background: isEraserActive ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                                    border: `1px solid ${isEraserActive ? '#ef4444' : 'rgba(255, 255, 255, 0.2)'}`,
+                                    color: isEraserActive ? '#fca5a5' : '#ffffff',
+                                    padding: '0.55rem 1.1rem',
+                                    borderRadius: '10px',
+                                    fontWeight: 600,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem',
+                                    backdropFilter: 'blur(10px)'
+                                }}
+                            >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="m7 21-4-4 10-10 6 6-10 10z"/>
+                                    <path d="m18 11 3 3-4 4h-4"/>
+                                </svg>
+                                {isEraserActive ? 'Goma Activa' : 'Goma'}
                             </button>
 
                             {/* Thread Creation Toggle Button */}
@@ -1144,7 +1261,7 @@ function SEB() {
                     )}
 
                     {/* Selected Element Controls Bar */}
-                    {selectedElement && !isPencilActive && (
+                    {selectedElement && !isPencilActive && !isEraserActive && (
                         <div style={{
                             background: 'rgba(15, 23, 42, 0.85)',
                             border: '1px solid rgba(234, 179, 8, 0.4)',
@@ -1160,38 +1277,40 @@ function SEB() {
                             boxShadow: '0 6px 20px rgba(0,0,0,0.4)'
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#eab308', fontSize: '0.85rem', fontWeight: 600 }}>
-                                <span>Elemento Seleccionado ({selectedElement.type === 'image' ? 'Imagen Táctica' : 'Nota Táctica'})</span>
+                                <span>Elemento Seleccionado ({selectedElement.type === 'image' ? 'Imagen Táctica' : selectedElement.type === 'note' ? 'Nota Táctica' : 'Dibujo Trazo'})</span>
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', flexWrap: 'wrap' }}>
-                                {/* Horizontal & Vertical Resizing Sliders */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: '#cbd5e1', fontSize: '0.82rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                        <span>Ancho (Horiz):</span>
-                                        <input
-                                            type="range"
-                                            min="100"
-                                            max="1000"
-                                            value={selectedElement.width || 300}
-                                            onChange={e => updateElement(selectedElement.id, { width: parseInt(e.target.value) })}
-                                            style={{ accentColor: '#eab308', cursor: 'pointer', width: '90px' }}
-                                        />
-                                        <span>{selectedElement.width || 300}px</span>
-                                    </div>
+                                {/* Horizontal & Vertical Resizing Sliders (for Notes & Images) */}
+                                {(selectedElement.type === 'image' || selectedElement.type === 'note') && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: '#cbd5e1', fontSize: '0.82rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <span>Ancho (Horiz):</span>
+                                            <input
+                                                type="range"
+                                                min="100"
+                                                max="1000"
+                                                value={selectedElement.width || 300}
+                                                onChange={e => updateElement(selectedElement.id, { width: parseInt(e.target.value) })}
+                                                style={{ accentColor: '#eab308', cursor: 'pointer', width: '90px' }}
+                                            />
+                                            <span>{selectedElement.width || 300}px</span>
+                                        </div>
 
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                        <span>Alto (Vert):</span>
-                                        <input
-                                            type="range"
-                                            min="80"
-                                            max="800"
-                                            value={selectedElement.height || 200}
-                                            onChange={e => updateElement(selectedElement.id, { height: parseInt(e.target.value) })}
-                                            style={{ accentColor: '#eab308', cursor: 'pointer', width: '90px' }}
-                                        />
-                                        <span>{selectedElement.height || 200}px</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <span>Alto (Vert):</span>
+                                            <input
+                                                type="range"
+                                                min="80"
+                                                max="800"
+                                                value={selectedElement.height || 200}
+                                                onChange={e => updateElement(selectedElement.id, { height: parseInt(e.target.value) })}
+                                                style={{ accentColor: '#eab308', cursor: 'pointer', width: '90px' }}
+                                            />
+                                            <span>{selectedElement.height || 200}px</span>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 {/* Actions */}
                                 <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -1213,53 +1332,41 @@ function SEB() {
                                         </button>
                                     )}
 
-                                    <button
-                                        onClick={() => startConnectingThread(selectedElement.id)}
-                                        style={{
-                                            background: 'rgba(239, 68, 68, 0.2)',
-                                            border: '1px solid #ef4444',
-                                            color: '#fca5a5',
-                                            padding: '0.35rem 0.75rem',
-                                            borderRadius: '8px',
-                                            fontSize: '0.78rem',
-                                            fontWeight: 600,
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        Conectar Hilo
-                                    </button>
+                                    {selectedElement.type !== 'drawing' && (
+                                        <>
+                                            <button
+                                                onClick={() => startConnectingThread(selectedElement.id)}
+                                                style={{
+                                                    background: 'rgba(239, 68, 68, 0.2)',
+                                                    border: '1px solid #ef4444',
+                                                    color: '#fca5a5',
+                                                    padding: '0.35rem 0.75rem',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Conectar Hilo
+                                            </button>
 
-                                    <button
-                                        onClick={() => bringToFront(selectedElement.id)}
-                                        style={{
-                                            background: 'rgba(255, 255, 255, 0.1)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            color: '#ffffff',
-                                            padding: '0.35rem 0.75rem',
-                                            borderRadius: '8px',
-                                            fontSize: '0.78rem',
-                                            fontWeight: 600,
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        Traer al Frente
-                                    </button>
-
-                                    <button
-                                        onClick={() => sendToBack(selectedElement.id)}
-                                        style={{
-                                            background: 'rgba(255, 255, 255, 0.08)',
-                                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                                            color: '#cbd5e1',
-                                            padding: '0.35rem 0.75rem',
-                                            borderRadius: '8px',
-                                            fontSize: '0.78rem',
-                                            fontWeight: 600,
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        Enviar al Fondo
-                                    </button>
+                                            <button
+                                                onClick={() => bringToFront(selectedElement.id)}
+                                                style={{
+                                                    background: 'rgba(255, 255, 255, 0.1)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                    color: '#ffffff',
+                                                    padding: '0.35rem 0.75rem',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Traer al Frente
+                                            </button>
+                                        </>
+                                    )}
 
                                     <button
                                         onClick={() => handleDeleteElement(selectedElement.id)}
@@ -1274,7 +1381,7 @@ function SEB() {
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        Eliminar
+                                        Eliminar (Supr)
                                     </button>
                                 </div>
                             </div>
@@ -1299,7 +1406,7 @@ function SEB() {
                             overflow: 'hidden',
                             boxShadow: 'inset 0 0 40px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.4)',
                             userSelect: 'none',
-                            cursor: isPencilActive ? 'crosshair' : isPanning ? 'grabbing' : 'grab'
+                            cursor: isPencilActive ? 'crosshair' : isEraserActive ? 'cell' : isPanning ? 'grabbing' : 'grab'
                         }}
                     >
                         {/* Floating Zoom & Pan Controls Badge (Bottom-Right) */}
@@ -1395,6 +1502,7 @@ function SEB() {
                                                 style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
+                                                    if (isEraserActive) return;
                                                     if (confirm(language === 'es' ? '¿Eliminar este hilo conector?' : 'Delete this connecting thread?')) {
                                                         handleDeleteElement(thread.id);
                                                     }
@@ -1420,27 +1528,41 @@ function SEB() {
                                 })}
 
                                 {/* Render Saved Freehand Drawings */}
-                                {drawingsList.map(draw => (
-                                    <path
-                                        key={draw.id}
-                                        d={pointsToSvgPath(draw.points)}
-                                        stroke={draw.color || '#ef4444'}
-                                        strokeWidth={draw.strokeWidth || 3}
-                                        fill="none"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (confirm(language === 'es' ? '¿Eliminar este trazo de dibujo?' : 'Delete this drawing stroke?')) {
-                                                handleDeleteElement(draw.id);
-                                            }
-                                        }}
-                                    />
-                                ))}
+                                {drawingsList.map(draw => {
+                                    const isSelectedDraw = draw.id === selectedElementId;
+                                    return (
+                                        <path
+                                            key={draw.id}
+                                            d={pointsToSvgPath(draw.points)}
+                                            stroke={isSelectedDraw ? '#eab308' : (draw.color || '#ef4444')}
+                                            strokeWidth={(draw.strokeWidth || 3) + (isSelectedDraw ? 3 : 0)}
+                                            fill="none"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            style={{ 
+                                                pointerEvents: 'auto', 
+                                                cursor: isEraserActive ? 'cell' : 'pointer',
+                                                filter: isSelectedDraw ? 'drop-shadow(0 0 6px #eab308)' : 'none'
+                                            }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (isEraserActive) {
+                                                    handleDeleteElement(draw.id);
+                                                } else {
+                                                    setSelectedElementId(draw.id);
+                                                }
+                                            }}
+                                            onMouseEnter={() => {
+                                                if (isEraserActive && isDrawing) {
+                                                    handleDeleteElement(draw.id);
+                                                }
+                                            }}
+                                        />
+                                    );
+                                })}
 
                                 {/* Render Active Freehand Stroke being drawn */}
-                                {isDrawing && currentPoints.length > 1 && (
+                                {isDrawing && isPencilActive && currentPoints.length > 1 && (
                                     <path
                                         d={pointsToSvgPath(currentPoints)}
                                         stroke={pencilColor}
@@ -1487,6 +1609,10 @@ function SEB() {
                                             onClick={e => {
                                                 e.stopPropagation();
                                                 if (isPencilActive) return;
+                                                if (isEraserActive) {
+                                                    handleDeleteElement(el.id);
+                                                    return;
+                                                }
                                                 if (connectingSourceId) {
                                                     handleConnectToElement(el.id);
                                                 } else {
@@ -1500,7 +1626,7 @@ function SEB() {
                                                 width: `${el.width || 300}px`,
                                                 height: el.height ? `${el.height}px` : 'auto',
                                                 zIndex: el.zIndex || 2,
-                                                cursor: isPencilActive ? 'crosshair' : isDragging && isSelected ? 'grabbing' : 'grab',
+                                                cursor: isPencilActive ? 'crosshair' : isEraserActive ? 'cell' : isDragging && isSelected ? 'grabbing' : 'grab',
                                                 border: isConnectingSource 
                                                     ? '2.5px solid #ef4444' 
                                                     : isSelected 
@@ -1531,7 +1657,7 @@ function SEB() {
                                             />
 
                                             {/* Quick On-Card Controls when selected */}
-                                            {isSelected && !isPencilActive && (
+                                            {isSelected && !isPencilActive && !isEraserActive && (
                                                 <div 
                                                     onClick={e => e.stopPropagation()}
                                                     onMouseDown={e => e.stopPropagation()}
@@ -1592,7 +1718,7 @@ function SEB() {
 
                                                     <button
                                                         onClick={() => handleDeleteElement(el.id)}
-                                                        title="Eliminar"
+                                                        title="Eliminar (Supr)"
                                                         style={{ background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#f87171', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
                                                     >
                                                         ✕
@@ -1611,13 +1737,17 @@ function SEB() {
                                         onClick={e => {
                                             e.stopPropagation();
                                             if (isPencilActive) return;
+                                            if (isEraserActive) {
+                                                handleDeleteElement(el.id);
+                                                return;
+                                            }
                                             if (connectingSourceId) {
                                                 handleConnectToElement(el.id);
                                             } else {
                                                 setSelectedElementId(el.id);
                                             }
                                         }}
-                                        onDoubleClick={() => !isPencilActive && handleEditNoteContent(el)}
+                                        onDoubleClick={() => !isPencilActive && !isEraserActive && handleEditNoteContent(el)}
                                         style={{
                                             position: 'absolute',
                                             left: `${el.x}px`,
@@ -1625,7 +1755,7 @@ function SEB() {
                                             width: `${el.width || 260}px`,
                                             height: el.height ? `${el.height}px` : 'auto',
                                             zIndex: el.zIndex || 2,
-                                            cursor: isPencilActive ? 'crosshair' : isDragging && isSelected ? 'grabbing' : 'grab',
+                                            cursor: isPencilActive ? 'crosshair' : isEraserActive ? 'cell' : isDragging && isSelected ? 'grabbing' : 'grab',
                                             background: 'rgba(15, 23, 42, 0.92)',
                                             border: isConnectingSource 
                                                 ? '2.5px solid #ef4444' 
@@ -1652,7 +1782,7 @@ function SEB() {
                                         </div>
 
                                         {/* Quick On-Card Controls when selected */}
-                                        {isSelected && !isPencilActive && (
+                                        {isSelected && !isPencilActive && !isEraserActive && (
                                             <div 
                                                 onClick={e => e.stopPropagation()}
                                                 onMouseDown={e => e.stopPropagation()}
@@ -1706,7 +1836,7 @@ function SEB() {
 
                                                 <button
                                                     onClick={() => handleDeleteElement(el.id)}
-                                                    title="Eliminar"
+                                                    title="Eliminar (Supr)"
                                                     style={{ background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#f87171', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
                                                 >
                                                     ✕
