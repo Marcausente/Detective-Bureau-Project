@@ -1783,186 +1783,6 @@ function SEB() {
                         </div>
                     )}
 
-                    {/* Selected Element Controls Bar */}
-                    {selectedElement && !isPencilActive && !isEraserActive && (
-                        <div style={{
-                            background: 'rgba(15, 23, 42, 0.85)',
-                            border: '1px solid rgba(234, 179, 8, 0.4)',
-                            borderRadius: '12px',
-                            padding: '0.65rem 1.25rem',
-                            marginBottom: '1rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: '1rem',
-                            backdropFilter: 'blur(20px)',
-                            boxShadow: '0 6px 20px rgba(0,0,0,0.4)'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#eab308', fontSize: '0.85rem', fontWeight: 600 }}>
-                                <span>Elemento Seleccionado ({selectedElement.type === 'image' ? 'Imagen Táctica' : selectedElement.type === 'note' ? 'Nota Táctica' : selectedElement.type === 'thread' ? 'Hilo Conector' : 'Dibujo Trazo'})</span>
-                            </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', flexWrap: 'wrap' }}>
-                                {/* Horizontal & Vertical Resizing Sliders (for Notes & Images) */}
-                                {(selectedElement.type === 'image' || selectedElement.type === 'note') && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: '#cbd5e1', fontSize: '0.82rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                            <span>Ancho (Horiz):</span>
-                                            <input
-                                                type="range"
-                                                min="100"
-                                                max="1000"
-                                                value={selectedElement.width || 300}
-                                                onChange={e => updateElement(selectedElement.id, { width: parseInt(e.target.value) })}
-                                                style={{ accentColor: '#eab308', cursor: 'pointer', width: '90px' }}
-                                            />
-                                            <span>{selectedElement.width || 300}px</span>
-                                        </div>
-
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                            <span>Alto (Vert):</span>
-                                            <input
-                                                type="range"
-                                                min="80"
-                                                max="800"
-                                                value={selectedElement.height || 200}
-                                                onChange={e => updateElement(selectedElement.id, { height: parseInt(e.target.value) })}
-                                                style={{ accentColor: '#eab308', cursor: 'pointer', width: '90px' }}
-                                            />
-                                            <span>{selectedElement.height || 200}px</span>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Actions */}
-                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                                    {selectedElement.type === 'note' && (
-                                        <button
-                                            onClick={() => handleOpenEditNoteModal(selectedElement)}
-                                            style={{
-                                                background: 'rgba(234, 179, 8, 0.2)',
-                                                border: '1px solid #eab308',
-                                                color: '#fef08a',
-                                                padding: '0.35rem 0.75rem',
-                                                borderRadius: '8px',
-                                                fontSize: '0.78rem',
-                                                fontWeight: 600,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Editar Texto
-                                        </button>
-                                    )}
-
-                                    {selectedElement.type === 'thread' && (
-                                        <button
-                                            onClick={() => handleEditThreadLabel(selectedElement)}
-                                            style={{
-                                                background: 'rgba(234, 179, 8, 0.25)',
-                                                border: '1px solid #eab308',
-                                                color: '#fef08a',
-                                                padding: '0.35rem 0.75rem',
-                                                borderRadius: '8px',
-                                                fontSize: '0.78rem',
-                                                fontWeight: 600,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Editar Texto del Hilo
-                                        </button>
-                                    )}
-
-                                    {selectedElement.type !== 'drawing' && selectedElement.type !== 'thread' && (
-                                        <>
-                                            <button
-                                                onClick={() => toggleLockElement(selectedElement.id)}
-                                                style={{
-                                                    background: selectedElement.isLocked ? 'rgba(234, 179, 8, 0.25)' : 'rgba(255, 255, 255, 0.1)',
-                                                    border: `1px solid ${selectedElement.isLocked ? '#eab308' : 'rgba(255, 255, 255, 0.2)'}`,
-                                                    color: selectedElement.isLocked ? '#fef08a' : '#ffffff',
-                                                    padding: '0.35rem 0.75rem',
-                                                    borderRadius: '8px',
-                                                    fontSize: '0.78rem',
-                                                    fontWeight: 600,
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                {selectedElement.isLocked ? '🔒 Desfijar Posición' : '🔓 Fijar Posición'}
-                                            </button>
-
-                                            <button
-                                                onClick={() => startConnectingThread(selectedElement.id)}
-                                                style={{
-                                                    background: 'rgba(239, 68, 68, 0.2)',
-                                                    border: '1px solid #ef4444',
-                                                    color: '#fca5a5',
-                                                    padding: '0.35rem 0.75rem',
-                                                    borderRadius: '8px',
-                                                    fontSize: '0.78rem',
-                                                    fontWeight: 600,
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                Conectar Hilo
-                                            </button>
-
-                                            <button
-                                                onClick={() => bringToFront(selectedElement.id)}
-                                                title="Mover elemento al frente"
-                                                style={{
-                                                    background: 'rgba(255, 255, 255, 0.1)',
-                                                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                                                    color: '#ffffff',
-                                                    padding: '0.35rem 0.75rem',
-                                                    borderRadius: '8px',
-                                                    fontSize: '0.78rem',
-                                                    fontWeight: 600,
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                Traer al Frente
-                                            </button>
-
-                                            <button
-                                                onClick={() => sendToBack(selectedElement.id)}
-                                                title="Mover elemento al fondo"
-                                                style={{
-                                                    background: 'rgba(255, 255, 255, 0.1)',
-                                                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                                                    color: '#ffffff',
-                                                    padding: '0.35rem 0.75rem',
-                                                    borderRadius: '8px',
-                                                    fontSize: '0.78rem',
-                                                    fontWeight: 600,
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                Enviar al Fondo
-                                            </button>
-                                        </>
-                                    )}
-
-                                    <button
-                                        onClick={() => handleDeleteElement(selectedElement.id)}
-                                        style={{
-                                            background: 'rgba(239, 68, 68, 0.15)',
-                                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                                            color: '#f87171',
-                                            padding: '0.35rem 0.75rem',
-                                            borderRadius: '8px',
-                                            fontSize: '0.78rem',
-                                            fontWeight: 600,
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        Eliminar (Supr)
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {/* INTERACTIVE CANVAS WHITEBOARD */}
                     <div 
                         ref={setBoardRef}
@@ -1985,6 +1805,195 @@ function SEB() {
                             cursor: isPencilActive ? 'crosshair' : isEraserActive ? 'cell' : isPanning ? 'grabbing' : 'grab'
                         }}
                     >
+                        {/* Floating Selected Element Controls Bar Overlay (HUD - Positioned absolutely so it NEVER affects canvas height) */}
+                        {selectedElement && !isPencilActive && !isEraserActive && (
+                            <div 
+                                onClick={e => e.stopPropagation()}
+                                onMouseDown={e => e.stopPropagation()}
+                                style={{
+                                    position: 'absolute',
+                                    top: '16px',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    zIndex: 2500,
+                                    background: 'rgba(15, 23, 42, 0.92)',
+                                    border: '1px solid rgba(234, 179, 8, 0.45)',
+                                    borderRadius: '16px',
+                                    padding: '0.55rem 1.25rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: '1rem',
+                                    backdropFilter: 'blur(20px)',
+                                    boxShadow: '0 12px 36px rgba(0,0,0,0.7), 0 0 20px rgba(234, 179, 8, 0.2)',
+                                    maxWidth: '92%',
+                                    pointerEvents: 'auto'
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#eab308', fontSize: '0.85rem', fontWeight: 600 }}>
+                                    <span>Elemento Seleccionado ({selectedElement.type === 'image' ? 'Imagen Táctica' : selectedElement.type === 'note' ? 'Nota Táctica' : selectedElement.type === 'thread' ? 'Hilo Conector' : 'Dibujo Trazo'})</span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', flexWrap: 'wrap' }}>
+                                    {/* Horizontal & Vertical Resizing Sliders (for Notes & Images) */}
+                                    {(selectedElement.type === 'image' || selectedElement.type === 'note') && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: '#cbd5e1', fontSize: '0.82rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                <span>Ancho (Horiz):</span>
+                                                <input
+                                                    type="range"
+                                                    min="100"
+                                                    max="1000"
+                                                    value={selectedElement.width || 300}
+                                                    onChange={e => updateElement(selectedElement.id, { width: parseInt(e.target.value) })}
+                                                    style={{ accentColor: '#eab308', cursor: 'pointer', width: '90px' }}
+                                                />
+                                                <span>{selectedElement.width || 300}px</span>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                <span>Alto (Vert):</span>
+                                                <input
+                                                    type="range"
+                                                    min="80"
+                                                    max="800"
+                                                    value={selectedElement.height || 200}
+                                                    onChange={e => updateElement(selectedElement.id, { height: parseInt(e.target.value) })}
+                                                    style={{ accentColor: '#eab308', cursor: 'pointer', width: '90px' }}
+                                                />
+                                                <span>{selectedElement.height || 200}px</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Actions */}
+                                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                        {selectedElement.type === 'note' && (
+                                            <button
+                                                onClick={() => handleOpenEditNoteModal(selectedElement)}
+                                                style={{
+                                                    background: 'rgba(234, 179, 8, 0.2)',
+                                                    border: '1px solid #eab308',
+                                                    color: '#fef08a',
+                                                    padding: '0.35rem 0.75rem',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Editar Texto
+                                            </button>
+                                        )}
+
+                                        {selectedElement.type === 'thread' && (
+                                            <button
+                                                onClick={() => handleEditThreadLabel(selectedElement)}
+                                                style={{
+                                                    background: 'rgba(234, 179, 8, 0.25)',
+                                                    border: '1px solid #eab308',
+                                                    color: '#fef08a',
+                                                    padding: '0.35rem 0.75rem',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Editar Texto del Hilo
+                                            </button>
+                                        )}
+
+                                        {selectedElement.type !== 'drawing' && selectedElement.type !== 'thread' && (
+                                            <>
+                                                <button
+                                                    onClick={() => toggleLockElement(selectedElement.id)}
+                                                    style={{
+                                                        background: selectedElement.isLocked ? 'rgba(234, 179, 8, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                                                        border: `1px solid ${selectedElement.isLocked ? '#eab308' : 'rgba(255, 255, 255, 0.2)'}`,
+                                                        color: selectedElement.isLocked ? '#fef08a' : '#ffffff',
+                                                        padding: '0.35rem 0.75rem',
+                                                        borderRadius: '8px',
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    {selectedElement.isLocked ? '🔒 Desfijar Posición' : '🔓 Fijar Posición'}
+                                                </button>
+
+                                                <button
+                                                    onClick={() => startConnectingThread(selectedElement.id)}
+                                                    style={{
+                                                        background: 'rgba(239, 68, 68, 0.2)',
+                                                        border: '1px solid #ef4444',
+                                                        color: '#fca5a5',
+                                                        padding: '0.35rem 0.75rem',
+                                                        borderRadius: '8px',
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Conectar Hilo
+                                                </button>
+
+                                                <button
+                                                    onClick={() => bringToFront(selectedElement.id)}
+                                                    title="Mover elemento al frente"
+                                                    style={{
+                                                        background: 'rgba(255, 255, 255, 0.1)',
+                                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                        color: '#ffffff',
+                                                        padding: '0.35rem 0.75rem',
+                                                        borderRadius: '8px',
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Traer al Frente
+                                                </button>
+
+                                                <button
+                                                    onClick={() => sendToBack(selectedElement.id)}
+                                                    title="Mover elemento al fondo"
+                                                    style={{
+                                                        background: 'rgba(255, 255, 255, 0.1)',
+                                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                        color: '#ffffff',
+                                                        padding: '0.35rem 0.75rem',
+                                                        borderRadius: '8px',
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Enviar al Fondo
+                                                </button>
+                                            </>
+                                        )}
+
+                                        <button
+                                            onClick={() => handleDeleteElement(selectedElement.id)}
+                                            style={{
+                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                color: '#f87171',
+                                                padding: '0.35rem 0.75rem',
+                                                borderRadius: '8px',
+                                                fontSize: '0.78rem',
+                                                fontWeight: 600,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Eliminar (Supr)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         {/* Floating Zoom & Pan Controls Badge (Bottom-Right) */}
                         <div 
                             onClick={e => e.stopPropagation()}
