@@ -38,6 +38,13 @@ function SEB() {
     const [isPanning, setIsPanning] = useState(false);
     const panStartRef = useRef({ x: 0, y: 0 });
 
+    // Tactical Pencil / Freehand Drawing State
+    const [isPencilActive, setIsPencilActive] = useState(false);
+    const [pencilColor, setPencilColor] = useState('#ef4444'); // Default tactical red
+    const [pencilWidth, setPencilWidth] = useState(3);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [currentPoints, setCurrentPoints] = useState([]);
+
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [savingBoard, setSavingBoard] = useState(false);
     
@@ -246,6 +253,7 @@ function SEB() {
         setBoardElements(elements);
         setSelectedElementId(null);
         setConnectingSourceId(null);
+        setIsPencilActive(false);
         setZoom(1);
         setPan({ x: 0, y: 0 });
     };
@@ -334,6 +342,7 @@ function SEB() {
 
     const startConnectingThread = (sourceId) => {
         setConnectingSourceId(sourceId);
+        setIsPencilActive(false);
     };
 
     const handleConnectToElement = (targetId) => {
@@ -366,6 +375,12 @@ function SEB() {
         if (connectingSourceId === id) setConnectingSourceId(null);
     };
 
+    const handleClearDrawings = () => {
+        if (confirm(language === 'es' ? '¿Borrar todos los trazos de dibujo del tablero?' : 'Clear all freehand drawings on the board?')) {
+            setBoardElements(boardElements.filter(el => el.type !== 'drawing'));
+        }
+    };
+
     const bringToFront = (id) => {
         const maxZ = boardElements.reduce((max, el) => Math.max(max, el.zIndex || 1), 1);
         updateElement(id, { zIndex: maxZ + 1 });
@@ -376,8 +391,16 @@ function SEB() {
         updateElement(id, { zIndex: Math.max(1, minZ - 1) });
     };
 
-    // Canvas Background Drag to Pan
+    // Canvas Mouse Down: Start Pencil Drawing OR Pan
     const handleMouseDownBoard = (e) => {
+        if (isPencilActive) {
+            setIsDrawing(true);
+            const canvasX = (e.clientX - pan.x) / zoom;
+            const canvasY = (e.clientY - pan.y) / zoom;
+            setCurrentPoints([{ x: canvasX, y: canvasY }]);
+            return;
+        }
+
         setSelectedElementId(null);
         setConnectingSourceId(null);
         setIsPanning(true);
@@ -387,9 +410,17 @@ function SEB() {
         };
     };
 
-    // Element Drag
+    // Element Drag Start
     const handleMouseDownElement = (e, el) => {
         e.stopPropagation();
+
+        if (isPencilActive) {
+            setIsDrawing(true);
+            const canvasX = (e.clientX - pan.x) / zoom;
+            const canvasY = (e.clientY - pan.y) / zoom;
+            setCurrentPoints([{ x: canvasX, y: canvasY }]);
+            return;
+        }
 
         if (connectingSourceId) {
             handleConnectToElement(el.id);
@@ -404,7 +435,15 @@ function SEB() {
         });
     };
 
+    // Canvas Mouse Move: Draw Freehand Stroke OR Pan Canvas OR Drag Element
     const handleMouseMoveBoard = (e) => {
+        if (isDrawing) {
+            const canvasX = (e.clientX - pan.x) / zoom;
+            const canvasY = (e.clientY - pan.y) / zoom;
+            setCurrentPoints(prev => [...prev, { x: canvasX, y: canvasY }]);
+            return;
+        }
+
         if (isPanning) {
             setPan({
                 x: e.clientX - panStartRef.current.x,
@@ -420,13 +459,37 @@ function SEB() {
         }
     };
 
+    // Canvas Mouse Up: Save Freehand Stroke OR Finish Drag/Pan
     const handleMouseUpBoard = () => {
+        if (isDrawing) {
+            setIsDrawing(false);
+            if (currentPoints.length > 1) {
+                const newDrawing = {
+                    id: 'draw-' + Date.now(),
+                    type: 'drawing',
+                    points: currentPoints,
+                    color: pencilColor,
+                    strokeWidth: pencilWidth
+                };
+                setBoardElements(prev => [...prev, newDrawing]);
+            }
+            setCurrentPoints([]);
+            return;
+        }
+
         setIsDragging(false);
         setIsPanning(false);
     };
 
-    const selectedElement = boardElements.find(el => el.id === selectedElementId && el.type !== 'thread');
+    // Convert Points Array to SVG Path String
+    const pointsToSvgPath = (pts) => {
+        if (!pts || pts.length === 0) return '';
+        return pts.reduce((acc, pt, i) => i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '');
+    };
+
+    const selectedElement = boardElements.find(el => el.id === selectedElementId && el.type !== 'thread' && el.type !== 'drawing');
     const threadsList = boardElements.filter(el => el.type === 'thread');
+    const drawingsList = boardElements.filter(el => el.type === 'drawing');
 
     if (loading) {
         return (
@@ -795,7 +858,7 @@ function SEB() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <button
-                                onClick={() => { setSelectedOp(null); setConnectingSourceId(null); }}
+                                onClick={() => { setSelectedOp(null); setConnectingSourceId(null); setIsPencilActive(false); }}
                                 style={{
                                     background: 'rgba(15, 23, 42, 0.7)',
                                     border: '1px solid rgba(255,255,255,0.15)',
@@ -891,6 +954,34 @@ function SEB() {
                                 Añadir Nota Táctica
                             </button>
 
+                            {/* Tactical Pencil Tool Button */}
+                            <button
+                                onClick={() => {
+                                    setIsPencilActive(!isPencilActive);
+                                    setConnectingSourceId(null);
+                                }}
+                                style={{
+                                    background: isPencilActive ? 'rgba(234, 179, 8, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                                    border: `1px solid ${isPencilActive ? '#eab308' : 'rgba(255, 255, 255, 0.2)'}`,
+                                    color: isPencilActive ? '#fef08a' : '#ffffff',
+                                    padding: '0.55rem 1.1rem',
+                                    borderRadius: '10px',
+                                    fontWeight: 600,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem',
+                                    backdropFilter: 'blur(10px)'
+                                }}
+                            >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M12 20h9"/>
+                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                </svg>
+                                {isPencilActive ? 'Modo Lápiz Activo' : 'Dibujar con Lápiz'}
+                            </button>
+
                             {/* Thread Creation Toggle Button */}
                             <button
                                 onClick={() => {
@@ -952,8 +1043,99 @@ function SEB() {
                         </div>
                     </div>
 
+                    {/* Pencil Tools Sub-Toolbar (When Pencil is active) */}
+                    {isPencilActive && (
+                        <div style={{
+                            background: 'rgba(15, 23, 42, 0.85)',
+                            border: '1px solid #eab308',
+                            borderRadius: '12px',
+                            padding: '0.55rem 1.25rem',
+                            marginBottom: '1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '1rem',
+                            backdropFilter: 'blur(20px)',
+                            boxShadow: '0 6px 20px rgba(0,0,0,0.4)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#eab308', fontSize: '0.85rem', fontWeight: 600 }}>
+                                <span>Herramienta de Dibujo Libre (Lápiz Táctico)</span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', flexWrap: 'wrap' }}>
+                                {/* Color Selector Dots */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>Color:</span>
+                                    {['#ef4444', '#eab308', '#3b82f6', '#22c55e', '#ffffff'].map(c => (
+                                        <button
+                                            key={c}
+                                            onClick={() => setPencilColor(c)}
+                                            style={{
+                                                width: '22px',
+                                                height: '22px',
+                                                borderRadius: '50%',
+                                                backgroundColor: c,
+                                                border: pencilColor === c ? '2px solid #ffffff' : '1px solid rgba(0,0,0,0.3)',
+                                                transform: pencilColor === c ? 'scale(1.2)' : 'scale(1)',
+                                                cursor: 'pointer',
+                                                boxShadow: pencilColor === c ? `0 0 8px ${c}` : 'none',
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+
+                                {/* Pencil Thickness Selector */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#cbd5e1', fontSize: '0.8rem' }}>
+                                    <span>Grosor:</span>
+                                    {[
+                                        { label: 'Fino', val: 2 },
+                                        { label: 'Medio', val: 4 },
+                                        { label: 'Grueso', val: 8 }
+                                    ].map(w => (
+                                        <button
+                                            key={w.val}
+                                            onClick={() => setPencilWidth(w.val)}
+                                            style={{
+                                                background: pencilWidth === w.val ? 'rgba(234, 179, 8, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                                                border: `1px solid ${pencilWidth === w.val ? '#eab308' : 'rgba(255,255,255,0.15)'}`,
+                                                color: pencilWidth === w.val ? '#fef08a' : '#cbd5e1',
+                                                padding: '0.25rem 0.55rem',
+                                                borderRadius: '6px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 600,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            {w.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {drawingsList.length > 0 && (
+                                    <button
+                                        onClick={handleClearDrawings}
+                                        style={{
+                                            background: 'rgba(239, 68, 68, 0.15)',
+                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                            color: '#f87171',
+                                            padding: '0.3rem 0.75rem',
+                                            borderRadius: '6px',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Borrar Todos los Dibujos ({drawingsList.length})
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Selected Element Controls Bar */}
-                    {selectedElement && (
+                    {selectedElement && !isPencilActive && (
                         <div style={{
                             background: 'rgba(15, 23, 42, 0.85)',
                             border: '1px solid rgba(234, 179, 8, 0.4)',
@@ -1108,7 +1290,7 @@ function SEB() {
                             overflow: 'hidden',
                             boxShadow: 'inset 0 0 40px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.4)',
                             userSelect: 'none',
-                            cursor: isPanning ? 'grabbing' : 'grab'
+                            cursor: isPencilActive ? 'crosshair' : isPanning ? 'grabbing' : 'grab'
                         }}
                     >
                         {/* Floating Zoom & Pan Controls Badge (Bottom-Right) */}
@@ -1170,8 +1352,9 @@ function SEB() {
                             position: 'relative'
                         }}>
 
-                            {/* SVG THREADS LAYER (HILOS DE CONEXIÓN ROJOS) */}
+                            {/* SVG THREADS & DRAWINGS LAYER */}
                             <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
+                                {/* Render Saved Connecting Threads */}
                                 {threadsList.map(thread => {
                                     const source = boardElements.find(e => e.id === thread.sourceId);
                                     const target = boardElements.find(e => e.id === thread.targetId);
@@ -1226,9 +1409,41 @@ function SEB() {
                                         </g>
                                     );
                                 })}
+
+                                {/* Render Saved Freehand Drawings */}
+                                {drawingsList.map(draw => (
+                                    <path
+                                        key={draw.id}
+                                        d={pointsToSvgPath(draw.points)}
+                                        stroke={draw.color || '#ef4444'}
+                                        strokeWidth={draw.strokeWidth || 3}
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (confirm(language === 'es' ? '¿Eliminar este trazo de dibujo?' : 'Delete this drawing stroke?')) {
+                                                handleDeleteElement(draw.id);
+                                            }
+                                        }}
+                                    />
+                                ))}
+
+                                {/* Render Active Freehand Stroke being drawn */}
+                                {isDrawing && currentPoints.length > 1 && (
+                                    <path
+                                        d={pointsToSvgPath(currentPoints)}
+                                        stroke={pencilColor}
+                                        strokeWidth={pencilWidth}
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    />
+                                )}
                             </svg>
 
-                            {boardElements.length === 0 && (
+                            {boardElements.length === 0 && !isDrawing && (
                                 <div style={{
                                     position: 'absolute',
                                     top: '50%',
@@ -1244,13 +1459,13 @@ function SEB() {
                                         <line x1="9" y1="21" x2="9" y2="9"/>
                                     </svg>
                                     <h3 style={{ margin: 0, color: '#94a3b8', fontSize: '1.05rem', fontWeight: 600 }}>Tablero Táctico Vacío</h3>
-                                    <p style={{ fontSize: '0.82rem', marginTop: '0.3rem' }}>Usa las herramientas superiores para añadir imágenes, notas o hilos tácticos.</p>
+                                    <p style={{ fontSize: '0.82rem', marginTop: '0.3rem' }}>Usa las herramientas superiores para añadir imágenes, notas, hilos o dibujos a mano alzada.</p>
                                 </div>
                             )}
 
                             {/* Render Board Elements (Images & Notes) */}
                             {boardElements.map(el => {
-                                if (el.type === 'thread') return null;
+                                if (el.type === 'thread' || el.type === 'drawing') return null;
 
                                 const isSelected = el.id === selectedElementId;
                                 const isConnectingSource = el.id === connectingSourceId;
@@ -1262,6 +1477,7 @@ function SEB() {
                                             onMouseDown={e => handleMouseDownElement(e, el)}
                                             onClick={e => {
                                                 e.stopPropagation();
+                                                if (isPencilActive) return;
                                                 if (connectingSourceId) {
                                                     handleConnectToElement(el.id);
                                                 } else {
@@ -1275,7 +1491,7 @@ function SEB() {
                                                 width: `${el.width || 300}px`,
                                                 height: el.height ? `${el.height}px` : 'auto',
                                                 zIndex: el.zIndex || 2,
-                                                cursor: isDragging && isSelected ? 'grabbing' : 'grab',
+                                                cursor: isPencilActive ? 'crosshair' : isDragging && isSelected ? 'grabbing' : 'grab',
                                                 border: isConnectingSource 
                                                     ? '2.5px solid #ef4444' 
                                                     : isSelected 
@@ -1306,7 +1522,7 @@ function SEB() {
                                             />
 
                                             {/* Quick On-Card Controls when selected */}
-                                            {isSelected && (
+                                            {isSelected && !isPencilActive && (
                                                 <div 
                                                     onClick={e => e.stopPropagation()}
                                                     onMouseDown={e => e.stopPropagation()}
@@ -1385,13 +1601,14 @@ function SEB() {
                                         onMouseDown={e => handleMouseDownElement(e, el)}
                                         onClick={e => {
                                             e.stopPropagation();
+                                            if (isPencilActive) return;
                                             if (connectingSourceId) {
                                                 handleConnectToElement(el.id);
                                             } else {
                                                 setSelectedElementId(el.id);
                                             }
                                         }}
-                                        onDoubleClick={() => handleEditNoteContent(el)}
+                                        onDoubleClick={() => !isPencilActive && handleEditNoteContent(el)}
                                         style={{
                                             position: 'absolute',
                                             left: `${el.x}px`,
@@ -1399,7 +1616,7 @@ function SEB() {
                                             width: `${el.width || 260}px`,
                                             height: el.height ? `${el.height}px` : 'auto',
                                             zIndex: el.zIndex || 2,
-                                            cursor: isDragging && isSelected ? 'grabbing' : 'grab',
+                                            cursor: isPencilActive ? 'crosshair' : isDragging && isSelected ? 'grabbing' : 'grab',
                                             background: 'rgba(15, 23, 42, 0.92)',
                                             border: isConnectingSource 
                                                 ? '2.5px solid #ef4444' 
@@ -1426,7 +1643,7 @@ function SEB() {
                                         </div>
 
                                         {/* Quick On-Card Controls when selected */}
-                                        {isSelected && (
+                                        {isSelected && !isPencilActive && (
                                             <div 
                                                 onClick={e => e.stopPropagation()}
                                                 onMouseDown={e => e.stopPropagation()}
