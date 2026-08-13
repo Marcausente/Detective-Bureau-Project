@@ -1,5 +1,14 @@
 -- Migration script: Fix persistence and permissions for rango_interno
 
+-- 0. Drop old function overloads to prevent ambiguous function call errors (PostgreSQL overload conflict)
+DROP FUNCTION IF EXISTS public.update_personnel_admin(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT);
+DROP FUNCTION IF EXISTS public.update_personnel_admin(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT, TEXT[]);
+DROP FUNCTION IF EXISTS public.update_personnel_admin(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT, TEXT[], TEXT);
+
+DROP FUNCTION IF EXISTS public.create_new_personnel(TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT);
+DROP FUNCTION IF EXISTS public.create_new_personnel(TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT, TEXT[]);
+DROP FUNCTION IF EXISTS public.create_new_personnel(TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT, TEXT[], TEXT);
+
 -- 1. Ensure column exists and backfill missing/NULL values
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS rango_interno TEXT DEFAULT 'Auxiliar de Investigación';
 
@@ -176,3 +185,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, extensions;
+
+GRANT EXECUTE ON FUNCTION public.create_new_personnel TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_personnel_admin TO authenticated;
+

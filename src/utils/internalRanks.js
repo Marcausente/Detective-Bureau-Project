@@ -116,28 +116,33 @@ export async function deleteInternalRank(rankId, rankName) {
 
 /**
  * Get assigned internal rank for a specific user.
- * Prioritizes database value from Supabase so all users see identical synchronized ranks.
+ * Prioritizes custom database value from Supabase, but falls back to local storage
+ * if the database value is default or missing.
  */
 export function getUserInternalRank(user) {
     if (!user) return DEFAULT_RANK;
+    const userId = typeof user === 'object' ? user.id : user;
 
-    // Priority 1: Check database property from Supabase
-    if (user && typeof user === 'object' && user.rango_interno) {
+    // Priority 1: Non-default database property from Supabase
+    if (user && typeof user === 'object' && user.rango_interno && user.rango_interno !== DEFAULT_RANK) {
         return user.rango_interno;
     }
 
-    // Priority 2: Check localStorage fallback (for offline or local overrides)
-    const userId = typeof user === 'object' ? user.id : user;
+    // Priority 2: Check localStorage for locally configured custom rank
     if (userId) {
         try {
             const saved = localStorage.getItem(USER_RANKS_PREFIX + userId);
-            if (saved) return saved;
+            if (saved && saved !== DEFAULT_RANK) return saved;
         } catch (e) {
             console.error('LocalStorage read error:', e);
         }
     }
 
-    // Default Fallback
+    // Priority 3: Fallback to database property (even if default) or DEFAULT_RANK
+    if (user && typeof user === 'object' && user.rango_interno) {
+        return user.rango_interno;
+    }
+
     return DEFAULT_RANK;
 }
 
@@ -174,4 +179,27 @@ export async function setUserInternalRank(userId, rankName) {
         console.warn('Supabase update for rango_interno failed:', err);
     }
 }
+
+/**
+ * Auto-syncs any ranks stored in local storage to Supabase database.
+ * This automatically pushes custom ranks saved locally by an admin into the Supabase users table.
+ */
+export async function syncLocalRanksToSupabase(users) {
+    if (!Array.isArray(users) || users.length === 0) return;
+
+    for (const u of users) {
+        if (!u || !u.id) continue;
+        try {
+            const savedLocal = localStorage.getItem(USER_RANKS_PREFIX + u.id);
+            // If local storage has a custom rank that is different from Supabase database
+            if (savedLocal && savedLocal !== u.rango_interno) {
+                console.log(`Auto-syncing internal rank to Supabase for user ${u.id}: ${savedLocal}`);
+                await setUserInternalRank(u.id, savedLocal);
+            }
+        } catch (err) {
+            console.warn(`Error auto-syncing rank for user ${u.id}:`, err);
+        }
+    }
+}
+
 

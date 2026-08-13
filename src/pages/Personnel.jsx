@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
 import { uploadImageToStorage, getProfileImage } from '../utils/imageStorage';
-import { getInternalRanks, getUserInternalRank, setUserInternalRank } from '../utils/internalRanks';
+import { getInternalRanks, getUserInternalRank, setUserInternalRank, syncLocalRanksToSupabase } from '../utils/internalRanks';
 import { usePresence } from '../contexts/PresenceContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -125,6 +125,9 @@ function Personnel() {
                 rango_interno: getUserInternalRank(u)
             }));
             setUsers(mappedUsers);
+
+            // Background auto-sync custom local ranks into Supabase DB
+            syncLocalRanksToSupabase(data || []);
         } catch (err) {
             console.error('Error fetching data:', err);
             setError(err.message);
