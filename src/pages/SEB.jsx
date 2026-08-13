@@ -26,8 +26,7 @@ function SEB() {
         title: '',
         location: '',
         type: 'Asalto Táctico & Rescate',
-        details: '',
-        operatives: ''
+        details: ''
     });
 
     // Tactical Board Canvas State
@@ -166,7 +165,6 @@ function SEB() {
             location: newOp.location,
             type: newOp.type,
             details: newOp.details,
-            operatives: newOp.operatives || `${profile?.nombre || 'Agente'} ${profile?.apellido || ''}`,
             status: 'En Progreso',
             board_data: [],
             created_by: profile?.id
@@ -200,8 +198,7 @@ function SEB() {
             title: '',
             location: '',
             type: 'Asalto Táctico & Rescate',
-            details: '',
-            operatives: ''
+            details: ''
         });
     };
 
@@ -650,12 +647,6 @@ function SEB() {
                                             <p style={{ fontSize: '0.82rem', color: '#94a3b8', lineHeight: '1.5', marginBottom: '0.75rem', background: 'rgba(0, 0, 0, 0.25)', padding: '0.65rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
                                                 <strong style={{ color: '#cbd5e1' }}>Detalles:</strong> {op.details}
                                             </p>
-                                        )}
-
-                                        {op.operatives && (
-                                            <div style={{ fontSize: '0.82rem', color: '#cbd5e1', marginBottom: '1rem' }}>
-                                                <strong style={{ fontWeight: 600 }}>Operativos:</strong> {op.operatives}
-                                            </div>
                                         )}
                                     </div>
 
@@ -1201,19 +1192,6 @@ function SEB() {
                                     onChange={e => setNewOp({ ...newOp, details: e.target.value })}
                                     style={{ width: '100%', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', padding: '0.65rem 0.85rem', color: '#fff', fontSize: '0.88rem', resize: 'vertical' }}
                                 ></textarea>
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.82rem', fontWeight: 600, marginBottom: '0.35rem' }}>
-                                    Operativos Asignados
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="Ej: SEB Agent Vance, SEB Agent Kowalski"
-                                    value={newOp.operatives}
-                                    onChange={e => setNewOp({ ...newOp, operatives: e.target.value })}
-                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', padding: '0.65rem 0.85rem', color: '#fff', fontSize: '0.88rem' }}
-                                />
                             </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem' }}>
