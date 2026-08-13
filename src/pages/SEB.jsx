@@ -981,6 +981,10 @@ function SEB() {
                                     <div
                                         key={el.id}
                                         onMouseDown={e => handleMouseDownElement(e, el)}
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            setSelectedElementId(el.id);
+                                        }}
                                         style={{
                                             position: 'absolute',
                                             left: `${el.x}px`,
@@ -989,7 +993,7 @@ function SEB() {
                                             zIndex: el.zIndex || 1,
                                             cursor: isDragging && isSelected ? 'grabbing' : 'grab',
                                             border: isSelected ? '2px solid #eab308' : '1px solid rgba(255,255,255,0.15)',
-                                            boxShadow: isSelected ? '0 0 20px rgba(234, 179, 8, 0.35)' : '0 6px 16px rgba(0,0,0,0.5)',
+                                            boxShadow: isSelected ? '0 0 25px rgba(234, 179, 8, 0.45)' : '0 6px 16px rgba(0,0,0,0.5)',
                                             borderRadius: '12px',
                                             background: '#0f172a',
                                             padding: '4px',
@@ -1008,6 +1012,64 @@ function SEB() {
                                                 pointerEvents: 'none'
                                             }}
                                         />
+
+                                        {/* Quick On-Card Controls when selected */}
+                                        {isSelected && (
+                                            <div 
+                                                onClick={e => e.stopPropagation()}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '-42px',
+                                                    right: '0',
+                                                    background: 'rgba(15, 23, 42, 0.95)',
+                                                    border: '1px solid #eab308',
+                                                    borderRadius: '10px',
+                                                    padding: '0.25rem 0.5rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.35rem',
+                                                    boxShadow: '0 6px 16px rgba(0,0,0,0.6)',
+                                                    backdropFilter: 'blur(10px)',
+                                                    zIndex: 9999
+                                                }}
+                                            >
+                                                <button
+                                                    onClick={() => updateElement(el.id, { width: (el.width || 300) + 40 })}
+                                                    title="Aumentar Tamaño"
+                                                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                                                >
+                                                    +
+                                                </button>
+                                                <button
+                                                    onClick={() => updateElement(el.id, { width: Math.max(120, (el.width || 300) - 40) })}
+                                                    title="Disminuir Tamaño"
+                                                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                                                >
+                                                    -
+                                                </button>
+                                                <button
+                                                    onClick={() => bringToFront(el.id)}
+                                                    title="Traer al Frente"
+                                                    style={{ background: 'rgba(234, 179, 8, 0.2)', border: 'none', color: '#fef08a', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                >
+                                                    Frente
+                                                </button>
+                                                <button
+                                                    onClick={() => sendToBack(el.id)}
+                                                    title="Enviar al Fondo"
+                                                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#cbd5e1', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                >
+                                                    Fondo
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteElement(el.id)}
+                                                    title="Eliminar"
+                                                    style={{ background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#f87171', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             }
@@ -1017,6 +1079,10 @@ function SEB() {
                                 <div
                                     key={el.id}
                                     onMouseDown={e => handleMouseDownElement(e, el)}
+                                    onClick={e => {
+                                        e.stopPropagation();
+                                        setSelectedElementId(el.id);
+                                    }}
                                     style={{
                                         position: 'absolute',
                                         left: `${el.x}px`,
@@ -1039,6 +1105,64 @@ function SEB() {
                                         Nota Táctica
                                     </div>
                                     {el.content}
+
+                                    {/* Quick On-Card Controls when selected */}
+                                    {isSelected && (
+                                        <div 
+                                            onClick={e => e.stopPropagation()}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '-38px',
+                                                right: '0',
+                                                background: 'rgba(15, 23, 42, 0.95)',
+                                                border: '1px solid #eab308',
+                                                borderRadius: '10px',
+                                                padding: '0.25rem 0.5rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.35rem',
+                                                boxShadow: '0 6px 16px rgba(0,0,0,0.6)',
+                                                backdropFilter: 'blur(10px)',
+                                                zIndex: 9999
+                                            }}
+                                        >
+                                            <button
+                                                onClick={() => updateElement(el.id, { width: (el.width || 250) + 40 })}
+                                                title="Aumentar Tamaño"
+                                                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                                            >
+                                                +
+                                            </button>
+                                            <button
+                                                onClick={() => updateElement(el.id, { width: Math.max(120, (el.width || 250) - 40) })}
+                                                title="Disminuir Tamaño"
+                                                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}
+                                            >
+                                                -
+                                            </button>
+                                            <button
+                                                onClick={() => bringToFront(el.id)}
+                                                title="Traer al Frente"
+                                                style={{ background: 'rgba(234, 179, 8, 0.2)', border: 'none', color: '#fef08a', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                            >
+                                                Frente
+                                            </button>
+                                            <button
+                                                onClick={() => sendToBack(el.id)}
+                                                title="Enviar al Fondo"
+                                                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#cbd5e1', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                            >
+                                                Fondo
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteElement(el.id)}
+                                                title="Eliminar"
+                                                style={{ background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#f87171', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
