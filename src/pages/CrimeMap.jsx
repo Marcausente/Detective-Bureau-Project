@@ -385,221 +385,268 @@ export default function CrimeMap() {
         top: '20px',
         left: '20px',
         zIndex: 1000,
-        background: 'rgba(15, 23, 42, 0.9)',
-        backdropFilter: 'blur(10px)',
-        padding: '15px 20px',
-        borderRadius: '12px',
-        border: '1px solid rgba(255,255,255,0.1)',
+        background: 'rgba(15, 23, 42, 0.85)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        padding: '1.2rem 1.4rem',
+        borderRadius: '18px',
+        border: '1px solid rgba(255,255,255,0.12)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '10px',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-        minWidth: '250px'
-    };
-
-    const floatingActionStyle = {
-        padding: '10px 15px',
-        background: 'linear-gradient(45deg, #1e293b, #0f172a)',
-        border: '1px solid rgba(207, 181, 59, 0.3)',
-        color: '#cfb53b',
-        borderRadius: '8px',
-        cursor: 'pointer',
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        fontSize: '0.8rem',
-        letterSpacing: '1px',
-        transition: 'all 0.2s',
-        textAlign: 'center'
+        gap: '12px',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+        minWidth: '270px'
     };
 
     return (
-        <div style={{ position: 'relative', height: 'calc(100vh - 140px)', width: '100%', overflow: 'hidden', background: '#0f172a', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div style={{ width: '100%', height: 'calc(100vh - 140px)', padding: 0 }}>
+            {/* Main Interactive Map Card Container */}
+            <div className="mac-doc-card" style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden', padding: 0, border: '1px solid rgba(255, 255, 255, 0.1)', background: '#0b1120', borderRadius: '16px', boxShadow: '0 20px 45px rgba(0, 0, 0, 0.6)' }}>
+                
+                {/* Leaflet Map Renderer */}
+                <div ref={mapContainerRef} style={{ width: '100%', height: '100%', outline: 'none' }} />
 
-            <div ref={mapContainerRef} style={{ width: '100%', height: '100%', outline: 'none' }} />
-
-            <div style={toolbarStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                    <div style={{ width: '10px', height: '10px', background: '#cfb53b', borderRadius: '50%', boxShadow: '0 0 10px #cfb53b' }}></div>
-                    <h3 style={{ margin: 0, color: 'white', fontSize: '1.1rem', letterSpacing: '1px' }}>{t('crimeMap')}</h3>
-                </div>
-
-                {authorized ? (
-                    mode === 'view' ? (
-                        <button
-                            onClick={() => setMode('draw')}
-                            style={floatingActionStyle}
-                            onMouseOver={(e) => { e.currentTarget.style.boxShadow = '0 0 15px rgba(207, 181, 59, 0.3)'; }}
-                            onMouseOut={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
-                        >
-                            {t('newRestrictedZone')}
-                        </button>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>
-                                {t('clickMapToPlacePoints')}
-                            </div>
-                            <button
-                                onClick={handleFinishDraw}
-                                style={{ ...floatingActionStyle, background: '#cfb53b', color: '#000', borderColor: '#cfb53b' }}
-                                disabled={drawingPoints.length < 3}
-                            >
-                                {t('finishAndSave')}
-                            </button>
-                            <button
-                                onClick={() => { setMode('view'); setDrawingPoints([]); }}
-                                style={{ ...floatingActionStyle, borderColor: '#ef4444', color: '#ef4444' }}
-                            >
-                                {t('cancelBtn')}
-                            </button>
-                        </div>
-                    )
-                ) : (
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                        {t('viewAccessOnly')}
+                {/* macOS Floating Controls Widget */}
+                <div style={toolbarStyle}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '10px', height: '10px', background: mode === 'draw' ? '#f59e0b' : '#3b82f6', borderRadius: '50%', boxShadow: `0 0 10px ${mode === 'draw' ? '#f59e0b' : '#3b82f6'}` }}></div>
+                        <h3 style={{ margin: 0, color: '#ffffff', fontSize: '1rem', fontWeight: 800, letterSpacing: '0.02em' }}>
+                            {t('crimeMap') || 'Control del Mapa'}
+                        </h3>
                     </div>
-                )}
+
+                    {authorized ? (
+                        mode === 'view' ? (
+                            <button
+                                onClick={() => setMode('draw')}
+                                className="mac-btn mac-btn-primary"
+                                style={{
+                                    width: '100%',
+                                    padding: '0.65rem 1rem',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 700,
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ➕ {t('newRestrictedZone') || 'Nueva Zona Táctica'}
+                            </button>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div style={{ fontSize: '0.8rem', color: '#fbbf24', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '0.5rem 0.75rem', borderRadius: '10px', lineHeight: 1.4 }}>
+                                    {t('clickMapToPlacePoints') || 'Haz clic sobre el mapa para marcar los puntos del polígono. Clic derecho elimina el último punto.'}
+                                </div>
+                                {drawingPoints.length > 0 && (
+                                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600, textAlign: 'center' }}>
+                                        Puntos seleccionados: <strong style={{ color: '#ffffff' }}>{drawingPoints.length}</strong> (mínimo 3)
+                                    </div>
+                                )}
+                                <button
+                                    onClick={handleFinishDraw}
+                                    className="mac-btn mac-btn-primary"
+                                    disabled={drawingPoints.length < 3}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.65rem 1rem',
+                                        fontSize: '0.85rem',
+                                        fontWeight: 700,
+                                        justifyContent: 'center',
+                                        opacity: drawingPoints.length < 3 ? 0.5 : 1
+                                    }}
+                                >
+                                    ✅ {t('finishAndSave') || 'Finalizar y Guardar'}
+                                </button>
+                                <button
+                                    onClick={() => { setMode('view'); setDrawingPoints([]); }}
+                                    className="mac-btn mac-btn-secondary"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.6rem 1rem',
+                                        fontSize: '0.85rem',
+                                        justifyContent: 'center',
+                                        color: '#f87171',
+                                        borderColor: 'rgba(239, 68, 68, 0.3)'
+                                    }}
+                                >
+                                    ✕ {t('cancelBtn') || 'Cancelar'}
+                                </button>
+                            </div>
+                        )
+                    ) : (
+                        <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                            {t('viewAccessOnly') || 'Solo modo lectura. Requiere permisos para crear/editar zonas.'}
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Modal Overlay */}
+            {/* Apple macOS Modal Overlay for Creating / Editing Zones */}
             {showModal && (
-                <div className="modal-overlay" style={{
-                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-                    background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    zIndex: 2000
-                }}>
-                    <div className="login-card" style={{ maxWidth: '450px', animation: 'zoomIn 0.3s ease' }}>
-                        <h2 style={{ textAlign: 'center', color: '#cfb53b', marginBottom: '1.5rem', textTransform: 'uppercase', letterSpacing: '2px' }}>
-                            {editingZoneId ? t('editZone') : t('defineNewZone')}
-                        </h2>
+                <div className="mac-modal-backdrop">
+                    <div className="mac-modal-container" style={{ maxWidth: '520px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+                            <span className="mac-status-dot" style={{ backgroundColor: '#3b82f6' }}></span>
+                            <h3 className="mac-modal-title" style={{ margin: 0 }}>
+                                {editingZoneId ? (t('editZone') || 'Editar Zona Táctica') : (t('defineNewZone') || 'Definir Nueva Zona Táctica')}
+                            </h3>
+                        </div>
 
-                        <div className="form-group">
-                            <label className="form-label">{t('zoneName')}</label>
+                        <div className="mac-form-group">
+                            <label className="mac-form-label">{t('zoneName') || 'Nombre / Designación de la Zona *'}</label>
                             <input
-                                className="form-input"
+                                className="mac-form-input"
                                 value={tempZoneData.name}
                                 onChange={e => setTempZoneData({ ...tempZoneData, name: e.target.value })}
-                                placeholder={t('designationPlaceholder')}
+                                placeholder={t('designationPlaceholder') || 'Ej: Sector Norte - Los Santos'}
                             />
                         </div>
 
-                        <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '25px', marginBottom: '15px', padding: '12px', background: 'rgba(255,255,255,0.08)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)' }}>
+                        {/* Visibility Checkbox Toggle */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.85rem',
+                            marginBottom: '1rem',
+                            padding: '0.85rem 1rem',
+                            background: 'rgba(255, 255, 255, 0.04)',
+                            borderRadius: '14px',
+                            border: '1px solid rgba(255, 255, 255, 0.08)'
+                        }}>
                             <input
                                 type="checkbox"
                                 id="isGangZone"
                                 checked={tempZoneData.is_gang_zone}
                                 onChange={e => setTempZoneData({ ...tempZoneData, is_gang_zone: e.target.checked })}
-                                style={{ width: '22px', height: '22px', cursor: 'pointer', accentColor: '#cfb53b' }}
+                                style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: '#fbbf24' }}
                             />
-                            <label htmlFor="isGangZone" style={{ color: '#fff', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>
-                                {t('showPublicLabel')} <span style={{ fontSize: '0.8em', color: '#94a3b8', marginLeft: '5px', fontWeight: 'normal' }}>{t('visibleWithoutLogin')}</span>
+                            <label htmlFor="isGangZone" style={{ color: '#ffffff', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 700 }}>
+                                {t('showPublicLabel') || 'Mostrar en Mapa Público'}
+                                <span style={{ display: 'block', fontSize: '0.78rem', color: '#94a3b8', fontWeight: 400, marginTop: '2px' }}>
+                                    {t('visibleWithoutLogin') || 'Visible para ciudadanos sin iniciar sesión'}
+                                </span>
                             </label>
                         </div>
 
+                        {/* Gang Unit Surveillance Checkbox */}
                         {isGU && (
-                            <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '25px', marginBottom: '15px', padding: '12px', background: 'rgba(var(--color-blue-rgb), 0.15)', borderRadius: '8px', border: '1px solid rgba(var(--color-blue-rgb), 0.4)' }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.85rem',
+                                marginBottom: '1rem',
+                                padding: '0.85rem 1rem',
+                                background: 'rgba(59, 130, 246, 0.12)',
+                                borderRadius: '14px',
+                                border: '1px solid rgba(59, 130, 246, 0.3)'
+                            }}>
                                 <input
                                     type="checkbox"
                                     id="isSurveillance"
                                     checked={tempZoneData.is_surveillance}
                                     onChange={e => setTempZoneData({ ...tempZoneData, is_surveillance: e.target.checked })}
-                                    style={{ width: '22px', height: '22px', cursor: 'pointer', accentColor: 'var(--color-blue)' }}
+                                    style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: '#3b82f6' }}
                                 />
-                                <label htmlFor="isSurveillance" style={{ color: '#fff', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>
-                                    🕵️ Zona de vigilancia <span style={{ fontSize: '0.8em', color: '#93c5fd', marginLeft: '5px', fontWeight: 'normal' }}>(Exclusivo de la Gang Unit)</span>
+                                <label htmlFor="isSurveillance" style={{ color: '#ffffff', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 700 }}>
+                                    🕵️ Zona de Vigilancia
+                                    <span style={{ display: 'block', fontSize: '0.78rem', color: '#60a5fa', fontWeight: 400, marginTop: '2px' }}>
+                                        (Exclusivo de la Gang Unit)
+                                    </span>
                                 </label>
                             </div>
                         )}
 
-                        <div className="form-group">
-                            <label className="form-label">{t('descriptionIntel')}</label>
+                        <div className="mac-form-group">
+                            <label className="mac-form-label">{t('descriptionIntel') || 'Descripción e Inteligencia'}</label>
                             <textarea
-                                className="form-input"
+                                className="mac-form-input"
                                 rows="3"
                                 value={tempZoneData.description}
                                 onChange={e => setTempZoneData({ ...tempZoneData, description: e.target.value })}
+                                placeholder="Escribe observaciones tácticas..."
+                                style={{ resize: 'vertical' }}
                             />
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                            <div className="form-group">
-                                <label className="form-label">{t('zoneColor')}</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                            <div className="mac-form-group">
+                                <label className="mac-form-label">{t('zoneColor') || 'Color de Zona'}</label>
                                 <input
                                     type="color"
-                                    className="form-input"
-                                    style={{ height: '45px', padding: '5px' }}
+                                    className="mac-form-input"
+                                    style={{ height: '42px', padding: '4px', cursor: 'pointer' }}
                                     value={tempZoneData.color}
                                     onChange={e => setTempZoneData({ ...tempZoneData, color: e.target.value })}
                                 />
                             </div>
 
-                            <div className="form-group">
-                                <label className="form-label">Emoji de zona</label>
+                            <div className="mac-form-group">
+                                <label className="mac-form-label">Emoji de Zona</label>
                                 <input
                                     type="text"
-                                    className="form-input"
+                                    className="mac-form-input"
                                     placeholder="Ej: 🔫 💊 🏠 ⚠️"
                                     value={tempZoneData.emoji}
                                     onChange={e => setTempZoneData({ ...tempZoneData, emoji: e.target.value })}
-                                    style={{ fontSize: '1.4rem', textAlign: 'center', letterSpacing: '4px' }}
+                                    style={{ fontSize: '1.3rem', textAlign: 'center', letterSpacing: '4px' }}
                                     maxLength={4}
                                 />
                             </div>
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label">{t('linkedGang')}</label>
+                        <div className="mac-form-group">
+                            <label className="mac-form-label">{t('linkedGang') || 'Banda Asociada'}</label>
                             <select
-                                className="form-input"
+                                className="mac-form-input"
                                 value={selectedGang}
                                 onChange={e => setSelectedGang(e.target.value)}
+                                style={{ cursor: 'pointer' }}
                             >
-                                <option value="">{t('noneOption')}</option>
-                                {gangs.map(g => <option key={g.gang_id} value={g.gang_id}>{g.name}</option>)}
+                                <option value="" style={{ background: '#0f172a' }}>{t('noneOption') || '-- Ninguna --'}</option>
+                                {gangs.map(g => <option key={g.gang_id} value={g.gang_id} style={{ background: '#0f172a' }}>{g.name}</option>)}
                             </select>
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label">{t('linkedCase')}</label>
+                        <div className="mac-form-group">
+                            <label className="mac-form-label">{t('linkedCase') || 'Caso Vinculado'}</label>
                             <select
-                                className="form-input"
+                                className="mac-form-input"
                                 value={selectedCase}
                                 onChange={e => setSelectedCase(e.target.value)}
+                                style={{ cursor: 'pointer' }}
                             >
-                                <option value="">{t('noneOption')}</option>
-                                {cases.map(c => <option key={c.id} value={c.id}>#{c.case_number} - {c.title}</option>)}
+                                <option value="" style={{ background: '#0f172a' }}>{t('noneOption') || '-- Ninguno --'}</option>
+                                {cases.map(c => <option key={c.id} value={c.id} style={{ background: '#0f172a' }}>#{c.case_number} - {c.title}</option>)}
                             </select>
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label">{t('linkedIncident')}</label>
+                        <div className="mac-form-group">
+                            <label className="mac-form-label">{t('linkedIncident') || 'Incidente Vinculado'}</label>
                             <select
-                                className="form-input"
+                                className="mac-form-input"
                                 value={selectedIncident}
                                 onChange={e => setSelectedIncident(e.target.value)}
+                                style={{ cursor: 'pointer' }}
                             >
-                                <option value="">{t('noneOption')}</option>
-                                {incidents.map(i => <option key={i.record_id} value={i.record_id}>{i.tablet_incident_number ? `[${i.tablet_incident_number}] ` : ''}{i.title}</option>)}
+                                <option value="" style={{ background: '#0f172a' }}>{t('noneOption') || '-- Ninguno --'}</option>
+                                {incidents.map(i => <option key={i.record_id} value={i.record_id} style={{ background: '#0f172a' }}>{i.tablet_incident_number ? `[${i.tablet_incident_number}] ` : ''}{i.title}</option>)}
                             </select>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
+                        <div className="mac-modal-actions" style={{ marginTop: '1.25rem' }}>
                             <button
-                                onClick={handleSaveZone}
-                                className="login-button"
-                                style={{ flex: 1, color: '#000', background: '#cfb53b' }}
+                                type="button"
+                                onClick={() => setShowModal(false)}
+                                className="mac-btn mac-btn-secondary"
                             >
-                                {editingZoneId ? t('updateBtn') : t('saveBtn')}
+                                {t('cancelBtn') || 'Cancelar'}
                             </button>
                             <button
-                                onClick={() => setShowModal(false)}
-                                className="login-button"
-                                style={{ flex: 1, background: 'transparent', color: '#94a3b8' }}
+                                type="button"
+                                onClick={handleSaveZone}
+                                className="mac-btn mac-btn-primary"
                             >
-                                {t('cancelBtn')}
+                                {editingZoneId ? (t('updateBtn') || 'Actualizar Zona') : (t('saveBtn') || 'Guardar Zona')}
                             </button>
                         </div>
-
                     </div>
                 </div>
             )}
