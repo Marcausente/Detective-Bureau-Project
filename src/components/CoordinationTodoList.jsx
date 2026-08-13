@@ -175,42 +175,60 @@ function CoordinationTodoList() {
 
     if (loading && lists.length === 0) {
         return (
-            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                ⏳ Cargando Tareas Pendientes de Coordinación...
+            <div className="mac-doc-card" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
+                <div className="mac-status-dot" style={{ backgroundColor: '#f59e0b', margin: '0 auto 1rem auto' }}></div>
+                <div>Cargando listas de planificación de Coordinación...</div>
             </div>
         );
     }
 
     return (
         <div style={{ width: '100%' }}>
-            {/* Create New List Header Card */}
-            <div className="coordination-card" style={{ marginBottom: '2.5rem' }}>
-                <h3 style={{ margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--accent-gold)', fontSize: '1.2rem', fontWeight: '700' }}>
-                    📌 Crear Nueva Lista de Tareas Pendientes
-                </h3>
-                <form onSubmit={handleCreateList} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.4rem', fontWeight: '600' }}>
-                                Nombre / Título de la Lista *
+            {/* Create New List Form Panel */}
+            <div className="mac-profile-panel" style={{ marginBottom: '2.5rem', background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(245, 158, 11, 0.25)', boxShadow: '0 12px 35px rgba(0,0,0,0.4)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.25rem' }}>
+                    <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '10px',
+                        background: 'rgba(245, 158, 11, 0.15)',
+                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1.1rem',
+                        color: '#fbbf24'
+                    }}>
+                        📌
+                    </div>
+                    <h3 style={{ margin: 0, color: '#ffffff', fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.01em' }}>
+                        Crear Nueva Lista de Tareas
+                    </h3>
+                </div>
+
+                <form onSubmit={handleCreateList} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+                        <div className="mac-form-group" style={{ marginBottom: 0 }}>
+                            <label className="mac-form-label">
+                                Título de la Lista *
                             </label>
                             <input
                                 type="text"
-                                className="coordination-input"
-                                placeholder="Ej: Pendientes Semana 30 - Julio"
+                                className="mac-form-input"
+                                placeholder="Ej: Planificación Semanal - Revisiones"
                                 value={newListTitle}
                                 onChange={(e) => setNewListTitle(e.target.value)}
                                 required
                             />
                         </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.4rem', fontWeight: '600' }}>
-                                Descripción u Observaciones
+                        <div className="mac-form-group" style={{ marginBottom: 0 }}>
+                            <label className="mac-form-label">
+                                Descripción u Objetivos (Opcional)
                             </label>
                             <input
                                 type="text"
-                                className="coordination-input"
-                                placeholder="Ej: Revisión de expedientes, denuncias e informes"
+                                className="mac-form-input"
+                                placeholder="Ej: Auditoría de expedientes y reuniones"
                                 value={newListDesc}
                                 onChange={(e) => setNewListDesc(e.target.value)}
                             />
@@ -219,18 +237,13 @@ function CoordinationTodoList() {
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
                         <button
                             type="submit"
+                            className="mac-btn mac-btn-primary"
                             disabled={creatingList}
                             style={{
-                                background: 'linear-gradient(135deg, var(--accent-gold), #b45309)',
-                                color: '#fff',
-                                border: 'none',
-                                padding: '0.75rem 1.8rem',
-                                borderRadius: '8px',
-                                fontWeight: '700',
-                                fontSize: '0.95rem',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease',
-                                boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)'
+                                background: 'linear-gradient(135deg, #d97706, #b45309)',
+                                border: '1px solid rgba(251, 191, 36, 0.4)',
+                                boxShadow: '0 4px 14px rgba(217, 119, 6, 0.35)',
+                                padding: '0.65rem 1.6rem'
                             }}
                         >
                             {creatingList ? 'Creando...' : '➕ Crear Lista'}
@@ -239,16 +252,16 @@ function CoordinationTodoList() {
                 </form>
             </div>
 
-            {/* To-Do Lists Display (Ordered Newest First) */}
+            {/* To-Do Lists Display */}
             {lists.length === 0 ? (
-                <div className="coordination-card" style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--text-secondary)' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📝</div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                        No hay listas de tareas de coordinación creadas.
-                    </div>
-                    <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
-                        Crea una nueva lista en el formulario de arriba para empezar a organizar los pendientes.
-                    </div>
+                <div className="mac-doc-card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.8 }}>📝</div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', margin: '0 0 0.5rem 0' }}>
+                        No hay listas de tareas creadas.
+                    </h3>
+                    <p style={{ fontSize: '0.9rem', color: '#94a3b8', margin: 0, maxWidth: '480px', marginLeft: 'auto', marginRight: 'auto' }}>
+                        Utiliza el formulario superior para crear la primera lista de tareas de la división.
+                    </p>
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -260,49 +273,56 @@ function CoordinationTodoList() {
                         const isEditingThisList = editingListId === list.id;
 
                         return (
-                            <div key={list.id} className="coordination-card" style={{ position: 'relative' }}>
+                            <div key={list.id} className="mac-doc-card" style={{ position: 'relative', background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
                                 {/* List Header */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', gap: '1rem' }}>
                                     <div style={{ flex: 1 }}>
                                         {isEditingThisList ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.5rem', maxWidth: '600px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '0.5rem', maxWidth: '600px' }}>
                                                 <input
                                                     type="text"
-                                                    className="coordination-input"
+                                                    className="mac-form-input"
                                                     value={editTitle}
                                                     onChange={(e) => setEditTitle(e.target.value)}
-                                                    style={{ fontSize: '1.1rem', fontWeight: 'bold', borderColor: 'var(--accent-gold)' }}
+                                                    style={{ fontSize: '1.1rem', fontWeight: 700, borderColor: '#fbbf24' }}
                                                 />
                                                 <input
                                                     type="text"
-                                                    className="coordination-input"
+                                                    className="mac-form-input"
                                                     value={editDesc}
                                                     onChange={(e) => setEditDesc(e.target.value)}
                                                     placeholder="Descripción"
-                                                    style={{ fontSize: '0.88rem' }}
                                                 />
-                                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.3rem' }}>
-                                                    <button onClick={() => handleSaveEditList(list.id)} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '0.4rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}>Guardar</button>
-                                                    <button onClick={() => setEditingListId(null)} style={{ background: '#64748b', color: '#fff', border: 'none', padding: '0.4rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>Cancelar</button>
+                                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.2rem' }}>
+                                                    <button onClick={() => handleSaveEditList(list.id)} className="mac-btn mac-btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>Guardar</button>
+                                                    <button onClick={() => setEditingListId(null)} className="mac-btn mac-btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}>Cancelar</button>
                                                 </div>
                                             </div>
                                         ) : (
                                             <>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                                                    <h3 style={{ margin: 0, fontSize: '1.35rem', color: 'var(--text-primary)', fontWeight: '800' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+                                                    <h3 style={{ margin: 0, fontSize: '1.35rem', color: '#ffffff', fontWeight: 800, letterSpacing: '-0.01em' }}>
                                                         {list.title}
                                                     </h3>
-                                                    <span style={{ fontSize: '0.78rem', color: 'var(--accent-gold)', background: 'rgba(217, 119, 6, 0.15)', padding: '3px 10px', borderRadius: '12px', border: '1px solid var(--accent-gold)', fontWeight: '600' }}>
+                                                    <span style={{
+                                                        fontSize: '0.75rem',
+                                                        color: '#fbbf24',
+                                                        background: 'rgba(245, 158, 11, 0.15)',
+                                                        padding: '0.25rem 0.75rem',
+                                                        borderRadius: '20px',
+                                                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                                                        fontWeight: 700
+                                                    }}>
                                                         📅 {new Date(list.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                     </span>
                                                 </div>
                                                 {list.description && (
-                                                    <div style={{ color: 'var(--text-primary)', fontSize: '0.92rem', marginTop: '0.4rem', opacity: 0.9 }}>
+                                                    <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginTop: '0.4rem', marginBottom: 0, lineHeight: '1.5' }}>
                                                         {list.description}
-                                                    </div>
+                                                    </p>
                                                 )}
-                                                <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '0.4rem' }}>
-                                                    Creado por: <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{list.author_name}</span>
+                                                <div style={{ color: '#64748b', fontSize: '0.78rem', marginTop: '0.4rem', fontWeight: 500 }}>
+                                                    Creado por: <span style={{ color: '#94a3b8', fontWeight: 600 }}>{list.author_name}</span>
                                                 </div>
                                             </>
                                         )}
@@ -313,14 +333,16 @@ function CoordinationTodoList() {
                                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                             <button
                                                 onClick={() => startEditList(list)}
-                                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}
+                                                className="mac-btn mac-btn-secondary"
+                                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}
                                                 title="Editar Lista"
                                             >
                                                 ✏️ Editar
                                             </button>
                                             <button
                                                 onClick={() => handleDeleteList(list.id)}
-                                                style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}
+                                                className="mac-btn mac-btn-secondary"
+                                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem', color: '#f87171', borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.12)' }}
                                                 title="Eliminar Lista"
                                             >
                                                 🗑️ Eliminar
@@ -329,21 +351,22 @@ function CoordinationTodoList() {
                                     )}
                                 </div>
 
-                                {/* Progress Bar */}
-                                <div style={{ marginBottom: '1.5rem', background: 'rgba(0,0,0,0.25)', padding: '0.9rem 1.1rem', borderRadius: '10px', border: '1px solid var(--glass-border)' }}>
+                                {/* macOS Progress Bar Track */}
+                                <div style={{ marginBottom: '1.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.9rem 1.1rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.06)' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
-                                        <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>Estado de avance</span>
-                                        <span style={{ fontWeight: 'bold', color: percent === 100 ? '#4ade80' : 'var(--accent-gold)' }}>
+                                        <span style={{ color: '#94a3b8', fontWeight: 600 }}>Progreso de la Lista</span>
+                                        <span style={{ fontWeight: 800, color: percent === 100 ? '#34d399' : '#fbbf24' }}>
                                             {completedCount} de {totalCount} tareas completadas ({percent}%)
                                         </span>
                                     </div>
-                                    <div style={{ width: '100%', height: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '5px', overflow: 'hidden' }}>
+                                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '9999px', overflow: 'hidden' }}>
                                         <div
                                             style={{
                                                 width: `${percent}%`,
                                                 height: '100%',
-                                                background: percent === 100 ? 'linear-gradient(90deg, #22c55e, #16a34a)' : 'linear-gradient(90deg, var(--accent-gold), #fbbf24)',
-                                                transition: 'width 0.4s ease'
+                                                background: percent === 100 ? 'linear-gradient(90deg, #10b981, #059669)' : 'linear-gradient(90deg, #f59e0b, #d97706)',
+                                                borderRadius: '9999px',
+                                                transition: 'width 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
                                             }}
                                         />
                                     </div>
@@ -352,8 +375,8 @@ function CoordinationTodoList() {
                                 {/* Tasks List */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.5rem' }}>
                                     {tasks.length === 0 ? (
-                                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'italic', padding: '0.75rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
-                                            No hay tareas en esta lista. Añade la primera tarea a continuación.
+                                        <div style={{ color: '#64748b', fontSize: '0.88rem', fontStyle: 'italic', padding: '0.85rem 1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '10px', border: '1px dashed rgba(255,255,255,0.08)' }}>
+                                            No hay tareas registradas en esta lista todavía.
                                         </div>
                                     ) : (
                                         tasks.map(task => {
@@ -365,10 +388,10 @@ function CoordinationTodoList() {
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         gap: '0.85rem',
-                                                        background: task.is_completed ? 'rgba(34, 197, 94, 0.08)' : 'rgba(0, 0, 0, 0.25)',
-                                                        border: task.is_completed ? '1px solid rgba(34, 197, 94, 0.25)' : '1px solid var(--glass-border)',
+                                                        background: task.is_completed ? 'rgba(16, 185, 129, 0.08)' : 'rgba(0, 0, 0, 0.25)',
+                                                        border: task.is_completed ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(255, 255, 255, 0.07)',
                                                         padding: '0.75rem 1rem',
-                                                        borderRadius: '8px',
+                                                        borderRadius: '12px',
                                                         transition: 'all 0.2s ease'
                                                     }}
                                                 >
@@ -376,32 +399,32 @@ function CoordinationTodoList() {
                                                         type="checkbox"
                                                         checked={task.is_completed}
                                                         onChange={() => handleToggleTask(task.id, task.is_completed)}
-                                                        style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--accent-gold)' }}
+                                                        style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#f59e0b' }}
                                                     />
 
                                                     {isEditingTask ? (
                                                         <div style={{ flex: 1, display: 'flex', gap: '0.5rem' }}>
                                                             <input
                                                                 type="text"
-                                                                className="coordination-input"
+                                                                className="mac-form-input"
                                                                 value={editTaskContent}
                                                                 onChange={(e) => setEditTaskContent(e.target.value)}
-                                                                style={{ fontSize: '0.92rem', padding: '0.4rem 0.6rem', borderColor: 'var(--accent-gold)' }}
+                                                                style={{ fontSize: '0.9rem', padding: '0.35rem 0.75rem' }}
                                                             />
-                                                            <button onClick={() => handleSaveEditTask(task.id)} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}>Guardar</button>
-                                                            <button onClick={() => setEditingTaskId(null)} style={{ background: '#64748b', color: '#fff', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>Cancelar</button>
+                                                            <button onClick={() => handleSaveEditTask(task.id)} className="mac-btn mac-btn-primary" style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Guardar</button>
+                                                            <button onClick={() => setEditingTaskId(null)} className="mac-btn mac-btn-secondary" style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>Cancelar</button>
                                                         </div>
                                                     ) : (
                                                         <span
                                                             onClick={() => handleToggleTask(task.id, task.is_completed)}
                                                             style={{
                                                                 flex: 1,
-                                                                fontSize: '0.95rem',
-                                                                color: task.is_completed ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                                                fontSize: '0.92rem',
+                                                                color: task.is_completed ? '#64748b' : '#f1f5f9',
                                                                 textDecoration: task.is_completed ? 'line-through' : 'none',
                                                                 cursor: 'pointer',
                                                                 wordBreak: 'break-word',
-                                                                fontWeight: task.is_completed ? 'normal' : '500'
+                                                                fontWeight: task.is_completed ? '400' : '500'
                                                             }}
                                                         >
                                                             {task.content}
@@ -409,10 +432,10 @@ function CoordinationTodoList() {
                                                     )}
 
                                                     {!isEditingTask && (
-                                                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                                        <div style={{ display: 'flex', gap: '0.3rem' }}>
                                                             <button
                                                                 onClick={() => startEditTask(task)}
-                                                                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.9rem', padding: '4px' }}
+                                                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.9rem', padding: '4px' }}
                                                                 title="Editar Tarea"
                                                             >
                                                                 ✏️
@@ -432,11 +455,11 @@ function CoordinationTodoList() {
                                     )}
                                 </div>
 
-                                {/* Add Task Form */}
+                                {/* Add Task Form Input */}
                                 <form onSubmit={(e) => handleAddTask(e, list.id)} style={{ display: 'flex', gap: '0.75rem' }}>
                                     <input
                                         type="text"
-                                        className="coordination-input"
+                                        className="mac-form-input"
                                         placeholder="+ Añadir una nueva tarea a esta lista..."
                                         value={newTaskInputs[list.id] || ''}
                                         onChange={(e) => setNewTaskInputs(prev => ({ ...prev, [list.id]: e.target.value }))}
@@ -444,15 +467,12 @@ function CoordinationTodoList() {
                                     />
                                     <button
                                         type="submit"
+                                        className="mac-btn mac-btn-secondary"
                                         style={{
-                                            background: 'rgba(217, 119, 6, 0.2)',
-                                            border: '1px solid var(--accent-gold)',
-                                            color: 'var(--accent-gold)',
-                                            padding: '0.65rem 1.25rem',
-                                            borderRadius: '8px',
-                                            fontSize: '0.9rem',
-                                            fontWeight: '700',
-                                            cursor: 'pointer',
+                                            background: 'rgba(245, 158, 11, 0.15)',
+                                            border: '1px solid rgba(245, 158, 11, 0.35)',
+                                            color: '#fbbf24',
+                                            fontWeight: 700,
                                             whiteSpace: 'nowrap'
                                         }}
                                     >

@@ -51,9 +51,10 @@ function Coordination() {
 
     if (loading) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh', color: 'var(--text-secondary)' }}>
-                <div className="coordination-card" style={{ padding: '1.5rem 2.5rem' }}>
-                    ⏳ Verificando permisos de Coordinación...
+            <div className="mac-dashboard-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+                <div className="mac-doc-card" style={{ padding: '2rem 3rem', textAlign: 'center' }}>
+                    <div className="mac-status-dot" style={{ backgroundColor: '#f59e0b', margin: '0 auto 1rem auto' }}></div>
+                    <div style={{ color: '#cbd5e1', fontSize: '1rem', fontWeight: 600 }}>Verificando credenciales de Coordinación...</div>
                 </div>
             </div>
         );
@@ -61,12 +62,16 @@ function Coordination() {
 
     if (!hasAccess()) {
         return (
-            <div style={{ maxWidth: '650px', margin: '3rem auto', textAlign: 'center' }}>
-                <div className="coordination-card" style={{ border: '1px solid rgba(239, 68, 68, 0.4)' }}>
-                    <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🛑</div>
-                    <h2 style={{ color: '#ef4444', margin: '0 0 1rem 0', fontSize: '1.8rem' }}>{t('accessDenied')}</h2>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: 1.6 }}>
-                        Este apartado de Coordinación está restringido únicamente a personal autorizado de **Coordinación**, **Jefatura** y **Administración**.
+            <div className="mac-dashboard-container" style={{ maxWidth: '680px', margin: '3rem auto' }}>
+                <div className="mac-command-banner" style={{ flexDirection: 'column', textAlign: 'center', padding: '2.5rem', background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(15, 23, 42, 0.95))', border: '1px solid rgba(239, 68, 68, 0.35)' }}>
+                    <div style={{ fontSize: '3.5rem', marginBottom: '0.75rem' }}>🛑</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <span className="mac-status-dot" style={{ backgroundColor: '#ef4444' }}></span>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Acceso Restringido</span>
+                    </div>
+                    <h2 style={{ color: '#ffffff', margin: '0 0 0.75rem 0', fontSize: '1.75rem', fontWeight: 800 }}>{t('accessDenied')}</h2>
+                    <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: 1.6, margin: 0 }}>
+                        Este apartado de Coordinación está restringido únicamente al personal de <strong style={{ color: '#f87171' }}>Coordinación</strong>, <strong style={{ color: '#f87171' }}>Jefatura</strong> y <strong style={{ color: '#f87171' }}>Administración</strong>.
                     </p>
                 </div>
             </div>
@@ -74,71 +79,109 @@ function Coordination() {
     }
 
     return (
-        <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '0 0 3rem 0' }}>
-            {/* Header Banner */}
-            <div className="coordination-banner">
+        <div className="mac-dashboard-container">
+            {/* macOS Apple Command Header Banner */}
+            <div className="mac-command-banner" style={{ marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.15), rgba(15, 23, 42, 0.85))', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                     <div style={{
-                        width: '54px',
-                        height: '54px',
-                        borderRadius: '12px',
-                        background: 'rgba(217, 119, 6, 0.15)',
-                        border: '1px solid var(--accent-gold)',
+                        width: '60px',
+                        height: '60px',
+                        borderRadius: '16px',
+                        background: 'rgba(245, 158, 11, 0.18)',
+                        border: '1px solid rgba(245, 158, 11, 0.4)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '1.8rem'
+                        fontSize: '2rem',
+                        boxShadow: '0 8px 20px rgba(245, 158, 11, 0.2)'
                     }}>
                         👔
                     </div>
                     <div>
-                        <h2 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text-primary)', fontWeight: '800', letterSpacing: '0.5px' }}>
-                            Panel de Coordinación y Jefatura
-                        </h2>
-                        <div style={{ color: 'var(--accent-gold)', fontSize: '0.88rem', marginTop: '0.2rem' }}>
-                            Gestión interna de tareas semanales, planificación de departamento y registro disciplinario.
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            <span className="mac-status-dot" style={{ backgroundColor: '#f59e0b', boxShadow: '0 0 10px #f59e0b' }}></span>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                Executive Command & Leadership
+                            </span>
                         </div>
+                        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0.2rem 0 0.3rem 0', color: '#ffffff', letterSpacing: '-0.02em' }}>
+                            PANEL DE COORDINACIÓN Y JEFATURA
+                        </h1>
+                        <p style={{ margin: 0, fontSize: '0.88rem', color: '#94a3b8', fontWeight: 500 }}>
+                            Gestión interna de tareas semanales, planificación de departamento y registro disciplinario.
+                        </p>
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <span style={{
-                        background: 'rgba(217, 119, 6, 0.15)',
-                        color: 'var(--accent-gold)',
-                        border: '1px solid var(--accent-gold)',
-                        padding: '0.4rem 0.9rem',
-                        borderRadius: '20px',
-                        fontSize: '0.82rem',
-                        fontWeight: '600'
-                    }}>
-                        Acceso Restringido
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '0.45rem 1rem', borderRadius: '20px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fbbf24', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                        Personal Autorizado
                     </span>
                 </div>
             </div>
 
-            {/* Navigation Tabs */}
+            {/* macOS Apple Segmented Pill Tab Bar */}
             <div style={{
                 display: 'flex',
-                gap: '0.75rem',
-                borderBottom: '2px solid rgba(255, 255, 255, 0.08)',
+                gap: '0.5rem',
+                background: 'rgba(15, 23, 42, 0.65)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                padding: '0.4rem',
+                borderRadius: '16px',
                 marginBottom: '2rem',
-                paddingBottom: '0.2rem'
+                width: 'fit-content'
             }}>
                 <button
                     onClick={() => setActiveTab('todos')}
-                    className={`coordination-tab-btn ${activeTab === 'todos' ? 'active' : ''}`}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        padding: '0.65rem 1.4rem',
+                        borderRadius: '12px',
+                        fontSize: '0.9rem',
+                        fontWeight: 700,
+                        border: activeTab === 'todos' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid transparent',
+                        background: activeTab === 'todos' ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                        color: activeTab === 'todos' ? '#ffffff' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        boxShadow: activeTab === 'todos' ? '0 4px 14px rgba(245, 158, 11, 0.25)' : 'none'
+                    }}
                 >
-                    📋 {t('coordinationTasks')}
+                    <span style={{ fontSize: '1.1rem' }}>📋</span>
+                    <span>{t('coordinationTasks') || 'Planificación & Tareas'}</span>
                 </button>
+
                 <button
                     onClick={() => setActiveTab('sanctions')}
-                    className={`coordination-tab-btn ${activeTab === 'sanctions' ? 'active' : ''}`}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        padding: '0.65rem 1.4rem',
+                        borderRadius: '12px',
+                        fontSize: '0.9rem',
+                        fontWeight: 700,
+                        border: activeTab === 'sanctions' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid transparent',
+                        background: activeTab === 'sanctions' ? 'rgba(239, 68, 68, 0.2)' : 'transparent',
+                        color: activeTab === 'sanctions' ? '#ffffff' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        boxShadow: activeTab === 'sanctions' ? '0 4px 14px rgba(239, 68, 68, 0.25)' : 'none'
+                    }}
                 >
-                    ⚖️ {t('sanctionsRegister')}
+                    <span style={{ fontSize: '1.1rem' }}>⚖️</span>
+                    <span>{t('sanctionsRegister') || 'Registro Disciplinario'}</span>
                 </button>
             </div>
 
-            {/* Tab Body */}
+            {/* Active Tab Component */}
             <div>
                 {activeTab === 'todos' && <CoordinationTodoList />}
                 {activeTab === 'sanctions' && <CoordinationSanctions />}
