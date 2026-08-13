@@ -505,7 +505,11 @@ function PersonnelDetail() {
                                                                 padding: 0
                                                             }}
                                                         >
-                                                            {isSpecialty ? '⭐' : '☆'}
+                                                            {isSpecialty ? (
+                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="#eab308" stroke="#eab308" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                                            ) : (
+                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                                            )}
                                                         </button>
                                                     )}
                                                 </div>
@@ -521,9 +525,10 @@ function PersonnelDetail() {
                                                     <span 
                                                         key={sub} 
                                                         className={`subdivision-tag subdivision-${getSubdivisionClass(sub)} ${isSpecialty ? 'specialty' : ''}`} 
-                                                        style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                                                        style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
                                                     >
-                                                        {isSpecialty ? '⭐ ' : ''}{sub} ({getSubdivisionAbbrev(sub)})
+                                                        {isSpecialty && <svg width="12" height="12" viewBox="0 0 24 24" fill="#eab308" stroke="#eab308" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>}
+                                                        {sub} ({getSubdivisionAbbrev(sub)})
                                                     </span>
                                                 );
                                             })

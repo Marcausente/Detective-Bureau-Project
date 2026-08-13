@@ -446,7 +446,8 @@ function SEB() {
                         boxShadow: '0 0 20px rgba(234, 179, 8, 0.1)'
                     }}>
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            <path d="m9 12 2 2 4-4"/>
                         </svg>
                     </div>
 
@@ -723,7 +724,11 @@ function SEB() {
                                     gap: '0.4rem'
                                 }}
                             >
-                                ← {language === 'es' ? 'Volver a Operaciones' : 'Back to Operations'}
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="19" y1="12" x2="5" y2="12"/>
+                                    <polyline points="12 19 5 12 12 5"/>
+                                </svg>
+                                {language === 'es' ? 'Volver a Operaciones' : 'Back to Operations'}
                             </button>
 
                             <div>
