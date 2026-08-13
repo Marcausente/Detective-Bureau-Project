@@ -163,7 +163,7 @@ function CoordinationSanctions() {
                     <input
                         type="text"
                         className="mac-form-input"
-                        placeholder="🔍 Buscar por nombre de agente, placa, tipo de sanción o motivo..."
+                        placeholder="Buscar por nombre de agente, placa, tipo de sanción o motivo..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{ paddingLeft: '2.5rem' }}
@@ -180,22 +180,46 @@ function CoordinationSanctions() {
                         background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
                         border: '1px solid rgba(248, 113, 113, 0.4)',
                         boxShadow: '0 4px 15px rgba(239, 68, 68, 0.35)',
-                        padding: '0.65rem 1.4rem'
+                        padding: '0.65rem 1.4rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
                     }}
                 >
-                    ⚖️ Registrar Sanción
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <path d="M12 8v4"/>
+                        <path d="M12 16h.01"/>
+                    </svg>
+                    <span>Registrar Sanción</span>
                 </button>
             </div>
 
             {/* Content Display Grid */}
             {loading ? (
-                <div className="mac-doc-card" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
-                    <div className="mac-status-dot" style={{ backgroundColor: '#ef4444', margin: '0 auto 1rem auto' }}></div>
+                <div className="mac-doc-card" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8', background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(16px)' }}>
+                    <div className="mac-status-dot" style={{ backgroundColor: '#ef4444', margin: '0 auto 1rem auto', width: '12px', height: '12px' }}></div>
                     <div>Cargando registro de sanciones de Coordinación...</div>
                 </div>
             ) : filteredSanctions.length === 0 ? (
-                <div className="mac-doc-card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.8 }}>⚖️</div>
+                <div className="mac-doc-card" style={{ textAlign: 'center', padding: '4rem 2rem', background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(16px)', borderRadius: '20px' }}>
+                    <div style={{
+                        width: '60px',
+                        height: '60px',
+                        borderRadius: '20px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 1.25rem auto'
+                    }}>
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            <path d="M12 8v4"/>
+                            <path d="M12 16h.01"/>
+                        </svg>
+                    </div>
                     <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', margin: '0 0 0.5rem 0' }}>
                         No hay sanciones registradas.
                     </h3>
@@ -208,15 +232,28 @@ function CoordinationSanctions() {
                     {filteredSanctions.map(sanc => {
                         const style = getSanctionBadgeStyle(sanc.sanction_type);
                         return (
-                            <div key={sanc.id} className="mac-doc-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', marginBottom: 0, background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                            <div key={sanc.id} className="mac-doc-card" style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                                marginBottom: 0,
+                                background: 'rgba(15, 23, 42, 0.65)',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                borderRadius: '20px',
+                                padding: '1.5rem',
+                                backdropFilter: 'blur(20px)'
+                            }}>
                                 <div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', gap: '0.5rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
                                             {sanc.agent_avatar ? (
                                                 <img src={sanc.agent_avatar} alt="" style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(245, 158, 11, 0.5)' }} />
                                             ) : (
-                                                <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                                    👮
+                                                <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.1)', color: '#fbbf24' }}>
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                                        <circle cx="12" cy="7" r="4"/>
+                                                    </svg>
                                                 </div>
                                             )}
                                             <div>
@@ -233,10 +270,14 @@ function CoordinationSanctions() {
 
                                         <button
                                             onClick={() => handleDeleteSanction(sanc.id)}
-                                            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '1rem', padding: '4px' }}
+                                            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px', transition: 'color 0.2s ease' }}
                                             title="Eliminar Sanción"
+                                            className="mac-btn-icon-hover"
                                         >
-                                            🗑️
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="3 6 5 6 21 6"/>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                            </svg>
                                         </button>
                                     </div>
 
