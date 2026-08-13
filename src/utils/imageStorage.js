@@ -40,11 +40,11 @@ export function dataURLtoBlob(dataurl) {
 }
 
 /**
- * Compresses and resizes an image Blob or File using Canvas
+ * Compresses and resizes an image Blob or File using Canvas while preserving PNG transparency
  * @param {Blob|File} file 
  * @param {number} maxWidth Maximum width/height in pixels (default 600px for avatars)
- * @param {number} quality JPEG compression quality (default 0.75)
- * @returns {Promise<Blob>} Compressed JPEG Blob
+ * @param {number} quality JPEG/PNG compression quality (default 0.75)
+ * @returns {Promise<Blob>} Compressed Blob
  */
 export async function compressImage(file, maxWidth = 600, quality = 0.75) {
     if (!file || !(file instanceof Blob || file instanceof File)) {
@@ -55,6 +55,8 @@ export async function compressImage(file, maxWidth = 600, quality = 0.75) {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
         return file;
     }
+
+    const isPng = (file.type === 'image/png') || (file.name && file.name.toLowerCase().endsWith('.png'));
 
     return new Promise((resolve) => {
         const img = new Image();
@@ -80,13 +82,16 @@ export async function compressImage(file, maxWidth = 600, quality = 0.75) {
             canvas.height = height;
 
             const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, width, height); // Preserve transparent alpha background for PNGs
             ctx.drawImage(img, 0, 0, width, height);
+
+            const format = isPng ? 'image/png' : 'image/jpeg';
 
             canvas.toBlob(
                 (compressedBlob) => {
                     resolve(compressedBlob || file);
                 },
-                'image/jpeg',
+                format,
                 quality
             );
         };
@@ -102,6 +107,7 @@ export async function compressImage(file, maxWidth = 600, quality = 0.75) {
 
 /**
  * Uploads an image (File, Blob, or Base64 DataURL) to Supabase Storage after compression
+ * Preserves PNG transparency for transparent images.
  * @param {File | Blob | string} imageInput - Image to upload
  * @param {string} folder - Folder within the 'uploads' bucket (e.g. 'avatars')
  * @returns {Promise<string>} Public URL of the uploaded image
@@ -122,20 +128,26 @@ export async function uploadImageToStorage(imageInput, folder = 'avatars') {
 
     if (!fileToUpload) return imageInput;
 
+    const isPng = (fileToUpload && fileToUpload.type === 'image/png') ||
+                  (typeof imageInput === 'string' && imageInput.startsWith('data:image/png')) ||
+                  (imageInput && imageInput.name && imageInput.name.toLowerCase().endsWith('.png'));
+
     // Compress image before uploading (Max 500px for avatars, 1000px for general uploads)
-    const maxDimension = folder === 'avatars' ? 500 : 1000;
+    const maxDimension = folder === 'avatars' ? 500 : 1200;
     try {
         fileToUpload = await compressImage(fileToUpload, maxDimension, 0.75);
     } catch (compressErr) {
         console.warn('Compresión previa omitida:', compressErr);
     }
 
-    const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.jpg`;
+    const ext = isPng ? 'png' : 'jpg';
+    const contentType = isPng ? 'image/png' : 'image/jpeg';
+    const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
     const { data, error } = await supabase.storage
         .from('uploads')
         .upload(fileName, fileToUpload, {
-            contentType: 'image/jpeg',
+            contentType: contentType,
             cacheControl: '31536000', // 1 year browser cache
             upsert: true
         });
@@ -208,4 +220,3 @@ export function stripBase64FromHtml(html) {
     if (!html || typeof html !== 'string') return html;
     return html.replace(/<img[^>]*src=["']data:image\/[^"']+["'][^>]*>/gi, '');
 }
-

@@ -1279,17 +1279,16 @@ function SEB() {
                                                 border: isConnectingSource 
                                                     ? '2.5px solid #ef4444' 
                                                     : isSelected 
-                                                    ? '2px solid #eab308' 
-                                                    : '1px solid rgba(255,255,255,0.15)',
-                                                boxShadow: isSelected ? '0 0 25px rgba(234, 179, 8, 0.45)' : '0 6px 16px rgba(0,0,0,0.5)',
-                                                borderRadius: '12px',
-                                                background: '#0f172a',
-                                                padding: '4px',
-                                                backdropFilter: 'blur(10px)',
+                                                    ? '2px dashed #eab308' 
+                                                    : 'none',
+                                                boxShadow: isSelected ? '0 0 20px rgba(234, 179, 8, 0.4)' : 'none',
+                                                borderRadius: '8px',
+                                                background: 'transparent',
+                                                padding: 0,
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                overflow: 'hidden',
+                                                overflow: 'visible',
                                                 transition: isDragging ? 'none' : 'border-color 0.2s ease, box-shadow 0.2s ease'
                                             }}
                                         >
@@ -1299,7 +1298,7 @@ function SEB() {
                                                 style={{
                                                     width: '100%',
                                                     height: el.height ? '100%' : 'auto',
-                                                    objectFit: 'cover',
+                                                    objectFit: 'contain',
                                                     borderRadius: '8px',
                                                     display: 'block',
                                                     pointerEvents: 'none'
