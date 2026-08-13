@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import '../index.css';
 
 function DOJLicenseProfile() {
@@ -187,9 +188,15 @@ function DOJLicenseProfile() {
     const handleSaveEdit = async (e) => {
         e.preventDefault();
         try {
+            let finalImage = editForm.profile_image;
+            if (finalImage && finalImage.startsWith('data:')) {
+                finalImage = await uploadImageToStorage(finalImage, 'avatars');
+            }
+            const payload = { ...editForm, profile_image: finalImage };
+
             await supabase.rpc('update_doj_civilian', {
                 p_id: id,
-                ...Object.fromEntries(Object.entries(editForm).map(([k, v]) => [`p_${k}`, v]))
+                ...Object.fromEntries(Object.entries(payload).map(([k, v]) => [`p_${k}`, v]))
             });
             setShowEditModal(false);
             loadProfile();

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import '../index.css';
 
 function DOJLicenses() {
@@ -87,14 +88,20 @@ function DOJLicenses() {
     const handleSaveCivilian = async (e) => {
         e.preventDefault();
         try {
+            let finalImage = civilianForm.profile_image;
+            if (finalImage && finalImage.startsWith('data:')) {
+                finalImage = await uploadImageToStorage(finalImage, 'avatars');
+            }
+            const payload = { ...civilianForm, profile_image: finalImage };
+
             if (editingCivilianId) {
                 await supabase.rpc('update_doj_civilian', {
                     p_id: editingCivilianId,
-                    ...Object.fromEntries(Object.entries(civilianForm).map(([k, v]) => [`p_${k}`, v]))
+                    ...Object.fromEntries(Object.entries(payload).map(([k, v]) => [`p_${k}`, v]))
                 });
             } else {
                 await supabase.rpc('create_doj_civilian', {
-                    ...Object.fromEntries(Object.entries(civilianForm).map(([k, v]) => [`p_${k}`, v]))
+                    ...Object.fromEntries(Object.entries(payload).map(([k, v]) => [`p_${k}`, v]))
                 });
             }
             setShowCivilianModal(false);
