@@ -20,6 +20,9 @@ function SEB() {
     const [personnelList, setPersonnelList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     
+    // Operations Sub-Tabs: 'active' (Operaciones Activas) | 'archived' (Archivo de Operativos Finalizados)
+    const [opsSubTab, setOpsSubTab] = useState('active');
+
     // Create Operation Modal State
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newOp, setNewOp] = useState({
@@ -28,6 +31,10 @@ function SEB() {
         type: 'Asalto Táctico & Rescate',
         details: ''
     });
+
+    // Edit Operation Modal State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingOp, setEditingOp] = useState(null);
 
     // Tactical Board Canvas State
     const [boardElements, setBoardElements] = useState([]);
@@ -285,6 +292,95 @@ function SEB() {
             type: 'Asalto Táctico & Rescate',
             details: ''
         });
+    };
+
+    // Handle Delete Operation
+    const handleDeleteOperation = async (opId, opTitle) => {
+        if (!confirm(language === 'es' ? `¿Estás seguro de que deseas eliminar la operación "${opTitle}"? Esta acción no se puede deshacer.` : `Are you sure you want to delete operation "${opTitle}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('seb_operations')
+                .delete()
+                .eq('id', opId);
+
+            const updated = operations.filter(o => o.id !== opId);
+            setOperations(updated);
+            localStorage.setItem('seb_operations', JSON.stringify(updated));
+
+            if (selectedOp?.id === opId) {
+                setSelectedOp(null);
+            }
+        } catch (err) {
+            console.error('Error deleting operation:', err);
+        }
+    };
+
+    // Handle Quick Status / Archive Toggle
+    const handleToggleArchiveStatus = async (op) => {
+        const newStatus = op.status === 'Finalizado' ? 'En Progreso' : 'Finalizado';
+        try {
+            const { error } = await supabase
+                .from('seb_operations')
+                .update({ status: newStatus, updated_at: new Date().toISOString() })
+                .eq('id', op.id);
+
+            const updated = operations.map(o => o.id === op.id ? { ...o, status: newStatus } : o);
+            setOperations(updated);
+            localStorage.setItem('seb_operations', JSON.stringify(updated));
+            if (selectedOp?.id === op.id) {
+                setSelectedOp({ ...selectedOp, status: newStatus });
+            }
+        } catch (err) {
+            console.error('Error updating operation status:', err);
+        }
+    };
+
+    // Open Edit Modal
+    const handleOpenEditModal = (op) => {
+        setEditingOp({
+            id: op.id,
+            title: op.title || '',
+            location: op.location || '',
+            type: op.type || 'Asalto Táctico & Rescate',
+            details: op.details || '',
+            status: op.status || 'En Progreso'
+        });
+        setIsEditModalOpen(true);
+    };
+
+    // Save Edit Operation
+    const handleSaveEditOperation = async (e) => {
+        e.preventDefault();
+        if (!editingOp || !editingOp.title || !editingOp.location) return;
+
+        try {
+            const { error } = await supabase
+                .from('seb_operations')
+                .update({
+                    title: editingOp.title,
+                    location: editingOp.location,
+                    type: editingOp.type,
+                    details: editingOp.details,
+                    status: editingOp.status,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', editingOp.id);
+
+            const updated = operations.map(o => o.id === editingOp.id ? { ...o, ...editingOp } : o);
+            setOperations(updated);
+            localStorage.setItem('seb_operations', JSON.stringify(updated));
+            if (selectedOp?.id === editingOp.id) {
+                setSelectedOp({ ...selectedOp, ...editingOp });
+            }
+        } catch (err) {
+            console.error('Error saving edited operation:', err);
+        }
+
+        setIsEditModalOpen(false);
+        setEditingOp(null);
     };
 
     // Auto-save board state whenever boardElements change (Debounced 800ms)
@@ -658,11 +754,23 @@ function SEB() {
         );
     }
 
-    const filteredOperations = operations.filter(op => 
-        (op.title && op.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (op.location && op.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (op.type && op.type.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const activeOpsCount = operations.filter(op => op.status !== 'Finalizado').length;
+    const archivedOpsCount = operations.filter(op => op.status === 'Finalizado').length;
+
+    const filteredOperations = operations.filter(op => {
+        const matchesSearch = 
+            (op.title && op.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (op.location && op.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (op.type && op.type.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        if (!matchesSearch) return false;
+
+        if (opsSubTab === 'archived') {
+            return op.status === 'Finalizado';
+        } else {
+            return op.status !== 'Finalizado';
+        }
+    });
 
     return (
         <div className="mac-dashboard-container" style={{ maxWidth: '1350px', margin: '0 auto', paddingBottom: '3rem' }}>
@@ -727,7 +835,8 @@ function SEB() {
             {/* TABLÓN DE OPERACIONES */}
             {!selectedOp && (
                 <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', gap: '1rem', flexWrap: 'wrap' }}>
+                    {/* Search & New Operation Row */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
                         <div style={{ position: 'relative', minWidth: '280px', flex: 1 }}>
                             <input
                                 type="text"
@@ -753,22 +862,23 @@ function SEB() {
                         <button
                             onClick={() => setIsCreateModalOpen(true)}
                             style={{
-                                background: 'rgba(255, 255, 255, 0.1)',
-                                border: '1px solid rgba(255, 255, 255, 0.2)',
-                                color: '#ffffff',
+                                background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.25) 0%, rgba(202, 138, 4, 0.15) 100%)',
+                                border: '1px solid rgba(234, 179, 8, 0.4)',
+                                color: '#fef08a',
                                 padding: '0.65rem 1.3rem',
                                 borderRadius: '12px',
-                                fontWeight: 600,
+                                fontWeight: 700,
                                 fontSize: '0.88rem',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.5rem',
                                 backdropFilter: 'blur(10px)',
-                                transition: 'all 0.2s ease'
+                                transition: 'all 0.2s ease',
+                                boxShadow: '0 4px 14px rgba(234, 179, 8, 0.15)'
                             }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(234, 179, 8, 0.35)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(135deg, rgba(234, 179, 8, 0.25) 0%, rgba(202, 138, 4, 0.15) 100%)'}
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                 <line x1="12" y1="5" x2="12" y2="19"/>
@@ -778,20 +888,87 @@ function SEB() {
                         </button>
                     </div>
 
+                    {/* Sub-Tabs: Activas vs Archivo de Operativos */}
+                    <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.25rem' }}>
+                        <button
+                            onClick={() => setOpsSubTab('active')}
+                            style={{
+                                padding: '0.5rem 1.25rem',
+                                fontSize: '0.82rem',
+                                borderRadius: '9999px',
+                                background: opsSubTab === 'active' ? 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)' : 'rgba(255, 255, 255, 0.06)',
+                                color: opsSubTab === 'active' ? '#0f172a' : '#cbd5e1',
+                                border: `1px solid ${opsSubTab === 'active' ? '#eab308' : 'rgba(255, 255, 255, 0.12)'}`,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.45rem',
+                                boxShadow: opsSubTab === 'active' ? '0 4px 14px rgba(234, 179, 8, 0.3)' : 'none'
+                            }}
+                        >
+                            <span>⚡</span>
+                            <span>{language === 'es' ? 'Operaciones Activas' : 'Active Operations'}</span>
+                            <span style={{
+                                background: opsSubTab === 'active' ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.1)',
+                                padding: '0.1rem 0.5rem',
+                                borderRadius: '999px',
+                                fontSize: '0.75rem'
+                            }}>{activeOpsCount}</span>
+                        </button>
+
+                        <button
+                            onClick={() => setOpsSubTab('archived')}
+                            style={{
+                                padding: '0.5rem 1.25rem',
+                                fontSize: '0.82rem',
+                                borderRadius: '9999px',
+                                background: opsSubTab === 'archived' ? 'rgba(148, 163, 184, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+                                color: opsSubTab === 'archived' ? '#ffffff' : '#cbd5e1',
+                                border: `1px solid ${opsSubTab === 'archived' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.12)'}`,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.45rem'
+                            }}
+                        >
+                            <span>📁</span>
+                            <span>{language === 'es' ? 'Archivo de Operativos' : 'Operations Archive'}</span>
+                            <span style={{
+                                background: opsSubTab === 'archived' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
+                                padding: '0.1rem 0.5rem',
+                                borderRadius: '999px',
+                                fontSize: '0.75rem'
+                            }}>{archivedOpsCount}</span>
+                        </button>
+                    </div>
+
                     {/* Operations Cards */}
                     {filteredOperations.length === 0 ? (
-                        <div style={{ padding: '3rem', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', color: '#94a3b8' }}>
-                            <p style={{ margin: 0, fontSize: '0.95rem' }}>{language === 'es' ? 'No se encontraron operaciones registradas.' : 'No registered operations found.'}</p>
-                            <p style={{ fontSize: '0.82rem', marginTop: '0.4rem', color: '#64748b' }}>Haz clic en "Registrar Nueva Operación" para añadir una.</p>
+                        <div style={{ padding: '3.5rem 2rem', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', color: '#94a3b8' }}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{opsSubTab === 'archived' ? '📁' : '⚡'}</div>
+                            <p style={{ margin: 0, fontSize: '0.98rem', fontWeight: 600, color: '#f1f5f9' }}>
+                                {opsSubTab === 'archived' 
+                                    ? (language === 'es' ? 'No hay operaciones en el archivo de finalizados.' : 'No operations in the finished archive.') 
+                                    : (language === 'es' ? 'No hay operaciones tácticas activas.' : 'No active tactical operations.')}
+                            </p>
+                            <p style={{ fontSize: '0.82rem', marginTop: '0.4rem', color: '#64748b' }}>
+                                {opsSubTab === 'archived'
+                                    ? (language === 'es' ? 'Las operaciones finalizadas aparecerán aquí.' : 'Finished operations will appear here.')
+                                    : (language === 'es' ? 'Haz clic en "Registrar Nueva Operación" para iniciar un despliegue.' : 'Click "Register New Operation" to launch a deployment.')}
+                            </p>
                         </div>
                     ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.25rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
                             {filteredOperations.map(op => (
                                 <div 
                                     key={op.id}
                                     style={{
                                         background: 'rgba(15, 23, 42, 0.65)',
-                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        border: op.status === 'Finalizado' ? '1px solid rgba(100, 116, 139, 0.25)' : '1px solid rgba(255, 255, 255, 0.12)',
                                         borderRadius: '16px',
                                         padding: '1.35rem',
                                         position: 'relative',
@@ -799,24 +976,38 @@ function SEB() {
                                         display: 'flex',
                                         flexDirection: 'column',
                                         justifyContent: 'space-between',
-                                        boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
+                                        boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                                        opacity: op.status === 'Finalizado' ? 0.88 : 1,
+                                        transition: 'all 0.2s ease'
                                     }}
                                 >
                                     <div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                                            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#eab308', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                                            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#eab308', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                                                 {op.type}
                                             </span>
                                             <span style={{
                                                 fontSize: '0.72rem',
-                                                fontWeight: 600,
+                                                fontWeight: 700,
                                                 padding: '0.2rem 0.65rem',
                                                 borderRadius: '12px',
-                                                background: op.status === 'En Progreso' ? 'rgba(234, 179, 8, 0.12)' : 'rgba(34, 197, 94, 0.12)',
-                                                color: op.status === 'En Progreso' ? '#facc15' : '#4ade80',
-                                                border: `1px solid ${op.status === 'En Progreso' ? 'rgba(234, 179, 8, 0.25)' : 'rgba(34, 197, 94, 0.25)'}`
+                                                background: op.status === 'Finalizado' 
+                                                    ? 'rgba(100, 116, 139, 0.2)' 
+                                                    : op.status === 'Planificado' 
+                                                    ? 'rgba(59, 130, 246, 0.15)' 
+                                                    : 'rgba(234, 179, 8, 0.12)',
+                                                color: op.status === 'Finalizado' 
+                                                    ? '#cbd5e1' 
+                                                    : op.status === 'Planificado' 
+                                                    ? '#60a5fa' 
+                                                    : '#facc15',
+                                                border: `1px solid ${op.status === 'Finalizado' 
+                                                    ? 'rgba(100, 116, 139, 0.3)' 
+                                                    : op.status === 'Planificado' 
+                                                    ? 'rgba(59, 130, 246, 0.3)' 
+                                                    : 'rgba(234, 179, 8, 0.25)'}`
                                             }}>
-                                                {op.status || 'En Progreso'}
+                                                {op.status === 'Finalizado' ? '📁 Finalizado' : op.status || 'En Progreso'}
                                             </span>
                                         </div>
 
@@ -839,42 +1030,118 @@ function SEB() {
                                         )}
                                     </div>
 
-                                    {/* Action Button: Open Interactive Tactical Board */}
-                                    <button
-                                        onClick={() => handleOpenBoard(op)}
-                                        style={{
-                                            width: '100%',
-                                            background: 'rgba(255, 255, 255, 0.08)',
-                                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                                            color: '#ffffff',
-                                            padding: '0.65rem',
-                                            borderRadius: '10px',
-                                            fontWeight: 600,
-                                            fontSize: '0.85rem',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '0.5rem',
-                                            transition: 'all 0.2s ease',
-                                            marginTop: '0.5rem'
-                                        }}
-                                        onMouseEnter={e => {
-                                            e.currentTarget.style.background = 'rgba(234, 179, 8, 0.2)';
-                                            e.currentTarget.style.borderColor = '#eab308';
-                                        }}
-                                        onMouseLeave={e => {
-                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-                                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-                                        }}
-                                    >
-                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                            <circle cx="8.5" cy="8.5" r="1.5"/>
-                                            <polyline points="21 15 16 10 5 21"/>
-                                        </svg>
-                                        {language === 'es' ? 'Abrir Pizarra Táctica de Planificación' : 'Open Tactical Planning Board'}
-                                    </button>
+                                    {/* Action Buttons Row (Open Board, Edit, Finalize/Reopen, Delete) */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem' }}>
+                                        <button
+                                            onClick={() => handleOpenBoard(op)}
+                                            style={{
+                                                width: '100%',
+                                                background: 'rgba(234, 179, 8, 0.14)',
+                                                border: '1px solid rgba(234, 179, 8, 0.35)',
+                                                color: '#fef08a',
+                                                padding: '0.6rem',
+                                                borderRadius: '10px',
+                                                fontWeight: 700,
+                                                fontSize: '0.85rem',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '0.5rem',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.background = 'rgba(234, 179, 8, 0.25)';
+                                                e.currentTarget.style.borderColor = '#eab308';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.background = 'rgba(234, 179, 8, 0.14)';
+                                                e.currentTarget.style.borderColor = 'rgba(234, 179, 8, 0.35)';
+                                            }}
+                                        >
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                                <circle cx="8.5" cy="8.5" r="1.5"/>
+                                                <polyline points="21 15 16 10 5 21"/>
+                                            </svg>
+                                            {language === 'es' ? 'Abrir Pizarra Táctica' : 'Open Tactical Board'}
+                                        </button>
+
+                                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                            <button
+                                                onClick={() => handleOpenEditModal(op)}
+                                                title={language === 'es' ? 'Editar Operación' : 'Edit Operation'}
+                                                style={{
+                                                    flex: 1,
+                                                    background: 'rgba(255, 255, 255, 0.07)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                    color: '#e2e8f0',
+                                                    padding: '0.45rem',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '0.35rem',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
+                                            >
+                                                ✏️ {language === 'es' ? 'Editar' : 'Edit'}
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleToggleArchiveStatus(op)}
+                                                title={op.status === 'Finalizado' ? (language === 'es' ? 'Reactivar Operación' : 'Reactivate Operation') : (language === 'es' ? 'Finalizar y Archivar Operación' : 'Finalize & Archive Operation')}
+                                                style={{
+                                                    flex: 1,
+                                                    background: op.status === 'Finalizado' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(100, 116, 139, 0.2)',
+                                                    border: `1px solid ${op.status === 'Finalizado' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(100, 116, 139, 0.3)'}`,
+                                                    color: op.status === 'Finalizado' ? '#86efac' : '#cbd5e1',
+                                                    padding: '0.45rem',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '0.35rem',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                                                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                            >
+                                                {op.status === 'Finalizado' ? '⚡ Reactivar' : '📁 Finalizar'}
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleDeleteOperation(op.id, op.title)}
+                                                title={language === 'es' ? 'Eliminar Operación' : 'Delete Operation'}
+                                                style={{
+                                                    background: 'rgba(239, 68, 68, 0.15)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                    color: '#f87171',
+                                                    padding: '0.45rem 0.75rem',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.3)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'}
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -1947,6 +2214,122 @@ function SEB() {
                                     style={{ background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', color: '#0f172a', border: 'none', padding: '0.65rem 1.5rem', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
                                 >
                                     Guardar Operación
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* EDIT OPERATION MODAL */}
+            {isEditModalOpen && editingOp && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.75)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    backdropFilter: 'blur(10px)'
+                }}>
+                    <div style={{
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        borderRadius: '20px',
+                        padding: '2rem',
+                        maxWidth: '540px',
+                        width: '90%',
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.7)',
+                        backdropFilter: 'blur(20px)'
+                    }}>
+                        <h3 style={{ color: '#ffffff', margin: '0 0 1.25rem 0', fontSize: '1.25rem', fontWeight: 700 }}>
+                            {language === 'es' ? 'Editar Operación Táctica SEB' : 'Edit SEB Tactical Operation'}
+                        </h3>
+
+                        <form onSubmit={handleSaveEditOperation} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.82rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+                                    Nombre Operación *
+                                </label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={editingOp.title}
+                                    onChange={e => setEditingOp({ ...editingOp, title: e.target.value })}
+                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', padding: '0.65rem 0.85rem', color: '#fff', fontSize: '0.88rem' }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.82rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+                                    Zona de Despliegue *
+                                </label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={editingOp.location}
+                                    onChange={e => setEditingOp({ ...editingOp, location: e.target.value })}
+                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', padding: '0.65rem 0.85rem', color: '#fff', fontSize: '0.88rem' }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.82rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+                                    Tipo de Intervención *
+                                </label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={editingOp.type}
+                                    onChange={e => setEditingOp({ ...editingOp, type: e.target.value })}
+                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', padding: '0.65rem 0.85rem', color: '#fff', fontSize: '0.88rem' }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.82rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+                                    Estado de la Operación
+                                </label>
+                                <select
+                                    value={editingOp.status}
+                                    onChange={e => setEditingOp({ ...editingOp, status: e.target.value })}
+                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.95)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', padding: '0.65rem 0.85rem', color: '#fff', fontSize: '0.88rem' }}
+                                >
+                                    <option value="En Progreso">⚡ En Progreso (Activa)</option>
+                                    <option value="Planificado">📌 Planificado (Activa)</option>
+                                    <option value="Finalizado">📁 Finalizado (Archivada)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.82rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+                                    Detalles / Briefing
+                                </label>
+                                <textarea
+                                    rows="3"
+                                    value={editingOp.details}
+                                    onChange={e => setEditingOp({ ...editingOp, details: e.target.value })}
+                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', padding: '0.65rem 0.85rem', color: '#fff', fontSize: '0.88rem', resize: 'vertical' }}
+                                ></textarea>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => { setIsEditModalOpen(false); setEditingOp(null); }}
+                                    style={{ background: 'rgba(255, 255, 255, 0.1)', color: '#cbd5e1', border: 'none', padding: '0.65rem 1.25rem', borderRadius: '10px', fontWeight: 600, cursor: 'pointer' }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    style={{ background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', color: '#0f172a', border: 'none', padding: '0.65rem 1.5rem', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+                                >
+                                    Guardar Cambios
                                 </button>
                             </div>
                         </form>
