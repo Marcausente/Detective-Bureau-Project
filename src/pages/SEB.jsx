@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -36,6 +36,15 @@ function SEB() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingOp, setEditingOp] = useState(null);
 
+    // Tactical Note Modal State
+    const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+    const [noteForm, setNoteForm] = useState({
+        id: null,
+        title: '',
+        content: '',
+        category: 'Nota Táctica'
+    });
+
     // Tactical Board Canvas State
     const [boardElements, setBoardElements] = useState([]);
     const [history, setHistory] = useState([]); // Undo History Stack for Ctrl+Z
@@ -46,13 +55,19 @@ function SEB() {
     const [isPanning, setIsPanning] = useState(false);
     const panStartRef = useRef({ x: 0, y: 0 });
 
-    // Tactical Pencil & Eraser Freehand Drawing State
+    // Tactical Pencil, Quick Shapes & Eraser State
     const [isPencilActive, setIsPencilActive] = useState(false);
+    const [pencilShape, setPencilShape] = useState('free'); // 'free' | 'line' | 'rectangle' | 'circle'
     const [isEraserActive, setIsEraserActive] = useState(false);
     const [pencilColor, setPencilColor] = useState('#ef4444'); // Default tactical red
     const [pencilWidth, setPencilWidth] = useState(3);
     const [isDrawing, setIsDrawing] = useState(false);
     const [currentPoints, setCurrentPoints] = useState([]);
+
+    // Element Resizing State (Corners & Edges Handles)
+    const [isResizing, setIsResizing] = useState(false);
+    const [resizeDir, setResizeDir] = useState(null);
+    const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, initX: 0, initY: 0, initW: 0, initH: 0 });
 
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [savingBoard, setSavingBoard] = useState(false);
@@ -77,25 +92,43 @@ function SEB() {
         }
     }, [profile]);
 
-    // Prevent page scroll when wheel zooming inside tactical board
-    useEffect(() => {
-        const boardEl = boardRef.current;
-        if (!boardEl) return;
+    // Mouse wheel zoom event handler for canvas
+    const handleWheelCanvas = useCallback((e) => {
+        if (e) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+        }
+        const delta = e ? e.deltaY : 0;
+        if (delta < 0) {
+            setZoom(z => Math.min(3.0, +(z + 0.08).toFixed(2)));
+        } else if (delta > 0) {
+            setZoom(z => Math.max(0.3, +(z - 0.08).toFixed(2)));
+        }
+    }, []);
 
-        const handleWheel = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (e.deltaY < 0) {
-                setZoom(z => Math.min(2.5, +(z + 0.05).toFixed(2)));
-            } else {
-                setZoom(z => Math.max(0.4, +(z - 0.05).toFixed(2)));
+    // Callback ref to attach non-passive wheel listener directly when canvas DOM node mounts
+    const setBoardRef = useCallback((node) => {
+        if (boardRef.current) {
+            boardRef.current.removeEventListener('wheel', handleWheelCanvas);
+        }
+        boardRef.current = node;
+        if (node) {
+            node.addEventListener('wheel', handleWheelCanvas, { passive: false });
+        }
+    }, [handleWheelCanvas]);
+
+    // Close tactical board modal on ESC key
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && selectedOp) {
+                setSelectedOp(null);
+                setConnectingSourceId(null);
+                setIsPencilActive(false);
+                setIsEraserActive(false);
             }
         };
-
-        boardEl.addEventListener('wheel', handleWheel, { passive: false });
-        return () => {
-            boardEl.removeEventListener('wheel', handleWheel);
-        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectedOp]);
 
     // Push state snapshot to Undo History Stack before mutating elements
@@ -470,29 +503,88 @@ function SEB() {
         }
     };
 
-    const handleAddNoteToBoard = () => {
-        const text = prompt(language === 'es' ? 'Texto de la nota táctica:' : 'Tactical note text:', 'Punto Táctico Clave');
+    const handleOpenAddNoteModal = () => {
+        setNoteForm({
+            id: null,
+            title: 'Grupo 1',
+            content: 'Pepito\nManolo\nAntonio',
+            category: 'Nota Táctica'
+        });
+        setIsNoteModalOpen(true);
+    };
+
+    const handleOpenEditNoteModal = (el) => {
+        setNoteForm({
+            id: el.id,
+            title: el.title || el.category || '',
+            content: el.content || '',
+            category: el.category || 'Nota Táctica'
+        });
+        setIsNoteModalOpen(true);
+    };
+
+    const handleSaveNoteModal = (e) => {
+        if (e) e.preventDefault();
+        if (!noteForm.title.trim() && !noteForm.content.trim()) {
+            alert(language === 'es' ? 'Ingresa al menos un título o contenido para la nota.' : 'Please enter a title or content for the note.');
+            return;
+        }
+
+        if (noteForm.id) {
+            updateElement(noteForm.id, {
+                title: noteForm.title,
+                category: noteForm.title || noteForm.category || 'Nota Táctica',
+                content: noteForm.content
+            });
+        } else {
+            const maxZ = boardElements.reduce((max, el) => Math.max(max, el.zIndex || 1), 1);
+            const newNoteElement = {
+                id: 'note-' + Date.now(),
+                type: 'note',
+                title: noteForm.title || 'Nota Táctica',
+                category: noteForm.title || 'Nota Táctica',
+                content: noteForm.content,
+                x: 140 - pan.x + (boardElements.length * 15),
+                y: 140 - pan.y + (boardElements.length * 15),
+                width: 280,
+                height: 180,
+                zIndex: maxZ + 1,
+                isLocked: false
+            };
+
+            pushHistory([...boardElements, newNoteElement]);
+            setSelectedElementId(newNoteElement.id);
+        }
+
+        setIsNoteModalOpen(false);
+    };
+
+    const handleAddTextToBoard = () => {
+        const text = prompt(language === 'es' ? 'Texto libre para el tablero táctico:' : 'Text for tactical board:', 'TEXTO TÁCTICO');
         if (!text) return;
 
         const maxZ = boardElements.reduce((max, el) => Math.max(max, el.zIndex || 1), 1);
-        const newNoteElement = {
-            id: 'note-' + Date.now(),
-            type: 'note',
+        const newTextElement = {
+            id: 'text-' + Date.now(),
+            type: 'text',
             content: text,
-            category: 'Nota Táctica',
-            x: 120 - pan.x + (boardElements.length * 15),
-            y: 120 - pan.y + (boardElements.length * 15),
-            width: 260,
-            height: 130,
-            zIndex: maxZ + 1
+            color: '#eab308',
+            fontSize: 24,
+            fontWeight: 'bold',
+            x: 160 - pan.x + (boardElements.length * 15),
+            y: 160 - pan.y + (boardElements.length * 15),
+            width: 240,
+            height: 60,
+            zIndex: maxZ + 1,
+            isLocked: false
         };
 
-        pushHistory([...boardElements, newNoteElement]);
-        setSelectedElementId(newNoteElement.id);
+        pushHistory([...boardElements, newTextElement]);
+        setSelectedElementId(newTextElement.id);
     };
 
-    const handleEditNoteContent = (el) => {
-        const updatedText = prompt(language === 'es' ? 'Editar texto de la nota:' : 'Edit note text:', el.content || '');
+    const handleEditTextContent = (el) => {
+        const updatedText = prompt(language === 'es' ? 'Editar texto:' : 'Edit text:', el.content || '');
         if (updatedText === null) return;
         updateElement(el.id, { content: updatedText });
     };
@@ -533,6 +625,12 @@ function SEB() {
         pushHistory(boardElements.map(el => el.id === id ? { ...el, ...newProps } : el));
     };
 
+    const toggleLockElement = (id) => {
+        const el = boardElements.find(item => item.id === id);
+        if (!el) return;
+        updateElement(id, { isLocked: !el.isLocked });
+    };
+
     const handleDeleteElement = (id) => {
         pushHistory(boardElements.filter(el => el.id !== id && el.sourceId !== id && el.targetId !== id));
         if (selectedElementId === id) setSelectedElementId(null);
@@ -565,13 +663,32 @@ function SEB() {
         };
     };
 
-    // Canvas Mouse Down: Start Pencil Drawing OR Eraser OR Pan
+    // Element Resize Handle Mouse Down
+    const handleMouseDownResize = (e, el, dir) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (el.isLocked) return;
+
+        setIsResizing(true);
+        setResizeDir(dir);
+        setResizeStart({
+            x: canvasX,
+            y: canvasY,
+            initX: el.x,
+            initY: el.y,
+            initW: el.width || 300,
+            initH: el.height || 220
+        });
+        setSelectedElementId(el.id);
+    };
+
+    // Canvas Mouse Down: Start Pencil/Shape Drawing OR Eraser OR Pan
     const handleMouseDownBoard = (e) => {
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
         if (isPencilActive) {
             setIsDrawing(true);
-            setCurrentPoints([{ x: canvasX, y: canvasY }]);
+            setCurrentPoints([{ x: canvasX, y: canvasY }, { x: canvasX, y: canvasY }]);
             return;
         }
 
@@ -596,7 +713,7 @@ function SEB() {
 
         if (isPencilActive) {
             setIsDrawing(true);
-            setCurrentPoints([{ x: canvasX, y: canvasY }]);
+            setCurrentPoints([{ x: canvasX, y: canvasY }, { x: canvasX, y: canvasY }]);
             return;
         }
 
@@ -613,19 +730,54 @@ function SEB() {
         }
 
         setSelectedElementId(el.id);
-        setIsDragging(true);
-        setDragOffset({
-            x: canvasX - el.x,
-            y: canvasY - el.y
-        });
+        if (!el.isLocked) {
+            setIsDragging(true);
+            setDragOffset({
+                x: canvasX - el.x,
+                y: canvasY - el.y
+            });
+        }
     };
 
-    // Canvas Mouse Move: Draw Freehand Stroke OR Pan Canvas OR Drag Element
+    // Canvas Mouse Move: Draw Freehand/Shape OR Resizing Element OR Pan Canvas OR Drag Element
     const handleMouseMoveBoard = (e) => {
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
+        if (isResizing && selectedElementId && resizeDir) {
+            const dx = canvasX - resizeStart.x;
+            const dy = canvasY - resizeStart.y;
+            let { initX, initY, initW, initH } = resizeStart;
+
+            let newW = initW;
+            let newH = initH;
+            let newX = initX;
+            let newY = initY;
+
+            if (resizeDir.includes('e')) {
+                newW = Math.max(50, initW + dx);
+            }
+            if (resizeDir.includes('s')) {
+                newH = Math.max(40, initH + dy);
+            }
+            if (resizeDir.includes('w')) {
+                newW = Math.max(50, initW - dx);
+                newX = initX + (initW - newW);
+            }
+            if (resizeDir.includes('n')) {
+                newH = Math.max(40, initH - dy);
+                newY = initY + (initH - newH);
+            }
+
+            updateElement(selectedElementId, { x: newX, y: newY, width: newW, height: newH });
+            return;
+        }
+
         if (isPencilActive && isDrawing) {
-            setCurrentPoints(prev => [...prev, { x: canvasX, y: canvasY }]);
+            if (pencilShape === 'free') {
+                setCurrentPoints(prev => [...prev, { x: canvasX, y: canvasY }]);
+            } else {
+                setCurrentPoints(prev => [prev[0], { x: canvasX, y: canvasY }]);
+            }
             return;
         }
 
@@ -638,21 +790,30 @@ function SEB() {
         }
 
         if (isDragging && selectedElementId) {
+            const el = boardElements.find(item => item.id === selectedElementId);
+            if (el && el.isLocked) return;
             let newX = canvasX - dragOffset.x;
             let newY = canvasY - dragOffset.y;
             updateElement(selectedElementId, { x: newX, y: newY });
         }
     };
 
-    // Canvas Mouse Up: Save Freehand Stroke OR Finish Drag/Pan
+    // Canvas Mouse Up: Save Freehand/Shape Stroke OR Finish Resize/Drag/Pan
     const handleMouseUpBoard = () => {
+        if (isResizing) {
+            setIsResizing(false);
+            setResizeDir(null);
+            return;
+        }
+
         if (isPencilActive && isDrawing) {
             setIsDrawing(false);
-            if (currentPoints.length > 1) {
+            if (currentPoints.length >= 2) {
                 const newDrawing = {
                     id: 'draw-' + Date.now(),
                     type: 'drawing',
                     points: currentPoints,
+                    shape: pencilShape,
                     color: pencilColor,
                     strokeWidth: pencilWidth
                 };
@@ -1149,47 +1310,61 @@ function SEB() {
                 </div>
             )}
 
-            {/* SELECTED OPERATION: INTERACTIVE TACTICAL BOARD (PIZARRA TÁCTICA) */}
+            {/* SELECTED OPERATION: FULLSCREEN APPLE MACOS TACTICAL BOARD MODAL */}
             {activeTab === 'ops' && selectedOp && (
-                <div>
-                    {/* Header Controls */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <button
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    zIndex: 9999,
+                    background: '#090d16',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    animation: 'zoomIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}>
+                    {/* Apple macOS Traffic Light Window Header */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.75rem 1.25rem',
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+                        userSelect: 'none',
+                        flexShrink: 0
+                    }}>
+                        {/* Traffic light buttons with macOS hover animation */}
+                        <div className="mac-window-dots">
+                            <div
+                                className="mac-window-dot close"
                                 onClick={() => { setSelectedOp(null); setConnectingSourceId(null); setIsPencilActive(false); setIsEraserActive(false); }}
-                                style={{
-                                    background: 'rgba(15, 23, 42, 0.7)',
-                                    border: '1px solid rgba(255,255,255,0.15)',
-                                    color: '#cbd5e1',
-                                    padding: '0.5rem 1rem',
-                                    borderRadius: '10px',
-                                    fontWeight: 600,
-                                    fontSize: '0.85rem',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.4rem'
-                                }}
-                            >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="19" y1="12" x2="5" y2="12"/>
-                                    <polyline points="12 19 5 12 12 5"/>
-                                </svg>
-                                {language === 'es' ? 'Volver a Operaciones' : 'Back to Operations'}
-                            </button>
+                                title="Cerrar Pizarra (Esc)"
+                            />
+                            <div
+                                className="mac-window-dot min"
+                                onClick={() => { setSelectedOp(null); setConnectingSourceId(null); setIsPencilActive(false); setIsEraserActive(false); }}
+                                title="Minimizar (Esc)"
+                            />
+                            <div
+                                className="mac-window-dot max"
+                                title="Pantalla Completa"
+                            />
+                        </div>
 
-                            <div>
-                                <h2 style={{ fontSize: '1.35rem', color: '#ffffff', margin: 0, fontWeight: 700, letterSpacing: '-0.01em' }}>
-                                    {selectedOp.title} — Tablero de Planificación Táctica
-                                </h2>
-                                <div style={{ fontSize: '0.82rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.1rem' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2">
-                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                                        <circle cx="12" cy="10" r="3"/>
-                                    </svg>
-                                    <span>{selectedOp.location}</span> • <span style={{ color: '#eab308' }}>{selectedOp.type}</span>
-                                </div>
-                            </div>
+                        {/* Title & Info */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <h2 style={{ fontSize: '1.05rem', color: '#ffffff', margin: 0, fontWeight: 700, letterSpacing: '-0.01em' }}>
+                                {selectedOp.title}
+                            </h2>
+                            <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                                📍 {selectedOp.location} • <span style={{ color: '#eab308' }}>{selectedOp.type}</span>
+                            </span>
                         </div>
 
                         {/* Board Controls Toolbar */}
@@ -1256,7 +1431,7 @@ function SEB() {
                             </button>
 
                             <button
-                                onClick={handleAddNoteToBoard}
+                                onClick={handleOpenAddNoteModal}
                                 style={{
                                     background: 'rgba(255, 255, 255, 0.1)',
                                     border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -1277,6 +1452,31 @@ function SEB() {
                                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                 </svg>
                                 Añadir Nota
+                            </button>
+
+                            <button
+                                onClick={handleAddTextToBoard}
+                                style={{
+                                    background: 'rgba(234, 179, 8, 0.2)',
+                                    border: '1px solid #eab308',
+                                    color: '#fef08a',
+                                    padding: '0.55rem 1.1rem',
+                                    borderRadius: '10px',
+                                    fontWeight: 600,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem',
+                                    backdropFilter: 'blur(10px)'
+                                }}
+                            >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <polyline points="4 7 4 4 20 4 20 7"/>
+                                    <line x1="12" y1="4" x2="12" y2="20"/>
+                                    <line x1="9" y1="20" x2="15" y2="20"/>
+                                </svg>
+                                + Texto Libre
                             </button>
 
                             {/* Tactical Pencil Tool Button */}
@@ -1415,8 +1615,34 @@ function SEB() {
                             backdropFilter: 'blur(20px)',
                             boxShadow: '0 6px 20px rgba(0,0,0,0.4)'
                         }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#eab308', fontSize: '0.85rem', fontWeight: 600 }}>
-                                <span>Herramienta de Dibujo Libre (Lápiz Táctico)</span>
+                            {/* Quick Shape Selector */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: '0.8rem', color: '#eab308', fontWeight: 700, marginRight: '0.2rem' }}>Forma Táctica:</span>
+                                {[
+                                    { id: 'free', label: '✍️ Libre', title: 'Dibujo a Mano Alzada' },
+                                    { id: 'line', label: '➖ Línea', title: 'Línea Recta Táctica' },
+                                    { id: 'rectangle', label: '🔲 Cuadrado', title: 'Caja / Rectángulo Táctico' },
+                                    { id: 'circle', label: '⭕ Círculo', title: 'Círculo / Óvalo Táctico' }
+                                ].map(s => (
+                                    <button
+                                        key={s.id}
+                                        onClick={() => setPencilShape(s.id)}
+                                        title={s.title}
+                                        style={{
+                                            background: pencilShape === s.id ? 'rgba(234, 179, 8, 0.3)' : 'rgba(255, 255, 255, 0.08)',
+                                            border: `1px solid ${pencilShape === s.id ? '#eab308' : 'rgba(255,255,255,0.15)'}`,
+                                            color: pencilShape === s.id ? '#fef08a' : '#cbd5e1',
+                                            padding: '0.3rem 0.65rem',
+                                            borderRadius: '6px',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        {s.label}
+                                    </button>
+                                ))}
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', flexWrap: 'wrap' }}>
@@ -1483,7 +1709,7 @@ function SEB() {
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        Borrar Todos los Dibujos ({drawingsList.length})
+                                        Borrar Dibujos ({drawingsList.length})
                                     </button>
                                 )}
                             </div>
@@ -1583,6 +1809,22 @@ function SEB() {
                                     {selectedElement.type !== 'drawing' && selectedElement.type !== 'thread' && (
                                         <>
                                             <button
+                                                onClick={() => toggleLockElement(selectedElement.id)}
+                                                style={{
+                                                    background: selectedElement.isLocked ? 'rgba(234, 179, 8, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                                                    border: `1px solid ${selectedElement.isLocked ? '#eab308' : 'rgba(255, 255, 255, 0.2)'}`,
+                                                    color: selectedElement.isLocked ? '#fef08a' : '#ffffff',
+                                                    padding: '0.35rem 0.75rem',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                {selectedElement.isLocked ? '🔒 Desfijar Posición' : '🔓 Fijar Posición'}
+                                            </button>
+
+                                            <button
                                                 onClick={() => startConnectingThread(selectedElement.id)}
                                                 style={{
                                                     background: 'rgba(239, 68, 68, 0.2)',
@@ -1600,6 +1842,7 @@ function SEB() {
 
                                             <button
                                                 onClick={() => bringToFront(selectedElement.id)}
+                                                title="Mover elemento al frente"
                                                 style={{
                                                     background: 'rgba(255, 255, 255, 0.1)',
                                                     border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -1612,6 +1855,23 @@ function SEB() {
                                                 }}
                                             >
                                                 Traer al Frente
+                                            </button>
+
+                                            <button
+                                                onClick={() => sendToBack(selectedElement.id)}
+                                                title="Mover elemento al fondo"
+                                                style={{
+                                                    background: 'rgba(255, 255, 255, 0.1)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                                    color: '#ffffff',
+                                                    padding: '0.35rem 0.75rem',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Enviar al Fondo
                                             </button>
                                         </>
                                     )}
@@ -1638,18 +1898,19 @@ function SEB() {
 
                     {/* INTERACTIVE CANVAS WHITEBOARD */}
                     <div 
-                        ref={boardRef}
+                        ref={setBoardRef}
                         onMouseDown={handleMouseDownBoard}
                         onMouseMove={handleMouseMoveBoard}
                         onMouseUp={handleMouseUpBoard}
                         style={{
+                            flex: 1,
                             width: '100%',
-                            height: '700px',
+                            height: '100%',
                             background: '#090d16',
                             backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 0)',
                             backgroundSize: '24px 24px',
                             border: '1px solid rgba(255, 255, 255, 0.12)',
-                            borderRadius: '20px',
+                            borderRadius: '16px',
                             position: 'relative',
                             overflow: 'hidden',
                             boxShadow: 'inset 0 0 40px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.4)',
@@ -1716,8 +1977,20 @@ function SEB() {
                             position: 'relative'
                         }}>
 
-                            {/* SVG THREADS & DRAWINGS LAYER */}
-                            <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
+                            {/* SVG THREADS & DRAWINGS LAYER (ALWAYS ON TOP OF IMAGES & NOTES, INFINITE BOUNDS) */}
+                            <svg 
+                                style={{ 
+                                    position: 'absolute', 
+                                    top: '-5000px', 
+                                    left: '-5000px', 
+                                    width: '10000px', 
+                                    height: '10000px', 
+                                    pointerEvents: 'none', 
+                                    zIndex: 1000,
+                                    overflow: 'visible' 
+                                }}
+                                viewBox="-5000 -5000 10000 10000"
+                            >
                                 {/* Render Saved Connecting Threads */}
                                 {threadsList.map(thread => {
                                     const source = boardElements.find(e => e.id === thread.sourceId);
@@ -1800,23 +2073,79 @@ function SEB() {
                                     );
                                 })}
 
-                                {/* Render Saved Freehand Drawings */}
+                                {/* Render Saved Drawings & Quick Shapes */}
                                 {drawingsList.map(draw => {
                                     const isSelectedDraw = draw.id === selectedElementId;
+                                    const shape = draw.shape || 'free';
+                                    const color = isSelectedDraw ? '#eab308' : (draw.color || '#ef4444');
+                                    const width = (draw.strokeWidth || 3) + (isSelectedDraw ? 3 : 0);
+                                    const pts = draw.points || [];
+
+                                    if (!pts || pts.length === 0) return null;
+
+                                    let elementNode = null;
+
+                                    if (shape === 'line' && pts.length >= 2) {
+                                        elementNode = (
+                                            <line
+                                                x1={pts[0].x}
+                                                y1={pts[0].y}
+                                                x2={pts[pts.length - 1].x}
+                                                y2={pts[pts.length - 1].y}
+                                                stroke={color}
+                                                strokeWidth={width}
+                                                strokeLinecap="round"
+                                            />
+                                        );
+                                    } else if (shape === 'rectangle' && pts.length >= 2) {
+                                        const minX = Math.min(pts[0].x, pts[pts.length - 1].x);
+                                        const minY = Math.min(pts[0].y, pts[pts.length - 1].y);
+                                        const w = Math.abs(pts[pts.length - 1].x - pts[0].x);
+                                        const h = Math.abs(pts[pts.length - 1].y - pts[0].y);
+                                        elementNode = (
+                                            <rect
+                                                x={minX}
+                                                y={minY}
+                                                width={w}
+                                                height={h}
+                                                stroke={color}
+                                                strokeWidth={width}
+                                                fill="none"
+                                                rx="4"
+                                            />
+                                        );
+                                    } else if (shape === 'circle' && pts.length >= 2) {
+                                        const cx = (pts[0].x + pts[pts.length - 1].x) / 2;
+                                        const cy = (pts[0].y + pts[pts.length - 1].y) / 2;
+                                        const rx = Math.abs(pts[pts.length - 1].x - pts[0].x) / 2;
+                                        const ry = Math.abs(pts[pts.length - 1].y - pts[0].y) / 2;
+                                        elementNode = (
+                                            <ellipse
+                                                cx={cx}
+                                                cy={cy}
+                                                rx={rx}
+                                                ry={ry}
+                                                stroke={color}
+                                                strokeWidth={width}
+                                                fill="none"
+                                            />
+                                        );
+                                    } else {
+                                        elementNode = (
+                                            <path
+                                                d={pointsToSvgPath(pts)}
+                                                stroke={color}
+                                                strokeWidth={width}
+                                                fill="none"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            />
+                                        );
+                                    }
+
                                     return (
-                                        <path
+                                        <g
                                             key={draw.id}
-                                            d={pointsToSvgPath(draw.points)}
-                                            stroke={isSelectedDraw ? '#eab308' : (draw.color || '#ef4444')}
-                                            strokeWidth={(draw.strokeWidth || 3) + (isSelectedDraw ? 3 : 0)}
-                                            fill="none"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            style={{ 
-                                                pointerEvents: 'auto', 
-                                                cursor: isEraserActive ? 'cell' : 'pointer',
-                                                filter: isSelectedDraw ? 'drop-shadow(0 0 6px #eab308)' : 'none'
-                                            }}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (isEraserActive) {
@@ -1830,20 +2159,62 @@ function SEB() {
                                                     handleDeleteElement(draw.id);
                                                 }
                                             }}
-                                        />
+                                            style={{ 
+                                                pointerEvents: 'auto', 
+                                                cursor: isEraserActive ? 'cell' : 'pointer',
+                                                filter: isSelectedDraw ? 'drop-shadow(0 0 6px #eab308)' : 'none'
+                                            }}
+                                        >
+                                            {elementNode}
+                                        </g>
                                     );
                                 })}
 
-                                {/* Render Active Freehand Stroke being drawn */}
-                                {isDrawing && isPencilActive && currentPoints.length > 1 && (
-                                    <path
-                                        d={pointsToSvgPath(currentPoints)}
-                                        stroke={pencilColor}
-                                        strokeWidth={pencilWidth}
-                                        fill="none"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    />
+                                {/* Render Active Freehand / Shape Stroke being drawn */}
+                                {isDrawing && isPencilActive && currentPoints.length >= 2 && (
+                                    <>
+                                        {pencilShape === 'line' ? (
+                                            <line
+                                                x1={currentPoints[0].x}
+                                                y1={currentPoints[0].y}
+                                                x2={currentPoints[currentPoints.length - 1].x}
+                                                y2={currentPoints[currentPoints.length - 1].y}
+                                                stroke={pencilColor}
+                                                strokeWidth={pencilWidth}
+                                                strokeLinecap="round"
+                                            />
+                                        ) : pencilShape === 'rectangle' ? (
+                                            <rect
+                                                x={Math.min(currentPoints[0].x, currentPoints[currentPoints.length - 1].x)}
+                                                y={Math.min(currentPoints[0].y, currentPoints[currentPoints.length - 1].y)}
+                                                width={Math.abs(currentPoints[currentPoints.length - 1].x - currentPoints[0].x)}
+                                                height={Math.abs(currentPoints[currentPoints.length - 1].y - currentPoints[0].y)}
+                                                stroke={pencilColor}
+                                                strokeWidth={pencilWidth}
+                                                fill="none"
+                                                rx="4"
+                                            />
+                                        ) : pencilShape === 'circle' ? (
+                                            <ellipse
+                                                cx={(currentPoints[0].x + currentPoints[currentPoints.length - 1].x) / 2}
+                                                cy={(currentPoints[0].y + currentPoints[currentPoints.length - 1].y) / 2}
+                                                rx={Math.abs(currentPoints[currentPoints.length - 1].x - currentPoints[0].x) / 2}
+                                                ry={Math.abs(currentPoints[currentPoints.length - 1].y - currentPoints[0].y) / 2}
+                                                stroke={pencilColor}
+                                                strokeWidth={pencilWidth}
+                                                fill="none"
+                                            />
+                                        ) : (
+                                            <path
+                                                d={pointsToSvgPath(currentPoints)}
+                                                stroke={pencilColor}
+                                                strokeWidth={pencilWidth}
+                                                fill="none"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            />
+                                        )}
+                                    </>
                                 )}
                             </svg>
 
@@ -1895,7 +2266,7 @@ function SEB() {
                                                 width: `${el.width || 300}px`,
                                                 height: el.height ? `${el.height}px` : 'auto',
                                                 zIndex: el.zIndex || 2,
-                                                cursor: isPencilActive ? 'crosshair' : isEraserActive ? 'cell' : isDragging && isSelected ? 'grabbing' : 'grab',
+                                                cursor: isPencilActive ? 'crosshair' : isEraserActive ? 'cell' : el.isLocked ? 'default' : isDragging && isSelected ? 'grabbing' : 'grab',
                                                 border: isConnectingSource 
                                                     ? '2.5px solid #ef4444' 
                                                     : isSelected 
@@ -1925,6 +2296,71 @@ function SEB() {
                                                 }}
                                             />
 
+                                            {/* Lock Indicator Badge */}
+                                            {el.isLocked && (
+                                                <div 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleLockElement(el.id);
+                                                    }}
+                                                    title="Imagen fijada. Clic para desfijar."
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: '8px',
+                                                        right: '8px',
+                                                        background: 'rgba(15, 23, 42, 0.9)',
+                                                        border: '1.5px solid #eab308',
+                                                        borderRadius: '6px',
+                                                        padding: '2px 6px',
+                                                        color: '#fef08a',
+                                                        fontSize: '0.72rem',
+                                                        fontWeight: 700,
+                                                        cursor: 'pointer',
+                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
+                                                        zIndex: (el.zIndex || 2) + 20,
+                                                        backdropFilter: 'blur(8px)'
+                                                    }}
+                                                >
+                                                    🔒 Fijada
+                                                </div>
+                                            )}
+
+                                            {/* 8 Corner & Edge Drag Resizing Handles (Only when NOT locked) */}
+                                            {isSelected && !isPencilActive && !isEraserActive && !el.isLocked && (
+                                                <>
+                                                    {[
+                                                        { dir: 'nw', top: '-6px', left: '-6px', cursor: 'nwse-resize' },
+                                                        { dir: 'n', top: '-6px', left: 'calc(50% - 6px)', cursor: 'ns-resize' },
+                                                        { dir: 'ne', top: '-6px', right: '-6px', cursor: 'nesw-resize' },
+                                                        { dir: 'e', top: 'calc(50% - 6px)', right: '-6px', cursor: 'ew-resize' },
+                                                        { dir: 'se', bottom: '-6px', right: '-6px', cursor: 'nwse-resize' },
+                                                        { dir: 's', bottom: '-6px', left: 'calc(50% - 6px)', cursor: 'ns-resize' },
+                                                        { dir: 'sw', bottom: '-6px', left: '-6px', cursor: 'nesw-resize' },
+                                                        { dir: 'w', top: 'calc(50% - 6px)', left: '-6px', cursor: 'ew-resize' }
+                                                    ].map(h => (
+                                                        <div
+                                                            key={h.dir}
+                                                            onMouseDown={e => handleMouseDownResize(e, el, h.dir)}
+                                                            style={{
+                                                                position: 'absolute',
+                                                                top: h.top,
+                                                                bottom: h.bottom,
+                                                                left: h.left,
+                                                                right: h.right,
+                                                                width: '12px',
+                                                                height: '12px',
+                                                                backgroundColor: '#ffffff',
+                                                                border: '2px solid #eab308',
+                                                                borderRadius: '50%',
+                                                                cursor: h.cursor,
+                                                                boxShadow: '0 0 8px rgba(234, 179, 8, 0.9)',
+                                                                zIndex: (el.zIndex || 2) + 50
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </>
+                                            )}
+
                                             {/* Quick On-Card Controls when selected */}
                                             {isSelected && !isPencilActive && !isEraserActive && (
                                                 <div 
@@ -1947,26 +2383,20 @@ function SEB() {
                                                     }}
                                                 >
                                                     <button
-                                                        onClick={() => updateElement(el.id, { width: (el.width || 300) + 40 })}
-                                                        title="Aumentar Ancho (Horizontal)"
-                                                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
+                                                        onClick={() => toggleLockElement(el.id)}
+                                                        title={el.isLocked ? "Desfijar Posición" : "Fijar Posición en el Tablero"}
+                                                        style={{
+                                                            background: el.isLocked ? 'rgba(234, 179, 8, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                                                            border: `1px solid ${el.isLocked ? '#eab308' : 'rgba(255, 255, 255, 0.2)'}`,
+                                                            color: el.isLocked ? '#fef08a' : '#ffffff',
+                                                            padding: '0.2rem 0.5rem',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.72rem',
+                                                            fontWeight: 600
+                                                        }}
                                                     >
-                                                        Ancho +
-                                                    </button>
-                                                    <button
-                                                        onClick={() => updateElement(el.id, { width: Math.max(100, (el.width || 300) - 40) })}
-                                                        title="Reducir Ancho (Horizontal)"
-                                                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
-                                                    >
-                                                        Ancho -
-                                                    </button>
-
-                                                    <button
-                                                        onClick={() => updateElement(el.id, { height: ((el.height || 200) + 40) })}
-                                                        title="Aumentar Alto (Vertical)"
-                                                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
-                                                    >
-                                                        Alto +
+                                                        {el.isLocked ? '🔒 Fijada' : '🔓 Fijar'}
                                                     </button>
 
                                                     <button
@@ -1986,8 +2416,266 @@ function SEB() {
                                                     </button>
 
                                                     <button
+                                                        onClick={() => bringToFront(el.id)}
+                                                        title="Traer Imagen al Frente"
+                                                        style={{ background: 'rgba(255, 255, 255, 0.1)', border: 'none', color: '#ffffff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                    >
+                                                        ⬆️ Frente
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => sendToBack(el.id)}
+                                                        title="Enviar Imagen al Fondo"
+                                                        style={{ background: 'rgba(255, 255, 255, 0.1)', border: 'none', color: '#ffffff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                    >
+                                                        ⬇️ Fondo
+                                                    </button>
+
+                                                    <button
                                                         onClick={() => handleDeleteElement(el.id)}
                                                         title="Eliminar (Supr)"
+                                                        style={{ background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#f87171', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }
+
+                                // Standalone Text Element
+                                if (el.type === 'text') {
+                                    return (
+                                        <div
+                                            key={el.id}
+                                            onMouseDown={e => handleMouseDownElement(e, el)}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                if (isPencilActive || isEraserActive) return;
+                                                if (connectingSourceId) {
+                                                    handleConnectToElement(el.id);
+                                                } else {
+                                                    setSelectedElementId(el.id);
+                                                }
+                                            }}
+                                            onDoubleClick={() => !isPencilActive && !isEraserActive && handleEditTextContent(el)}
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${el.x}px`,
+                                                top: `${el.y}px`,
+                                                width: el.width ? `${el.width}px` : 'auto',
+                                                height: el.height ? `${el.height}px` : 'auto',
+                                                zIndex: isSelected ? (el.zIndex || 2) + 100 : (el.zIndex || 2),
+                                                cursor: el.isLocked ? 'pointer' : 'move',
+                                                border: isSelected ? '2px dashed #eab308' : '1px transparent solid',
+                                                borderRadius: '8px',
+                                                padding: '0.4rem 0.6rem',
+                                                userSelect: 'none',
+                                                backdropFilter: isSelected ? 'blur(4px)' : 'none',
+                                                background: isSelected ? 'rgba(15, 23, 42, 0.4)' : 'transparent',
+                                                transition: 'border 0.2s ease, background 0.2s ease'
+                                            }}
+                                        >
+                                            {/* Lock Badge */}
+                                            {el.isLocked && (
+                                                <div 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleLockElement(el.id);
+                                                    }}
+                                                    title="Texto fijado. Clic para desfijar."
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: '-10px',
+                                                        right: '-10px',
+                                                        background: 'rgba(15, 23, 42, 0.9)',
+                                                        border: '1.5px solid #eab308',
+                                                        borderRadius: '6px',
+                                                        padding: '2px 6px',
+                                                        color: '#fef08a',
+                                                        fontSize: '0.7rem',
+                                                        fontWeight: 700,
+                                                        cursor: 'pointer',
+                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
+                                                        zIndex: (el.zIndex || 2) + 20
+                                                    }}
+                                                >
+                                                    🔒 Fijado
+                                                </div>
+                                            )}
+
+                                            <div style={{
+                                                color: el.color || '#ffffff',
+                                                fontSize: `${el.fontSize || 24}px`,
+                                                fontWeight: el.fontWeight || 'bold',
+                                                lineHeight: 1.2,
+                                                whiteSpace: 'pre-wrap',
+                                                textShadow: '0 2px 8px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.8)'
+                                            }}>
+                                                {el.content}
+                                            </div>
+
+                                            {/* 8 Drag Resizing Handles */}
+                                            {isSelected && !isPencilActive && !isEraserActive && !el.isLocked && (
+                                                <>
+                                                    {[
+                                                        { dir: 'nw', top: '-6px', left: '-6px', cursor: 'nwse-resize' },
+                                                        { dir: 'n', top: '-6px', left: 'calc(50% - 6px)', cursor: 'ns-resize' },
+                                                        { dir: 'ne', top: '-6px', right: '-6px', cursor: 'nesw-resize' },
+                                                        { dir: 'e', top: 'calc(50% - 6px)', right: '-6px', cursor: 'ew-resize' },
+                                                        { dir: 'se', bottom: '-6px', right: '-6px', cursor: 'nwse-resize' },
+                                                        { dir: 's', bottom: '-6px', left: 'calc(50% - 6px)', cursor: 'ns-resize' },
+                                                        { dir: 'sw', bottom: '-6px', left: '-6px', cursor: 'nesw-resize' },
+                                                        { dir: 'w', top: 'calc(50% - 6px)', left: '-6px', cursor: 'ew-resize' }
+                                                    ].map(h => (
+                                                        <div
+                                                            key={h.dir}
+                                                            onMouseDown={e => handleMouseDownResize(e, el, h.dir)}
+                                                            style={{
+                                                                position: 'absolute',
+                                                                top: h.top,
+                                                                bottom: h.bottom,
+                                                                left: h.left,
+                                                                right: h.right,
+                                                                width: '12px',
+                                                                height: '12px',
+                                                                backgroundColor: '#ffffff',
+                                                                border: '2px solid #eab308',
+                                                                borderRadius: '50%',
+                                                                cursor: h.cursor,
+                                                                boxShadow: '0 0 8px rgba(234, 179, 8, 0.9)',
+                                                                zIndex: (el.zIndex || 2) + 50
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </>
+                                            )}
+
+                                            {/* Floating Toolbar Controls for Text */}
+                                            {isSelected && !isPencilActive && !isEraserActive && (
+                                                <div 
+                                                    onClick={e => e.stopPropagation()}
+                                                    onMouseDown={e => e.stopPropagation()}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: '-42px',
+                                                        left: '0',
+                                                        background: 'rgba(15, 23, 42, 0.95)',
+                                                        border: '1px solid #eab308',
+                                                        borderRadius: '10px',
+                                                        padding: '0.25rem 0.5rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.35rem',
+                                                        boxShadow: '0 6px 16px rgba(0,0,0,0.6)',
+                                                        backdropFilter: 'blur(10px)',
+                                                        zIndex: 9999
+                                                    }}
+                                                >
+                                                    {/* Lock Button */}
+                                                    <button
+                                                        onClick={() => toggleLockElement(el.id)}
+                                                        title={el.isLocked ? "Desfijar Posición" : "Fijar Posición en el Tablero"}
+                                                        style={{
+                                                            background: el.isLocked ? 'rgba(234, 179, 8, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                                                            border: `1px solid ${el.isLocked ? '#eab308' : 'rgba(255, 255, 255, 0.2)'}`,
+                                                            color: el.isLocked ? '#fef08a' : '#ffffff',
+                                                            padding: '0.2rem 0.5rem',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.72rem',
+                                                            fontWeight: 600
+                                                        }}
+                                                    >
+                                                        {el.isLocked ? '🔒 Fijado' : '🔓 Fijar'}
+                                                    </button>
+
+                                                    {/* Edit Text Content */}
+                                                    <button
+                                                        onClick={() => handleEditTextContent(el)}
+                                                        title="Editar Texto"
+                                                        style={{ background: 'rgba(234, 179, 8, 0.25)', border: 'none', color: '#fef08a', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                    >
+                                                        ✏️ Editar
+                                                    </button>
+
+                                                    {/* Bold Toggle */}
+                                                    <button
+                                                        onClick={() => updateElement(el.id, { fontWeight: el.fontWeight === 'bold' ? 'normal' : 'bold' })}
+                                                        title="Alternar Negrita"
+                                                        style={{
+                                                            background: el.fontWeight === 'bold' ? 'rgba(234, 179, 8, 0.35)' : 'rgba(255, 255, 255, 0.1)',
+                                                            border: `1px solid ${el.fontWeight === 'bold' ? '#eab308' : 'rgba(255, 255, 255, 0.2)'}`,
+                                                            color: '#ffffff',
+                                                            padding: '0.2rem 0.5rem',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: '900'
+                                                        }}
+                                                    >
+                                                        B
+                                                    </button>
+
+                                                    {/* Size - */}
+                                                    <button
+                                                        onClick={() => updateElement(el.id, { fontSize: Math.max(12, (el.fontSize || 24) - 3) })}
+                                                        title="Reducir Tamaño de Texto"
+                                                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
+                                                    >
+                                                        A-
+                                                    </button>
+
+                                                    {/* Size + */}
+                                                    <button
+                                                        onClick={() => updateElement(el.id, { fontSize: Math.min(72, (el.fontSize || 24) + 4) })}
+                                                        title="Aumentar Tamaño de Texto"
+                                                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700 }}
+                                                    >
+                                                        A+
+                                                    </button>
+
+                                                    {/* Color Selector Dots */}
+                                                    <div style={{ display: 'flex', gap: '3px', alignItems: 'center', margin: '0 2px' }}>
+                                                        {['#ffffff', '#eab308', '#ef4444', '#3b82f6', '#22c55e', '#a855f7'].map(c => (
+                                                            <div
+                                                                key={c}
+                                                                onClick={() => updateElement(el.id, { color: c })}
+                                                                title="Cambiar Color de Texto"
+                                                                style={{
+                                                                    width: '14px',
+                                                                    height: '14px',
+                                                                    borderRadius: '50%',
+                                                                    backgroundColor: c,
+                                                                    border: el.color === c ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
+                                                                    cursor: 'pointer',
+                                                                    boxShadow: el.color === c ? `0 0 6px ${c}` : 'none'
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Order */}
+                                                    <button
+                                                        onClick={() => bringToFront(el.id)}
+                                                        title="Traer Texto al Frente"
+                                                        style={{ background: 'rgba(255, 255, 255, 0.1)', border: 'none', color: '#ffffff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                    >
+                                                        ⬆️ Frente
+                                                    </button>
+                                                    <button
+                                                        onClick={() => sendToBack(el.id)}
+                                                        title="Enviar Texto al Fondo"
+                                                        style={{ background: 'rgba(255, 255, 255, 0.1)', border: 'none', color: '#ffffff', padding: '0.2rem 0.45rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
+                                                    >
+                                                        ⬇️ Fondo
+                                                    </button>
+
+                                                    {/* Delete */}
+                                                    <button
+                                                        onClick={() => handleDeleteElement(el.id)}
+                                                        title="Eliminar Texto (Supr)"
                                                         style={{ background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#f87171', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
                                                     >
                                                         ✕
@@ -2012,7 +2700,7 @@ function SEB() {
                                                 setSelectedElementId(el.id);
                                             }
                                         }}
-                                        onDoubleClick={() => !isPencilActive && !isEraserActive && handleEditNoteContent(el)}
+                                        onDoubleClick={() => !isPencilActive && !isEraserActive && handleOpenEditNoteModal(el)}
                                         style={{
                                             position: 'absolute',
                                             left: `${el.x}px`,
@@ -2020,7 +2708,7 @@ function SEB() {
                                             width: `${el.width || 260}px`,
                                             height: el.height ? `${el.height}px` : 'auto',
                                             zIndex: el.zIndex || 2,
-                                            cursor: isPencilActive ? 'crosshair' : isEraserActive ? 'cell' : isDragging && isSelected ? 'grabbing' : 'grab',
+                                            cursor: isPencilActive ? 'crosshair' : isEraserActive ? 'cell' : el.isLocked ? 'default' : isDragging && isSelected ? 'grabbing' : 'grab',
                                             background: 'rgba(15, 23, 42, 0.92)',
                                             border: isConnectingSource 
                                                 ? '2.5px solid #ef4444' 
@@ -2037,14 +2725,79 @@ function SEB() {
                                             overflow: 'auto'
                                         }}
                                     >
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                                            <span style={{ color: '#eab308', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                                {el.category || 'Nota Táctica'}
+                                        {/* Lock Indicator Badge for Notes */}
+                                        {el.isLocked && (
+                                            <div 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleLockElement(el.id);
+                                                }}
+                                                title="Nota fijada. Clic para desfijar."
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '8px',
+                                                    right: '8px',
+                                                    background: 'rgba(15, 23, 42, 0.9)',
+                                                    border: '1.5px solid #eab308',
+                                                    borderRadius: '6px',
+                                                    padding: '2px 6px',
+                                                    color: '#fef08a',
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 700,
+                                                    cursor: 'pointer',
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
+                                                    zIndex: (el.zIndex || 2) + 20,
+                                                    backdropFilter: 'blur(8px)'
+                                                }}
+                                            >
+                                                🔒 Fijada
+                                            </div>
+                                        )}
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', paddingRight: el.isLocked ? '60px' : '0' }}>
+                                            <span style={{ color: '#eab308', fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                                {el.title || el.category || 'Nota Táctica'}
                                             </span>
                                         </div>
-                                        <div style={{ whiteSpace: 'pre-wrap' }}>
+                                        <div style={{ whiteSpace: 'pre-wrap', color: '#e2e8f0', fontSize: '0.88rem', lineHeight: '1.45' }}>
                                             {el.content}
                                         </div>
+
+                                        {/* 8 Corner & Edge Drag Resizing Handles (Only when NOT locked) */}
+                                        {isSelected && !isPencilActive && !isEraserActive && !el.isLocked && (
+                                            <>
+                                                {[
+                                                    { dir: 'nw', top: '-6px', left: '-6px', cursor: 'nwse-resize' },
+                                                    { dir: 'n', top: '-6px', left: 'calc(50% - 6px)', cursor: 'ns-resize' },
+                                                    { dir: 'ne', top: '-6px', right: '-6px', cursor: 'nesw-resize' },
+                                                    { dir: 'e', top: 'calc(50% - 6px)', right: '-6px', cursor: 'ew-resize' },
+                                                    { dir: 'se', bottom: '-6px', right: '-6px', cursor: 'nwse-resize' },
+                                                    { dir: 's', bottom: '-6px', left: 'calc(50% - 6px)', cursor: 'ns-resize' },
+                                                    { dir: 'sw', bottom: '-6px', left: '-6px', cursor: 'nesw-resize' },
+                                                    { dir: 'w', top: 'calc(50% - 6px)', left: '-6px', cursor: 'ew-resize' }
+                                                ].map(h => (
+                                                    <div
+                                                        key={h.dir}
+                                                        onMouseDown={e => handleMouseDownResize(e, el, h.dir)}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: h.top,
+                                                            bottom: h.bottom,
+                                                            left: h.left,
+                                                            right: h.right,
+                                                            width: '12px',
+                                                            height: '12px',
+                                                            backgroundColor: '#ffffff',
+                                                            border: '2px solid #eab308',
+                                                            borderRadius: '50%',
+                                                            cursor: h.cursor,
+                                                            boxShadow: '0 0 8px rgba(234, 179, 8, 0.9)',
+                                                            zIndex: (el.zIndex || 2) + 50
+                                                        }}
+                                                    />
+                                                ))}
+                                            </>
+                                        )}
 
                                         {/* Quick On-Card Controls when selected */}
                                         {isSelected && !isPencilActive && !isEraserActive && (
@@ -2068,7 +2821,24 @@ function SEB() {
                                                 }}
                                             >
                                                 <button
-                                                    onClick={() => handleEditNoteContent(el)}
+                                                    onClick={() => toggleLockElement(el.id)}
+                                                    title={el.isLocked ? "Desfijar Posición" : "Fijar Posición en el Tablero"}
+                                                    style={{
+                                                        background: el.isLocked ? 'rgba(234, 179, 8, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                                                        border: `1px solid ${el.isLocked ? '#eab308' : 'rgba(255, 255, 255, 0.2)'}`,
+                                                        color: el.isLocked ? '#fef08a' : '#ffffff',
+                                                        padding: '0.2rem 0.5rem',
+                                                        borderRadius: '6px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.72rem',
+                                                        fontWeight: 600
+                                                    }}
+                                                >
+                                                    {el.isLocked ? '🔒 Fijada' : '🔓 Fijar'}
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleOpenEditNoteModal(el)}
                                                     title="Editar Nota"
                                                     style={{ background: 'rgba(234, 179, 8, 0.25)', border: 'none', color: '#fef08a', padding: '0.2rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600 }}
                                                 >
@@ -2362,6 +3132,136 @@ function SEB() {
                         alt="Tactical Plan Full view" 
                         style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 20px 60px rgba(0,0,0,0.8)' }}
                     />
+                </div>
+            )}
+
+            {/* CREATE / EDIT TACTICAL NOTE MODAL */}
+            {isNoteModalOpen && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.82)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 99999,
+                    padding: '1rem',
+                    animation: 'fadeIn 0.2s ease'
+                }}>
+                    <div style={{
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid #eab308',
+                        borderRadius: '16px',
+                        padding: '1.5rem',
+                        width: '100%',
+                        maxWidth: '520px',
+                        boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 25px rgba(234, 179, 8, 0.2)',
+                        color: '#ffffff'
+                    }}>
+                        {/* Modal Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#fef08a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                📝 {noteForm.id ? 'Editar Nota Táctica' : 'Añadir Nueva Nota Táctica'}
+                            </h3>
+                            <button
+                                onClick={() => setIsNoteModalOpen(false)}
+                                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.2rem', cursor: 'pointer' }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSaveNoteModal}>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.82rem', color: '#eab308', fontWeight: 700, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    Título de la Nota (Ej: Grupo 1, Equipo Asalto, Sospechosos)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={noteForm.title}
+                                    onChange={e => setNoteForm({ ...noteForm, title: e.target.value })}
+                                    placeholder="Ej: Grupo 1"
+                                    autoFocus
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(30, 41, 59, 0.8)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '10px',
+                                        padding: '0.65rem 0.9rem',
+                                        color: '#ffffff',
+                                        fontSize: '0.95rem',
+                                        fontWeight: 600,
+                                        outline: 'none'
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{ marginBottom: '1.25rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 600, marginBottom: '0.4rem' }}>
+                                    Contenido / Integrantes / Detalles (Múltiples Líneas)
+                                </label>
+                                <textarea
+                                    rows={6}
+                                    value={noteForm.content}
+                                    onChange={e => setNoteForm({ ...noteForm, content: e.target.value })}
+                                    placeholder={"Pepito\nManolo\nAntonio\n..."}
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(30, 41, 59, 0.8)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '10px',
+                                        padding: '0.65rem 0.9rem',
+                                        color: '#ffffff',
+                                        fontSize: '0.9rem',
+                                        lineHeight: 1.4,
+                                        outline: 'none',
+                                        resize: 'vertical'
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsNoteModalOpen(false)}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.1)',
+                                        border: '1px solid rgba(255,255,255,0.2)',
+                                        color: '#e2e8f0',
+                                        padding: '0.55rem 1.1rem',
+                                        borderRadius: '10px',
+                                        fontWeight: 600,
+                                        fontSize: '0.85rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancelar
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    style={{
+                                        background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)',
+                                        border: 'none',
+                                        color: '#0f172a',
+                                        padding: '0.55rem 1.35rem',
+                                        borderRadius: '10px',
+                                        fontWeight: 700,
+                                        fontSize: '0.85rem',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 4px 14px rgba(234, 179, 8, 0.4)'
+                                    }}
+                                >
+                                    {noteForm.id ? 'Guardar Cambios' : 'Crear Nota'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
         </div>

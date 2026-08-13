@@ -244,13 +244,24 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         };
     };
 
-    // Handle Wheel Zoom
-    const handleWheel = (e) => {
+    // Handle Wheel Zoom (Native non-passive listener)
+    const handleWheel = useCallback((e) => {
         if (e.target.closest('.whiteboard-card')) return;
-        e.preventDefault();
+        if (e.preventDefault) e.preventDefault();
         const zoomFactor = e.deltaY < 0 ? 1.08 : 0.92;
         setZoom(z => Math.min(Math.max(0.3, z * zoomFactor), 2.0));
-    };
+    }, []);
+
+    // Callback ref for non-passive wheel listener
+    const setBoardRef = useCallback((node) => {
+        if (boardRef.current) {
+            boardRef.current.removeEventListener('wheel', handleWheel);
+        }
+        boardRef.current = node;
+        if (node) {
+            node.addEventListener('wheel', handleWheel, { passive: false });
+        }
+    }, [handleWheel]);
 
     // Auto-center and fit all cards in view
     const handleFitAll = () => {
@@ -874,9 +885,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
             {/* Main Interactive Canvas Area */}
             <div
-                ref={boardRef}
+                ref={setBoardRef}
                 onMouseDown={handleBoardMouseDown}
-                onWheel={handleWheel}
                 style={{
                     width: '100%', height: '100%', minHeight: '750px', cursor: isPanning ? 'grabbing' : 'grab', position: 'relative',
                     backgroundImage: `
