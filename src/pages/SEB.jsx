@@ -382,6 +382,12 @@ function SEB() {
         updateElement(el.id, { content: updatedText });
     };
 
+    const handleEditThreadLabel = (thread) => {
+        const updatedLabel = prompt(language === 'es' ? 'Editar texto / etiqueta del hilo conector:' : 'Edit connector thread label:', thread.label || '');
+        if (updatedLabel === null) return;
+        updateElement(thread.id, { label: updatedLabel });
+    };
+
     const startConnectingThread = (sourceId) => {
         setConnectingSourceId(sourceId);
         setIsPencilActive(false);
@@ -556,7 +562,7 @@ function SEB() {
         return pts.reduce((acc, pt, i) => i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '');
     };
 
-    const selectedElement = boardElements.find(el => el.id === selectedElementId && el.type !== 'thread');
+    const selectedElement = boardElements.find(el => el.id === selectedElementId);
     const threadsList = boardElements.filter(el => el.type === 'thread');
     const drawingsList = boardElements.filter(el => el.type === 'drawing');
 
@@ -1277,7 +1283,7 @@ function SEB() {
                             boxShadow: '0 6px 20px rgba(0,0,0,0.4)'
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#eab308', fontSize: '0.85rem', fontWeight: 600 }}>
-                                <span>Elemento Seleccionado ({selectedElement.type === 'image' ? 'Imagen Táctica' : selectedElement.type === 'note' ? 'Nota Táctica' : 'Dibujo Trazo'})</span>
+                                <span>Elemento Seleccionado ({selectedElement.type === 'image' ? 'Imagen Táctica' : selectedElement.type === 'note' ? 'Nota Táctica' : selectedElement.type === 'thread' ? 'Hilo Conector' : 'Dibujo Trazo'})</span>
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', flexWrap: 'wrap' }}>
@@ -1332,7 +1338,25 @@ function SEB() {
                                         </button>
                                     )}
 
-                                    {selectedElement.type !== 'drawing' && (
+                                    {selectedElement.type === 'thread' && (
+                                        <button
+                                            onClick={() => handleEditThreadLabel(selectedElement)}
+                                            style={{
+                                                background: 'rgba(234, 179, 8, 0.25)',
+                                                border: '1px solid #eab308',
+                                                color: '#fef08a',
+                                                padding: '0.35rem 0.75rem',
+                                                borderRadius: '8px',
+                                                fontSize: '0.78rem',
+                                                fontWeight: 600,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Editar Texto del Hilo
+                                        </button>
+                                    )}
+
+                                    {selectedElement.type !== 'drawing' && selectedElement.type !== 'thread' && (
                                         <>
                                             <button
                                                 onClick={() => startConnectingThread(selectedElement.id)}
@@ -1483,6 +1507,7 @@ function SEB() {
 
                                     const midX = (x1 + x2) / 2;
                                     const midY = (y1 + y2) / 2;
+                                    const isSelectedThread = thread.id === selectedElementId;
 
                                     return (
                                         <g key={thread.id}>
@@ -1492,9 +1517,18 @@ function SEB() {
                                                 y1={y1}
                                                 x2={x2}
                                                 y2={y2}
-                                                stroke="#ef4444"
-                                                strokeWidth="3.5"
+                                                stroke={isSelectedThread ? "#eab308" : "#ef4444"}
+                                                strokeWidth={isSelectedThread ? "5" : "3.5"}
                                                 strokeDasharray="6,4"
+                                                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (!isEraserActive) setSelectedElementId(thread.id);
+                                                }}
+                                                onDoubleClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (!isEraserActive) handleEditThreadLabel(thread);
+                                                }}
                                             />
 
                                             {/* Midpoint Knot & Label Button */}
@@ -1503,21 +1537,36 @@ function SEB() {
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     if (isEraserActive) return;
-                                                    if (confirm(language === 'es' ? '¿Eliminar este hilo conector?' : 'Delete this connecting thread?')) {
-                                                        handleDeleteElement(thread.id);
-                                                    }
+                                                    setSelectedElementId(thread.id);
+                                                }}
+                                                onDoubleClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (isEraserActive) return;
+                                                    handleEditThreadLabel(thread);
                                                 }}
                                             >
-                                                <circle cx={midX} cy={midY} r="7" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
+                                                <circle 
+                                                    cx={midX} 
+                                                    cy={midY} 
+                                                    r={isSelectedThread ? "9" : "7"} 
+                                                    fill={isSelectedThread ? "#eab308" : "#ef4444"} 
+                                                    stroke="#ffffff" 
+                                                    strokeWidth="2" 
+                                                />
                                                 {thread.label && (
                                                     <text
                                                         x={midX}
                                                         y={midY - 12}
-                                                        fill="#fca5a5"
+                                                        fill={isSelectedThread ? "#fef08a" : "#fca5a5"}
                                                         fontSize="11"
                                                         fontWeight="700"
                                                         textAnchor="middle"
-                                                        style={{ background: 'rgba(0,0,0,0.8)', padding: '2px 4px' }}
+                                                        style={{ 
+                                                            background: 'rgba(0,0,0,0.85)', 
+                                                            padding: '2px 6px',
+                                                            borderRadius: '4px',
+                                                            filter: isSelectedThread ? 'drop-shadow(0 0 6px #eab308)' : 'none' 
+                                                        }}
                                                     >
                                                         {thread.label}
                                                     </text>
@@ -1608,11 +1657,7 @@ function SEB() {
                                             onMouseDown={e => handleMouseDownElement(e, el)}
                                             onClick={e => {
                                                 e.stopPropagation();
-                                                if (isPencilActive) return;
-                                                if (isEraserActive) {
-                                                    handleDeleteElement(el.id);
-                                                    return;
-                                                }
+                                                if (isPencilActive || isEraserActive) return;
                                                 if (connectingSourceId) {
                                                     handleConnectToElement(el.id);
                                                 } else {
@@ -1736,11 +1781,7 @@ function SEB() {
                                         onMouseDown={e => handleMouseDownElement(e, el)}
                                         onClick={e => {
                                             e.stopPropagation();
-                                            if (isPencilActive) return;
-                                            if (isEraserActive) {
-                                                handleDeleteElement(el.id);
-                                                return;
-                                            }
+                                            if (isPencilActive || isEraserActive) return;
                                             if (connectingSourceId) {
                                                 handleConnectToElement(el.id);
                                             } else {
