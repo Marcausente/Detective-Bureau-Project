@@ -375,7 +375,8 @@ function Personnel() {
                     p_fecha_ingreso: formData.fecha_ingreso || null,
                     p_fecha_ultimo_ascenso: null,
                     p_profile_image: imageUrl || null,
-                    p_divisions: formData.divisions
+                    p_divisions: formData.divisions,
+                    p_rango_interno: selectedRank
                 });
                 if (error) throw error;
 
@@ -403,7 +404,8 @@ function Personnel() {
                     p_fecha_ingreso: formData.fecha_ingreso || null,
                     p_fecha_ultimo_ascenso: null,
                     p_profile_image: imageUrl || null,
-                    p_divisions: formData.divisions
+                    p_divisions: formData.divisions,
+                    p_rango_interno: selectedRank
                 });
                 if (error) throw error;
 

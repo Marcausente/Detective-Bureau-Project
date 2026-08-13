@@ -116,12 +116,18 @@ export async function deleteInternalRank(rankId, rankName) {
 
 /**
  * Get assigned internal rank for a specific user.
+ * Prioritizes database value from Supabase so all users see identical synchronized ranks.
  */
 export function getUserInternalRank(user) {
     if (!user) return DEFAULT_RANK;
-    const userId = typeof user === 'object' ? user.id : user;
 
-    // Priority 1: Check localStorage for explicit assigned rank
+    // Priority 1: Check database property from Supabase
+    if (user && typeof user === 'object' && user.rango_interno) {
+        return user.rango_interno;
+    }
+
+    // Priority 2: Check localStorage fallback (for offline or local overrides)
+    const userId = typeof user === 'object' ? user.id : user;
     if (userId) {
         try {
             const saved = localStorage.getItem(USER_RANKS_PREFIX + userId);
@@ -131,40 +137,41 @@ export function getUserInternalRank(user) {
         }
     }
 
-    // Priority 2: Check object property from Supabase
-    if (user && typeof user === 'object' && user.rango_interno) {
-        return user.rango_interno;
-    }
-
     // Default Fallback
     return DEFAULT_RANK;
 }
 
 /**
  * Save internal rank for a user (Supabase + LocalStorage sync).
+ * Uses SECURITY DEFINER RPC to ensure Supabase database updates succeed regardless of client RLS policies.
  */
 export async function setUserInternalRank(userId, rankName) {
     if (!userId) return;
     const cleanRank = rankName || DEFAULT_RANK;
 
-    // 1. LocalStorage Sync (Primary Instant Cache)
+    // 1. LocalStorage Sync (Instant Local Cache)
     try {
         localStorage.setItem(USER_RANKS_PREFIX + userId, cleanRank);
     } catch (e) {
         console.error('LocalStorage write error:', e);
     }
 
-    // 2. Supabase Sync (Database persistence)
+    // 2. Supabase Sync (Database persistence using RPC set_user_internal_rank)
     try {
-        const { error } = await supabase
-            .from('users')
-            .update({ rango_interno: cleanRank })
-            .eq('id', userId);
+        const { error } = await supabase.rpc('set_user_internal_rank', {
+            p_user_id: userId,
+            p_rango_interno: cleanRank
+        });
 
         if (error) {
-            console.warn('Supabase update for rango_interno notice:', error.message);
+            console.warn('RPC set_user_internal_rank notice, attempting direct update:', error.message);
+            await supabase
+                .from('users')
+                .update({ rango_interno: cleanRank })
+                .eq('id', userId);
         }
     } catch (err) {
         console.warn('Supabase update for rango_interno failed:', err);
     }
 }
+
