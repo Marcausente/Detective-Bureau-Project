@@ -1681,10 +1681,11 @@ function SEB() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: '0.8rem', color: '#eab308', fontWeight: 700, marginRight: '0.2rem' }}>Forma Táctica:</span>
                                 {[
-                                    { id: 'free', label: '✍️ Libre', title: 'Dibujo a Mano Alzada' },
-                                    { id: 'line', label: '➖ Línea', title: 'Línea Recta Táctica' },
-                                    { id: 'rectangle', label: '🔲 Cuadrado', title: 'Caja / Rectángulo Táctico' },
-                                    { id: 'circle', label: '⭕ Círculo', title: 'Círculo / Óvalo Táctico' }
+                                    { id: 'free', label: 'Libre', title: 'Dibujo a Mano Alzada', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> },
+                                    { id: 'line', label: 'Línea', title: 'Línea Recta Táctica', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg> },
+                                    { id: 'arrow', label: 'Flecha', title: 'Flecha Táctica de Dirección', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="13 5 20 12 13 19"/></svg> },
+                                    { id: 'rectangle', label: 'Cuadrado', title: 'Caja / Rectángulo Táctico', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> },
+                                    { id: 'circle', label: 'Círculo', title: 'Círculo / Óvalo Táctico', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="12" cy="12" r="9"/></svg> }
                                 ].map(s => (
                                     <button
                                         key={s.id}
@@ -1699,10 +1700,14 @@ function SEB() {
                                             fontSize: '0.78rem',
                                             fontWeight: 700,
                                             cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.35rem',
                                             transition: 'all 0.15s ease'
                                         }}
                                     >
-                                        {s.label}
+                                        {s.icon}
+                                        <span>{s.label}</span>
                                     </button>
                                 ))}
                             </div>
@@ -2159,6 +2164,39 @@ function SEB() {
                                                 strokeLinecap="round"
                                             />
                                         );
+                                    } else if (shape === 'arrow' && pts.length >= 2) {
+                                        const x1 = pts[0].x;
+                                        const y1 = pts[0].y;
+                                        const x2 = pts[pts.length - 1].x;
+                                        const y2 = pts[pts.length - 1].y;
+
+                                        const angle = Math.atan2(y2 - y1, x2 - x1);
+                                        const headLen = Math.max(14, width * 3.5);
+                                        const ax1 = x2 - headLen * Math.cos(angle - Math.PI / 6);
+                                        const ay1 = y2 - headLen * Math.sin(angle - Math.PI / 6);
+                                        const ax2 = x2 - headLen * Math.cos(angle + Math.PI / 6);
+                                        const ay2 = y2 - headLen * Math.sin(angle + Math.PI / 6);
+
+                                        elementNode = (
+                                            <g>
+                                                <line
+                                                    x1={x1}
+                                                    y1={y1}
+                                                    x2={x2}
+                                                    y2={y2}
+                                                    stroke={color}
+                                                    strokeWidth={width}
+                                                    strokeLinecap="round"
+                                                />
+                                                <polygon
+                                                    points={`${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`}
+                                                    fill={color}
+                                                    stroke={color}
+                                                    strokeWidth="1"
+                                                    strokeLinejoin="round"
+                                                />
+                                            </g>
+                                        );
                                     } else if (shape === 'rectangle' && pts.length >= 2) {
                                         const minX = Math.min(pts[0].x, pts[pts.length - 1].x);
                                         const minY = Math.min(pts[0].y, pts[pts.length - 1].y);
@@ -2245,6 +2283,41 @@ function SEB() {
                                                 strokeWidth={pencilWidth}
                                                 strokeLinecap="round"
                                             />
+                                        ) : pencilShape === 'arrow' ? (
+                                            (() => {
+                                                const x1 = currentPoints[0].x;
+                                                const y1 = currentPoints[0].y;
+                                                const x2 = currentPoints[currentPoints.length - 1].x;
+                                                const y2 = currentPoints[currentPoints.length - 1].y;
+
+                                                const angle = Math.atan2(y2 - y1, x2 - x1);
+                                                const headLen = Math.max(14, pencilWidth * 3.5);
+                                                const ax1 = x2 - headLen * Math.cos(angle - Math.PI / 6);
+                                                const ay1 = y2 - headLen * Math.sin(angle - Math.PI / 6);
+                                                const ax2 = x2 - headLen * Math.cos(angle + Math.PI / 6);
+                                                const ay2 = y2 - headLen * Math.sin(angle + Math.PI / 6);
+
+                                                return (
+                                                    <g>
+                                                        <line
+                                                            x1={x1}
+                                                            y1={y1}
+                                                            x2={x2}
+                                                            y2={y2}
+                                                            stroke={pencilColor}
+                                                            strokeWidth={pencilWidth}
+                                                            strokeLinecap="round"
+                                                        />
+                                                        <polygon
+                                                            points={`${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`}
+                                                            fill={pencilColor}
+                                                            stroke={pencilColor}
+                                                            strokeWidth="1"
+                                                            strokeLinejoin="round"
+                                                        />
+                                                    </g>
+                                                );
+                                            })()
                                         ) : pencilShape === 'rectangle' ? (
                                             <rect
                                                 x={Math.min(currentPoints[0].x, currentPoints[currentPoints.length - 1].x)}
