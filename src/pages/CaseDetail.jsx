@@ -66,6 +66,19 @@ function CaseDetail() {
     const [editDescription, setEditDescription] = useState("");
     const [editInitialImage, setEditInitialImage] = useState(null);
 
+    // Full-screen Whiteboard Modal State
+    const [showBoardModal, setShowBoardModal] = useState(false);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && showBoardModal) {
+                setShowBoardModal(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showBoardModal]);
+
     const handleGoToUpdate = (updateId) => {
         setActiveTab('updates');
         setTimeout(() => {
@@ -618,7 +631,31 @@ function CaseDetail() {
                 </button>
 
                 {/* Header Action Toolbar */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <button
+                        className="mac-btn mac-btn-primary"
+                        onClick={() => setShowBoardModal(true)}
+                        style={{
+                            padding: '0.3rem 0.8rem',
+                            fontSize: '0.78rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            borderRadius: '8px',
+                            background: 'linear-gradient(135deg, #d97706, #b45309)',
+                            borderColor: '#f59e0b',
+                            color: '#ffffff',
+                            fontWeight: 700,
+                            boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)'
+                        }}
+                    >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="12" y1="17" x2="12" y2="22" />
+                            <path d="M5 17h14l-1.5-6h2L18 3H6L4.5 11h2z" />
+                        </svg>
+                        <span>📌 Pizarra del Caso</span>
+                    </button>
+
                     {canPinCase() && (
                         <button 
                             className="mac-btn mac-btn-secondary"
@@ -759,43 +796,52 @@ function CaseDetail() {
             )}
 
             {/* Layout Grid: Main Tabs Content + Compact Sidebar */}
-            <div style={{ display: 'grid', gridTemplateColumns: activeTab === 'board' ? '1fr' : '2.2fr 1fr', gap: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '1.25rem' }}>
                 {/* Left Main Section */}
                 <div>
-                    {/* Compact SVG Segmented Tabs */}
-                    <div className="mac-doc-tabs" style={{ marginBottom: '1rem', padding: '0.25rem' }}>
+                    {/* Compact SVG Segmented Tabs + Pizarra Button */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div className="mac-doc-tabs" style={{ margin: 0, padding: '0.25rem' }}>
+                            <button
+                                className={`mac-doc-tab ${activeTab === 'updates' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('updates')}
+                                style={{ padding: '0.4rem 0.9rem', fontSize: '0.8rem' }}
+                            >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                                </svg>
+                                <span>Actualizaciones y Evidencias</span>
+                            </button>
+                            <button
+                                className={`mac-doc-tab ${activeTab === 'todo' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('todo')}
+                                style={{ padding: '0.4rem 0.9rem', fontSize: '0.8rem' }}
+                            >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M9 11l3 3L22 4" />
+                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                                </svg>
+                                <span>Lista de Tareas</span>
+                            </button>
+                        </div>
+
                         <button
-                            className={`mac-doc-tab ${activeTab === 'updates' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('updates')}
-                            style={{ padding: '0.4rem 0.9rem', fontSize: '0.8rem' }}
+                            className="mac-btn"
+                            onClick={() => setShowBoardModal(true)}
+                            style={{
+                                padding: '0.4rem 0.9rem',
+                                fontSize: '0.78rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                borderRadius: '10px',
+                                background: 'rgba(245, 158, 11, 0.12)',
+                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                color: '#fbbf24',
+                                fontWeight: 700
+                            }}
                         >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                            </svg>
-                            <span>Actualizaciones y Evidencias</span>
-                        </button>
-                        <button
-                            className={`mac-doc-tab ${activeTab === 'todo' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('todo')}
-                            style={{ padding: '0.4rem 0.9rem', fontSize: '0.8rem' }}
-                        >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M9 11l3 3L22 4" />
-                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                            </svg>
-                            <span>Lista de Tareas</span>
-                        </button>
-                        <button
-                            className={`mac-doc-tab ${activeTab === 'board' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('board')}
-                            style={{ padding: '0.4rem 0.9rem', fontSize: '0.8rem' }}
-                        >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                                <line x1="3" y1="9" x2="21" y2="9" />
-                                <line x1="9" y1="21" x2="9" y2="9" />
-                            </svg>
-                            <span>Pizarra</span>
+                            <span>📌 Abrir Pizarra Completa</span>
                         </button>
                     </div>
 
@@ -960,16 +1006,13 @@ function CaseDetail() {
                                 )}
                             </div>
                         </>
-                    ) : activeTab === 'todo' ? (
-                        <CaseTodoList caseId={id} />
                     ) : (
-                        <CaseWhiteboard caseId={id} isIA={false} caseData={caseData} onGoToUpdate={handleGoToUpdate} />
+                        <CaseTodoList caseId={id} />
                     )}
                 </div>
 
                 {/* Right Sidebar: All 5 Link Categories */}
-                {activeTab !== 'board' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                         {/* 1. Assigned Detectives */}
                         <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
@@ -1170,7 +1213,6 @@ function CaseDetail() {
                             </div>
                         </div>
                     </div>
-                )}
             </div>
 
             {/* MODALS SECTION */}
@@ -1366,6 +1408,79 @@ function CaseDetail() {
                                 <button className="mac-btn mac-btn-primary" onClick={handleLinkComplaint} disabled={!selectedComplaint}>Vincular</button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* FULL SCREEN APPLE MAC OS WHITEBOARD MODAL */}
+            {showBoardModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    zIndex: 9999,
+                    background: 'rgba(8, 9, 13, 0.96)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    animation: 'zoomIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}>
+                    {/* Apple macOS Traffic Light Window Header */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.75rem 1.25rem',
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+                        userSelect: 'none'
+                    }}>
+                        {/* Traffic light buttons with macOS hover animation */}
+                        <div className="mac-window-dots">
+                            <div
+                                className="mac-window-dot close"
+                                onClick={() => setShowBoardModal(false)}
+                                title="Cerrar Pizarra (Esc)"
+                            />
+                            <div
+                                className="mac-window-dot min"
+                                onClick={() => setShowBoardModal(false)}
+                                title="Minimizar (Esc)"
+                            />
+                            <div
+                                className="mac-window-dot max"
+                                title="Pantalla Completa"
+                            />
+                        </div>
+
+                        {/* Title */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            <span style={{ fontSize: '1.2rem' }}>📌</span>
+                            <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em' }}>
+                                Pizarra de Investigación #{String(info.case_number).padStart(3, '0')} - {info.title}
+                            </span>
+                        </div>
+
+                        {/* Spacer for symmetry */}
+                        <div style={{ width: '60px' }} />
+                    </div>
+
+                    {/* Canvas Container */}
+                    <div style={{ flex: 1, width: '100%', height: 'calc(100vh - 48px)', position: 'relative', overflow: 'hidden' }}>
+                        <CaseWhiteboard
+                            caseId={id}
+                            isIA={false}
+                            caseData={caseData}
+                            onGoToUpdate={(updateId) => {
+                                setShowBoardModal(false);
+                                handleGoToUpdate(updateId);
+                            }}
+                        />
                     </div>
                 </div>
             )}

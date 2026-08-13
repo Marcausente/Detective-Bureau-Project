@@ -6768,3 +6768,83 @@ body.theme-verde .inc-gang-select-wrap select option { background-color: #08120c
 .inc-tag-select option { background-color: #0f172a; color: #fff; }
 body.theme-lssd .inc-tag-select option,
 body.theme-verde .inc-tag-select option { background-color: #08120c; }
+
+/* ==========================================
+   macOS Window Control Dots (Traffic Lights)
+   ========================================== */
+.mac-window-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  cursor: pointer;
+}
+
+.mac-window-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.7);
+  box-sizing: border-box;
+}
+
+.mac-window-dot::after {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+.mac-window-dots:hover .mac-window-dot::after {
+  opacity: 1;
+}
+
+.mac-window-dot.close {
+  background: #ff5f56;
+  border-color: #e0443e;
+  box-shadow: 0 0 6px rgba(255, 95, 86, 0.3);
+}
+.mac-window-dot.close::after {
+  content: "✕";
+}
+.mac-window-dot.close:hover {
+  background: #ff3b30;
+  transform: scale(1.18);
+  box-shadow: 0 0 12px rgba(255, 59, 48, 0.8);
+}
+
+.mac-window-dot.min {
+  background: #ffbd2e;
+  border-color: #dea123;
+}
+.mac-window-dot.min::after {
+  content: "−";
+}
+.mac-window-dot.min:hover {
+  background: #ffcc00;
+  transform: scale(1.18);
+  box-shadow: 0 0 12px rgba(255, 204, 0, 0.8);
+}
+
+.mac-window-dot.max {
+  background: #27c93f;
+  border-color: #1aab29;
+}
+.mac-window-dot.max::after {
+  content: "+";
+}
+.mac-window-dot.max:hover {
+  background: #34c759;
+  transform: scale(1.18);
+  box-shadow: 0 0 12px rgba(52, 199, 89, 0.8);
+}
+
