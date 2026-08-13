@@ -61,6 +61,9 @@ function IACaseDetail() {
     const [showLinkComplaintModal, setShowLinkComplaintModal] = useState(false);
     const [availableComplaints, setAvailableComplaints] = useState([]);
 
+    const [showLinkModal, setShowLinkModal] = useState(false);
+    const [availableInterrogations, setAvailableInterrogations] = useState([]);
+
     // Full-screen Whiteboard Modal State
     const [showBoardModal, setShowBoardModal] = useState(false);
 
@@ -162,12 +165,29 @@ function IACaseDetail() {
     const loadAvailableInterrogations = async () => {
         try {
             const { data, error } = await supabase.rpc('get_available_ia_interrogations_to_link');
-            if (error) throw error;
-            setAvailableInterrogations(data || []);
-            setShowLinkModal(true);
+            if (!error && data) {
+                setAvailableInterrogations(data);
+            } else {
+                const { data: invData } = await supabase
+                    .from('ia_interrogations')
+                    .select('*')
+                    .is('case_id', null)
+                    .order('created_at', { ascending: false });
+                setAvailableInterrogations(invData || []);
+            }
         } catch (err) {
-            alert('Error loading interrogations: ' + err.message);
+            try {
+                const { data: invData } = await supabase
+                    .from('ia_interrogations')
+                    .select('*')
+                    .is('case_id', null)
+                    .order('created_at', { ascending: false });
+                setAvailableInterrogations(invData || []);
+            } catch (e) {
+                setAvailableInterrogations([]);
+            }
         }
+        setShowLinkModal(true);
     };
 
     const handleLinkInterrogation = async (interrogationId) => {
@@ -177,7 +197,13 @@ function IACaseDetail() {
                 p_id: interrogationId,
                 p_case_id: id
             });
-            if (error) throw error;
+            if (error) {
+                const { error: updErr } = await supabase
+                    .from('ia_interrogations')
+                    .update({ case_id: id })
+                    .eq('id', interrogationId);
+                if (updErr) throw updErr;
+            }
             setShowLinkModal(false);
             loadCaseDetails();
         } catch (err) {
@@ -192,7 +218,13 @@ function IACaseDetail() {
                 p_action: 'unlink',
                 p_id: interrogationId
             });
-            if (error) throw error;
+            if (error) {
+                const { error: updErr } = await supabase
+                    .from('ia_interrogations')
+                    .update({ case_id: null })
+                    .eq('id', interrogationId);
+                if (updErr) throw updErr;
+            }
             loadCaseDetails();
         } catch (err) {
             alert('Error unlinking: ' + err.message);
