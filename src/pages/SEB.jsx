@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
-import { getProfileImage } from '../utils/imageStorage';
+import { getProfileImage, uploadImageToStorage } from '../utils/imageStorage';
 import '../index.css';
 
 function SEB() {
@@ -10,58 +10,37 @@ function SEB() {
     const { language } = useLanguage();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('ops'); // 'ops' | 'roster' | 'equipment'
+    
+    // Main Tabs: 'ops' (Tablón de Operaciones) | 'roster' (Cuadrilla SEB)
+    const [activeTab, setActiveTab] = useState('ops');
+    
+    // Operations & Board State
+    const [operations, setOperations] = useState([]);
+    const [selectedOp, setSelectedOp] = useState(null); // When an operation board is opened
     const [personnelList, setPersonnelList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     
-    // Tactical Operations State (Local + Persistent fallback)
-    const [operations, setOperations] = useState([
-        {
-            id: 'SEB-OP-2026-01',
-            title: 'Operación ' + (language === 'es' ? 'Cerbero' : 'Cerberus'),
-            location: 'El Burro Heights Industrial District',
-            status: 'En Progreso',
-            type: 'Asalto Táctico & Rescate',
-            leader: 'SEB Agent Martinez',
-            teamSize: '6 Agentes',
-            date: '2026-08-12',
-            description: 'Operación de alta prioridad para neutralizar objetivo fuertemente armado y asegurar rehenes en almacén abandonado.'
-        },
-        {
-            id: 'SEB-OP-2026-02',
-            title: 'Operación ' + (language === 'es' ? 'Escudo Dorado' : 'Golden Shield'),
-            location: 'Del Perro Freeway Highway Blockade',
-            status: 'Completada',
-            type: 'Bloqueo & Escolta Táctica',
-            leader: 'SEB Agent Vance',
-            teamSize: '4 Agentes',
-            date: '2026-08-10',
-            description: 'Intervención de contingencia y aseguramiento de convoy judicial durante traslado de alto riesgo.'
-        },
-        {
-            id: 'SEB-OP-2026-03',
-            title: 'Operación ' + (language === 'es' ? 'Sombra Verde' : 'Green Shadow'),
-            location: 'Chiliad Mountain State Wilderness',
-            status: 'En Espera',
-            type: 'Rastreo & Tiradores de Precisión',
-            leader: 'SEB Agent Kowalski',
-            teamSize: '3 Agentes',
-            date: '2026-08-08',
-            description: 'Despliegue de francotiradores y reconocimiento en terreno escarpado ante sospecha de campamento furtivo.'
-        }
-    ]);
-
-    // Modal state for creating operation
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    // Create Operation Modal State
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newOp, setNewOp] = useState({
         title: '',
         location: '',
-        status: 'En Progreso',
         type: 'Asalto Táctico & Rescate',
-        leader: '',
-        teamSize: '4 Agentes',
-        description: ''
+        details: '',
+        operatives: ''
     });
+
+    // Tactical Board Canvas State (for selected operation)
+    const [boardElements, setBoardElements] = useState([]);
+    const [selectedElementId, setSelectedElementId] = useState(null);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [savingBoard, setSavingBoard] = useState(false);
+    
+    // Drag state
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const boardRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         loadUserProfile();
@@ -69,6 +48,7 @@ function SEB() {
 
     useEffect(() => {
         if (profile && hasAccess()) {
+            fetchOperations();
             fetchSEBPersonnel();
         }
     }, [profile]);
@@ -86,9 +66,80 @@ function SEB() {
                 setProfile(data);
             }
         } catch (err) {
-            console.error('Error loading profile in SEB page:', err);
+            console.error('Error loading profile in SEB:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const hasAccess = () => {
+        if (!profile) return false;
+        const role = profile.rol ? profile.rol.toLowerCase().trim() : '';
+        const isSEBRank = profile.rango === 'SEB Agent';
+        const isSEBDivision = profile.divisions && profile.divisions.includes('SEB');
+        const allowedRoles = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'admin'];
+
+        return isSEBRank || isSEBDivision || allowedRoles.includes(role);
+    };
+
+    const fetchOperations = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('seb_operations')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error || !data) {
+                // Fallback to local storage if DB table is not created yet
+                const localOps = localStorage.getItem('seb_operations');
+                if (localOps) {
+                    setOperations(JSON.parse(localOps));
+                } else {
+                    // Initial default operation demo
+                    const defaultOps = [
+                        {
+                            id: 'demo-op-1',
+                            title: 'Operación Cerbero',
+                            location: 'Almacén Industrial El Burro Heights',
+                            type: 'Asalto Táctico & Rescate',
+                            details: 'Asegurar el perímetro del edificio B, neutralizar la resistencia enemiga y rescatar a los rehenes retenidos en el segundo nivel.',
+                            operatives: 'SEB Agent Martinez, SEB Agent Vance, SEB Agent Kowalski',
+                            status: 'En Progreso',
+                            created_at: new Date().toISOString(),
+                            board_data: [
+                                {
+                                    id: 'elem-1',
+                                    type: 'note',
+                                    content: '📌 Punto de Entrada Principal (Puerta Norte)',
+                                    x: 80,
+                                    y: 60,
+                                    width: 260,
+                                    height: 120,
+                                    zIndex: 2,
+                                    color: '#eab308'
+                                },
+                                {
+                                    id: 'elem-2',
+                                    type: 'note',
+                                    content: '🎯 Tirador de Cobertura Alpha (Azotea Sur)',
+                                    x: 380,
+                                    y: 60,
+                                    width: 260,
+                                    height: 120,
+                                    zIndex: 3,
+                                    color: '#ef4444'
+                                }
+                            ]
+                        }
+                    ];
+                    setOperations(defaultOps);
+                    localStorage.setItem('seb_operations', JSON.stringify(defaultOps));
+                }
+            } else {
+                setOperations(data);
+            }
+        } catch (err) {
+            console.error('Error fetching SEB operations:', err);
         }
     };
 
@@ -110,44 +161,199 @@ function SEB() {
         }
     };
 
-    const hasAccess = () => {
-        if (!profile) return false;
-        const role = profile.rol ? profile.rol.toLowerCase().trim() : '';
-        const isSEBRank = profile.rango === 'SEB Agent';
-        const isSEBDivision = profile.divisions && profile.divisions.includes('SEB');
-        const allowedRoles = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'admin'];
-
-        return isSEBRank || isSEBDivision || allowedRoles.includes(role);
-    };
-
-    const handleCreateOperation = (e) => {
+    // Register New Operation
+    const handleCreateOperation = async (e) => {
         e.preventDefault();
-        if (!newOp.title || !newOp.location) return;
+        if (!newOp.title || !newOp.location || !newOp.type) return;
 
-        const opCreated = {
-            id: `SEB-OP-${new Date().getFullYear()}-${String(operations.length + 1).padStart(2, '0')}`,
+        const opToInsert = {
             title: newOp.title,
             location: newOp.location,
-            status: newOp.status,
             type: newOp.type,
-            leader: newOp.leader || `${profile?.nombre || 'Agente'} ${profile?.apellido || ''}`,
-            teamSize: newOp.teamSize,
-            date: new Date().toISOString().split('T')[0],
-            description: newOp.description
+            details: newOp.details,
+            operatives: newOp.operatives || `${profile?.nombre || 'Agente'} ${profile?.apellido || ''}`,
+            status: 'En Progreso',
+            board_data: [],
+            created_by: profile?.id
         };
 
-        setOperations([opCreated, ...operations]);
-        setIsModalOpen(false);
+        try {
+            const { data, error } = await supabase
+                .from('seb_operations')
+                .insert([opToInsert])
+                .select()
+                .single();
+
+            if (!error && data) {
+                setOperations([data, ...operations]);
+            } else {
+                // Fallback to local state if DB table doesn't exist
+                const localOp = {
+                    ...opToInsert,
+                    id: 'op-' + Date.now(),
+                    created_at: new Date().toISOString()
+                };
+                const updated = [localOp, ...operations];
+                setOperations(updated);
+                localStorage.setItem('seb_operations', JSON.stringify(updated));
+            }
+        } catch (err) {
+            console.error('Error saving new operation:', err);
+        }
+
+        setIsCreateModalOpen(false);
         setNewOp({
             title: '',
             location: '',
-            status: 'En Progreso',
             type: 'Asalto Táctico & Rescate',
-            leader: '',
-            teamSize: '4 Agentes',
-            description: ''
+            details: '',
+            operatives: ''
         });
     };
+
+    // Open Operation Planning Board
+    const handleOpenBoard = (op) => {
+        setSelectedOp(op);
+        const elements = typeof op.board_data === 'string' ? JSON.parse(op.board_data) : (op.board_data || []);
+        setBoardElements(elements);
+        setSelectedElementId(null);
+    };
+
+    // Save Board Elements State
+    const handleSaveBoard = async () => {
+        if (!selectedOp) return;
+        setSavingBoard(true);
+
+        try {
+            const { error } = await supabase
+                .from('seb_operations')
+                .update({ board_data: boardElements, updated_at: new Date().toISOString() })
+                .eq('id', selectedOp.id);
+
+            if (error) {
+                // LocalStorage fallback
+                const updatedOps = operations.map(o => o.id === selectedOp.id ? { ...o, board_data: boardElements } : o);
+                setOperations(updatedOps);
+                localStorage.setItem('seb_operations', JSON.stringify(updatedOps));
+            } else {
+                setOperations(operations.map(o => o.id === selectedOp.id ? { ...o, board_data: boardElements } : o));
+            }
+        } catch (err) {
+            console.error('Error saving board state:', err);
+        } finally {
+            setSavingBoard(false);
+        }
+    };
+
+    // Upload Image to Canvas Board
+    const handleImageUploadToBoard = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+            setIsUploadingImage(true);
+            const publicUrl = await uploadImageToStorage(file, 'seb-boards');
+            
+            // Calculate zIndex higher than all existing elements
+            const maxZ = boardElements.reduce((max, el) => Math.max(max, el.zIndex || 1), 1);
+            
+            const newImageElement = {
+                id: 'img-' + Date.now(),
+                type: 'image',
+                url: publicUrl || URL.createObjectURL(file),
+                x: 100 + (boardElements.length * 20),
+                y: 100 + (boardElements.length * 20),
+                width: 320,
+                height: 240,
+                zIndex: maxZ + 1,
+                rotation: 0
+            };
+
+            setBoardElements([...boardElements, newImageElement]);
+            setSelectedElementId(newImageElement.id);
+        } catch (err) {
+            console.error('Error uploading image to board:', err);
+            alert('Error al subir imagen al tablero: ' + err.message);
+        } finally {
+            setIsUploadingImage(false);
+            e.target.value = '';
+        }
+    };
+
+    // Add Tactical Note to Canvas Board
+    const handleAddNoteToBoard = () => {
+        const text = prompt(language === 'es' ? 'Texto de la nota táctica:' : 'Tactical note text:', '📍 Punto Táctico Clave');
+        if (!text) return;
+
+        const maxZ = boardElements.reduce((max, el) => Math.max(max, el.zIndex || 1), 1);
+        const newNoteElement = {
+            id: 'note-' + Date.now(),
+            type: 'note',
+            content: text,
+            x: 120 + (boardElements.length * 15),
+            y: 120 + (boardElements.length * 15),
+            width: 250,
+            height: 120,
+            zIndex: maxZ + 1,
+            color: '#eab308'
+        };
+
+        setBoardElements([...boardElements, newNoteElement]);
+        setSelectedElementId(newNoteElement.id);
+    };
+
+    // Update Element Property (size, zIndex, position, etc)
+    const updateElement = (id, newProps) => {
+        setBoardElements(boardElements.map(el => el.id === id ? { ...el, ...newProps } : el));
+    };
+
+    // Delete Element
+    const handleDeleteElement = (id) => {
+        setBoardElements(boardElements.filter(el => el.id !== id));
+        if (selectedElementId === id) setSelectedElementId(null);
+    };
+
+    // Layering Controls: Bring to Front / Send to Back
+    const bringToFront = (id) => {
+        const maxZ = boardElements.reduce((max, el) => Math.max(max, el.zIndex || 1), 1);
+        updateElement(id, { zIndex: maxZ + 1 });
+    };
+
+    const sendToBack = (id) => {
+        const minZ = boardElements.reduce((min, el) => Math.min(min, el.zIndex || 1), 1);
+        updateElement(id, { zIndex: Math.max(1, minZ - 1) });
+    };
+
+    // Drag Element Logic
+    const handleMouseDownElement = (e, el) => {
+        e.stopPropagation();
+        setSelectedElementId(el.id);
+        setIsDragging(true);
+        setDragOffset({
+            x: e.clientX - el.x,
+            y: e.clientY - el.y
+        });
+    };
+
+    const handleMouseMoveBoard = (e) => {
+        if (!isDragging || !selectedElementId || !boardRef.current) return;
+        const boardRect = boardRef.current.getBoundingClientRect();
+        
+        let newX = e.clientX - dragOffset.x;
+        let newY = e.clientY - dragOffset.y;
+
+        // Keep inside board boundaries
+        newX = Math.max(10, Math.min(newX, boardRect.width - 50));
+        newY = Math.max(10, Math.min(newY, boardRect.height - 50));
+
+        updateElement(selectedElementId, { x: newX, y: newY });
+    };
+
+    const handleMouseUpBoard = () => {
+        setIsDragging(false);
+    };
+
+    const selectedElement = boardElements.find(el => el.id === selectedElementId);
 
     if (loading) {
         return (
@@ -226,15 +432,15 @@ function SEB() {
     }
 
     const filteredOperations = operations.filter(op => 
-        op.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        op.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        op.type.toLowerCase().includes(searchTerm.toLowerCase())
+        (op.title && op.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (op.location && op.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (op.type && op.type.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     return (
-        <div className="mac-dashboard-container" style={{ maxWidth: '1280px', margin: '0 auto', paddingBottom: '3rem' }}>
+        <div className="mac-dashboard-container" style={{ maxWidth: '1350px', margin: '0 auto', paddingBottom: '3rem' }}>
             
-            {/* Tactical Banner */}
+            {/* SEB Tactical Banner */}
             <div className="mac-command-banner" style={{ 
                 marginBottom: '2rem', 
                 background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95))',
@@ -282,12 +488,12 @@ function SEB() {
                             {language === 'es' ? 'DIVISIÓN OPERATIVA DE ALTO RIESGO' : 'HIGH RISK TACTICAL DIVISION'}
                         </h1>
                         <p style={{ margin: '0.2rem 0 0 0', color: '#94a3b8', fontSize: '0.85rem' }}>
-                            {language === 'es' ? 'Plataforma táctica, control de despliegues y gestión de operaciones especiales.' : 'Tactical platform, deployment control, and special operations management.'}
+                            {language === 'es' ? 'Tablón de operaciones, planificación táctica interactiva y gestión de cuadrilla.' : 'Operations board, interactive tactical planning, and roster management.'}
                         </p>
                     </div>
                 </div>
 
-                {/* Status Pill */}
+                {/* Status Indicator */}
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -308,7 +514,7 @@ function SEB() {
                 </div>
             </div>
 
-            {/* Tactical Navigation Tabs */}
+            {/* SEB Navigation Tabs */}
             <div style={{ 
                 display: 'flex', 
                 gap: '0.75rem', 
@@ -317,15 +523,15 @@ function SEB() {
                 paddingBottom: '0.75rem' 
             }}>
                 <button
-                    onClick={() => setActiveTab('ops')}
+                    onClick={() => { setActiveTab('ops'); setSelectedOp(null); }}
                     style={{
                         background: activeTab === 'ops' ? 'linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(234, 179, 8, 0.05))' : 'rgba(30, 41, 59, 0.4)',
                         border: activeTab === 'ops' ? '1px solid #eab308' : '1px solid rgba(255,255,255,0.08)',
                         color: activeTab === 'ops' ? '#ffffff' : '#94a3b8',
-                        padding: '0.6rem 1.4rem',
+                        padding: '0.65rem 1.5rem',
                         borderRadius: '10px',
                         fontWeight: 700,
-                        fontSize: '0.88rem',
+                        fontSize: '0.9rem',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -338,19 +544,19 @@ function SEB() {
                         <polyline points="2 17 12 22 22 17"/>
                         <polyline points="2 12 12 17 22 12"/>
                     </svg>
-                    {language === 'es' ? 'Operaciones Tácticas' : 'Tactical Operations'} ({operations.length})
+                    {language === 'es' ? 'Tablón de Operaciones' : 'Operations Board'} ({operations.length})
                 </button>
 
                 <button
-                    onClick={() => setActiveTab('roster')}
+                    onClick={() => { setActiveTab('roster'); setSelectedOp(null); }}
                     style={{
                         background: activeTab === 'roster' ? 'linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(234, 179, 8, 0.05))' : 'rgba(30, 41, 59, 0.4)',
                         border: activeTab === 'roster' ? '1px solid #eab308' : '1px solid rgba(255,255,255,0.08)',
                         color: activeTab === 'roster' ? '#ffffff' : '#94a3b8',
-                        padding: '0.6rem 1.4rem',
+                        padding: '0.65rem 1.5rem',
                         borderRadius: '10px',
                         fontWeight: 700,
-                        fontSize: '0.88rem',
+                        fontSize: '0.9rem',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -366,40 +572,16 @@ function SEB() {
                     </svg>
                     {language === 'es' ? 'Cuadrilla SEB' : 'SEB Squad Roster'} ({personnelList.length})
                 </button>
-
-                <button
-                    onClick={() => setActiveTab('equipment')}
-                    style={{
-                        background: activeTab === 'equipment' ? 'linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(234, 179, 8, 0.05))' : 'rgba(30, 41, 59, 0.4)',
-                        border: activeTab === 'equipment' ? '1px solid #eab308' : '1px solid rgba(255,255,255,0.08)',
-                        color: activeTab === 'equipment' ? '#ffffff' : '#94a3b8',
-                        padding: '0.6rem 1.4rem',
-                        borderRadius: '10px',
-                        fontWeight: 700,
-                        fontSize: '0.88rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        transition: 'all 0.2s ease'
-                    }}
-                >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                    </svg>
-                    {language === 'es' ? 'Arsenal & Equipamiento' : 'Armory & Equipment'}
-                </button>
             </div>
 
-            {/* TAB 1: OPERATIONS */}
-            {activeTab === 'ops' && (
+            {/* TAB 1: TABLÓN DE OPERACIONES */}
+            {activeTab === 'ops' && !selectedOp && (
                 <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', gap: '1rem', flexWrap: 'wrap' }}>
                         <div style={{ position: 'relative', minWidth: '280px', flex: 1 }}>
                             <input
                                 type="text"
-                                placeholder={language === 'es' ? 'Buscar operaciones tácticas...' : 'Search tactical operations...'}
+                                placeholder={language === 'es' ? 'Buscar operaciones por nombre, zona o tipo...' : 'Search operations by name, location or type...'}
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 style={{
@@ -419,118 +601,451 @@ function SEB() {
                         </div>
 
                         <button
-                            onClick={() => setIsModalOpen(true)}
+                            onClick={() => setIsCreateModalOpen(true)}
                             style={{
                                 background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)',
                                 color: '#0f172a',
                                 border: 'none',
-                                padding: '0.65rem 1.25rem',
+                                padding: '0.7rem 1.4rem',
                                 borderRadius: '10px',
-                                fontWeight: 700,
-                                fontSize: '0.88rem',
+                                fontWeight: 800,
+                                fontSize: '0.9rem',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.5rem',
-                                boxShadow: '0 4px 12px rgba(234, 179, 8, 0.25)'
+                                boxShadow: '0 4px 14px rgba(234, 179, 8, 0.3)'
                             }}
                         >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                 <line x1="12" y1="5" x2="12" y2="19"/>
                                 <line x1="5" y1="12" x2="19" y2="12"/>
                             </svg>
-                            {language === 'es' ? 'Registrar Operación Táctica' : 'Log Tactical Operation'}
+                            {language === 'es' ? 'Registrar Nueva Operación' : 'Register New Operation'}
                         </button>
                     </div>
 
-                    {/* Operations Cards List */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.25rem' }}>
-                        {filteredOperations.map(op => (
-                            <div 
-                                key={op.id}
+                    {/* Operations Cards */}
+                    {filteredOperations.length === 0 ? (
+                        <div style={{ padding: '3rem', background: 'rgba(30, 41, 59, 0.3)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', color: '#94a3b8' }}>
+                            <p style={{ margin: 0, fontSize: '1rem' }}>{language === 'es' ? 'No se encontraron operaciones registradas.' : 'No registered operations found.'}</p>
+                            <p style={{ fontSize: '0.84rem', marginTop: '0.5rem', color: '#64748b' }}>Haz clic en "Registrar Nueva Operación" para crear una.</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.25rem' }}>
+                            {filteredOperations.map(op => (
+                                <div 
+                                    key={op.id}
+                                    style={{
+                                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.85))',
+                                        border: '1px solid rgba(234, 179, 8, 0.2)',
+                                        borderRadius: '14px',
+                                        padding: '1.35rem',
+                                        position: 'relative',
+                                        boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'space-between'
+                                    }}
+                                >
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#eab308', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                                                {op.type}
+                                            </span>
+                                            <span style={{
+                                                fontSize: '0.72rem',
+                                                fontWeight: 700,
+                                                padding: '0.2rem 0.6rem',
+                                                borderRadius: '20px',
+                                                background: op.status === 'En Progreso' ? 'rgba(234, 179, 8, 0.15)' : 'rgba(34, 197, 94, 0.15)',
+                                                color: op.status === 'En Progreso' ? '#facc15' : '#4ade80',
+                                                border: `1px solid ${op.status === 'En Progreso' ? 'rgba(234, 179, 8, 0.3)' : 'rgba(34, 197, 94, 0.3)'}`
+                                            }}>
+                                                {op.status || 'En Progreso'}
+                                            </span>
+                                        </div>
+
+                                        <h3 style={{ fontSize: '1.2rem', color: '#ffffff', fontWeight: 800, margin: '0 0 0.4rem 0' }}>
+                                            {op.title}
+                                        </h3>
+
+                                        <div style={{ fontSize: '0.85rem', color: '#e2e8f0', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2">
+                                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                                <circle cx="12" cy="10" r="3"/>
+                                            </svg>
+                                            <strong>Zona de Despliegue:</strong> {op.location}
+                                        </div>
+
+                                        {op.details && (
+                                            <p style={{ fontSize: '0.84rem', color: '#94a3b8', lineHeight: '1.5', marginBottom: '0.75rem', background: 'rgba(15, 23, 42, 0.4)', padding: '0.65rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <strong>Detalles:</strong> {op.details}
+                                            </p>
+                                        )}
+
+                                        {op.operatives && (
+                                            <div style={{ fontSize: '0.82rem', color: '#cbd5e1', marginBottom: '1rem' }}>
+                                                <strong>Operativos:</strong> {op.operatives}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Action Button: Open Interactive Tactical Board */}
+                                    <button
+                                        onClick={() => handleOpenBoard(op)}
+                                        style={{
+                                            width: '100%',
+                                            background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(234, 179, 8, 0.05))',
+                                            border: '1px solid #eab308',
+                                            color: '#fef08a',
+                                            padding: '0.65rem',
+                                            borderRadius: '8px',
+                                            fontWeight: 800,
+                                            fontSize: '0.86rem',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '0.5rem',
+                                            transition: 'all 0.2s ease',
+                                            marginTop: '0.5rem'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(234, 179, 8, 0.3)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(234, 179, 8, 0.05))'}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                                            <polyline points="21 15 16 10 5 21"/>
+                                        </svg>
+                                        {language === 'es' ? 'Abrir Pizarra Táctica de Planificación' : 'Open Tactical Planning Board'}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* SELECTED OPERATION: INTERACTIVE TACTICAL BOARD (PIZARRA TÁCTICA) */}
+            {activeTab === 'ops' && selectedOp && (
+                <div>
+                    {/* Header Controls */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <button
+                                onClick={() => setSelectedOp(null)}
                                 style={{
-                                    background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.75))',
-                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                    borderRadius: '14px',
-                                    padding: '1.25rem',
-                                    position: 'relative',
-                                    transition: 'transform 0.2s ease, border-color 0.2s ease',
-                                    boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
+                                    background: 'rgba(30, 41, 59, 0.7)',
+                                    border: '1px solid rgba(255,255,255,0.15)',
+                                    color: '#cbd5e1',
+                                    padding: '0.5rem 1rem',
+                                    borderRadius: '8px',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem'
                                 }}
                             >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#eab308', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                                        {op.id}
-                                    </span>
-                                    <span style={{
-                                        fontSize: '0.72rem',
-                                        fontWeight: 700,
-                                        padding: '0.25rem 0.65rem',
-                                        borderRadius: '20px',
-                                        background: op.status === 'En Progreso' ? 'rgba(234, 179, 8, 0.15)' : op.status === 'Completada' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(148, 163, 184, 0.15)',
-                                        color: op.status === 'En Progreso' ? '#facc15' : op.status === 'Completada' ? '#4ade80' : '#cbd5e1',
-                                        border: `1px solid ${op.status === 'En Progreso' ? 'rgba(234, 179, 8, 0.3)' : op.status === 'Completada' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(148, 163, 184, 0.3)'}`
-                                    }}>
-                                        {op.status}
-                                    </span>
-                                </div>
+                                ← {language === 'es' ? 'Volver a Operaciones' : 'Back to Operations'}
+                            </button>
 
-                                <h3 style={{ fontSize: '1.1rem', color: '#ffffff', fontWeight: 800, margin: '0 0 0.4rem 0' }}>
-                                    {op.title}
-                                </h3>
-
-                                <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                                        <circle cx="12" cy="10" r="3"/>
-                                    </svg>
-                                    {op.location}
-                                </div>
-
-                                <p style={{ fontSize: '0.84rem', color: '#cbd5e1', lineHeight: '1.5', marginBottom: '1rem', background: 'rgba(15, 23, 42, 0.4)', padding: '0.65rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                    {op.description}
-                                </p>
-
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#64748b', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.75rem' }}>
-                                    <span>Líder: <strong style={{ color: '#f8fafc' }}>{op.leader}</strong></span>
-                                    <span>{op.date}</span>
-                                </div>
+                            <div>
+                                <h2 style={{ fontSize: '1.4rem', color: '#ffffff', margin: 0, fontWeight: 800 }}>
+                                    {selectedOp.title} — Tablero de Planificación Táctica
+                                </h2>
+                                <span style={{ fontSize: '0.82rem', color: '#eab308' }}>
+                                    📍 {selectedOp.location} • {selectedOp.type}
+                                </span>
                             </div>
-                        ))}
+                        </div>
+
+                        {/* Board Controls Toolbar */}
+                        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                            {/* Hidden Image Input */}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                ref={fileInputRef}
+                                onChange={handleImageUploadToBoard}
+                                style={{ display: 'none' }}
+                            />
+
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isUploadingImage}
+                                style={{
+                                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    padding: '0.6rem 1.1rem',
+                                    borderRadius: '8px',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem'
+                                }}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                                    <polyline points="21 15 16 10 5 21"/>
+                                </svg>
+                                {isUploadingImage ? 'Subiendo...' : '📷 Subir Imagen'}
+                            </button>
+
+                            <button
+                                onClick={handleAddNoteToBoard}
+                                style={{
+                                    background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)',
+                                    color: '#0f172a',
+                                    border: 'none',
+                                    padding: '0.6rem 1.1rem',
+                                    borderRadius: '8px',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem'
+                                }}
+                            >
+                                📝 Añadir Nota Táctica
+                            </button>
+
+                            <button
+                                onClick={handleSaveBoard}
+                                disabled={savingBoard}
+                                style={{
+                                    background: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    padding: '0.6rem 1.2rem',
+                                    borderRadius: '8px',
+                                    fontWeight: 800,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.4rem'
+                                }}
+                            >
+                                💾 {savingBoard ? 'Guardando...' : 'Guardar Tablero'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Selected Element Editing Toolbar (When an element is clicked) */}
+                    {selectedElement && (
+                        <div style={{
+                            background: 'rgba(15, 23, 42, 0.95)',
+                            border: '1px solid #eab308',
+                            borderRadius: '10px',
+                            padding: '0.65rem 1.25rem',
+                            marginBottom: '1rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '1rem',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#eab308', fontSize: '0.85rem', fontWeight: 800 }}>
+                                <span>Elemento Seleccionado ({selectedElement.type === 'image' ? 'Imagen' : 'Nota'})</span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                                {/* Resize Controls */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#cbd5e1', fontSize: '0.82rem' }}>
+                                    <label>Tamaño Ancho:</label>
+                                    <input
+                                        type="range"
+                                        min="120"
+                                        max="800"
+                                        value={selectedElement.width}
+                                        onChange={e => updateElement(selectedElement.id, { width: parseInt(e.target.value) })}
+                                        style={{ accentColor: '#eab308', cursor: 'pointer' }}
+                                    />
+                                    <span>{selectedElement.width}px</span>
+                                </div>
+
+                                {/* Layering Controls (Front / Back) */}
+                                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                    <button
+                                        onClick={() => bringToFront(selectedElement.id)}
+                                        style={{ background: 'rgba(234, 179, 8, 0.2)', border: '1px solid #eab308', color: '#fef08a', padding: '0.35rem 0.65rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
+                                        title="Traer la imagen al frente (encima de las demás)"
+                                    >
+                                        ⬆️ Traer al Frente
+                                    </button>
+                                    <button
+                                        onClick={() => sendToBack(selectedElement.id)}
+                                        style={{ background: 'rgba(148, 163, 184, 0.2)', border: '1px solid #64748b', color: '#cbd5e1', padding: '0.35rem 0.65rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
+                                        title="Enviar la imagen al fondo (atrás)"
+                                    >
+                                        ⬇️ Enviar al Fondo
+                                    </button>
+                                </div>
+
+                                {/* Delete Button */}
+                                <button
+                                    onClick={() => handleDeleteElement(selectedElement.id)}
+                                    style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', color: '#f87171', padding: '0.35rem 0.75rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}
+                                >
+                                    🗑️ Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* INTERACTIVE CANVAS WHITEBOARD */}
+                    <div 
+                        ref={boardRef}
+                        onMouseMove={handleMouseMoveBoard}
+                        onMouseUp={handleMouseUpBoard}
+                        onClick={() => setSelectedElementId(null)}
+                        style={{
+                            width: '100%',
+                            height: '650px',
+                            background: '#090d16',
+                            backgroundImage: 'radial-gradient(rgba(234, 179, 8, 0.12) 1px, transparent 0)',
+                            backgroundSize: '24px 24px',
+                            border: '2px solid rgba(234, 179, 8, 0.3)',
+                            borderRadius: '16px',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            boxShadow: 'inset 0 0 40px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.5)',
+                            userSelect: 'none'
+                        }}
+                    >
+                        {boardElements.length === 0 && (
+                            <div style={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                textAlign: 'center',
+                                color: '#64748b',
+                                pointerEvents: 'none'
+                            }}>
+                                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginBottom: '1rem', opacity: 0.5 }}>
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                    <line x1="3" y1="9" x2="21" y2="9"/>
+                                    <line x1="9" y1="21" x2="9" y2="9"/>
+                                </svg>
+                                <h3 style={{ margin: 0, color: '#94a3b8', fontSize: '1.1rem' }}>Tablero Táctico Vacío</h3>
+                                <p style={{ fontSize: '0.85rem', marginTop: '0.4rem' }}>Usa los botones superiores para subir imágenes, fotos de planos o notas tácticas.</p>
+                            </div>
+                        )}
+
+                        {/* Render Board Elements */}
+                        {boardElements.map(el => {
+                            const isSelected = el.id === selectedElementId;
+
+                            if (el.type === 'image') {
+                                return (
+                                    <div
+                                        key={el.id}
+                                        onMouseDown={e => handleMouseDownElement(e, el)}
+                                        style={{
+                                            position: 'absolute',
+                                            left: `${el.x}px`,
+                                            top: `${el.y}px`,
+                                            width: `${el.width || 300}px`,
+                                            zIndex: el.zIndex || 1,
+                                            cursor: isDragging && isSelected ? 'grabbing' : 'grab',
+                                            border: isSelected ? '2px solid #eab308' : '1px solid rgba(255,255,255,0.2)',
+                                            boxShadow: isSelected ? '0 0 25px rgba(234, 179, 8, 0.4)' : '0 6px 16px rgba(0,0,0,0.5)',
+                                            borderRadius: '8px',
+                                            background: '#0f172a',
+                                            padding: '4px',
+                                            transition: isDragging ? 'none' : 'border-color 0.2s ease, box-shadow 0.2s ease'
+                                        }}
+                                    >
+                                        <img 
+                                            src={getProfileImage(el.url, el.url)}
+                                            alt="Tactical Element"
+                                            style={{
+                                                width: '100%',
+                                                height: 'auto',
+                                                borderRadius: '6px',
+                                                display: 'block',
+                                                pointerEvents: 'none'
+                                            }}
+                                        />
+                                    </div>
+                                );
+                            }
+
+                            // Note Element
+                            return (
+                                <div
+                                    key={el.id}
+                                    onMouseDown={e => handleMouseDownElement(e, el)}
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${el.x}px`,
+                                        top: `${el.y}px`,
+                                        width: `${el.width || 250}px`,
+                                        zIndex: el.zIndex || 1,
+                                        cursor: isDragging && isSelected ? 'grabbing' : 'grab',
+                                        background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95))',
+                                        border: isSelected ? '2px solid #eab308' : '1px solid rgba(234, 179, 8, 0.4)',
+                                        borderRadius: '10px',
+                                        padding: '1rem',
+                                        boxShadow: isSelected ? '0 0 25px rgba(234, 179, 8, 0.4)' : '0 6px 16px rgba(0,0,0,0.5)',
+                                        color: '#ffffff',
+                                        fontSize: '0.88rem',
+                                        lineHeight: '1.4'
+                                    }}
+                                >
+                                    <div style={{ color: '#eab308', fontSize: '0.75rem', fontWeight: 800, marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                                        NOTA TÁCTICA
+                                    </div>
+                                    {el.content}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}
 
-            {/* TAB 2: ROSTER */}
+            {/* TAB 2: CUADRILLA SEB */}
             {activeTab === 'roster' && (
                 <div>
-                    <h3 style={{ fontSize: '1.2rem', color: '#ffffff', marginBottom: '1rem', fontWeight: 800 }}>
-                        {language === 'es' ? 'Agentes Asignados a la División SEB' : 'Agents Assigned to SEB Division'}
+                    <h3 style={{ fontSize: '1.25rem', color: '#ffffff', marginBottom: '1.25rem', fontWeight: 800 }}>
+                        {language === 'es' ? 'Personal Registrado en la Cuadrilla SEB' : 'Registered SEB Squad Personnel'}
                     </h3>
 
                     {personnelList.length === 0 ? (
-                        <div style={{ padding: '2.5rem', background: 'rgba(30, 41, 59, 0.3)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', color: '#94a3b8' }}>
-                            <p style={{ margin: 0 }}>{language === 'es' ? 'No se encontraron agentes registrados formalmente con el rango o división SEB aún.' : 'No agents currently registered with SEB rank or division yet.'}</p>
-                            <p style={{ fontSize: '0.82rem', marginTop: '0.5rem', color: '#64748b' }}>Puedes asignar la división "SEB" o el rango "SEB Agent" desde el panel de Personal.</p>
+                        <div style={{ padding: '3rem', background: 'rgba(30, 41, 59, 0.3)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', color: '#94a3b8' }}>
+                            <p style={{ margin: 0, fontSize: '1rem' }}>{language === 'es' ? 'No se encontraron agentes registrados formalmente con el rango o división SEB aún.' : 'No agents currently registered with SEB rank or division yet.'}</p>
+                            <p style={{ fontSize: '0.84rem', marginTop: '0.5rem', color: '#64748b' }}>Puedes asignar la división "SEB" o el rango "SEB Agent" desde la sección de Personal.</p>
                         </div>
                     ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
                             {personnelList.map(member => (
                                 <div 
                                     key={member.id}
                                     style={{
-                                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.8))',
+                                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.65), rgba(15, 23, 42, 0.85))',
                                         border: '1px solid rgba(234, 179, 8, 0.25)',
-                                        borderRadius: '12px',
+                                        borderRadius: '14px',
                                         padding: '1.25rem',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '1rem'
+                                        gap: '1.2rem',
+                                        boxShadow: '0 4px 16px rgba(0,0,0,0.3)'
                                     }}
                                 >
                                     <div style={{
-                                        width: '52px',
-                                        height: '52px',
+                                        width: '56px',
+                                        height: '56px',
                                         borderRadius: '50%',
                                         background: '#1e293b',
                                         border: '2px solid #eab308',
@@ -545,13 +1060,13 @@ function SEB() {
                                     </div>
 
                                     <div>
-                                        <h4 style={{ margin: '0 0 0.2rem 0', color: '#ffffff', fontSize: '1rem', fontWeight: 800 }}>
+                                        <h4 style={{ margin: '0 0 0.2rem 0', color: '#ffffff', fontSize: '1.05rem', fontWeight: 800 }}>
                                             {member.nombre} {member.apellido}
                                         </h4>
-                                        <div style={{ fontSize: '0.78rem', color: '#eab308', fontWeight: 700 }}>
+                                        <div style={{ fontSize: '0.82rem', color: '#eab308', fontWeight: 700 }}>
                                             {member.rango || 'SEB Agent'} • Placa #{member.no_placa || 'N/A'}
                                         </div>
-                                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.2rem' }}>
                                             Rol: {member.rol || 'Agente'}
                                         </div>
                                     </div>
@@ -562,39 +1077,15 @@ function SEB() {
                 </div>
             )}
 
-            {/* TAB 3: EQUIPMENT */}
-            {activeTab === 'equipment' && (
-                <div>
-                    <h3 style={{ fontSize: '1.2rem', color: '#ffffff', marginBottom: '1rem', fontWeight: 800 }}>
-                        {language === 'es' ? 'Arsenal Especializado & Protocolos de Intervención' : 'Specialized Armory & Intervention Protocols'}
-                    </h3>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
-                        <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '1.25rem' }}>
-                            <h4 style={{ color: '#eab308', margin: '0 0 0.5rem 0', fontWeight: 800 }}>Vehículo Blindado de Entrada (BearCat / APC)</h4>
-                            <p style={{ color: '#cbd5e1', fontSize: '0.85rem', lineHeight: '1.5', margin: 0 }}>Unidades pesadas autorizadas para brechas perimetrales, cobertura antibalas de tiradores y rescate en zonas bajo fuego cruzado.</p>
-                        </div>
-                        <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '1.25rem' }}>
-                            <h4 style={{ color: '#eab308', margin: '0 0 0.5rem 0', fontWeight: 800 }}>Escudos Balísticos Nivel IV & Cargas de Brecha</h4>
-                            <p style={{ color: '#cbd5e1', fontSize: '0.85rem', lineHeight: '1.5', margin: 0 }}>Material de entrada rápida táctica con cobertura antibalas certificada para asaltos en estructuras cerradas.</p>
-                        </div>
-                        <div style={{ background: 'rgba(30, 41, 59, 0.4)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '1.25rem' }}>
-                            <h4 style={{ color: '#eab308', margin: '0 0 0.5rem 0', fontWeight: 800 }}>Rifles de Precisión Táctica & Ópticas Térmicas</h4>
-                            <p style={{ color: '#cbd5e1', fontSize: '0.85rem', lineHeight: '1.5', margin: 0 }}>Equipamiento de reconocimiento y francotirador para perímetros de seguridad de alta amenaza.</p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* CREATE OPERATION MODAL */}
-            {isModalOpen && (
+            {isCreateModalOpen && (
                 <div style={{
                     position: 'fixed',
                     top: 0,
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    background: 'rgba(0,0,0,0.75)',
+                    background: 'rgba(0,0,0,0.8)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -603,99 +1094,97 @@ function SEB() {
                 }}>
                     <div style={{
                         background: '#0f172a',
-                        border: '1px solid rgba(234, 179, 8, 0.3)',
+                        border: '1px solid rgba(234, 179, 8, 0.4)',
                         borderRadius: '16px',
                         padding: '2rem',
-                        maxWidth: '520px',
+                        maxWidth: '560px',
                         width: '90%',
-                        boxShadow: '0 20px 50px rgba(0,0,0,0.6)'
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.7)'
                     }}>
                         <h3 style={{ color: '#ffffff', margin: '0 0 1.25rem 0', fontSize: '1.3rem', fontWeight: 800 }}>
-                            {language === 'es' ? 'Nueva Operación Táctica SEB' : 'New SEB Tactical Operation'}
+                            {language === 'es' ? 'Registrar Nueva Operación Táctica SEB' : 'Register New SEB Tactical Operation'}
                         </h3>
 
-                        <form onSubmit={handleCreateOperation} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <form onSubmit={handleCreateOperation} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
                             <div>
-                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                                    Nombre de la Operación
+                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                    Nombre Operación *
                                 </label>
                                 <input
                                     required
                                     type="text"
-                                    placeholder="Ej: Operación Tormenta"
+                                    placeholder="Ej: Operación Tormenta Táctica"
                                     value={newOp.title}
                                     onChange={e => setNewOp({ ...newOp, title: e.target.value })}
-                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '0.6rem 0.8rem', color: '#fff', fontSize: '0.88rem' }}
+                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '8px', padding: '0.65rem 0.85rem', color: '#fff', fontSize: '0.88rem' }}
                                 />
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                                    Ubicación / Zona de Despliegue
+                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                    Zona de Despliegue *
                                 </label>
                                 <input
                                     required
                                     type="text"
-                                    placeholder="Ej: Cypress Flats Warehouses"
+                                    placeholder="Ej: Almacén 4, Cypress Flats Industrial"
                                     value={newOp.location}
                                     onChange={e => setNewOp({ ...newOp, location: e.target.value })}
-                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '0.6rem 0.8rem', color: '#fff', fontSize: '0.88rem' }}
+                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '8px', padding: '0.65rem 0.85rem', color: '#fff', fontSize: '0.88rem' }}
                                 />
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                <div>
-                                    <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                                        Estado
-                                    </label>
-                                    <select
-                                        value={newOp.status}
-                                        onChange={e => setNewOp({ ...newOp, status: e.target.value })}
-                                        style={{ width: '100%', background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '0.6rem 0.8rem', color: '#fff', fontSize: '0.88rem' }}
-                                    >
-                                        <option value="En Progreso">En Progreso</option>
-                                        <option value="Completada">Completada</option>
-                                        <option value="En Espera">En Espera</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                                        Tipo de Intervención
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={newOp.type}
-                                        onChange={e => setNewOp({ ...newOp, type: e.target.value })}
-                                        style={{ width: '100%', background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '0.6rem 0.8rem', color: '#fff', fontSize: '0.88rem' }}
-                                    />
-                                </div>
+                            <div>
+                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                    Tipo de Intervención *
+                                </label>
+                                <input
+                                    required
+                                    type="text"
+                                    placeholder="Ej: Asalto Táctico, Bloqueo & Escolta, Rescate de Rehenes"
+                                    value={newOp.type}
+                                    onChange={e => setNewOp({ ...newOp, type: e.target.value })}
+                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '8px', padding: '0.65rem 0.85rem', color: '#fff', fontSize: '0.88rem' }}
+                                />
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                                    Detalles & Objetivos Operativos
+                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                    Detalles
                                 </label>
                                 <textarea
                                     rows="3"
-                                    placeholder="Descripción del briefing de la misión..."
-                                    value={newOp.description}
-                                    onChange={e => setNewOp({ ...newOp, description: e.target.value })}
-                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '0.6rem 0.8rem', color: '#fff', fontSize: '0.88rem', resize: 'vertical' }}
+                                    placeholder="Descripción general de la intervención y briefing táctico..."
+                                    value={newOp.details}
+                                    onChange={e => setNewOp({ ...newOp, details: e.target.value })}
+                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '8px', padding: '0.65rem 0.85rem', color: '#fff', fontSize: '0.88rem', resize: 'vertical' }}
                                 ></textarea>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                    Operativos Asignados
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Ej: SEB Agent Vance, SEB Agent Kowalski"
+                                    value={newOp.operatives}
+                                    onChange={e => setNewOp({ ...newOp, operatives: e.target.value })}
+                                    style={{ width: '100%', background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '8px', padding: '0.65rem 0.85rem', color: '#fff', fontSize: '0.88rem' }}
+                                />
                             </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem' }}>
                                 <button
                                     type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    style={{ background: 'rgba(148, 163, 184, 0.2)', color: '#94a3b8', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                                    onClick={() => setIsCreateModalOpen(false)}
+                                    style={{ background: 'rgba(148, 163, 184, 0.2)', color: '#94a3b8', border: 'none', padding: '0.65rem 1.25rem', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="submit"
-                                    style={{ background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', color: '#0f172a', border: 'none', padding: '0.6rem 1.4rem', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+                                    style={{ background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)', color: '#0f172a', border: 'none', padding: '0.65rem 1.5rem', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' }}
                                 >
                                     Guardar Operación
                                 </button>
