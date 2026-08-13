@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { getProfileImage } from '../utils/imageStorage';
+import { getUserInternalRank } from '../utils/internalRanks';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
@@ -445,7 +446,7 @@ function PersonnelDetail() {
                         <span className="detail-badge">Badge #{user.no_placa || '---'}</span>
                         <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                             <span style={{ color: '#fbbf24', fontSize: '0.7rem' }}>❖</span>
-                            <span>Rango Interno: {user.rango_interno || 'Auxiliar de Investigación'}</span>
+                            <span>Rango Interno: {getUserInternalRank(user)}</span>
                         </div>
                     </div>
                 </div>

@@ -2,6 +2,7 @@ import { supabase } from '../supabaseClient';
 
 const DEFAULT_RANK = 'Auxiliar de Investigación';
 const STORAGE_KEY = 'seb_internal_ranks_list';
+const USER_RANKS_PREFIX = 'seb_user_rango_interno_';
 
 /**
  * Get list of internal division ranks.
@@ -111,4 +112,59 @@ export async function deleteInternalRank(rankId, rankName) {
     const updated = current.filter(r => r.id !== rankId && r.name !== rankName);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     return true;
+}
+
+/**
+ * Get assigned internal rank for a specific user.
+ */
+export function getUserInternalRank(user) {
+    if (!user) return DEFAULT_RANK;
+    const userId = typeof user === 'object' ? user.id : user;
+
+    // Priority 1: Check localStorage for explicit assigned rank
+    if (userId) {
+        try {
+            const saved = localStorage.getItem(USER_RANKS_PREFIX + userId);
+            if (saved) return saved;
+        } catch (e) {
+            console.error('LocalStorage read error:', e);
+        }
+    }
+
+    // Priority 2: Check object property from Supabase
+    if (user && typeof user === 'object' && user.rango_interno) {
+        return user.rango_interno;
+    }
+
+    // Default Fallback
+    return DEFAULT_RANK;
+}
+
+/**
+ * Save internal rank for a user (Supabase + LocalStorage sync).
+ */
+export async function setUserInternalRank(userId, rankName) {
+    if (!userId) return;
+    const cleanRank = rankName || DEFAULT_RANK;
+
+    // 1. LocalStorage Sync (Primary Instant Cache)
+    try {
+        localStorage.setItem(USER_RANKS_PREFIX + userId, cleanRank);
+    } catch (e) {
+        console.error('LocalStorage write error:', e);
+    }
+
+    // 2. Supabase Sync (Database persistence)
+    try {
+        const { error } = await supabase
+            .from('users')
+            .update({ rango_interno: cleanRank })
+            .eq('id', userId);
+
+        if (error) {
+            console.warn('Supabase update for rango_interno notice:', error.message);
+        }
+    } catch (err) {
+        console.warn('Supabase update for rango_interno failed:', err);
+    }
 }

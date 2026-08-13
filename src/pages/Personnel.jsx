@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
 import { uploadImageToStorage, getProfileImage } from '../utils/imageStorage';
-import { getInternalRanks } from '../utils/internalRanks';
+import { getInternalRanks, getUserInternalRank, setUserInternalRank } from '../utils/internalRanks';
 import { usePresence } from '../contexts/PresenceContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -120,7 +120,11 @@ function Personnel() {
                 .select('*');
 
             if (error) throw error;
-            setUsers(data || []);
+            const mappedUsers = (data || []).map(u => ({
+                ...u,
+                rango_interno: getUserInternalRank(u)
+            }));
+            setUsers(mappedUsers);
         } catch (err) {
             console.error('Error fetching data:', err);
             setError(err.message);
@@ -314,6 +318,7 @@ function Personnel() {
     const openEditModal = (user) => {
         setModalMode('edit');
         setEditingUserId(user.id);
+        const currentRank = getUserInternalRank(user);
         setFormData({
             email: user.email,
             password: '',
@@ -322,7 +327,7 @@ function Personnel() {
             no_placa: user.no_placa || '',
             rango: user.rango || 'Oficial II',
             rol: user.rol || 'Ayudante',
-            rango_interno: user.rango_interno || 'Auxiliar de Investigación',
+            rango_interno: currentRank,
             fecha_ingreso: user.fecha_ingreso ? user.fecha_ingreso.split('T')[0] : '',
             profile_image: user.profile_image || '',
             divisions: user.divisions || ['Detective Bureau']
@@ -356,6 +361,8 @@ function Personnel() {
                 setFormData(prev => ({ ...prev, profile_image: imageUrl }));
             }
 
+            const selectedRank = formData.rango_interno || 'Auxiliar de Investigación';
+
             if (modalMode === 'create') {
                 const { error } = await supabase.rpc('create_new_personnel', {
                     p_email: formData.email,
@@ -379,10 +386,7 @@ function Personnel() {
                     .eq('email', formData.email)
                     .single();
                 if (newUser) {
-                    await supabase
-                        .from('users')
-                        .update({ rango_interno: formData.rango_interno || 'Auxiliar de Investigación' })
-                        .eq('id', newUser.id);
+                    await setUserInternalRank(newUser.id, selectedRank);
                 }
 
                 setMessage({ type: 'success', text: '¡Personal añadido correctamente!' });
@@ -403,11 +407,11 @@ function Personnel() {
                 });
                 if (error) throw error;
 
-                // Sync rango_interno
-                await supabase
-                    .from('users')
-                    .update({ rango_interno: formData.rango_interno || 'Auxiliar de Investigación' })
-                    .eq('id', editingUserId);
+                // Sync rango_interno via helper
+                await setUserInternalRank(editingUserId, selectedRank);
+
+                // Update local state immediately
+                setUsers(prev => prev.map(u => u.id === editingUserId ? { ...u, rango_interno: selectedRank } : u));
 
                 setMessage({ type: 'success', text: '¡Personal actualizado correctamente!' });
             }
@@ -429,6 +433,7 @@ function Personnel() {
 
     const UserCard = ({ user }) => {
         const isOnline = onlineUsers.includes(user.id);
+        const internalRank = getUserInternalRank(user);
 
         return (
             <div
@@ -540,7 +545,7 @@ function Personnel() {
                     </div>
                     <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '-1px' }}>
                         <span style={{ color: '#fbbf24', fontSize: '0.65rem' }}>❖</span>
-                        <span>{user.rango_interno || 'Auxiliar de Investigación'}</span>
+                        <span>{internalRank}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
                         <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: 700, color: '#fbbf24', background: 'rgba(251, 191, 36, 0.12)', padding: '1px 6px', borderRadius: '5px' }}>
