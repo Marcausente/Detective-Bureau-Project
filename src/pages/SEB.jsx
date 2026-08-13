@@ -506,9 +506,10 @@ function SEB() {
     const handleOpenAddNoteModal = () => {
         setNoteForm({
             id: null,
-            title: 'Grupo 1',
-            content: 'Pepito\nManolo\nAntonio',
-            category: 'Nota Táctica'
+            type: 'note',
+            title: '',
+            content: '',
+            category: ''
         });
         setIsNoteModalOpen(true);
     };
@@ -516,11 +517,16 @@ function SEB() {
     const handleOpenEditNoteModal = (el) => {
         setNoteForm({
             id: el.id,
-            title: el.title || el.category || '',
+            type: el.type || 'note',
+            title: el.title || (el.category !== 'Nota Táctica' ? el.category : '') || '',
             content: el.content || '',
-            category: el.category || 'Nota Táctica'
+            category: el.category || ''
         });
         setIsNoteModalOpen(true);
+    };
+
+    const handleEditNoteContent = (el) => {
+        handleOpenEditNoteModal(el);
     };
 
     const handleSaveNoteModal = (e) => {
@@ -532,8 +538,8 @@ function SEB() {
 
         if (noteForm.id) {
             updateElement(noteForm.id, {
-                title: noteForm.title,
-                category: noteForm.title || noteForm.category || 'Nota Táctica',
+                title: noteForm.title.trim(),
+                category: noteForm.title.trim() || 'Nota Táctica',
                 content: noteForm.content
             });
         } else {
@@ -541,8 +547,8 @@ function SEB() {
             const newNoteElement = {
                 id: 'note-' + Date.now(),
                 type: 'note',
-                title: noteForm.title || 'Nota Táctica',
-                category: noteForm.title || 'Nota Táctica',
+                title: noteForm.title.trim(),
+                category: noteForm.title.trim() || 'Nota Táctica',
                 content: noteForm.content,
                 x: 140 - pan.x + (boardElements.length * 15),
                 y: 140 - pan.y + (boardElements.length * 15),
@@ -584,9 +590,7 @@ function SEB() {
     };
 
     const handleEditTextContent = (el) => {
-        const updatedText = prompt(language === 'es' ? 'Editar texto:' : 'Edit text:', el.content || '');
-        if (updatedText === null) return;
-        updateElement(el.id, { content: updatedText });
+        handleOpenEditNoteModal(el);
     };
 
     const handleEditThreadLabel = (thread) => {
@@ -1772,7 +1776,7 @@ function SEB() {
                                 <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                                     {selectedElement.type === 'note' && (
                                         <button
-                                            onClick={() => handleEditNoteContent(selectedElement)}
+                                            onClick={() => handleOpenEditNoteModal(selectedElement)}
                                             style={{
                                                 background: 'rgba(234, 179, 8, 0.2)',
                                                 border: '1px solid #eab308',
@@ -3179,13 +3183,13 @@ function SEB() {
                         <form onSubmit={handleSaveNoteModal}>
                             <div style={{ marginBottom: '1rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.82rem', color: '#eab308', fontWeight: 700, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                    Título de la Nota (Ej: Grupo 1, Equipo Asalto, Sospechosos)
+                                    Título de la Nota
                                 </label>
                                 <input
                                     type="text"
                                     value={noteForm.title}
                                     onChange={e => setNoteForm({ ...noteForm, title: e.target.value })}
-                                    placeholder="Ej: Grupo 1"
+                                    placeholder="Título de la nota (Opcional)..."
                                     autoFocus
                                     style={{
                                         width: '100%',
@@ -3203,13 +3207,13 @@ function SEB() {
 
                             <div style={{ marginBottom: '1.25rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 600, marginBottom: '0.4rem' }}>
-                                    Contenido / Integrantes / Detalles (Múltiples Líneas)
+                                    Contenido / Detalles
                                 </label>
                                 <textarea
                                     rows={6}
                                     value={noteForm.content}
                                     onChange={e => setNoteForm({ ...noteForm, content: e.target.value })}
-                                    placeholder={"Pepito\nManolo\nAntonio\n..."}
+                                    placeholder="Escribe aquí el contenido..."
                                     style={{
                                         width: '100%',
                                         background: 'rgba(30, 41, 59, 0.8)',
