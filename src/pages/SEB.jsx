@@ -673,6 +673,8 @@ function SEB() {
         e.preventDefault();
         if (el.isLocked) return;
 
+        const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
+
         setIsResizing(true);
         setResizeDir(dir);
         setResizeStart({
