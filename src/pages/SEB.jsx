@@ -391,12 +391,22 @@ function SEB() {
         updateElement(id, { zIndex: Math.max(1, minZ - 1) });
     };
 
+    // Helper to calculate exact canvas coordinates accounting for rect offset, pan, and zoom
+    const getCanvasCoordinates = (e) => {
+        if (!boardRef.current) return { x: 0, y: 0 };
+        const rect = boardRef.current.getBoundingClientRect();
+        return {
+            x: (e.clientX - rect.left - pan.x) / zoom,
+            y: (e.clientY - rect.top - pan.y) / zoom
+        };
+    };
+
     // Canvas Mouse Down: Start Pencil Drawing OR Pan
     const handleMouseDownBoard = (e) => {
+        const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
+
         if (isPencilActive) {
             setIsDrawing(true);
-            const canvasX = (e.clientX - pan.x) / zoom;
-            const canvasY = (e.clientY - pan.y) / zoom;
             setCurrentPoints([{ x: canvasX, y: canvasY }]);
             return;
         }
@@ -413,11 +423,10 @@ function SEB() {
     // Element Drag Start
     const handleMouseDownElement = (e, el) => {
         e.stopPropagation();
+        const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
         if (isPencilActive) {
             setIsDrawing(true);
-            const canvasX = (e.clientX - pan.x) / zoom;
-            const canvasY = (e.clientY - pan.y) / zoom;
             setCurrentPoints([{ x: canvasX, y: canvasY }]);
             return;
         }
@@ -430,16 +439,16 @@ function SEB() {
         setSelectedElementId(el.id);
         setIsDragging(true);
         setDragOffset({
-            x: (e.clientX - pan.x) / zoom - el.x,
-            y: (e.clientY - pan.y) / zoom - el.y
+            x: canvasX - el.x,
+            y: canvasY - el.y
         });
     };
 
     // Canvas Mouse Move: Draw Freehand Stroke OR Pan Canvas OR Drag Element
     const handleMouseMoveBoard = (e) => {
+        const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
+
         if (isDrawing) {
-            const canvasX = (e.clientX - pan.x) / zoom;
-            const canvasY = (e.clientY - pan.y) / zoom;
             setCurrentPoints(prev => [...prev, { x: canvasX, y: canvasY }]);
             return;
         }
@@ -453,8 +462,8 @@ function SEB() {
         }
 
         if (isDragging && selectedElementId) {
-            let newX = (e.clientX - pan.x) / zoom - dragOffset.x;
-            let newY = (e.clientY - pan.y) / zoom - dragOffset.y;
+            let newX = canvasX - dragOffset.x;
+            let newY = canvasY - dragOffset.y;
             updateElement(selectedElementId, { x: newX, y: newY });
         }
     };
