@@ -675,15 +675,22 @@ function SEB() {
 
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
+        // Get actual rendered width & height from parent container if missing on el object
+        const targetContainer = e.currentTarget.parentElement;
+        const rect = targetContainer ? targetContainer.getBoundingClientRect() : null;
+        const currentW = el.width || (rect ? Math.round(rect.width / zoom) : 300);
+        const currentH = el.height || (rect ? Math.round(rect.height / zoom) : 220);
+
         setIsResizing(true);
         setResizeDir(dir);
         setResizeStart({
             x: canvasX,
             y: canvasY,
-            initX: el.x,
-            initY: el.y,
-            initW: el.width || 300,
-            initH: el.height || 220
+            initX: typeof el.x === 'number' ? el.x : 0,
+            initY: typeof el.y === 'number' ? el.y : 0,
+            initW: currentW,
+            initH: currentH,
+            aspectRatio: currentH > 0 ? currentW / currentH : 1.33
         });
         setSelectedElementId(el.id);
     };
@@ -739,8 +746,8 @@ function SEB() {
         if (!el.isLocked) {
             setIsDragging(true);
             setDragOffset({
-                x: canvasX - el.x,
-                y: canvasY - el.y
+                x: canvasX - (typeof el.x === 'number' ? el.x : 0),
+                y: canvasY - (typeof el.y === 'number' ? el.y : 0)
             });
         }
     };
@@ -752,26 +759,46 @@ function SEB() {
         if (isResizing && selectedElementId && resizeDir) {
             const dx = canvasX - resizeStart.x;
             const dy = canvasY - resizeStart.y;
-            let { initX, initY, initW, initH } = resizeStart;
+            let { initX, initY, initW, initH, aspectRatio } = resizeStart;
 
             let newW = initW;
             let newH = initH;
             let newX = initX;
             let newY = initY;
 
-            if (resizeDir.includes('e')) {
-                newW = Math.max(50, initW + dx);
-            }
-            if (resizeDir.includes('s')) {
-                newH = Math.max(40, initH + dy);
-            }
-            if (resizeDir.includes('w')) {
-                newW = Math.max(50, initW - dx);
+            const el = boardElements.find(item => item.id === selectedElementId);
+            const isImage = el && el.type === 'image';
+
+            if (resizeDir === 'e') {
+                newW = Math.max(60, initW + dx);
+                if (isImage && aspectRatio) newH = Math.round(newW / aspectRatio);
+            } else if (resizeDir === 'w') {
+                newW = Math.max(60, initW - dx);
                 newX = initX + (initW - newW);
-            }
-            if (resizeDir.includes('n')) {
+                if (isImage && aspectRatio) newH = Math.round(newW / aspectRatio);
+            } else if (resizeDir === 's') {
+                newH = Math.max(40, initH + dy);
+                if (isImage && aspectRatio) newW = Math.round(newH * aspectRatio);
+            } else if (resizeDir === 'n') {
                 newH = Math.max(40, initH - dy);
                 newY = initY + (initH - newH);
+                if (isImage && aspectRatio) newW = Math.round(newH * aspectRatio);
+            } else if (resizeDir === 'se') {
+                newW = Math.max(60, initW + dx);
+                newH = isImage && aspectRatio ? Math.round(newW / aspectRatio) : Math.max(40, initH + dy);
+            } else if (resizeDir === 'sw') {
+                newW = Math.max(60, initW - dx);
+                newX = initX + (initW - newW);
+                newH = isImage && aspectRatio ? Math.round(newW / aspectRatio) : Math.max(40, initH + dy);
+            } else if (resizeDir === 'ne') {
+                newW = Math.max(60, initW + dx);
+                newH = isImage && aspectRatio ? Math.round(newW / aspectRatio) : Math.max(40, initH - dy);
+                if (!isImage || !aspectRatio) newY = initY + (initH - newH);
+            } else if (resizeDir === 'nw') {
+                newW = Math.max(60, initW - dx);
+                newX = initX + (initW - newW);
+                newH = isImage && aspectRatio ? Math.round(newW / aspectRatio) : Math.max(40, initH - dy);
+                if (!isImage || !aspectRatio) newY = initY + (initH - newH);
             }
 
             updateElement(selectedElementId, { x: newX, y: newY, width: newW, height: newH });
@@ -837,6 +864,27 @@ function SEB() {
         setIsDragging(false);
         setIsPanning(false);
     };
+
+    // Global Mouse Up Listener to prevent stuck dragging/resizing outside canvas
+    useEffect(() => {
+        const handleGlobalMouseUp = () => {
+            if (isResizing) {
+                setIsResizing(false);
+                setResizeDir(null);
+            }
+            if (isDragging) {
+                setIsDragging(false);
+            }
+            if (isPanning) {
+                setIsPanning(false);
+            }
+        };
+
+        if (isResizing || isDragging || isPanning) {
+            window.addEventListener('mouseup', handleGlobalMouseUp);
+            return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+        }
+    }, [isResizing, isDragging, isPanning]);
 
     // Convert Points Array to SVG Path String
     const pointsToSvgPath = (pts) => {
