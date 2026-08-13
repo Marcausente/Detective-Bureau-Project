@@ -287,7 +287,26 @@ function SEB() {
         });
     };
 
+    // Auto-save board state whenever boardElements change (Debounced 800ms)
+    const isFirstRenderRef = useRef(true);
+
+    useEffect(() => {
+        if (!selectedOp) return;
+
+        if (isFirstRenderRef.current) {
+            isFirstRenderRef.current = false;
+            return;
+        }
+
+        const saveTimer = setTimeout(() => {
+            handleSaveBoard(boardElements);
+        }, 800);
+
+        return () => clearTimeout(saveTimer);
+    }, [boardElements]);
+
     const handleOpenBoard = (op) => {
+        isFirstRenderRef.current = true;
         setSelectedOp(op);
         const elements = typeof op.board_data === 'string' ? JSON.parse(op.board_data) : (op.board_data || []);
         setBoardElements(elements);
@@ -300,22 +319,22 @@ function SEB() {
         setPan({ x: 0, y: 0 });
     };
 
-    const handleSaveBoard = async () => {
+    const handleSaveBoard = async (elementsToSave = boardElements) => {
         if (!selectedOp) return;
         setSavingBoard(true);
 
         try {
             const { error } = await supabase
                 .from('seb_operations')
-                .update({ board_data: boardElements, updated_at: new Date().toISOString() })
+                .update({ board_data: elementsToSave, updated_at: new Date().toISOString() })
                 .eq('id', selectedOp.id);
 
             if (error) {
-                const updatedOps = operations.map(o => o.id === selectedOp.id ? { ...o, board_data: boardElements } : o);
+                const updatedOps = operations.map(o => o.id === selectedOp.id ? { ...o, board_data: elementsToSave } : o);
                 setOperations(updatedOps);
                 localStorage.setItem('seb_operations', JSON.stringify(updatedOps));
             } else {
-                setOperations(operations.map(o => o.id === selectedOp.id ? { ...o, board_data: boardElements } : o));
+                setOperations(operations.map(o => o.id === selectedOp.id ? { ...o, board_data: elementsToSave } : o));
             }
         } catch (err) {
             console.error('Error saving board state:', err);
@@ -699,77 +718,14 @@ function SEB() {
                             {language === 'es' ? 'División Operativa de Alto Riesgo' : 'High Risk Tactical Division'}
                         </h1>
                         <p style={{ margin: '0.2rem 0 0 0', color: '#94a3b8', fontSize: '0.85rem' }}>
-                            {language === 'es' ? 'Tablón de operaciones, planificación táctica interactiva y cuadrilla SEB.' : 'Operations board, interactive tactical planning, and SEB roster.'}
+                            {language === 'es' ? 'Tablón de operaciones y planificación táctica interactiva.' : 'Operations board and interactive tactical planning.'}
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* Apple-Style Segmented Navigation Tabs */}
-            <div style={{ 
-                display: 'inline-flex', 
-                gap: '0.4rem', 
-                marginBottom: '1.75rem', 
-                background: 'rgba(15, 23, 42, 0.6)', 
-                padding: '0.35rem',
-                borderRadius: '14px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                backdropFilter: 'blur(10px)'
-            }}>
-                <button
-                    onClick={() => { setActiveTab('ops'); setSelectedOp(null); }}
-                    style={{
-                        background: activeTab === 'ops' ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
-                        border: 'none',
-                        color: activeTab === 'ops' ? '#ffffff' : '#94a3b8',
-                        padding: '0.55rem 1.4rem',
-                        borderRadius: '10px',
-                        fontWeight: 600,
-                        fontSize: '0.88rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        transition: 'all 0.2s ease'
-                    }}
-                >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-                        <polyline points="2 17 12 22 22 17"/>
-                        <polyline points="2 12 12 17 22 12"/>
-                    </svg>
-                    {language === 'es' ? 'Tablón de Operaciones' : 'Operations Board'} ({operations.length})
-                </button>
-
-                <button
-                    onClick={() => { setActiveTab('roster'); setSelectedOp(null); }}
-                    style={{
-                        background: activeTab === 'roster' ? 'rgba(255, 255, 255, 0.12)' : 'transparent',
-                        border: 'none',
-                        color: activeTab === 'roster' ? '#ffffff' : '#94a3b8',
-                        padding: '0.55rem 1.4rem',
-                        borderRadius: '10px',
-                        fontWeight: 600,
-                        fontSize: '0.88rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        transition: 'all 0.2s ease'
-                    }}
-                >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                    {language === 'es' ? 'Cuadrilla SEB' : 'SEB Squad Roster'} ({personnelList.length})
-                </button>
-            </div>
-
-            {/* TAB 1: TABLÓN DE OPERACIONES */}
-            {activeTab === 'ops' && !selectedOp && (
+            {/* TABLÓN DE OPERACIONES */}
+            {!selectedOp && (
                 <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', gap: '1rem', flexWrap: 'wrap' }}>
                         <div style={{ position: 'relative', minWidth: '280px', flex: 1 }}>
@@ -1148,30 +1104,31 @@ function SEB() {
                                 {connectingSourceId ? 'Haz clic en el 2º elemento...' : 'Unir con Hilo Rojo'}
                             </button>
 
-                            <button
-                                onClick={handleSaveBoard}
-                                disabled={savingBoard}
-                                style={{
-                                    background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)',
-                                    color: '#0f172a',
-                                    border: 'none',
-                                    padding: '0.55rem 1.2rem',
-                                    borderRadius: '10px',
-                                    fontWeight: 700,
-                                    fontSize: '0.85rem',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.4rem'
-                                }}
-                            >
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                    <polyline points="17 21 17 13 7 13 7 21"/>
-                                    <polyline points="7 3 7 8 15 8"/>
-                                </svg>
-                                {savingBoard ? 'Guardando...' : 'Guardar Tablero'}
-                            </button>
+                            {/* Live Auto-Save Status Indicator */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                fontSize: '0.78rem',
+                                fontWeight: 600,
+                                color: savingBoard ? '#eab308' : '#22c55e',
+                                background: savingBoard ? 'rgba(234, 179, 8, 0.12)' : 'rgba(34, 197, 94, 0.12)',
+                                border: `1px solid ${savingBoard ? 'rgba(234, 179, 8, 0.25)' : 'rgba(34, 197, 94, 0.25)'}`,
+                                padding: '0.5rem 0.9rem',
+                                borderRadius: '10px',
+                                backdropFilter: 'blur(10px)',
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                            }}>
+                                <span style={{ 
+                                    width: '7px', 
+                                    height: '7px', 
+                                    borderRadius: '50%', 
+                                    background: savingBoard ? '#eab308' : '#22c55e', 
+                                    boxShadow: `0 0 6px ${savingBoard ? '#eab308' : '#22c55e'}`,
+                                    display: 'inline-block' 
+                                }}></span>
+                                {savingBoard ? 'Guardando cambios en la nube...' : 'Guardado automáticamente'}
+                            </div>
                         </div>
                     </div>
 
@@ -1889,69 +1846,6 @@ function SEB() {
                             })}
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* TAB 2: CUADRILLA SEB */}
-            {activeTab === 'roster' && (
-                <div>
-                    <h3 style={{ fontSize: '1.2rem', color: '#ffffff', marginBottom: '1.25rem', fontWeight: 700 }}>
-                        {language === 'es' ? 'Personal Registrado en la Cuadrilla SEB' : 'Registered SEB Squad Personnel'}
-                    </h3>
-
-                    {personnelList.length === 0 ? (
-                        <div style={{ padding: '3rem', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center', color: '#94a3b8' }}>
-                            <p style={{ margin: 0, fontSize: '0.95rem' }}>{language === 'es' ? 'No se encontraron agentes registrados formalmente con el rango o división SEB aún.' : 'No agents currently registered with SEB rank or division yet.'}</p>
-                            <p style={{ fontSize: '0.82rem', marginTop: '0.4rem', color: '#64748b' }}>Puedes asignar la división "SEB" o el rango "SEB Agent" desde la sección de Personal.</p>
-                        </div>
-                    ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
-                            {personnelList.map(member => (
-                                <div 
-                                    key={member.id}
-                                    style={{
-                                        background: 'rgba(15, 23, 42, 0.65)',
-                                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                                        borderRadius: '16px',
-                                        padding: '1.25rem',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '1.2rem',
-                                        boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
-                                        backdropFilter: 'blur(10px)'
-                                    }}
-                                >
-                                    <div style={{
-                                        width: '54px',
-                                        height: '54px',
-                                        borderRadius: '50%',
-                                        background: '#1e293b',
-                                        border: '2px solid rgba(234, 179, 8, 0.5)',
-                                        overflow: 'hidden',
-                                        flexShrink: 0
-                                    }}>
-                                        <img 
-                                            src={getProfileImage(member.profile_image, '/logowebp/anon.webp')} 
-                                            alt={member.nombre}
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <h4 style={{ margin: '0 0 0.2rem 0', color: '#ffffff', fontSize: '1rem', fontWeight: 700 }}>
-                                            {member.nombre} {member.apellido}
-                                        </h4>
-                                        <div style={{ fontSize: '0.82rem', color: '#eab308', fontWeight: 600 }}>
-                                            {member.rango || 'SEB Agent'} • Placa #{member.no_placa || 'N/A'}
-                                        </div>
-                                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.15rem' }}>
-                                            Rol: {member.rol || 'Agente'}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
                 </div>
             )}
 
