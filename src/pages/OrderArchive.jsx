@@ -1,16 +1,119 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
+import { getProfileImage } from '../utils/imageStorage';
 import '../index.css';
-import { generateOrderPDF } from '../utils/orderPdfGenerator';
+
+// SVG Icon Helper for Order Types
+const renderOrderTypeIcon = (type, size = 16) => {
+    switch (type) {
+        case 'Orden de Registro (Casa)':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+            );
+        case 'Orden de Registro (Coche)':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+            );
+        case 'Orden de Arresto':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="m9 12 2 2 4-4"/>
+                </svg>
+            );
+        case 'Orden de Revision Telefonica':
+        case 'Orden de Identificacion Telefono Movil':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                    <line x1="12" y1="18" x2="12.01" y2="18"/>
+                </svg>
+            );
+        case 'Orden de Revision Bancaria':
+        case 'Inmovilizacion de Cuenta':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                    <line x1="1" y1="10" x2="23" y2="10"/>
+                </svg>
+            );
+        case 'Orden de Identificacion Red Social':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+            );
+        case 'Orden de Decomiso':
+        case 'Embargo de Vehiculo':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+            );
+        case 'Orden de Alejamiento':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                </svg>
+            );
+        case 'Orden de Precinto':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+            );
+        case 'Ley Rico':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                    <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                    <path d="M7 21h10"/>
+                    <path d="M12 3v18"/>
+                    <path d="M3 7h18"/>
+                </svg>
+            );
+        case 'Revision de Camaras':
+        case 'Solicitud Camaras de Seguridad':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m22 8-6 4 6 4V8z"/>
+                    <rect x="2" y="6" width="14" height="12" rx="2" ry="2"/>
+                </svg>
+            );
+        case 'Solicitud de informacion medica':
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+            );
+        default:
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+            );
+    }
+};
 
 // --- CONFIGURATION ---
-// Note: 'options' can now be a string key (starting with $$) to reference dynamic data
 const ORDER_TYPES = {
     'Orden de Registro (Casa)': {
         label: 'Orden de Registro (Casa)',
-        color: 'var(--color-blue)', // Blue
-        icon: '🏠',
+        color: 'var(--color-blue, #3b82f6)',
         fields: [
             { name: 'request_date', label: 'Fecha Solicitud', type: 'readonly_date' },
             { 
@@ -30,8 +133,7 @@ const ORDER_TYPES = {
     },
     'Orden de Registro (Coche)': {
         label: 'Orden de Registro (Coche)',
-        color: '#0ea5e9', // Sky Blue
-        icon: '🚗',
+        color: '#0ea5e9',
         fields: [
             { 
                 name: 'target_vehicles', 
@@ -51,8 +153,7 @@ const ORDER_TYPES = {
     },
     'Orden de Arresto': {
         label: 'Orden de Arresto',
-        color: '#ef4444', // Red
-        icon: '👮',
+        color: '#ef4444',
         fields: [
             { 
                 name: 'target_suspects', 
@@ -70,8 +171,7 @@ const ORDER_TYPES = {
     },
     'Orden de Revision Telefonica': {
         label: 'Revisión Telefónica',
-        color: '#8b5cf6', // Purple
-        icon: '📱',
+        color: '#8b5cf6',
         fields: [
             { 
                 name: 'target_persons_phone_review', 
@@ -89,8 +189,7 @@ const ORDER_TYPES = {
     },
     'Orden de Revision Bancaria': {
         label: 'Revisión Bancaria',
-        color: '#10b981', // Emerald
-        icon: '💳',
+        color: '#10b981',
         fields: [
             { 
                 name: 'target_persons', 
@@ -108,8 +207,7 @@ const ORDER_TYPES = {
     },
     'Orden de Identificacion Red Social': {
         label: 'Identificación Red Social',
-        color: '#8b5cf6', // Violet
-        icon: '🌐',
+        color: '#a855f7',
         fields: [
             { 
                 name: 'target_social_accounts', 
@@ -127,8 +225,7 @@ const ORDER_TYPES = {
     },
     'Orden de Identificacion Telefono Movil': {
         label: 'Identificación Teléfono Móvil',
-        color: 'var(--color-blue-light)', // Light Blue
-        icon: '📞',
+        color: '#38bdf8',
         fields: [
             { 
                 name: 'target_phone_numbers', 
@@ -145,8 +242,7 @@ const ORDER_TYPES = {
     },
     'Orden de Decomiso': {
         label: 'Orden de Decomiso',
-        color: '#f59e0b', // Amber
-        icon: '📦',
+        color: '#f59e0b',
         fields: [
             { 
                 name: 'seizure_vehicles', 
@@ -166,8 +262,7 @@ const ORDER_TYPES = {
     },
     'Orden de Alejamiento': {
         label: 'Orden de Alejamiento',
-        color: '#ec4899', // Pink
-        icon: '🚫',
+        color: '#ec4899',
         fields: [
             { 
                 name: 'protected_persons', 
@@ -196,8 +291,7 @@ const ORDER_TYPES = {
     },
     'Orden de Precinto': {
         label: 'Orden de Precinto',
-        color: '#6366f1', // Indigo
-        icon: '🔒',
+        color: '#6366f1',
         fields: [
             { 
                 name: 'property_owners', 
@@ -217,8 +311,7 @@ const ORDER_TYPES = {
     },
     'Ley Rico': {
         label: 'Ley Rico',
-        color: '#dc2626', // Red
-        icon: '⚖️',
+        color: '#dc2626',
         fields: [
             { 
                 name: 'target_persons_rico', 
@@ -236,8 +329,7 @@ const ORDER_TYPES = {
     },
     'Revision de Camaras': {
         label: 'Revisión de Cámaras',
-        color: '#0ea5e9', // Sky Blue
-        icon: '📹',
+        color: '#0ea5e9',
         fields: [
             { name: 'camera_location', label: 'Ubicación de la Cámara', type: 'text', placeholder: 'ej. Calle Principal esquina con Avenida Central' },
             { name: 'camera_owner', label: 'Propietario de la Cámara', type: 'text', placeholder: 'ej. Propietario del Comercio, del inmueble, ayuntamiento...' },
@@ -248,8 +340,7 @@ const ORDER_TYPES = {
     },
     'Solicitud de informacion medica': {
         label: 'Solicitud de Información Médica',
-        color: '#06b6d4', // Cyan
-        icon: '🏥',
+        color: '#06b6d4',
         fields: [
             { name: 'requested_department', label: 'Departamento al que se solicita', type: 'text', defaultValue: 'SAED' },
             { name: 'person_name', label: 'Nombre de la Persona', placeholder: 'Nombre Apellido', type: 'text' },
@@ -263,56 +354,68 @@ const ORDER_TYPES = {
 };
 
 // --- COMPONENTS ---
+const CategoryItem = ({ type, config, active, onClick }) => {
+    const { isLSSD } = useTheme();
+    const activeColor = isLSSD ? '#10b981' : 'var(--color-blue, #3b82f6)';
 
-const CategoryItem = ({ type, config, active, onClick }) => (
-    <button
-        onClick={onClick}
-        style={{
-            display: 'flex',
-            alignItems: 'center',
-            width: '100%',
-            padding: '12px 16px',
-            marginBottom: '8px',
-            background: active ? 'linear-gradient(90deg, rgba(212,175,55,0.2) 0%, transparent 100%)' : 'transparent',
-            border: 'none',
-            borderLeft: active ? '4px solid var(--accent-gold)' : '4px solid transparent',
-            color: active ? 'var(--accent-gold)' : 'var(--text-secondary)',
-            cursor: 'pointer',
-            textAlign: 'left',
-            transition: 'all 0.2s ease',
-            borderRadius: '0 8px 8px 0',
-            fontWeight: active ? 'bold' : 'normal',
-            fontSize: '0.95rem'
-        }}
-        className="category-hover"
-    >
-        <span style={{ marginRight: '12px', fontSize: '1.2rem' }}>{config ? config.icon : '📂'}</span>
-        {config ? config.label : 'Todas las Ordenes'}
-    </button>
-);
+    return (
+        <button
+            onClick={onClick}
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                width: '100%',
+                padding: '10px 14px',
+                marginBottom: '6px',
+                background: active ? `rgba(var(--color-blue-rgb, 59, 130, 246), 0.15)` : 'transparent',
+                border: 'none',
+                borderLeft: active ? `3px solid ${activeColor}` : '3px solid transparent',
+                color: active ? activeColor : 'var(--text-secondary)',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s ease',
+                borderRadius: '0 10px 10px 0',
+                fontWeight: active ? '700' : '500',
+                fontSize: '0.86rem',
+                gap: '10px'
+            }}
+            className="category-hover"
+        >
+            <span style={{ display: 'flex', alignItems: 'center', color: active ? activeColor : 'var(--text-secondary)' }}>
+                {config ? renderOrderTypeIcon(type, 16) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                )}
+            </span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {config ? config.label : 'Todas las Ordenes'}
+            </span>
+        </button>
+    );
+};
 
 const OrderCard = ({ order, onPreview }) => {
+    const { isLSSD } = useTheme();
     const config = ORDER_TYPES[order.order_type];
-    const color = config?.color || '#999';
-    const icon = config?.icon || '📄';
+    const cardAccentColor = config?.color || (isLSSD ? '#10b981' : '#3b82f6');
     
     // Status Badge Logic
     const getStatusColor = (s) => {
-        if (s === 'Aprobada') return '#10b981'; // Green
-        if (s === 'Rechazada') return '#ef4444'; // Red
-        return '#f59e0b'; // Amber (Pendiente)
+        if (s === 'Aprobada') return '#4ade80';
+        if (s === 'Rechazada') return '#f87171';
+        return '#fbbf24';
     };
     const statusColor = getStatusColor(order.status || 'Pendiente');
 
     const renderContent = () => {
-        return Object.entries(order.content).slice(0, 3).map(([key, val]) => {
+        return Object.entries(order.content || {}).slice(0, 3).map(([key, val]) => {
             if (!val) return null;
-            const field = config?.fields.find(f => f.name === key);
+            const field = config?.fields?.find(f => f.name === key);
             
-            // Convert value to string for display
             let displayValue = val;
             if (Array.isArray(val)) {
-                // Handle arrays (vehicles, properties, persons, phones, social media, seizure vehicles)
                 if (val.length > 0) {
                     if (val[0].plate && val[0].model) displayValue = `${val.length} vehículo${val.length > 1 ? 's' : ''}`;
                     else if (val[0].plate && val[0].vehicle) displayValue = `${val.length} decomiso${val.length > 1 ? 's' : ''}`;
@@ -329,102 +432,124 @@ const OrderCard = ({ order, onPreview }) => {
             }
             
             return (
-                <div key={key} style={{ marginBottom: '4px', fontSize: '0.85rem' }}>
-                    <span style={{ color: 'var(--text-secondary)', marginRight: '6px' }}>{field?.label || key}:</span>
-                    <span style={{ color: '#eee' }}>{displayValue.length > 50 ? displayValue.substring(0, 50) + '...' : displayValue}</span>
+                <div key={key} style={{ marginBottom: '4px', fontSize: '0.82rem', display: 'flex', gap: '6px' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{field?.label || key}:</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                        {displayValue.length > 50 ? displayValue.substring(0, 50) + '...' : displayValue}
+                    </span>
                 </div>
             );
         });
     };
 
     return (
-        <div className="glass-card" style={{
-            padding: '1.5rem',
+        <div style={{
+            background: 'var(--glass-bg, rgba(15, 23, 42, 0.65))',
+            backdropFilter: 'blur(16px)',
+            borderRadius: '16px',
+            border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+            padding: '1.25rem',
             position: 'relative',
             overflow: 'hidden',
-            transition: 'transform 0.2s, box-shadow 0.2s',
-            cursor: 'default',
+            transition: 'all 0.2s ease',
             display: 'flex',
             flexDirection: 'column',
+            justifyContent: 'space-between',
             height: '100%'
         }}>
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', background: color }}></div>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', background: cardAccentColor }} />
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ 
-                        background: `${color}22`, 
-                        color: color, 
-                        width: '32px', height: '32px', 
-                        borderRadius: '8px', 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '1.2rem'
-                    }}>
-                        {icon}
-                    </div>
-                    <div>
-                        <span style={{ fontSize: '0.8rem', color: color, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block' }}>
-                            {order.order_type}
-                        </span>
-                        {/* Status Badge */}
-                        <span style={{ 
-                            fontSize: '0.65rem', 
-                            background: `${statusColor}22`, 
-                            color: statusColor, 
-                            padding: '2px 6px', 
-                            borderRadius: '4px',
-                            border: `1px solid ${statusColor}44`,
-                            marginTop: '2px',
-                            display: 'inline-block'
+            <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.85rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ 
+                            background: `rgba(var(--color-blue-rgb, 59, 130, 246), 0.15)`, 
+                            color: cardAccentColor, 
+                            width: '34px',
+                            height: '34px', 
+                            borderRadius: '10px', 
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: `1px solid ${cardAccentColor}33`
                         }}>
-                            {order.status || 'Pendiente'}
-                        </span>
+                            {renderOrderTypeIcon(order.order_type, 18)}
+                        </div>
+                        <div>
+                            <span style={{ fontSize: '0.74rem', color: cardAccentColor, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>
+                                {order.order_type}
+                            </span>
+                            <span style={{ 
+                                fontSize: '0.68rem', 
+                                background: `${statusColor}18`, 
+                                color: statusColor, 
+                                padding: '2px 8px', 
+                                borderRadius: '12px',
+                                border: `1px solid ${statusColor}44`,
+                                marginTop: '3px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontWeight: 800
+                            }}>
+                                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: statusColor }}></span>
+                                {order.status || 'Pendiente'}
+                            </span>
+                        </div>
                     </div>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                        {new Date(order.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </span>
                 </div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    {new Date(order.created_at).toLocaleDateString()}
-                </span>
+
+                <h3 style={{ margin: '0 0 0.85rem 0', fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: 800, lineHeight: '1.35', letterSpacing: '-0.01em' }}>
+                    {order.title.replace(order.order_type + ' - ', '')}
+                </h3>
+
+                <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: '10px', padding: '10px 12px', marginBottom: '1rem', border: '1px solid rgba(255,255,255,0.04)' }}>
+                    {renderContent()}
+                </div>
             </div>
 
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', color: '#fff', fontWeight: '600', lineHeight: '1.4' }}>
-                {order.title.replace(order.order_type + ' - ', '')}
-            </h3>
-
-            <div style={{ flex: 1, background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '12px', marginBottom: '1rem' }}>
-                {renderContent()}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid var(--glass-border, rgba(255,255,255,0.06))' }}>
                 <img 
-                    src={order.author_avatar || '/logowebp/anon.webp'} 
+                    src={getProfileImage(order.author_avatar, '/logowebp/anon.webp')} 
                     alt="" 
-                    style={{ width: '28px', height: '28px', borderRadius: '50%', marginRight: '10px', border: `1px solid ${color}44` }} 
+                    style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '8px', objectFit: 'cover', border: `1px solid ${cardAccentColor}44` }} 
                 />
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#ddd' }}>{order.author_rank} {order.author_name}</span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Detective Bureau</span>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>{order.author_rank} {order.author_name}</span>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>Detective Bureau</span>
                 </div>
                 
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-                     <button 
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+                    <button 
                         onClick={(e) => {
                             e.stopPropagation();
                             onPreview(order);
                         }}
                         style={{ 
-                            background: 'transparent', 
-                            border: '1px solid rgba(255,255,255,0.2)', 
-                            color: '#fff', 
-                            padding: '4px 8px', 
-                            borderRadius: '4px', 
-                            fontSize: '0.7rem', 
+                            background: 'rgba(255,255,255,0.06)', 
+                            border: '1px solid var(--glass-border, rgba(255,255,255,0.12))', 
+                            color: 'var(--text-primary)', 
+                            padding: '5px 9px', 
+                            borderRadius: '8px', 
+                            fontSize: '0.75rem', 
                             cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '5px'
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontWeight: 600
                         }}
-                        title="Ver Vista Previa"
+                        title="Ver Vista Previa del Documento"
                         className="hover-bright"
                     >
-                        <span>👁️</span>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <span>Ver</span>
                     </button>
                     <button 
                         onClick={(e) => {
@@ -432,19 +557,27 @@ const OrderCard = ({ order, onPreview }) => {
                             import('../utils/orderPdfGenerator').then(mod => mod.generateOrderPDF(order, config));
                         }}
                         style={{ 
-                            background: 'transparent', 
-                            border: '1px solid rgba(255,255,255,0.2)', 
-                            color: '#fff', 
-                            padding: '4px 8px', 
-                            borderRadius: '4px', 
-                            fontSize: '0.7rem', 
+                            background: `rgba(var(--color-blue-rgb, 59, 130, 246), 0.15)`, 
+                            border: `1px solid ${cardAccentColor}44`, 
+                            color: cardAccentColor, 
+                            padding: '5px 9px', 
+                            borderRadius: '8px', 
+                            fontSize: '0.75rem', 
                             cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '5px'
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontWeight: 700
                         }}
-                        title="Descargar PDF Oficial"
+                        title="Exportar PDF Oficial"
                         className="hover-bright"
                     >
-                        <span>📄</span>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        <span>PDF</span>
                     </button>
                 </div>
             </div>
@@ -458,35 +591,44 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
 
     if (!isOpen || !order) return null;
     const config = ORDER_TYPES[order.order_type];
+    const accentColor = isLSSD ? '#10b981' : 'var(--color-blue, #3b82f6)';
 
     // Helper to render fields nicely in the preview
-    const fields = Object.entries(order.content).map(([key, val]) => {
+    const fields = Object.entries(order.content || {}).map(([key, val]) => {
         const fieldConfig = config?.fields?.find(f => f.name === key);
         return { label: fieldConfig?.documentLabel || fieldConfig?.label || key, value: val };
     });
 
     return (
-        <div className="cropper-modal-overlay" style={{ backdropFilter: 'blur(5px)', background: 'rgba(0,0,0,0.8)', zIndex: 9999 }}>
-            <div className="cropper-modal-content" style={{ 
-                maxWidth: '800px', 
-                height: '90vh',
-                padding: '0', 
-                background: '#fff', // White paper background
-                color: '#000', // Black text
-                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)',
-                display: 'flex', flexDirection: 'column'
-            }}>
+        <div className="mac-modal-overlay" onClick={onClose}>
+            <div className="mac-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '850px', width: '92vw', height: '90vh', display: 'flex', flexDirection: 'column' }}>
+                <div className="mac-modal-header">
+                    <div className="mac-window-dots">
+                        <div className="mac-window-dot close" onClick={onClose} title="Cerrar"></div>
+                        <div className="mac-window-dot min"></div>
+                        <div className="mac-window-dot max"></div>
+                    </div>
+                    <span className="mac-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <span>Vista Previa de Expediente Judicial</span>
+                    </span>
+                    <div style={{ width: 52 }} />
+                </div>
+
                 {/* Scrollable Paper Content */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '3rem' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '2.5rem', background: '#ffffff', color: '#0f172a' }}>
                     
-                    {/* Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', borderBottom: '2px solid #000', paddingBottom: '1rem' }}>
-                        <img src={isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp"} alt="DB" style={{ width: '60px', height: '60px' }} />
+                    {/* Document Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '2px solid #0f172a', paddingBottom: '1rem' }}>
+                        <img src={isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp"} alt="DB" style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
                         <div style={{ textAlign: 'center' }}>
-                            <h2 style={{ margin: 0, textTransform: 'uppercase', fontSize: '1.2rem' }}>{isLSSD ? "Los Santos Sheriff's Department" : "Los Santos Police Department"}</h2>
-                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'normal' }}>{isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU" : "DETECTIVE BUREAU"}</h3>
+                            <h2 style={{ margin: 0, textTransform: 'uppercase', fontSize: '1.15rem', color: '#0f172a', fontWeight: 800 }}>{isLSSD ? "Los Santos Sheriff's Department" : "Los Santos Police Department"}</h2>
+                            <h3 style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem', fontWeight: 700, color: '#475569' }}>{isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU" : "DETECTIVE BUREAU"}</h3>
                         </div>
-                        <img src={isLSSD ? "/logowebp/LSSDlogo.webp" : "/logowebp/LSSDlogo.webp"} alt="LSPD" style={{ width: '60px', height: '60px' }} />
+                        <img src={isLSSD ? "/logowebp/LSSDlogo.webp" : "/logowebp/LSSDlogo.webp"} alt="LSPD" style={{ width: '60px', height: '60px', objectFit: 'contain' }} />
                     </div>
 
                     <h1 style={{ textAlign: 'center', textTransform: 'uppercase', fontSize: '1.8rem', margin: '2rem 0' }}>Solicitud de Orden Judicial</h1>
@@ -685,39 +827,52 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
 
                 </div>
 
-                {/* Footer Controls (Dark UI for contrast) */}
-                <div style={{ padding: '1rem 2rem', background: '#1a1a1a', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                     
-                     <div style={{ display: 'flex', gap: '1rem' }}>
-                        <button type="button" className="login-button btn-secondary" onClick={onClose} style={{ width: 'auto', padding: '0.6rem 1.2rem' }}>Cerrar</button>
+                {/* Footer Controls */}
+                <div style={{ padding: '0.85rem 1.35rem', background: 'rgba(0, 0, 0, 0.25)', borderTop: '1px solid var(--glass-border, rgba(255,255,255,0.08))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                     <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                        <button type="button" className="mac-btn mac-btn-secondary" onClick={onClose}>
+                            Cerrar
+                        </button>
                         {canManage && (
-                             <button type="button" onClick={() => onDelete(order.id)} style={{ width: 'auto', padding: '0.6rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Eliminar Orden">
-                                 🗑️
+                             <button 
+                                type="button" 
+                                className="mac-btn"
+                                onClick={() => onDelete(order.id)} 
+                                style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.35)', padding: '0.45rem 0.85rem' }} 
+                                title="Eliminar Orden"
+                             >
+                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                     <polyline points="3 6 5 6 21 6"/>
+                                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                 </svg>
                              </button>
                         )}
                      </div>
                      
                      {canManage && (
-                         <div style={{ display: 'flex', gap: '1rem' }}>
+                         <div style={{ display: 'flex', gap: '0.6rem' }}>
                              {order.status !== 'Rechazada' && (
                                  <button 
+                                     className="mac-btn"
                                      onClick={() => onUpdateStatus(order.id, 'Rechazada')}
-                                     style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                                     RECHAZAR
+                                     style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.4)', fontWeight: 700 }}>
+                                     Rechazar
                                  </button>
                              )}
                              {order.status !== 'Pendiente' && (
                                  <button 
+                                     className="mac-btn"
                                      onClick={() => onUpdateStatus(order.id, 'Pendiente')}
-                                     style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                                     PENDIENTE
+                                     style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.4)', fontWeight: 700 }}>
+                                     Marcar Pendiente
                                  </button>
                              )}
                              {order.status !== 'Aprobada' && (
                                  <button 
+                                     className="mac-btn"
                                      onClick={() => onUpdateStatus(order.id, 'Aprobada')}
-                                     style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                                     APROBAR
+                                     style={{ background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.4)', fontWeight: 700 }}>
+                                     Aprobar Orden
                                  </button>
                              )}
                          </div>
@@ -1116,50 +1271,219 @@ function OrderArchive() {
     };
 
     const isAyudante = currentUser && currentUser.rol === 'Ayudante';
-    const canManageOrders = currentUser && !isAyudante; // Detectives and up can manage orders
+    const canManageOrders = currentUser && !isAyudante;
+
+    const accentColor = isLSSD ? '#10b981' : 'var(--color-blue, #3b82f6)';
+    const accentGlow = isLSSD ? 'rgba(16, 185, 129, 0.25)' : 'rgba(59, 130, 246, 0.25)';
+
+    // Stats
+    const totalCount = orders.length;
+    const approvedCount = orders.filter(o => o.status === 'Aprobada').length;
+    const pendingCount = orders.filter(o => !o.status || o.status === 'Pendiente').length;
+    const rejectedCount = orders.filter(o => o.status === 'Rechazada').length;
 
     return (
-        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '2rem', minHeight: '100vh', boxSizing: 'border-box' }}>
+        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '1.5rem', color: 'var(--text-primary)', minHeight: '100vh' }}>
             
-            {/* --- HEADER --- */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem' }}>
-                <div>
-                    <h1 className="page-title" style={{ fontSize: '2.5rem', marginBottom: '0.5rem', background: 'linear-gradient(90deg, #fff, #aaa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        JUDICIAL ORDERS
-                    </h1>
-                    <div style={{ color: 'var(--text-secondary)', fontSize: '1rem', letterSpacing: '0.5px' }}>
-                        {isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU • ARCHIVO Y GESTIÓN" : "DETECTIVE BUREAU • ARCHIVO Y GESTIÓN"}
+            {/* --- APPLE HERO CONTROL BANNER --- */}
+            <div style={{
+                marginBottom: '1.75rem',
+                background: 'var(--glass-bg, rgba(15, 23, 42, 0.6))',
+                backdropFilter: 'blur(20px)',
+                borderRadius: '20px',
+                border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))',
+                padding: '1.5rem 1.75rem',
+                boxShadow: '0 12px 35px rgba(0,0,0,0.3)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.25rem'
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '14px',
+                            background: `linear-gradient(135deg, ${accentColor}, var(--color-blue-dark, #1e3a8a))`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: `0 6px 20px ${accentGlow}`,
+                            color: '#ffffff'
+                        }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                <path d="m9 12 2 2 4-4"/>
+                            </svg>
+                        </div>
+
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+                                    ÓRDENES Y SENTENCIAS JUDICIALES
+                                </h1>
+                                <span style={{
+                                    fontSize: '0.7rem',
+                                    fontWeight: 800,
+                                    padding: '0.2rem 0.6rem',
+                                    borderRadius: '20px',
+                                    background: `rgba(var(--color-blue-rgb, 59, 130, 246), 0.15)`,
+                                    color: accentColor,
+                                    border: `1px solid ${accentColor}44`,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em'
+                                }}>
+                                    Warrants & Judicial Orders Archive
+                                </span>
+                            </div>
+                            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                {isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU • Registro y consulta de expedientes" : "DETECTIVE BUREAU • Registro y consulta de expedientes"}
+                            </p>
+                        </div>
+                    </div>
+
+                    {!isAyudante && (
+                        <button 
+                            className="mac-btn mac-btn-primary" 
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.7rem 1.35rem',
+                                fontSize: '0.88rem',
+                                borderRadius: '12px',
+                                background: isLSSD 
+                                    ? 'linear-gradient(135deg, #10b981, #059669)' 
+                                    : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                                color: '#ffffff',
+                                fontWeight: 700,
+                                border: '1px solid rgba(255,255,255,0.2)',
+                                boxShadow: `0 4px 16px ${accentGlow}`,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                            }} 
+                            onClick={() => { selectOrderType('Orden de Registro (Casa)'); setShowCreateModal(true); }}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19"/>
+                                <line x1="5" y1="12" x2="19" y2="12"/>
+                            </svg>
+                            <span>Generar Nueva Orden</span>
+                        </button>
+                    )}
+                </div>
+
+                {/* KPI Metrics Widgets Bar */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '0.85rem',
+                    paddingTop: '0.5rem',
+                    borderTop: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))'
+                }}>
+                    <div style={{
+                        background: 'rgba(0, 0, 0, 0.25)',
+                        borderRadius: '12px',
+                        padding: '0.85rem 1.1rem',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                    }}>
+                        <div>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>TOTAL REGISTRADAS</span>
+                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: accentColor, marginTop: '0.1rem' }}>{totalCount}</div>
+                        </div>
+                        <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: `rgba(var(--color-blue-rgb, 59, 130, 246), 0.15)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: accentColor }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div style={{
+                        background: 'rgba(0, 0, 0, 0.25)',
+                        borderRadius: '12px',
+                        padding: '0.85rem 1.1rem',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                    }}>
+                        <div>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>APROBADAS</span>
+                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#4ade80', marginTop: '0.1rem' }}>{approvedCount}</div>
+                        </div>
+                        <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: 'rgba(34, 197, 94, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4ade80' }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                <polyline points="22 4 12 14.01 9 11.01"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div style={{
+                        background: 'rgba(0, 0, 0, 0.25)',
+                        borderRadius: '12px',
+                        padding: '0.85rem 1.1rem',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                    }}>
+                        <div>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>PENDIENTES</span>
+                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fbbf24', marginTop: '0.1rem' }}>{pendingCount}</div>
+                        </div>
+                        <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fbbf24' }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div style={{
+                        background: 'rgba(0, 0, 0, 0.25)',
+                        borderRadius: '12px',
+                        padding: '0.85rem 1.1rem',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                    }}>
+                        <div>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>RECHAZADAS</span>
+                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f87171', marginTop: '0.1rem' }}>{rejectedCount}</div>
+                        </div>
+                        <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f87171' }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="15" y1="9" x2="9" y2="15"/>
+                                <line x1="9" y1="9" x2="15" y2="15"/>
+                            </svg>
+                        </div>
                     </div>
                 </div>
-                
-                {!isAyudante && (
-                    <button 
-                        className="login-button" 
-                        style={{ padding: '0.8rem 1.5rem', width: 'auto', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 15px rgba(212,175,55,0.2)' }} 
-                        onClick={() => { selectOrderType('Orden de Registro (Casa)'); setShowCreateModal(true); }}
-                    >
-                        <span style={{ fontSize: '1.2rem' }}>+</span> 
-                        GENERAR ORDEN
-                    </button>
-                )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '3rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '290px 1fr', gap: '1.75rem' }}>
                 
-                {/* --- SIDEBAR --- */}
+                {/* --- APPLE GLASS SIDEBAR --- */}
                 <div>
                     <div style={{ 
-                        background: 'rgba(20, 20, 25, 0.6)', 
-                        backdropFilter: 'blur(10px)', 
-                        border: '1px solid rgba(255,255,255,0.05)', 
-                        borderRadius: '16px', 
-                        padding: '1.5rem 0',
+                        background: 'var(--glass-bg, rgba(15, 23, 42, 0.65))', 
+                        backdropFilter: 'blur(16px)', 
+                        border: '1px solid var(--glass-border, rgba(255, 255, 255, 0.08))', 
+                        borderRadius: '18px', 
+                        padding: '1.25rem 0',
                         position: 'sticky',
-                        top: '2rem',
-                        boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)'
+                        top: '1.5rem',
+                        boxShadow: '0 8px 30px rgba(0,0,0,0.25)'
                     }}>
-                        <div style={{ padding: '0 1.5rem 1rem 1.5rem', marginBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 'bold', letterSpacing: '1px' }}>
-                            FILTRAR POR TIPO
+                        <div style={{ padding: '0 1.25rem 0.85rem 1.25rem', marginBottom: '0.5rem', borderBottom: '1px solid var(--glass-border, rgba(255, 255, 255, 0.06))', color: 'var(--text-secondary)', fontSize: '0.72rem', fontWeight: '800', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                            Categoría de Órdenes
                         </div>
                         
                         <CategoryItem 
@@ -1182,23 +1506,28 @@ function OrderArchive() {
                 {/* --- CONTENT GRID --- */}
                 <div>
                      {loading ? (
-                        <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-                            <div className="loading-spinner"></div>
+                        <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', gap: '0.6rem' }}>
+                            <span style={{ display: 'inline-block', width: '16px', height: '16px', border: `2px solid ${accentColor}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></span>
+                            <span>Cargando archivo de órdenes judiciales...</span>
                         </div>
                     ) : orders.length === 0 ? (
                         <div style={{ 
-                            background: 'rgba(255,255,255,0.02)', 
-                            border: '2px dashed rgba(255,255,255,0.1)', 
-                            borderRadius: '16px', 
-                            height: '300px', 
+                            background: 'var(--glass-bg, rgba(15, 23, 42, 0.4))', 
+                            border: '1px dashed var(--glass-border, rgba(255, 255, 255, 0.1))', 
+                            borderRadius: '18px', 
+                            padding: '4rem 2rem', 
                             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
                             color: 'var(--text-secondary)' 
                         }}>
-                            <span style={{ fontSize: '2rem', marginBottom: '1rem', opacity: 0.5 }}>📂</span>
-                            No se encontraron ordenes en esta categoría.
+                            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '0.75rem', opacity: 0.6 }}>
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>No se encontraron órdenes registradas</div>
+                            <div style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>No existen archivos bajo esta categoría.</div>
                         </div>
                     ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.25rem' }}>
                             {orders.map(order => (
                                 <OrderCard 
                                     key={order.id} 
@@ -1214,42 +1543,55 @@ function OrderArchive() {
 
             {/* --- CREATE MODAL --- */}
             {showCreateModal && (
-                <div className="cropper-modal-overlay" style={{ backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.7)', zIndex: 9000 }}>
-                    <div className="cropper-modal-content" style={{ 
-                        maxWidth: '800px', 
-                        padding: '0', 
-                        border: '1px solid rgba(255,255,255,0.1)', 
-                        background: '#151515',
-                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)'
-                    }}>
-                        {/* Modal Header */}
-                        <div style={{ padding: '2rem', background: 'linear-gradient(180deg, rgba(30,30,30,1) 0%, rgba(20,20,20,1) 100%)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                            <h2 style={{ margin: 0, fontSize: '1.5rem', color: '#fff' }}>Generar Nueva Orden</h2>
-                            <p style={{ margin: '0.5rem 0 0 0', color: 'var(--text-secondary)' }}>Complete los campos requeridos para archivar la orden judicial.</p>
+                <div className="mac-modal-overlay" onClick={() => setShowCreateModal(false)}>
+                    <div className="mac-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '820px', width: '92vw' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowCreateModal(false)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                </svg>
+                                <span>Generar Nueva Orden Judicial</span>
+                            </span>
+                            <div style={{ width: 52 }} />
                         </div>
                         
-                        <div style={{ padding: '2rem', maxHeight: '70vh', overflowY: 'auto' }}>
+                        <div className="mac-modal-body" style={{ padding: '1.5rem', maxHeight: '75vh', overflowY: 'auto' }}>
                             {/* Type Selector */}
-                            <div style={{ marginBottom: '2rem' }}>
-                                <label className="form-label" style={{ color: 'var(--accent-gold)' }}>TIPO DE ORDEN</label>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+                            <div style={{ marginBottom: '1.75rem' }}>
+                                <label className="form-label" style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.6rem', display: 'block' }}>
+                                    TIPO DE ORDEN JUDICIAL
+                                </label>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
                                     {Object.entries(ORDER_TYPES).map(([key, config]) => (
                                         <button
                                             key={key}
                                             type="button"
                                             onClick={() => selectOrderType(key)}
                                             style={{
-                                                background: selectedType === key ? `${config.color}22` : 'rgba(255,255,255,0.05)',
-                                                border: selectedType === key ? `1px solid ${config.color}` : '1px solid transparent',
-                                                color: selectedType === key ? config.color : 'var(--text-secondary)',
-                                                padding: '10px',
-                                                borderRadius: '8px',
+                                                background: selectedType === key ? `rgba(var(--color-blue-rgb, 59, 130, 246), 0.18)` : 'rgba(0,0,0,0.25)',
+                                                border: selectedType === key ? `1px solid ${accentColor}` : '1px solid var(--glass-border, rgba(255,255,255,0.08))',
+                                                color: selectedType === key ? accentColor : 'var(--text-secondary)',
+                                                padding: '10px 12px',
+                                                borderRadius: '12px',
                                                 cursor: 'pointer',
-                                                transition: 'all 0.2s'
+                                                transition: 'all 0.2s ease',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                textAlign: 'center'
                                             }}
                                         >
-                                            <div style={{ fontSize: '1.2rem', marginBottom: '5px' }}>{config.icon}</div>
-                                            <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{config.label}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: selectedType === key ? accentColor : 'var(--text-secondary)' }}>
+                                                {renderOrderTypeIcon(key, 20)}
+                                            </div>
+                                            <div style={{ fontSize: '0.78rem', fontWeight: 700, lineHeight: '1.2' }}>{config.label}</div>
                                         </button>
                                     ))}
                                 </div>
@@ -1676,10 +2018,36 @@ function OrderArchive() {
                                     })}
                                 </div>
 
-                                <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '2.5rem', gap: '1rem' }}>
-                                    <button type="button" className="login-button btn-secondary" onClick={() => setShowCreateModal(false)} style={{ width: 'auto', padding: '0.8rem 1.5rem' }}>Cancelar</button>
-                                    <button type="submit" className="login-button" disabled={submitting} style={{ width: 'auto', padding: '0.8rem 2rem' }}>
-                                        {submitting ? 'Procesando...' : 'Archivar Orden'}
+                                <div style={{
+                                    padding: '1rem 1.5rem',
+                                    borderTop: '1px solid var(--glass-border, rgba(255,255,255,0.08))',
+                                    display: 'flex',
+                                    justifyContent: 'flex-end',
+                                    gap: '0.75rem',
+                                    background: 'rgba(0, 0, 0, 0.25)',
+                                    margin: '1.5rem -1.5rem -1.5rem -1.5rem'
+                                }}>
+                                    <button 
+                                        type="button" 
+                                        className="mac-btn mac-btn-secondary" 
+                                        onClick={() => setShowCreateModal(false)}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button 
+                                        type="submit" 
+                                        className="mac-btn mac-btn-primary" 
+                                        disabled={submitting}
+                                        style={{
+                                            background: isLSSD 
+                                                ? 'linear-gradient(135deg, #10b981, #059669)' 
+                                                : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                                            color: '#ffffff',
+                                            fontWeight: 700,
+                                            border: 'none'
+                                        }}
+                                    >
+                                        {submitting ? 'Archivando...' : 'Archivar Orden Judicial'}
                                     </button>
                                 </div>
                             </form>
