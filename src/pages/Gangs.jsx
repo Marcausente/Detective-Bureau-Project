@@ -7,6 +7,7 @@ import GangTodoList from '../components/GangTodoList';
 import CaseWhiteboard from '../components/cases/CaseWhiteboard';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { generateGangSummaryPDF } from '../utils/gangPdfGenerator';
 import '../index.css';
 
 function Gangs() {
@@ -648,6 +649,45 @@ function Gangs() {
             alert("Could not load activity log.");
         } finally {
             setLoadingActivity(false);
+        }
+    };
+
+    const handleExportGangPDF = async (gang) => {
+        try {
+            setFeedbackNotice(`📄 Generando resumen PDF de ${gang.name}...`);
+
+            // Fetch author details
+            const { data: { user } } = await supabase.auth.getUser();
+            let authorName = 'Agente Investigador';
+            if (user) {
+                const { data: userData } = await supabase.from('users').select('nombre, apellido, rango').eq('id', user.id).single();
+                if (userData) {
+                    authorName = `${userData.rango || ''} ${userData.nombre || ''} ${userData.apellido || ''}`.trim();
+                }
+            }
+
+            // Fetch related incidents and patrol logs for this gang
+            const [incidentsRes, patrolLogsRes] = await Promise.all([
+                supabase.rpc('get_gang_incidents', { p_gang_id: gang.gang_id }),
+                supabase.rpc('get_patrol_logs', { p_gang_id: gang.gang_id })
+            ]);
+
+            const incidents = incidentsRes.data || [];
+            const patrolLogs = patrolLogsRes.data || [];
+
+            await generateGangSummaryPDF(gang, {
+                incidents,
+                patrolLogs,
+                isLSSD,
+                authorName
+            });
+
+            setFeedbackNotice(`✅ Resumen PDF de ${gang.name} exportado con éxito 📄`);
+            setTimeout(() => setFeedbackNotice(null), 5000);
+        } catch (err) {
+            console.error("Error generating Gang PDF:", err);
+            alert("Error al generar el PDF del resumen: " + err.message);
+            setFeedbackNotice(null);
         }
     };
 
@@ -1343,6 +1383,7 @@ function Gangs() {
                                 onViewMemberProfile={handleOpenMemberProfile}
                                 onEditGangName={handleEditGangName}
                                 onViewGangBoard={(g) => setActiveBoardGang(g)}
+                                onExportPDF={handleExportGangPDF}
                             />
                         ))
                     )}
@@ -1851,7 +1892,7 @@ function Gangs() {
 
 // --- SUB-COMPONENTS ---
 
-function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName, onViewGangBoard }) {
+function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName, onViewGangBoard, onExportPDF }) {
     const { t } = useLanguage();
     const { isLSSD } = useTheme();
     // Helper for buttons
@@ -1955,6 +1996,8 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                         )}
                     </div>
                 </div>
+
+
                 <div className="gang-image-container" style={{ position: 'relative' }}>
                     {/* Edit Button for Map */}
                     <button
@@ -2345,7 +2388,50 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                 </div>
             </div>
 
-            {/* Expanded Image Modal */}
+            {/* Footer action to export full criminal organization summary PDF */}
+            <div style={{ marginTop: '0.8rem', marginBottom: '0.4rem', padding: '0.2rem 0.2rem' }}>
+                <button
+                    className="mac-btn"
+                    onClick={() => onExportPDF(gang)}
+                    title="Sacar e imprimir resumen de la organización criminal en PDF"
+                    style={{
+                        width: '100%',
+                        padding: '0.45rem 0.75rem',
+                        fontSize: '0.75rem',
+                        fontWeight: '600',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justify: 'center',
+                        gap: '0.4rem',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        borderRadius: '6px',
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={e => {
+                        e.currentTarget.style.background = isLSSD
+                            ? 'rgba(6, 78, 59, 0.7)'
+                            : 'rgba(30, 58, 138, 0.7)';
+                        e.currentTarget.style.color = '#ffffff';
+                        e.currentTarget.style.borderColor = isLSSD ? '#10b981' : '#60a5fa';
+                    }}
+                    onMouseLeave={e => {
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                        e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)';
+                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                    }}
+                >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                    <span>Sacar resumen de la organización criminal</span>
+                </button>
+            </div>
 
         </div>
     );
