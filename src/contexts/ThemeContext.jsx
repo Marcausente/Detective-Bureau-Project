@@ -99,6 +99,14 @@ export function ThemeProvider({ children }) {
             if (favicon) favicon.href = '/logowebp/dblogo.webp';
         }
 
+        // Set data attribute for global theme identification across non-react modules (e.g. PDF generator)
+        document.body.setAttribute('data-dept-theme', theme);
+        if (theme === 'LSSD' || userTheme === 'verde') {
+            document.body.setAttribute('data-is-lssd', 'true');
+        } else {
+            document.body.removeAttribute('data-is-lssd');
+        }
+
         // Remove all previous theme classes
         document.body.classList.remove('theme-gris', 'theme-lssd', 'theme-verde', 'theme-negro', 'theme-azul', 'theme-claro');
         

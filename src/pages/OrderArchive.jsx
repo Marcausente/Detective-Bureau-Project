@@ -396,7 +396,7 @@ const CategoryItem = ({ type, config, active, onClick }) => {
     );
 };
 
-const OrderCard = ({ order, onPreview }) => {
+const OrderCard = ({ order, onPreview, onOpenExecutionModal }) => {
     const { isLSSD } = useTheme();
     const config = ORDER_TYPES[order.order_type];
     const cardAccentColor = config?.color || (isLSSD ? '#10b981' : '#3b82f6');
@@ -523,7 +523,7 @@ const OrderCard = ({ order, onPreview }) => {
                     <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>Detective Bureau</span>
                 </div>
                 
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px' }}>
                     <button 
                         onClick={(e) => {
                             e.stopPropagation();
@@ -533,19 +533,19 @@ const OrderCard = ({ order, onPreview }) => {
                             background: 'rgba(255,255,255,0.06)', 
                             border: '1px solid var(--glass-border, rgba(255,255,255,0.12))', 
                             color: 'var(--text-primary)', 
-                            padding: '5px 9px', 
-                            borderRadius: '8px', 
-                            fontSize: '0.75rem', 
+                            padding: '4px 7px', 
+                            borderRadius: '7px', 
+                            fontSize: '0.72rem', 
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '3px',
                             fontWeight: 600
                         }}
-                        title="Ver Vista Previa del Documento"
+                        title="Ver Vista Previa del Expediente"
                         className="hover-bright"
                     >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                             <circle cx="12" cy="12" r="3"/>
                         </svg>
@@ -554,30 +554,57 @@ const OrderCard = ({ order, onPreview }) => {
                     <button 
                         onClick={(e) => {
                             e.stopPropagation();
-                            import('../utils/orderPdfGenerator').then(mod => mod.generateOrderPDF(order, config));
+                            import('../utils/orderPdfGenerator').then(mod => mod.generateOrderPDF(order, config, isLSSD, 'solicitud'));
                         }}
                         style={{ 
-                            background: `rgba(var(--color-blue-rgb, 59, 130, 246), 0.15)`, 
-                            border: `1px solid ${cardAccentColor}44`, 
-                            color: cardAccentColor, 
-                            padding: '5px 9px', 
-                            borderRadius: '8px', 
-                            fontSize: '0.75rem', 
+                            background: 'rgba(255,255,255,0.06)', 
+                            border: '1px solid var(--glass-border, rgba(255,255,255,0.12))', 
+                            color: 'var(--text-secondary)', 
+                            padding: '4px 7px', 
+                            borderRadius: '7px', 
+                            fontSize: '0.72rem', 
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
-                            fontWeight: 700
+                            gap: '3px',
+                            fontWeight: 600
                         }}
-                        title="Exportar PDF Oficial"
+                        title="Exportar PDF de Solicitud Interna (Expediente Completo)"
                         className="hover-bright"
                     >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <span>Solicitud</span>
+                    </button>
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenExecutionModal(order);
+                        }}
+                        style={{ 
+                            background: `rgba(var(--color-blue-rgb, 59, 130, 246), 0.18)`, 
+                            border: `1px solid ${cardAccentColor}55`, 
+                            color: cardAccentColor, 
+                            padding: '4px 7px', 
+                            borderRadius: '7px', 
+                            fontSize: '0.72rem', 
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            fontWeight: 700
+                        }}
+                        title="Exportar Mandamiento / Orden de Ejecución (Para Entregar a la Persona)"
+                        className="hover-bright"
+                    >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                             <polyline points="7 10 12 15 17 10"/>
                             <line x1="12" y1="15" x2="12" y2="3"/>
                         </svg>
-                        <span>PDF</span>
+                        <span>Orden</span>
                     </button>
                 </div>
             </div>
@@ -586,7 +613,7 @@ const OrderCard = ({ order, onPreview }) => {
 };
 
 // --- PREVIEW MODAL ---
-const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDelete }) => {
+const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDelete, onOpenExecutionModal }) => {
     const { isLSSD } = useTheme();
 
     if (!isOpen || !order) return null;
@@ -833,6 +860,36 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                         <button type="button" className="mac-btn mac-btn-secondary" onClick={onClose}>
                             Cerrar
                         </button>
+                        <button 
+                            type="button" 
+                            className="mac-btn"
+                            onClick={() => import('../utils/orderPdfGenerator').then(mod => mod.generateOrderPDF(order, config, isLSSD, 'solicitud'))}
+                            style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', border: '1px solid var(--glass-border, rgba(255,255,255,0.15))', display: 'flex', alignItems: 'center', gap: '5px' }}
+                            title="Exportar Expediente de Solicitud Interna (PDF)"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            <span>PDF Solicitud</span>
+                        </button>
+                        <button 
+                            type="button" 
+                            className="mac-btn"
+                            onClick={() => {
+                                onClose();
+                                onOpenExecutionModal(order);
+                            }}
+                            style={{ background: isLSSD ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)', color: isLSSD ? '#34d399' : '#60a5fa', border: `1px solid ${isLSSD ? '#10b981' : '#3b82f6'}55`, display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 700 }}
+                            title="Exportar Mandamiento / Orden Judicial de Ejecución (Para Entregar al Ciudadano)"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            <span>PDF Orden Entregable</span>
+                        </button>
                         {canManage && (
                              <button 
                                 type="button" 
@@ -924,6 +981,67 @@ function OrderArchive() {
     
     // Vehicle Seizure Repeater State
     const [tempSeizureVehicle, setTempSeizureVehicle] = useState({});
+
+    // Execution Details Modal State (Only for Execution Order PDF)
+    const [showExecutionModal, setShowExecutionModal] = useState(false);
+    const [selectedOrderForExecution, setSelectedOrderForExecution] = useState(null);
+    const [execForm, setExecForm] = useState({
+        notes: '',
+        instructions: '',
+        validity: '48 Horas desde su expedición'
+    });
+    const [savingExecDetails, setSavingExecDetails] = useState(false);
+
+    const handleOpenExecutionModal = (order) => {
+        setSelectedOrderForExecution(order);
+        const existing = order.content?.execution_details || {};
+        setExecForm({
+            notes: existing.notes || '',
+            instructions: existing.instructions || '',
+            validity: existing.validity || '48 Horas desde su expedición'
+        });
+        setShowExecutionModal(true);
+    };
+
+    const handleSaveAndExportExecutionPDF = async (e) => {
+        e.preventDefault();
+        if (!selectedOrderForExecution) return;
+        setSavingExecDetails(true);
+
+        try {
+            const config = ORDER_TYPES[selectedOrderForExecution.order_type];
+            const updatedContent = {
+                ...(selectedOrderForExecution.content || {}),
+                execution_details: { ...execForm }
+            };
+
+            // Persist to Supabase
+            const { error } = await supabase
+                .from('judicial_orders')
+                .update({ content: updatedContent })
+                .eq('id', selectedOrderForExecution.id);
+
+            if (error) throw error;
+
+            // Update local order object
+            const updatedOrder = { ...selectedOrderForExecution, content: updatedContent };
+            setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+            if (previewOrder && previewOrder.id === updatedOrder.id) {
+                setPreviewOrder(updatedOrder);
+            }
+
+            // Generate and download Execution Order PDF
+            const mod = await import('../utils/orderPdfGenerator');
+            await mod.generateOrderPDF(updatedOrder, config, isLSSD, 'orden');
+
+            setShowExecutionModal(false);
+        } catch (err) {
+            console.error("Error saving execution details:", err);
+            alert("Error al guardar los detalles de la orden: " + err.message);
+        } finally {
+            setSavingExecDetails(false);
+        }
+    };
 
     const selectOrderType = (type) => {
         setSelectedType(type);
@@ -1533,6 +1651,7 @@ function OrderArchive() {
                                     key={order.id} 
                                     order={order} 
                                     onPreview={openPreview} 
+                                    onOpenExecutionModal={handleOpenExecutionModal}
                                 />
                             ))}
                         </div>
@@ -2056,6 +2175,128 @@ function OrderArchive() {
                 </div>
             )}
             
+            {/* --- EXECUTION DETAILS MODAL (PUBLIC EXECUTION ORDER PDF) --- */}
+            {showExecutionModal && selectedOrderForExecution && (
+                <div className="mac-modal-overlay" onClick={() => setShowExecutionModal(false)}>
+                    <div className="mac-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '680px', width: '92vw' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowExecutionModal(false)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                <span>Detalles Adicionales de Ejecución Judicial</span>
+                            </span>
+                            <div style={{ width: 52 }} />
+                        </div>
+
+                        <div className="mac-modal-body" style={{ padding: '1.5rem', maxHeight: '75vh', overflowY: 'auto' }}>
+                            <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '12px', padding: '1rem', marginBottom: '1.25rem' }}>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 700, marginBottom: '0.2rem' }}>
+                                    Mandamiento Judicial de Ejecución (Para Entregar al Ciudadano)
+                                </div>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                    Complete los términos o cláusulas adicionales de actuación. Estos datos se guardarán permanentemente en el expediente de esta orden y figurarán impresos únicamente en el PDF de la orden entregable.
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleSaveAndExportExecutionPDF}>
+                                <div style={{ display: 'grid', gap: '1.2rem' }}>
+                                    <div className="form-group">
+                                        <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                                            Cláusulas Especiales de Ejecución / Términos de Actuación
+                                        </label>
+                                        <textarea
+                                            className="eval-textarea"
+                                            rows="3"
+                                            placeholder="Ej: Se autoriza el uso de la fuerza necesaria en caso de no obtener respuesta. Franja horaria de ejecución: de 06:00 a 22:00."
+                                            value={execForm.notes}
+                                            onChange={e => setExecForm(prev => ({ ...prev, notes: e.target.value }))}
+                                            style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border, rgba(255,255,255,0.1))' }}
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                                            Instrucciones / Indicaciones de Notificación
+                                        </label>
+                                        <textarea
+                                            className="eval-textarea"
+                                            rows="3"
+                                            placeholder="Ej: Notificación entregada en mano al propietario. Entrega de copia cotejada del presente mandamiento."
+                                            value={execForm.instructions}
+                                            onChange={e => setExecForm(prev => ({ ...prev, instructions: e.target.value }))}
+                                            style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border, rgba(255,255,255,0.1))' }}
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                                            Plazo de Vigencia / Validez de la Orden
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="Ej: 48 Horas desde su expedición"
+                                            value={execForm.validity}
+                                            onChange={e => setExecForm(prev => ({ ...prev, validity: e.target.value }))}
+                                            style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border, rgba(255,255,255,0.1))' }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{
+                                    padding: '1rem 1.5rem',
+                                    borderTop: '1px solid var(--glass-border, rgba(255,255,255,0.08))',
+                                    display: 'flex',
+                                    justify: 'flex-end',
+                                    gap: '0.75rem',
+                                    background: 'rgba(0, 0, 0, 0.25)',
+                                    margin: '1.5rem -1.5rem -1.5rem -1.5rem'
+                                }}>
+                                    <button
+                                        type="button"
+                                        className="mac-btn mac-btn-secondary"
+                                        onClick={() => setShowExecutionModal(false)}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="mac-btn mac-btn-primary"
+                                        disabled={savingExecDetails}
+                                        style={{
+                                            background: isLSSD 
+                                                ? 'linear-gradient(135deg, #10b981, #059669)' 
+                                                : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                                            color: '#ffffff',
+                                            fontWeight: 700,
+                                            border: 'none',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px'
+                                        }}
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                            <polyline points="7 10 12 15 17 10"/>
+                                            <line x1="12" y1="15" x2="12" y2="3"/>
+                                        </svg>
+                                        <span>{savingExecDetails ? 'Guardando e Imprimiendo...' : 'Guardar e Imprimir Orden'}</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
             {/* Preview Modal */}
             <PreviewModal 
                 order={previewOrder} 
@@ -2064,6 +2305,7 @@ function OrderArchive() {
                 canManage={canManageOrders}
                 onUpdateStatus={handleStatusUpdate}
                 onDelete={handleDelete}
+                onOpenExecutionModal={handleOpenExecutionModal}
             />
         </div>
     );
