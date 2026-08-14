@@ -151,6 +151,15 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
     // Handle Card Drag Start
     const handleNodeMouseDown = (e, nodeId) => {
+        if (e.button === 1) {
+            e.preventDefault();
+            setIsPanning(true);
+            panStartRef.current = {
+                x: e.clientX - pan.x,
+                y: e.clientY - pan.y
+            };
+            return;
+        }
         e.stopPropagation();
         if (connectingSourceId) {
             // Uniting mode
@@ -232,6 +241,15 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
     // Handle Pan Canvas
     const handleBoardMouseDown = (e) => {
+        if (e.button === 1) {
+            e.preventDefault();
+            setIsPanning(true);
+            panStartRef.current = {
+                x: e.clientX - pan.x,
+                y: e.clientY - pan.y
+            };
+            return;
+        }
         if (e.target.closest('.whiteboard-card') || e.target.closest('.whiteboard-controls')) return;
         if (connectingSourceId) {
             setConnectingSourceId(null);

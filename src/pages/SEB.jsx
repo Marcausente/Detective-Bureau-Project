@@ -671,6 +671,15 @@ function SEB() {
     // Element Resize Handle Mouse Down
     const handleMouseDownResize = (e, el, dir) => {
         e.stopPropagation();
+        if (e.button === 1) {
+            e.preventDefault();
+            setIsPanning(true);
+            panStartRef.current = {
+                x: e.clientX - pan.x,
+                y: e.clientY - pan.y
+            };
+            return;
+        }
         e.preventDefault();
         if (el.isLocked) return;
 
@@ -698,6 +707,17 @@ function SEB() {
 
     // Canvas Mouse Down: Start Pencil/Shape Drawing OR Eraser OR Pan
     const handleMouseDownBoard = (e) => {
+        // Middle mouse button (wheel press): pan canvas without changing selection or tool state
+        if (e.button === 1) {
+            e.preventDefault();
+            setIsPanning(true);
+            panStartRef.current = {
+                x: e.clientX - pan.x,
+                y: e.clientY - pan.y
+            };
+            return;
+        }
+
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
         if (isPencilActive) {
@@ -723,6 +743,17 @@ function SEB() {
     // Element Drag Start
     const handleMouseDownElement = (e, el) => {
         e.stopPropagation();
+        // Middle mouse button (wheel press): pan canvas without changing selection or initiating drag
+        if (e.button === 1) {
+            e.preventDefault();
+            setIsPanning(true);
+            panStartRef.current = {
+                x: e.clientX - pan.x,
+                y: e.clientY - pan.y
+            };
+            return;
+        }
+
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
         if (isPencilActive) {
@@ -756,6 +787,17 @@ function SEB() {
     // Drawing Element Drag Start (for quick shapes like line, arrow, rectangle, circle)
     const handleMouseDownDrawing = (e, draw) => {
         e.stopPropagation();
+        // Middle mouse button (wheel press): pan canvas without changing selection or initiating shape drag
+        if (e.button === 1) {
+            e.preventDefault();
+            setIsPanning(true);
+            panStartRef.current = {
+                x: e.clientX - pan.x,
+                y: e.clientY - pan.y
+            };
+            return;
+        }
+
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
         if (isPencilActive) {
