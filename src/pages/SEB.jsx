@@ -760,18 +760,25 @@ function SEB() {
         };
     };
 
-    // Element Resize Handle Mouse Down
-    const handleMouseDownResize = (e, el, dir) => {
-        e.stopPropagation();
-        if (e.button === 1) {
+    // Helper to start middle-click wheel panning
+    const startMiddlePan = (e) => {
+        if (e.button === 1 || (e.buttons & 4) !== 0) {
             e.preventDefault();
+            e.stopPropagation();
             setIsPanning(true);
             panStartRef.current = {
                 x: e.clientX - pan.x,
                 y: e.clientY - pan.y
             };
-            return;
+            return true;
         }
+        return false;
+    };
+
+    // Element Resize Handle Mouse Down
+    const handleMouseDownResize = (e, el, dir) => {
+        if (startMiddlePan(e)) return;
+        e.stopPropagation();
         e.preventDefault();
         if (el.isLocked) return;
 
@@ -799,16 +806,7 @@ function SEB() {
 
     // Canvas Mouse Down: Start Pencil/Shape Drawing OR Eraser OR Pan
     const handleMouseDownBoard = (e) => {
-        // Middle mouse button (wheel press): pan canvas without changing selection or tool state
-        if (e.button === 1) {
-            e.preventDefault();
-            setIsPanning(true);
-            panStartRef.current = {
-                x: e.clientX - pan.x,
-                y: e.clientY - pan.y
-            };
-            return;
-        }
+        if (startMiddlePan(e)) return;
 
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
@@ -834,17 +832,8 @@ function SEB() {
 
     // Element Drag Start
     const handleMouseDownElement = (e, el) => {
+        if (startMiddlePan(e)) return;
         e.stopPropagation();
-        // Middle mouse button (wheel press): pan canvas without changing selection or initiating drag
-        if (e.button === 1) {
-            e.preventDefault();
-            setIsPanning(true);
-            panStartRef.current = {
-                x: e.clientX - pan.x,
-                y: e.clientY - pan.y
-            };
-            return;
-        }
 
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
@@ -878,17 +867,8 @@ function SEB() {
 
     // Drawing Element Drag Start (for quick shapes like line, arrow, rectangle, circle)
     const handleMouseDownDrawing = (e, draw) => {
+        if (startMiddlePan(e)) return;
         e.stopPropagation();
-        // Middle mouse button (wheel press): pan canvas without changing selection or initiating shape drag
-        if (e.button === 1) {
-            e.preventDefault();
-            setIsPanning(true);
-            panStartRef.current = {
-                x: e.clientX - pan.x,
-                y: e.clientY - pan.y
-            };
-            return;
-        }
 
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
@@ -923,6 +903,24 @@ function SEB() {
 
     // Canvas Mouse Move: Draw Freehand/Shape OR Resizing Element OR Pan Canvas OR Drag Element
     const handleMouseMoveBoard = (e) => {
+        // Priority 1: Middle Mouse Wheel Panning (Overrides Pencil, Eraser, Dragging & Resizing)
+        if (isPanning || (e.buttons & 4) !== 0) {
+            if ((e.buttons & 4) !== 0 && !isPanning) {
+                setIsPanning(true);
+                panStartRef.current = {
+                    x: e.clientX - pan.x,
+                    y: e.clientY - pan.y
+                };
+            }
+            if (isPanning) {
+                setPan({
+                    x: e.clientX - panStartRef.current.x,
+                    y: e.clientY - panStartRef.current.y
+                });
+                return;
+            }
+        }
+
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
 
         if (isResizing && selectedElementId && resizeDir) {
@@ -991,14 +989,6 @@ function SEB() {
             return;
         }
 
-        if (isPanning) {
-            setPan({
-                x: e.clientX - panStartRef.current.x,
-                y: e.clientY - panStartRef.current.y
-            });
-            return;
-        }
-
         if (isDragging && selectedElementId) {
             const el = boardElements.find(item => item.id === selectedElementId);
             if (el && el.isLocked) return;
@@ -1055,9 +1045,30 @@ function SEB() {
         setIsPanning(false);
     };
 
-    // Global Mouse Up Listener to prevent stuck dragging/resizing outside canvas
+    // Global Mouse Move & Mouse Up Listener to ensure smooth panning, dragging, and resizing anywhere
     useEffect(() => {
-        const handleGlobalMouseUp = () => {
+        const handleGlobalMouseMove = (e) => {
+            if ((e.buttons & 4) !== 0 && !isPanning) {
+                setIsPanning(true);
+                panStartRef.current = {
+                    x: e.clientX - pan.x,
+                    y: e.clientY - pan.y
+                };
+            }
+            if (isPanning) {
+                setPan({
+                    x: e.clientX - panStartRef.current.x,
+                    y: e.clientY - panStartRef.current.y
+                });
+            }
+        };
+
+        const handleGlobalMouseUp = (e) => {
+            if (e.button === 1 || (e.buttons & 4) === 0) {
+                if (isPanning) {
+                    setIsPanning(false);
+                }
+            }
             if (isResizing) {
                 setIsResizing(false);
                 setResizeDir(null);
@@ -1065,16 +1076,17 @@ function SEB() {
             if (isDragging) {
                 setIsDragging(false);
             }
-            if (isPanning) {
-                setIsPanning(false);
-            }
         };
 
         if (isResizing || isDragging || isPanning) {
+            window.addEventListener('mousemove', handleGlobalMouseMove);
             window.addEventListener('mouseup', handleGlobalMouseUp);
-            return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+            return () => {
+                window.removeEventListener('mousemove', handleGlobalMouseMove);
+                window.removeEventListener('mouseup', handleGlobalMouseUp);
+            };
         }
-    }, [isResizing, isDragging, isPanning]);
+    }, [isResizing, isDragging, isPanning, pan]);
 
     // Convert Points Array to SVG Path String
     const pointsToSvgPath = (pts) => {
@@ -1971,6 +1983,8 @@ function SEB() {
                         onMouseDown={handleMouseDownBoard}
                         onMouseMove={handleMouseMoveBoard}
                         onMouseUp={handleMouseUpBoard}
+                        onAuxClick={e => { if (e.button === 1) e.preventDefault(); }}
+                        onContextMenu={e => { if (e.button === 1) e.preventDefault(); }}
                         style={{
                             flex: 1,
                             width: '100%',

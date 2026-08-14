@@ -183,6 +183,23 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     // Global Mouse Move & Mouse Up listeners for dragging and panning
     useEffect(() => {
         const handleMouseMove = (e) => {
+            if (isPanning || (e.buttons & 4) !== 0) {
+                if ((e.buttons & 4) !== 0 && !isPanning) {
+                    setIsPanning(true);
+                    panStartRef.current = {
+                        x: e.clientX - pan.x,
+                        y: e.clientY - pan.y
+                    };
+                }
+                if (isPanning) {
+                    setPan({
+                        x: e.clientX - panStartRef.current.x,
+                        y: e.clientY - panStartRef.current.y
+                    });
+                    return;
+                }
+            }
+
             if (draggingNodeId) {
                 const newX = e.clientX / zoom - dragOffsetRef.current.x;
                 const newY = e.clientY / zoom - dragOffsetRef.current.y;
@@ -217,18 +234,15 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         saveLinkPos(draggingLinkId, tProj);
                     }
                 }
-            } else if (isPanning) {
-                setPan({
-                    x: e.clientX - panStartRef.current.x,
-                    y: e.clientY - panStartRef.current.y
-                });
             }
         };
 
-        const handleMouseUp = () => {
+        const handleMouseUp = (e) => {
+            if (e.button === 1 || (e.buttons & 4) === 0) {
+                if (isPanning) setIsPanning(false);
+            }
             if (draggingNodeId) setDraggingNodeId(null);
             if (draggingLinkId) setDraggingLinkId(null);
-            if (isPanning) setIsPanning(false);
         };
 
         window.addEventListener('mousemove', handleMouseMove);
