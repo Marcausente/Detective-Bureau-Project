@@ -78,6 +78,7 @@ function SEB() {
     // Drag element state
     const [isDragging, setIsDragging] = useState(false);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const [dragDrawingStart, setDragDrawingStart] = useState({ startX: 0, startY: 0, initialPoints: [] });
     const boardRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -752,6 +753,40 @@ function SEB() {
         }
     };
 
+    // Drawing Element Drag Start (for quick shapes like line, arrow, rectangle, circle)
+    const handleMouseDownDrawing = (e, draw) => {
+        e.stopPropagation();
+        const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
+
+        if (isPencilActive) {
+            setIsDrawing(true);
+            setCurrentPoints([{ x: canvasX, y: canvasY }, { x: canvasX, y: canvasY }]);
+            return;
+        }
+
+        if (isEraserActive) {
+            handleDeleteElement(draw.id);
+            return;
+        }
+
+        if (connectingSourceId) {
+            handleConnectToElement(draw.id);
+            return;
+        }
+
+        setSelectedElementId(draw.id);
+
+        // Movable shapes (all shapes EXCEPT 'free' hand pencil)
+        if (draw.shape && draw.shape !== 'free' && !draw.isLocked) {
+            setIsDragging(true);
+            setDragDrawingStart({
+                startX: canvasX,
+                startY: canvasY,
+                initialPoints: (draw.points || []).map(p => ({ ...p }))
+            });
+        }
+    };
+
     // Canvas Mouse Move: Draw Freehand/Shape OR Resizing Element OR Pan Canvas OR Drag Element
     const handleMouseMoveBoard = (e) => {
         const { x: canvasX, y: canvasY } = getCanvasCoordinates(e);
@@ -833,9 +868,22 @@ function SEB() {
         if (isDragging && selectedElementId) {
             const el = boardElements.find(item => item.id === selectedElementId);
             if (el && el.isLocked) return;
-            let newX = canvasX - dragOffset.x;
-            let newY = canvasY - dragOffset.y;
-            updateElement(selectedElementId, { x: newX, y: newY });
+
+            if (el.type === 'drawing' && el.shape && el.shape !== 'free') {
+                if (dragDrawingStart.initialPoints && dragDrawingStart.initialPoints.length > 0) {
+                    const dx = canvasX - dragDrawingStart.startX;
+                    const dy = canvasY - dragDrawingStart.startY;
+                    const newPoints = dragDrawingStart.initialPoints.map(p => ({
+                        x: p.x + dx,
+                        y: p.y + dy
+                    }));
+                    updateElement(selectedElementId, { points: newPoints });
+                }
+            } else {
+                let newX = canvasX - dragOffset.x;
+                let newY = canvasY - dragOffset.y;
+                updateElement(selectedElementId, { x: newX, y: newY });
+            }
         }
     };
 
@@ -1905,7 +1953,7 @@ function SEB() {
                                             </button>
                                         )}
 
-                                        {selectedElement.type !== 'drawing' && selectedElement.type !== 'thread' && (
+                                        {selectedElement.type !== 'thread' && (
                                             <>
                                                 <button
                                                     onClick={() => toggleLockElement(selectedElement.id)}
@@ -2073,10 +2121,30 @@ function SEB() {
                                     const target = boardElements.find(e => e.id === thread.targetId);
                                     if (!source || !target) return null;
 
-                                    const x1 = source.x + (source.width || 260) / 2;
-                                    const y1 = source.y + (source.height || 140) / 2;
-                                    const x2 = target.x + (target.width || 260) / 2;
-                                    const y2 = target.y + (target.height || 140) / 2;
+                                    const getElementCenter = (el) => {
+                                        if (typeof el.x === 'number') {
+                                            return {
+                                                x: el.x + (el.width || 260) / 2,
+                                                y: el.y + (el.height || 140) / 2
+                                            };
+                                        }
+                                        if (el.points && el.points.length > 0) {
+                                            const xs = el.points.map(p => p.x);
+                                            const ys = el.points.map(p => p.y);
+                                            return {
+                                                x: (Math.min(...xs) + Math.max(...xs)) / 2,
+                                                y: (Math.min(...ys) + Math.max(...ys)) / 2
+                                            };
+                                        }
+                                        return { x: 0, y: 0 };
+                                    };
+
+                                    const sCenter = getElementCenter(source);
+                                    const tCenter = getElementCenter(target);
+                                    const x1 = sCenter.x;
+                                    const y1 = sCenter.y;
+                                    const x2 = tCenter.x;
+                                    const y2 = tCenter.y;
 
                                     const midX = (x1 + x2) / 2;
                                     const midY = (y1 + y2) / 2;
@@ -2252,9 +2320,12 @@ function SEB() {
                                         );
                                     }
 
+                                    const isMovableShape = shape !== 'free';
+
                                     return (
                                         <g
                                             key={draw.id}
+                                            onMouseDown={(e) => handleMouseDownDrawing(e, draw)}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (isEraserActive) {
@@ -2270,7 +2341,7 @@ function SEB() {
                                             }}
                                             style={{ 
                                                 pointerEvents: 'auto', 
-                                                cursor: isEraserActive ? 'cell' : 'pointer',
+                                                cursor: isEraserActive ? 'cell' : isPencilActive ? 'crosshair' : (isMovableShape ? 'grab' : 'pointer'),
                                                 filter: isSelectedDraw ? 'drop-shadow(0 0 6px #eab308)' : 'none'
                                             }}
                                         >
