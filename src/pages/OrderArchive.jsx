@@ -621,10 +621,12 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
     const accentColor = isLSSD ? '#10b981' : 'var(--color-blue, #3b82f6)';
 
     // Helper to render fields nicely in the preview
-    const fields = Object.entries(order.content || {}).map(([key, val]) => {
-        const fieldConfig = config?.fields?.find(f => f.name === key);
-        return { label: fieldConfig?.documentLabel || fieldConfig?.label || key, value: val };
-    });
+    const fields = Object.entries(order.content || {})
+        .filter(([key]) => key !== 'execution_details')
+        .map(([key, val]) => {
+            const fieldConfig = config?.fields?.find(f => f.name === key);
+            return { key, label: fieldConfig?.documentLabel || fieldConfig?.label || key, value: val };
+        });
 
     return (
         <div className="mac-modal-overlay" onClick={onClose}>
@@ -832,14 +834,39 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                                 );
                             }
                             
+                            const renderVal = typeof f.value === 'object' && f.value !== null ? JSON.stringify(f.value) : String(f.value || '-');
                             return (
                                 <div key={i}>
                                     <div style={{ fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#444', marginBottom: '4px' }}>{f.label}</div>
-                                    <div style={{ fontSize: '1rem', lineHeight: '1.5', borderBottom: '1px dashed #ccc', paddingBottom: '4px' }}>{f.value || '-'}</div>
+                                    <div style={{ fontSize: '1rem', lineHeight: '1.5', borderBottom: '1px dashed #ccc', paddingBottom: '4px' }}>{renderVal}</div>
                                 </div>
                             );
                         })}
                     </div>
+
+                    {/* Saved Execution Details Section (If present) */}
+                    {order.content?.execution_details && (
+                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1.2rem', marginTop: '2rem' }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#1e3a8a', marginBottom: '0.6rem', letterSpacing: '0.04em' }}>
+                                📜 Disposiciones y Términos Adicionales de Ejecución Judicial (Impresos en Orden Entregable)
+                            </div>
+                            {order.content.execution_details.notes && (
+                                <div style={{ marginBottom: '0.5rem', fontSize: '0.88rem', color: '#334155' }}>
+                                    <strong style={{ color: '#0f172a' }}>Cláusulas Especiales:</strong> {order.content.execution_details.notes}
+                                </div>
+                            )}
+                            {order.content.execution_details.instructions && (
+                                <div style={{ marginBottom: '0.5rem', fontSize: '0.88rem', color: '#334155' }}>
+                                    <strong style={{ color: '#0f172a' }}>Instrucciones de Notificación:</strong> {order.content.execution_details.instructions}
+                                </div>
+                            )}
+                            {order.content.execution_details.validity && (
+                                <div style={{ fontSize: '0.88rem', color: '#334155' }}>
+                                    <strong style={{ color: '#0f172a' }}>Plazo de Vigencia:</strong> {order.content.execution_details.validity}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Signature Area */}
                     <div style={{ marginTop: '4rem', textAlign: 'right' }}>
