@@ -48,6 +48,7 @@ function SEB() {
     // Tactical Board Canvas State
     const [boardElements, setBoardElements] = useState([]);
     const [history, setHistory] = useState([]); // Undo History Stack for Ctrl+Z
+    const [copiedElement, setCopiedElement] = useState(null); // Clipboard for Ctrl+C / Ctrl+V
     const [selectedElementId, setSelectedElementId] = useState(null);
     const [connectingSourceId, setConnectingSourceId] = useState(null); // Thread connection source
     const [zoom, setZoom] = useState(1); // Zoom scale factor (1 = 100%)
@@ -145,7 +146,73 @@ function SEB() {
         setBoardElements(previousState);
     };
 
-    // Keyboard shortcuts listener for Ctrl+Z (Undo) and Delete/Backspace
+    // Copy, Paste & Duplicate Element Handlers
+    const handleCopyElement = (el = null) => {
+        const target = el || boardElements.find(item => item.id === selectedElementId);
+        if (target && target.type !== 'thread') {
+            setCopiedElement(JSON.parse(JSON.stringify(target)));
+        }
+    };
+
+    const handlePasteElement = () => {
+        if (!copiedElement) return;
+        const maxZ = boardElements.reduce((max, el) => Math.max(max, el.zIndex || 1), 1);
+        const newId = (copiedElement.type || 'elem') + '-' + Date.now();
+        
+        const pastedElement = JSON.parse(JSON.stringify(copiedElement));
+        pastedElement.id = newId;
+        pastedElement.zIndex = maxZ + 1;
+        pastedElement.isLocked = false;
+
+        if (typeof pastedElement.x === 'number') {
+            pastedElement.x += 30;
+        }
+        if (typeof pastedElement.y === 'number') {
+            pastedElement.y += 30;
+        }
+        if (pastedElement.points && Array.isArray(pastedElement.points)) {
+            pastedElement.points = pastedElement.points.map(p => ({
+                x: p.x + 30,
+                y: p.y + 30
+            }));
+        }
+
+        pushHistory([...boardElements, pastedElement]);
+        setSelectedElementId(newId);
+        setCopiedElement(pastedElement);
+    };
+
+    const handleDuplicateElement = (el = null) => {
+        const target = el || boardElements.find(item => item.id === selectedElementId);
+        if (!target || target.type === 'thread') return;
+
+        const maxZ = boardElements.reduce((max, item) => Math.max(max, item.zIndex || 1), 1);
+        const newId = (target.type || 'elem') + '-' + Date.now();
+        
+        const clone = JSON.parse(JSON.stringify(target));
+        clone.id = newId;
+        clone.zIndex = maxZ + 1;
+        clone.isLocked = false;
+
+        if (typeof clone.x === 'number') {
+            clone.x += 30;
+        }
+        if (typeof clone.y === 'number') {
+            clone.y += 30;
+        }
+        if (clone.points && Array.isArray(clone.points)) {
+            clone.points = clone.points.map(p => ({
+                x: p.x + 30,
+                y: p.y + 30
+            }));
+        }
+
+        pushHistory([...boardElements, clone]);
+        setSelectedElementId(newId);
+        setCopiedElement(clone);
+    };
+
+    // Keyboard shortcuts listener for Ctrl+Z (Undo), Delete/Backspace, and Ctrl+C / Ctrl+V (Copy & Paste)
     useEffect(() => {
         const handleKeyDown = (e) => {
             const activeTag = document.activeElement?.tagName;
@@ -153,10 +220,35 @@ function SEB() {
                 return;
             }
 
+            const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+            const keyLower = e.key ? e.key.toLowerCase() : '';
+
             // Ctrl + Z or Cmd + Z (Undo)
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+            if (isCtrlOrCmd && keyLower === 'z') {
                 e.preventDefault();
                 handleUndo();
+                return;
+            }
+
+            // Ctrl + C or Cmd + C (Copy)
+            if (isCtrlOrCmd && keyLower === 'c') {
+                if (selectedElementId) {
+                    const el = boardElements.find(item => item.id === selectedElementId);
+                    if (el && el.type !== 'thread') {
+                        e.preventDefault();
+                        handleCopyElement(el);
+                    }
+                }
+                return;
+            }
+
+            // Ctrl + V or Cmd + V (Paste)
+            if (isCtrlOrCmd && keyLower === 'v') {
+                if (copiedElement) {
+                    e.preventDefault();
+                    handlePasteElement();
+                }
+                return;
             }
 
             // Delete or Backspace key deletes selected element
@@ -168,7 +260,7 @@ function SEB() {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [history, selectedElementId, boardElements]);
+    }, [history, selectedElementId, boardElements, copiedElement]);
 
     const loadUserProfile = async () => {
         try {
@@ -1997,6 +2089,23 @@ function SEB() {
 
                                         {selectedElement.type !== 'thread' && (
                                             <>
+                                                <button
+                                                     onClick={() => handleDuplicateElement(selectedElement)}
+                                                     title="Duplicar elemento (Ctrl+C y Ctrl+V)"
+                                                     style={{
+                                                         background: 'rgba(59, 130, 246, 0.2)',
+                                                         border: '1px solid #3b82f6',
+                                                         color: '#93c5fd',
+                                                         padding: '0.35rem 0.75rem',
+                                                         borderRadius: '8px',
+                                                         fontSize: '0.78rem',
+                                                         fontWeight: 600,
+                                                         cursor: 'pointer'
+                                                     }}
+                                                 >
+                                                     📋 Duplicar (Ctrl+C/V)
+                                                 </button>
+
                                                 <button
                                                     onClick={() => toggleLockElement(selectedElement.id)}
                                                     style={{
