@@ -994,7 +994,14 @@ function IACaseDetail() {
                     )}
 
                     {activeTab === 'todo' && <IACaseTodoList caseId={id} isClosed={!isCaseOpen} />}
-                    {activeTab === 'sanction_votes' && <IASanctionVoting caseId={id} isClosed={!isCaseOpen} />}
+                    {activeTab === 'sanction_votes' && (
+                        <IASanctionVoting 
+                            caseId={id} 
+                            currentUser={currentUser} 
+                            userIsIAUser={userIsIAUser} 
+                            canEditCase={(canEditCase || userIsIAUser) && isCaseOpen} 
+                        />
+                    )}
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
