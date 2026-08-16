@@ -2598,6 +2598,17 @@ function PatrolMatrix({ logs, onSelectLog }) {
     const matrix = {};
     const hours = [];
 
+    // Helper to round any date/time to nearest 15 minutes slot (:00, :15, :30, :45)
+    const roundToQuarterHour = (dateInput) => {
+        const d = new Date(dateInput);
+        const minutes = d.getMinutes();
+        const roundedMinutes = Math.round(minutes / 15) * 15;
+        d.setMinutes(roundedMinutes);
+        d.setSeconds(0);
+        d.setMilliseconds(0);
+        return d;
+    };
+
     // Generate hour slots starting from 18:00 to 17:45 (wrapping around midnight)
     // This reflects typical gang activity patterns (evening to late afternoon)
     for (let h = 18; h < 42; h++) { // 18 to 41 (wraps to 0-17)
@@ -2609,12 +2620,17 @@ function PatrolMatrix({ logs, onSelectLog }) {
 
     // Organize logs into matrix structure
     logs.forEach(log => {
-        const date = new Date(log.patrol_time);
-        const dateKey = date.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
-        const timeKey = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        const roundedDate = roundToQuarterHour(log.patrol_time);
+        const dateKey = roundedDate.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        const timeKey = `${String(roundedDate.getHours()).padStart(2, '0')}:${String(roundedDate.getMinutes()).padStart(2, '0')}`;
 
         if (!matrix[dateKey]) matrix[dateKey] = {};
-        matrix[dateKey][timeKey] = log;
+
+        const existingLog = matrix[dateKey][timeKey];
+        // Si dos personas rellenan el mismo cuadrante, mostramos el registro con mayor cantidad de personas
+        if (!existingLog || (Number(log.people_count) || 0) > (Number(existingLog.people_count) || 0)) {
+            matrix[dateKey][timeKey] = log;
+        }
     });
 
     const dates = Object.keys(matrix).sort((a, b) => {
