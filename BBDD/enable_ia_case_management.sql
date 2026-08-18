@@ -1,4 +1,14 @@
 -- 1. Update Status for IA Cases
+CREATE OR REPLACE FUNCTION update_ia_case_status(p_case_id UUID, p_status TEXT)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE public.ia_cases 
+  SET status = p_status 
+  WHERE id = p_case_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Alias for compatibility
 CREATE OR REPLACE FUNCTION set_ia_case_status(p_case_id UUID, p_status TEXT)
 RETURNS VOID AS $$
 BEGIN
@@ -7,6 +17,9 @@ BEGIN
   WHERE id = p_case_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION update_ia_case_status(UUID, TEXT) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION set_ia_case_status(UUID, TEXT) TO authenticated, service_role;
 
 -- 2. Delete IA Case Fully
 CREATE OR REPLACE FUNCTION delete_ia_case_fully(p_case_id UUID)
