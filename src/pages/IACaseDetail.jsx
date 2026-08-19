@@ -382,6 +382,31 @@ function IACaseDetail() {
         });
     };
 
+    const handleEditImageUpload = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    const scaleSize = img.width > MAX_WIDTH ? (MAX_WIDTH / img.width) : 1;
+                    canvas.width = img.width * scaleSize;
+                    canvas.height = img.height * scaleSize;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    setEditImages(prev => [...prev, dataUrl]);
+                };
+            };
+        });
+    };
+
     const handleStartEdit = (update) => {
         setEditingId(update.id);
         setEditContent(update.content || "");
@@ -959,9 +984,55 @@ function IACaseDetail() {
                                                             onChange={setEditContent}
                                                             style={{ marginBottom: '0.5rem' }}
                                                         />
-                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                                            <button className="mac-btn mac-btn-secondary" onClick={() => setEditingId(null)} style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}>Cancelar</button>
-                                                            <button className="mac-btn mac-btn-primary" onClick={() => handleSaveEdit(update.id)} style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }} disabled={submittingEdit}>Guardar</button>
+
+                                                        {/* Edit Image Previews & Deletion */}
+                                                        {editImages.length > 0 && (
+                                                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '0.75rem', marginTop: '0.5rem' }}>
+                                                                {editImages.map((imgSrc, idx) => (
+                                                                    <div key={idx} style={{ position: 'relative' }}>
+                                                                        <img src={imgSrc} alt="" style={{ height: '64px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)' }} />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setEditImages(prev => prev.filter((_, i) => i !== idx))}
+                                                                            style={{ position: 'absolute', top: -4, right: -4, background: '#ef4444', color: 'white', borderRadius: '50%', width: '16px', height: '16px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}
+                                                                            title="Eliminar foto"
+                                                                        >
+                                                                            ✕
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                                                            <label style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '0.35rem',
+                                                                padding: '0.35rem 0.75rem',
+                                                                background: 'rgba(255,255,255,0.06)',
+                                                                border: '1px solid rgba(255,255,255,0.12)',
+                                                                borderRadius: '6px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.78rem',
+                                                                color: '#cbd5e1'
+                                                            }}>
+                                                                <input type="file" accept="image/*" multiple onChange={handleEditImageUpload} style={{ display: 'none' }} />
+                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                                                    <circle cx="12" cy="13" r="4" />
+                                                                </svg>
+                                                                <span>Adjuntar Fotografías</span>
+                                                            </label>
+
+                                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                                <button className="mac-btn mac-btn-secondary" onClick={() => { setEditingId(null); setEditImages([]); }} style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}>
+                                                                    Cancelar
+                                                                </button>
+                                                                <button className="mac-btn mac-btn-primary" onClick={() => handleSaveEdit(update.id)} style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }} disabled={submittingEdit}>
+                                                                    {submittingEdit ? 'Guardando...' : 'Guardar'}
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ) : (
