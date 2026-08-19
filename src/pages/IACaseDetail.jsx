@@ -910,7 +910,9 @@ function IACaseDetail() {
                                 ) : (
                                     updates.map(update => {
                                         const isAuthor = currentUser && (currentUser.id === update.user_id || currentUser.id === update.author_id);
-                                        const canEditThisUpdate = (isAuthor || userIsHighCommand) && !currentUser?.rol?.includes('Ayudante');
+                                        const isAssignedEncargado = currentUser && assignments && assignments.some(a => a.user_id === currentUser.id && (a.role === 'Encargado' || a.role === 'Supervisor'));
+                                        const isCreator = currentUser && info.created_by === currentUser.id;
+                                        const canEditThisUpdate = isAuthor || userIsHighCommand || isAssignedEncargado || isCreator;
                                         const isEditing = editingId === update.id;
 
                                         return (

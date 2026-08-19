@@ -505,6 +505,37 @@ function CaseDetail() {
         setEditImages(existingImgs);
     };
 
+    const handleSaveEdit = async (updateId) => {
+        if (!editContent || editContent.replace(/<[^>]*>/g, '').trim() === '') return;
+        setSubmittingEdit(true);
+        try {
+            const finalContent = await processHtmlImages(editContent, 'cases');
+
+            let finalImages = [];
+            if (editImages.length > 0) {
+                finalImages = await Promise.all(
+                    editImages.map(img => img.startsWith('data:') ? uploadImageToStorage(img, 'cases') : img)
+                );
+            }
+
+            const { error } = await supabase.rpc('update_case_update_content', {
+                p_update_id: updateId,
+                p_content: finalContent,
+                p_images: finalImages
+            });
+            if (error) throw error;
+
+            setEditingId(null);
+            setEditContent("");
+            setEditImages([]);
+            loadCaseDetails(false);
+        } catch (err) {
+            alert("Error saving edit: " + err.message);
+        } finally {
+            setSubmittingEdit(false);
+        }
+    };
+
     const handleDeleteUpdate = async (updateId) => {
         if (!window.confirm(language === 'es' ? "¿Estás seguro de eliminar esta actualización?" : "Are you sure you want to delete this update?")) return;
         try {
@@ -931,8 +962,9 @@ function CaseDetail() {
                                     </div>
                                 ) : (
                                     updates.map(update => {
-                                        const isAuthor = currentUser && update.author_id === currentUser.id;
-                                        const canEditThisUpdate = (isAuthor || isHighCommand) && !isAyudante;
+                                        const isAuthor = currentUser && (update.author_id === currentUser.id || update.user_id === currentUser.id);
+                                        const canEditThisUpdate = isAuthor || isHighCommand || isAssignedEncargado || isCreator;
+                                        const isEditing = editingId === update.id;
 
                                         return (
                                             <div 
@@ -959,7 +991,7 @@ function CaseDetail() {
                                                         </div>
                                                     </div>
 
-                                                    {canEditThisUpdate && (
+                                                    {canEditThisUpdate && !isEditing && (
                                                         <div style={{ display: 'flex', gap: '0.3rem' }}>
                                                             <button 
                                                                 onClick={() => handleStartEdit(update)}
@@ -979,26 +1011,49 @@ function CaseDetail() {
                                                     )}
                                                 </div>
 
-                                                {/* Content */}
-                                                <div 
-                                                    className="quill-content"
-                                                    style={{ color: '#cbd5e1', fontSize: '0.84rem', lineHeight: '1.5' }}
-                                                    dangerouslySetInnerHTML={{ __html: update.content }}
-                                                />
-
-                                                {/* Images */}
-                                                {update.images && update.images.length > 0 && (
-                                                    <div style={{ marginTop: '0.6rem', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                                        {update.images.map((imgSrc, i) => (
-                                                            <div 
-                                                                key={i} 
-                                                                style={{ borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer' }}
-                                                                onClick={() => setExpandedImage(imgSrc)}
-                                                            >
-                                                                <img src={imgSrc} alt="Evidence" style={{ display: 'block', maxHeight: '200px', maxWidth: '100%', objectFit: 'contain' }} />
-                                                            </div>
-                                                        ))}
+                                                {isEditing ? (
+                                                    <div>
+                                                        <ReactQuill 
+                                                            theme="snow"
+                                                            modules={quillModules}
+                                                            formats={quillFormats}
+                                                            value={editContent}
+                                                            onChange={setEditContent}
+                                                            style={{ marginBottom: '0.5rem' }}
+                                                        />
+                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                                            <button className="mac-btn mac-btn-secondary" onClick={() => setEditingId(null)} style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}>
+                                                                Cancelar
+                                                            </button>
+                                                            <button className="mac-btn mac-btn-primary" onClick={() => handleSaveEdit(update.id)} style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }} disabled={submittingEdit}>
+                                                                {submittingEdit ? 'Guardando...' : 'Guardar'}
+                                                            </button>
+                                                        </div>
                                                     </div>
+                                                ) : (
+                                                    <>
+                                                        {/* Content */}
+                                                        <div 
+                                                            className="quill-content"
+                                                            style={{ color: '#cbd5e1', fontSize: '0.84rem', lineHeight: '1.5' }}
+                                                            dangerouslySetInnerHTML={{ __html: update.content }}
+                                                        />
+
+                                                        {/* Images */}
+                                                        {update.images && update.images.length > 0 && (
+                                                            <div style={{ marginTop: '0.6rem', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                                {update.images.map((imgSrc, i) => (
+                                                                    <div 
+                                                                        key={i} 
+                                                                        style={{ borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer' }}
+                                                                        onClick={() => setExpandedImage(imgSrc)}
+                                                                    >
+                                                                        <img src={imgSrc} alt="Evidence" style={{ display: 'block', maxHeight: '200px', maxWidth: '100%', objectFit: 'contain' }} />
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                         );
