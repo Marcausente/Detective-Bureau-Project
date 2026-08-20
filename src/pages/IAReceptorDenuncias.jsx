@@ -477,7 +477,7 @@ function IAReceptorDenuncias() {
             {/* Modal: View Details */}
             {selectedComplaint && (
                 <div className="cropper-modal-overlay" onClick={() => setSelectedComplaint(null)}>
-                    <div className="cropper-modal-content" style={{ maxWidth: '650px', width: '90%', textAlign: 'left' }} onClick={e => e.stopPropagation()}>
+                    <div className="cropper-modal-content" style={{ maxWidth: '650px', width: '90%', textAlign: 'left', maxHeight: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
                         <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem', color: '#ef4444', fontSize: '1.4rem' }}>
                             Detalle de Denuncia Confidencial
                         </h3>
@@ -503,12 +503,12 @@ function IAReceptorDenuncias() {
 
                         <div style={{ margin: '1rem 0' }}>
                             <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: '600' }}>Motivo de la denuncia:</span>
-                            <p style={{ color: '#f8fafc', fontSize: '1.05rem', margin: '0.1rem 0 0 0', fontWeight: 'bold' }}>{selectedComplaint.motivo}</p>
+                            <p style={{ color: '#f8fafc', fontSize: '1.05rem', margin: '0.1rem 0 0 0', fontWeight: 'bold', wordBreak: 'break-word' }}>{selectedComplaint.motivo}</p>
                         </div>
 
                         <div style={{ margin: '1rem 0', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.03)' }}>
                             <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: '600' }}>Declaración de los hechos:</span>
-                            <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0.3rem 0 0 0', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                            <p style={{ color: '#cbd5e1', fontSize: '0.95rem', margin: '0.3rem 0 0 0', whiteSpace: 'pre-wrap', lineHeight: '1.6', wordBreak: 'break-word' }}>
                                 {selectedComplaint.declaracion}
                             </p>
                         </div>
@@ -547,7 +547,7 @@ function IAReceptorDenuncias() {
             {/* Modal: Link Case */}
             {linkingComplaintId && (
                 <div className="cropper-modal-overlay" onClick={() => setLinkingComplaintId(null)}>
-                    <div className="cropper-modal-content" style={{ maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
+                    <div className="cropper-modal-content" style={{ maxWidth: '400px', width: '90%', maxHeight: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
                         <h3 style={{ marginBottom: '1rem', color: 'var(--color-blue)' }}>Vincular con Caso Asuntos Internos</h3>
                         <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '1rem' }}>
                             Seleccione el caso de Asuntos Internos con el que desea relacionar esta denuncia.

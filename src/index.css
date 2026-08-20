@@ -1291,6 +1291,8 @@ body {
   text-align: center;
   width: 90%;
   max-width: 400px;
+  max-height: 85vh;
+  overflow-y: auto;
 }
 
 .cropper-controls {
