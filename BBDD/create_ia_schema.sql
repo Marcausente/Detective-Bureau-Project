@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.ia_case_updates (
   author_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
   content TEXT,
   image_url TEXT, -- Or array? Using basic text for now to match main cases
-  images TEXT[], -- Supporting multiple images
+  images JSONB DEFAULT '[]'::jsonb, -- Supporting multiple images
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
