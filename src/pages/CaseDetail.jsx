@@ -407,10 +407,19 @@ function CaseDetail() {
 
     const handleStatusChange = async (newStatus) => {
         try {
-            const { error } = await supabase.rpc('update_case_status', {
+            let { error } = await supabase.rpc('update_case_status', {
                 p_case_id: id,
                 p_status: newStatus
             });
+
+            if (error && (error.code === 'PGRST202' || error.message?.includes('update_case_status'))) {
+                const fallbackRes = await supabase.rpc('set_case_status', {
+                    p_case_id: id,
+                    p_status: newStatus
+                });
+                error = fallbackRes.error;
+            }
+
             if (error) throw error;
 
             setCaseData(prev => ({

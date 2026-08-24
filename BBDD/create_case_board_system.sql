@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS public.case_board_nodes (
     width INT DEFAULT 240,
     linked_update_ids JSONB DEFAULT '[]'::jsonb, -- Array of linked update/novedad IDs
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID REFERENCES public.users(id)
+    created_by UUID REFERENCES public.users(id) ON DELETE SET NULL
 );
 
 -- Migration if table already exists

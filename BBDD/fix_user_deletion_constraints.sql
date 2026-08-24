@@ -96,3 +96,16 @@ BEGIN
     ADD CONSTRAINT outing_detectives_user_id_fkey 
     FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 END $$;
+
+-- 9. case_board_nodes (created_by) -> SET NULL
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'case_board_nodes_created_by_fkey') THEN
+        ALTER TABLE public.case_board_nodes DROP CONSTRAINT case_board_nodes_created_by_fkey;
+    END IF;
+
+    ALTER TABLE public.case_board_nodes 
+    ADD CONSTRAINT case_board_nodes_created_by_fkey 
+    FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+END $$;
+
