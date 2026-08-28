@@ -3340,6 +3340,11 @@ body.theme-azul .int-search-pill {
 .ql-container.ql-snow {
     border-radius: 0 0 8px 8px;
 }
+.ql-container .ql-editor {
+    min-height: 160px;
+    max-height: 380px;
+    overflow-y: auto;
+}
 .ql-snow .ql-stroke { stroke: white !important; }
 .ql-snow .ql-fill { fill: white !important; }
 .ql-editor.ql-blank::before { color: #aaa !important; }
@@ -4856,15 +4861,29 @@ body.theme-verde .mac-btn-primary:hover {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 24px;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  overflow: hidden;
+  max-height: 88vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.mac-modal-dialog > form,
+.mac-modal-dialog > div:not(.mac-window-titlebar) {
+  overflow-y: auto;
+  flex: 1;
 }
 
 .mac-window-titlebar {
   display: flex;
   align-items: center;
   padding: 1rem 1.5rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(20, 26, 38, 0.96);
+  backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
 }
 
 .mac-window-dots {
@@ -6669,12 +6688,9 @@ body.theme-verde .inc-gang-select-wrap select option { background-color: #08120c
 .inc-modal-content {
   background: rgba(15,23,42,0.97); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
   border: 1px solid rgba(255,255,255,0.12); border-radius: 20px;
-  max-width: 600px; width: 95vw; max-height: 90vh; overflow-y: auto;
+  max-width: 600px; width: 95vw; max-height: 90vh; display: flex; flex-direction: column;
   box-shadow: 0 32px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05);
-  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent;
 }
-.inc-modal-content::-webkit-scrollbar { width: 5px; }
-.inc-modal-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
 .inc-modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 1rem 1.25rem 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.08);
