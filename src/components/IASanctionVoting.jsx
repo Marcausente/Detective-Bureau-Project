@@ -269,7 +269,12 @@ function IASanctionVoting({ caseId, currentUser: initialUser, userIsIAUser: init
                     backdropFilter: 'blur(10px)'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.85rem' }}>
-                        <span style={{ fontSize: '1.1rem' }}>⚖️</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold, #f59e0b)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 3v18"/>
+                            <path d="M5 8l7-5 7 5"/>
+                            <path d="M5 12h14"/>
+                            <path d="M3 20h18"/>
+                        </svg>
                         <h4 style={{ margin: 0, color: 'var(--accent-gold, #f59e0b)', fontSize: '0.95rem', fontWeight: 700, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
                             {t.addPerson}
                         </h4>
@@ -308,7 +313,10 @@ function IASanctionVoting({ caseId, currentUser: initialUser, userIsIAUser: init
                             }}
                             disabled={submittingPerson || !newPersonName.trim()}
                         >
-                            <span>+</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19"/>
+                                <line x1="5" y1="12" x2="19" y2="12"/>
+                            </svg>
                             <span>{submittingPerson ? '...' : t.addPersonBtn}</span>
                         </button>
                     </form>
@@ -326,7 +334,14 @@ function IASanctionVoting({ caseId, currentUser: initialUser, userIsIAUser: init
                         border: '1px dashed rgba(255, 255, 255, 0.12)',
                         color: 'var(--text-secondary, #94a3b8)'
                     }}>
-                        <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>⚖️</div>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 3v18"/>
+                                <path d="M5 8l7-5 7 5"/>
+                                <path d="M5 12h14"/>
+                                <path d="M3 20h18"/>
+                            </svg>
+                        </div>
                         <h4 style={{ margin: '0 0 0.5rem 0', color: '#e2e8f0', fontSize: '1.05rem', fontWeight: 600 }}>
                             {t.noTargets}
                         </h4>
@@ -367,10 +382,12 @@ function IASanctionVoting({ caseId, currentUser: initialUser, userIsIAUser: init
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            fontSize: '1rem',
                                             border: '1px solid rgba(239, 68, 68, 0.3)'
                                         }}>
-                                            👤
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                                <circle cx="12" cy="7" r="4"/>
+                                            </svg>
                                         </div>
                                         <div>
                                             <h3 style={{ margin: 0, color: '#f87171', fontSize: '1.05rem', fontWeight: 700 }}>
@@ -390,14 +407,21 @@ function IASanctionVoting({ caseId, currentUser: initialUser, userIsIAUser: init
                                                 border: '1px solid rgba(239, 68, 68, 0.2)',
                                                 color: '#ef4444',
                                                 cursor: 'pointer',
-                                                fontSize: '0.85rem',
+                                                fontSize: '0.82rem',
                                                 borderRadius: '6px',
-                                                padding: '4px 8px',
+                                                padding: '4px 10px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '5px',
                                                 transition: 'all 0.2s'
                                             }}
                                             title="Eliminar investigado"
                                         >
-                                            🗑️ Eliminar
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="3 6 5 6 21 6"/>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                            </svg>
+                                            <span>Eliminar</span>
                                         </button>
                                     )}
                                 </div>
@@ -479,7 +503,11 @@ function IASanctionVoting({ caseId, currentUser: initialUser, userIsIAUser: init
                                                                 fontWeight: 'bold',
                                                                 flexShrink: 0
                                                             }}>
-                                                                {hasVotedForThis ? '✓' : ''}
+                                                                {hasVotedForThis ? (
+                                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                                                                        <polyline points="20 6 9 17 4 12"/>
+                                                                    </svg>
+                                                                ) : ''}
                                                             </div>
                                                             <span style={{ 
                                                                 fontWeight: 600, 
@@ -514,14 +542,17 @@ function IASanctionVoting({ caseId, currentUser: initialUser, userIsIAUser: init
                                                                         border: 'none',
                                                                         color: '#ef4444',
                                                                         cursor: 'pointer',
-                                                                        fontSize: '1.1rem',
                                                                         opacity: 0.7,
                                                                         padding: '0 4px',
-                                                                        lineHeight: 1
+                                                                        display: 'flex',
+                                                                        alignItems: 'center'
                                                                     }}
                                                                     title="Eliminar sanción"
                                                                 >
-                                                                    &times;
+                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                        <line x1="18" y1="6" x2="6" y2="18"/>
+                                                                        <line x1="6" y1="6" x2="18" y2="18"/>
+                                                                    </svg>
                                                                 </button>
                                                             )}
                                                         </div>
@@ -627,7 +658,10 @@ function IASanctionVoting({ caseId, currentUser: initialUser, userIsIAUser: init
                                             onClick={() => handleAddOption(target.id)}
                                             disabled={submittingOption[target.id] || !newOptionTexts[target.id]?.trim()}
                                         >
-                                            <span>+</span>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <line x1="12" y1="5" x2="12" y2="19"/>
+                                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                            </svg>
                                             <span>{submittingOption[target.id] ? '...' : t.addOptionBtn}</span>
                                         </button>
                                     </div>
