@@ -418,7 +418,7 @@ function IASanctions() {
                     </span>
                 </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.25rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.25rem' }}>
                     {filteredProfiles.map(profile => {
                         const { status } = profile;
                         const hasActive = status.hasActive;
@@ -436,14 +436,16 @@ function IASanctions() {
                                     cursor: 'pointer',
                                     display: 'flex',
                                     flexDirection: 'column',
-                                    gap: '0.85rem',
+                                    justifyContent: 'space-between',
+                                    gap: '1rem',
                                     padding: '1.25rem 1.35rem',
                                     position: 'relative',
                                     transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
                                     borderLeft: `4px solid ${cardBorderColor}`,
+                                    minHeight: '120px',
                                     ...(hasActive ? {
-                                        background: 'linear-gradient(135deg, rgba(30, 18, 25, 0.65), rgba(15, 23, 42, 0.8))',
-                                        boxShadow: '0 4px 20px rgba(239, 68, 68, 0.1)'
+                                        background: 'linear-gradient(135deg, rgba(35, 18, 25, 0.7), rgba(15, 23, 42, 0.85))',
+                                        boxShadow: '0 4px 20px rgba(239, 68, 68, 0.12)'
                                     } : {})
                                 }}
                                 onMouseEnter={e => {
@@ -453,76 +455,79 @@ function IASanctions() {
                                 }}
                                 onMouseLeave={e => {
                                     e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = hasActive ? '0 4px 20px rgba(239, 68, 68, 0.1)' : 'none';
+                                    e.currentTarget.style.boxShadow = hasActive ? '0 4px 20px rgba(239, 68, 68, 0.12)' : 'none';
                                     e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
                                 }}
                             >
-                                {/* Top Row: Avatar, Name & Edit/Delete Actions */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                    {/* Avatar Monogram */}
-                                    <div style={{
-                                        width: '52px',
-                                        height: '52px',
-                                        borderRadius: '16px',
-                                        background: hasActive 
-                                            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(153, 27, 27, 0.35))' 
-                                            : hasExpired
-                                            ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(180, 83, 9, 0.25))'
-                                            : 'linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(6, 78, 59, 0.25))',
-                                        border: `1.5px solid ${hasActive ? 'rgba(239, 68, 68, 0.45)' : hasExpired ? 'rgba(245, 158, 11, 0.35)' : 'rgba(16, 185, 129, 0.35)'}`,
-                                        color: hasActive ? '#f87171' : hasExpired ? '#fbbf24' : '#34d399',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: '1.15rem',
-                                        fontWeight: 800,
-                                        letterSpacing: '0.05em',
-                                        flexShrink: 0,
-                                        boxShadow: `0 4px 12px ${hasActive ? 'rgba(239, 68, 68, 0.2)' : 'rgba(0,0,0,0.2)'}`
-                                    }}>
-                                        {initials}
-                                    </div>
-
-                                    {/* Officer Name & Badge */}
-                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                {/* Top Row: Avatar, Officer Name, Badge & Actions */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.85rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flex: 1, minWidth: 0 }}>
+                                        {/* Avatar Monogram */}
                                         <div style={{
-                                            fontWeight: 700,
-                                            fontSize: '1.02rem',
-                                            color: '#ffffff',
-                                            letterSpacing: '-0.01em',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis'
+                                            width: '48px',
+                                            height: '48px',
+                                            borderRadius: '14px',
+                                            background: hasActive 
+                                                ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(153, 27, 27, 0.35))' 
+                                                : hasExpired
+                                                ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(180, 83, 9, 0.25))'
+                                                : 'linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(6, 78, 59, 0.25))',
+                                            border: `1.5px solid ${hasActive ? 'rgba(239, 68, 68, 0.5)' : hasExpired ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`,
+                                            color: hasActive ? '#f87171' : hasExpired ? '#fbbf24' : '#34d399',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '1.05rem',
+                                            fontWeight: 800,
+                                            letterSpacing: '0.05em',
+                                            flexShrink: 0,
+                                            boxShadow: `0 4px 12px ${hasActive ? 'rgba(239, 68, 68, 0.2)' : 'rgba(0,0,0,0.2)'}`
                                         }}>
-                                            {profile.nombre} {profile.apellido}
+                                            {initials}
                                         </div>
 
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '0.2rem', color: '#94a3b8', fontSize: '0.8rem' }}>
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-gold, #f59e0b)' }}>
-                                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                                            </svg>
-                                            <span>{language === 'es' ? 'Placa: ' : 'Badge: '}</span>
-                                            <span style={{ color: 'var(--accent-gold, #f59e0b)', fontWeight: 600 }}>#{profile.no_placa}</span>
+                                        {/* Name & Badge */}
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{
+                                                fontWeight: 700,
+                                                fontSize: '1.02rem',
+                                                color: '#ffffff',
+                                                letterSpacing: '-0.01em',
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
+                                            }}>
+                                                {profile.nombre} {profile.apellido}
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '0.2rem', color: '#94a3b8', fontSize: '0.8rem' }}>
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-gold, #f59e0b)' }}>
+                                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                                </svg>
+                                                <span>{language === 'es' ? 'Placa: ' : 'Badge: '}</span>
+                                                <span style={{ color: 'var(--accent-gold, #f59e0b)', fontWeight: 600 }}>#{profile.no_placa}</span>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Action Buttons */}
+                                    {/* Action Buttons in Horizontal Group */}
                                     <div
                                         style={{
                                             display: 'flex',
+                                            alignItems: 'center',
                                             gap: '0.35rem',
-                                            paddingLeft: '0.4rem'
+                                            flexShrink: 0
                                         }}
                                         onClick={e => e.stopPropagation()}
                                     >
                                         <button
                                             onClick={(e) => openForEdit(e, profile)}
                                             style={{
-                                                width: '28px',
-                                                height: '28px',
+                                                width: '30px',
+                                                height: '30px',
                                                 borderRadius: '8px',
                                                 background: 'rgba(255, 255, 255, 0.06)',
-                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                border: '1px solid rgba(255, 255, 255, 0.12)',
                                                 color: '#cbd5e1',
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -540,7 +545,7 @@ function IASanctions() {
                                             }}
                                             title={language === 'es' ? 'Editar Oficial' : 'Edit Officer'}
                                         >
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <path d="M12 20h9"/>
                                                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
                                             </svg>
@@ -548,11 +553,11 @@ function IASanctions() {
                                         <button
                                             onClick={(e) => handleDelete(e, profile.id)}
                                             style={{
-                                                width: '28px',
-                                                height: '28px',
+                                                width: '30px',
+                                                height: '30px',
                                                 borderRadius: '8px',
                                                 background: 'rgba(239, 68, 68, 0.08)',
-                                                border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                border: '1px solid rgba(239, 68, 68, 0.22)',
                                                 color: '#f87171',
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -566,11 +571,11 @@ function IASanctions() {
                                             }}
                                             onMouseLeave={e => {
                                                 e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
-                                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.22)';
                                             }}
                                             title={language === 'es' ? 'Eliminar Oficial' : 'Delete Officer'}
                                         >
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <polyline points="3 6 5 6 21 6"/>
                                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                                             </svg>
@@ -580,7 +585,7 @@ function IASanctions() {
 
                                 {/* Active Sanction / Expiration Status Box */}
                                 <div style={{
-                                    padding: '0.6rem 0.85rem',
+                                    padding: '0.65rem 0.85rem',
                                     borderRadius: '10px',
                                     background: hasActive ? 'rgba(239, 68, 68, 0.12)' : hasExpired ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
                                     border: `1px solid ${hasActive ? 'rgba(239, 68, 68, 0.3)' : hasExpired ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
@@ -600,7 +605,7 @@ function IASanctions() {
                                                     backgroundColor: '#ef4444',
                                                     boxShadow: '0 0 8px #ef4444'
                                                 }} />
-                                                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                                     {status.activeCount === 1 
                                                         ? (language === 'es' ? `FALTA ${status.mostSevereActive?.toUpperCase()} ACTIVA` : `ACTIVE ${status.mostSevereActive?.toUpperCase()} FAULT`)
                                                         : (language === 'es' ? `${status.activeCount} FALTAS ACTIVAS` : `${status.activeCount} ACTIVE FAULTS`)}
