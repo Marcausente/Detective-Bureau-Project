@@ -673,18 +673,18 @@ function IASanctions() {
                     <div className="mac-modal-card" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
                         <div className="mac-modal-header">
                             <div className="mac-window-dots">
-                                <span className="mac-dot red" onClick={() => setShowModal(false)}></span>
-                                <span className="mac-dot yellow"></span>
-                                <span className="mac-dot green"></span>
+                                <div className="mac-window-dot close" onClick={() => setShowModal(false)} title={language === 'es' ? 'Cerrar' : 'Close'}></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
                             </div>
-                            <h3 className="mac-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <span className="mac-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                                     <circle cx="12" cy="7" r="4"/>
                                 </svg>
                                 <span>{editingId ? (language === 'es' ? 'Editar Perfil del Oficial' : 'Edit Officer Profile') : (language === 'es' ? 'Registrar Nuevo Oficial' : 'Register New Officer')}</span>
-                            </h3>
-                            <button className="mac-modal-close" onClick={() => setShowModal(false)}>&times;</button>
+                            </span>
+                            <div style={{ width: 52 }} />
                         </div>
 
                         <form onSubmit={handleSave}>

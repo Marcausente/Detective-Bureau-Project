@@ -822,17 +822,17 @@ function IASanctionProfile() {
                     <div className="mac-modal-card" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
                         <div className="mac-modal-header">
                             <div className="mac-window-dots">
-                                <span className="mac-dot red" onClick={() => setShowModal(false)}></span>
-                                <span className="mac-dot yellow"></span>
-                                <span className="mac-dot green"></span>
+                                <div className="mac-window-dot close" onClick={() => setShowModal(false)} title={language === 'es' ? 'Cerrar' : 'Close'}></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
                             </div>
-                            <h3 className="mac-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <span className="mac-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                                 </svg>
                                 <span>{modalMode === 'create' ? (language === 'es' ? 'Registrar Sanción Disciplinaria' : 'Register Disciplinary Sanction') : (language === 'es' ? 'Editar Sanción' : 'Edit Sanction')}</span>
-                            </h3>
-                            <button className="mac-modal-close" onClick={() => setShowModal(false)}>&times;</button>
+                            </span>
+                            <div style={{ width: 52 }} />
                         </div>
 
                         <form onSubmit={handleAction}>
