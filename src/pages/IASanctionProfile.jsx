@@ -3,6 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { 
+    DEFAULT_SANCTION_DURATIONS, 
+    fetchSanctionDurations, 
+    calculateSanctionExpiry 
+} from '../utils/sanctionConfig';
 import '../index.css';
 
 function IASanctionProfile() {
@@ -12,6 +17,7 @@ function IASanctionProfile() {
     const { language } = useLanguage();
     const [profileData, setProfileData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [durations, setDurations] = useState(DEFAULT_SANCTION_DURATIONS);
 
     // Modal State
     const [showModal, setShowModal] = useState(false);
@@ -33,6 +39,9 @@ function IASanctionProfile() {
     const loadData = async () => {
         setLoading(true);
         try {
+            const loadedDurations = await fetchSanctionDurations();
+            setDurations(loadedDurations);
+
             const { data, error } = await supabase.rpc('get_ia_subject_details', { p_subject_id: id });
             if (error) throw error;
             setProfileData(data);
@@ -156,12 +165,35 @@ function IASanctionProfile() {
         }
     };
 
+    // Calculate processed sanctions with expiration info
+    const enrichedSanctions = useMemo(() => {
+        if (!profileData?.sanctions) return [];
+        return profileData.sanctions.map(s => {
+            const expiry = calculateSanctionExpiry(s, durations);
+            return {
+                ...s,
+                expiry
+            };
+        });
+    }, [profileData, durations]);
+
+    const activeSanctions = useMemo(() => {
+        return enrichedSanctions.filter(s => s.expiry.isActive);
+    }, [enrichedSanctions]);
+
+    const hasActive = activeSanctions.length > 0;
+    const latestActiveExpiry = useMemo(() => {
+        if (!hasActive) return null;
+        const sorted = [...activeSanctions].sort((a, b) => b.expiry.expiryDate.getTime() - a.expiry.expiryDate.getTime());
+        return sorted[0].expiry;
+    }, [activeSanctions, hasActive]);
+
     if (loading) {
         return (
             <div className="mac-dashboard-container">
                 <div className="mac-doc-empty" style={{ marginTop: '4rem' }}>
                     <span className="mac-status-dot" style={{ animation: 'pulse 1s infinite', backgroundColor: '#ef4444' }}></span>
-                    <span>{language === 'es' ? 'Cargando expediente del oficial...' : 'Loading officer profile...'}</span>
+                    <span>{language === 'es' ? 'Cargando expediente del oficial y vigencias...' : 'Loading officer profile and expiration data...'}</span>
                 </div>
             </div>
         );
@@ -189,17 +221,21 @@ function IASanctionProfile() {
         );
     }
 
-    const { profile, sanctions = [] } = profileData;
+    const { profile } = profileData;
     const initials = `${(profile.nombre?.[0] || '').toUpperCase()}${(profile.apellido?.[0] || '').toUpperCase()}` || 'OF';
 
-    const countGrave = sanctions.filter(s => s.type === 'Grave').length;
-    const countMedia = sanctions.filter(s => s.type === 'Media').length;
-    const countLeve = sanctions.filter(s => s.type === 'Leve').length;
+    const countGrave = enrichedSanctions.filter(s => s.type === 'Grave').length;
+    const countMedia = enrichedSanctions.filter(s => s.type === 'Media').length;
+    const countLeve = enrichedSanctions.filter(s => s.type === 'Leve').length;
+
+    const countGraveActive = activeSanctions.filter(s => s.type === 'Grave').length;
+    const countMediaActive = activeSanctions.filter(s => s.type === 'Media').length;
+    const countLeveActive = activeSanctions.filter(s => s.type === 'Leve').length;
 
     return (
         <div className="mac-dashboard-container" style={{ maxWidth: '1100px' }}>
             {/* Top Navigation & Breadcrumb */}
-            <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
                 <button
                     onClick={() => navigate('/internal-affairs/sanctions')}
                     style={{
@@ -244,8 +280,10 @@ function IASanctionProfile() {
                 style={{
                     marginBottom: '2rem',
                     padding: '1.75rem 2rem',
-                    background: 'linear-gradient(135deg, rgba(30, 27, 38, 0.8), rgba(15, 23, 42, 0.9))',
-                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    background: hasActive
+                        ? 'linear-gradient(135deg, rgba(38, 20, 27, 0.85), rgba(15, 23, 42, 0.95))'
+                        : 'linear-gradient(135deg, rgba(30, 27, 38, 0.8), rgba(15, 23, 42, 0.9))',
+                    border: `1px solid ${hasActive ? 'rgba(239, 68, 68, 0.45)' : 'rgba(255, 255, 255, 0.1)'}`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -259,23 +297,25 @@ function IASanctionProfile() {
                         width: '84px',
                         height: '84px',
                         borderRadius: '24px',
-                        background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.35))',
-                        border: '2px solid rgba(239, 68, 68, 0.5)',
-                        color: '#f87171',
+                        background: hasActive
+                            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.35))'
+                            : 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 78, 59, 0.3))',
+                        border: `2px solid ${hasActive ? 'rgba(239, 68, 68, 0.5)' : 'rgba(16, 185, 129, 0.4)'}`,
+                        color: hasActive ? '#f87171' : '#34d399',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontSize: '2rem',
                         fontWeight: 900,
                         letterSpacing: '0.05em',
-                        boxShadow: '0 8px 24px rgba(239, 68, 68, 0.25)',
+                        boxShadow: `0 8px 24px ${hasActive ? 'rgba(239, 68, 68, 0.25)' : 'rgba(0,0,0,0.2)'}`,
                         flexShrink: 0
                     }}>
                         {initials}
                     </div>
 
                     <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.35rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
                             <span style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -299,9 +339,46 @@ function IASanctionProfile() {
                             </span>
                         </div>
 
-                        <h1 style={{ fontSize: '1.9rem', fontWeight: 800, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
+                        <h1 style={{ fontSize: '1.9rem', fontWeight: 800, margin: '0 0 0.4rem 0', color: '#ffffff', letterSpacing: '-0.02em' }}>
                             {profile.nombre} {profile.apellido}
                         </h1>
+
+                        {/* Active Sanction Expiration Alert in Header */}
+                        {hasActive ? (
+                            <div style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '0.35rem 0.85rem',
+                                background: 'rgba(239, 68, 68, 0.18)',
+                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                borderRadius: '12px',
+                                fontSize: '0.8rem',
+                                color: '#fca5a5'
+                            }}>
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }}></span>
+                                <span>
+                                    <strong>{activeSanctions.length} {language === 'es' ? 'FALTA(S) ACTIVA(S)' : 'ACTIVE FAULT(S)'}</strong> — {language === 'es' ? 'Caduca el' : 'Expires on'} <strong style={{ color: '#ffffff' }}>{latestActiveExpiry.expiryDateFormatted}</strong> ({latestActiveExpiry.daysRemaining === 0 ? (language === 'es' ? 'Caduca hoy' : 'Expires today') : `${latestActiveExpiry.daysRemaining} ${language === 'es' ? 'días restantes' : 'days left'}`})
+                                </span>
+                            </div>
+                        ) : (
+                            <div style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '0.35rem 0.85rem',
+                                background: 'rgba(16, 185, 129, 0.12)',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                borderRadius: '12px',
+                                fontSize: '0.8rem',
+                                color: '#34d399'
+                            }}>
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
+                                <span>
+                                    <strong>{language === 'es' ? 'Sin Sanciones Activas' : 'No Active Sanctions'}</strong> {enrichedSanctions.length > 0 && `(${language === 'es' ? 'Historial archivado' : 'Archived records'})`}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -336,12 +413,46 @@ function IASanctionProfile() {
                 gap: '1rem',
                 marginBottom: '2rem'
             }}>
+                {/* Active Sanctions Widget */}
+                <div className="mac-widget-card" style={{
+                    padding: '1rem 1.25rem',
+                    borderLeft: `4px solid ${hasActive ? '#ef4444' : '#10b981'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: hasActive ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.05)'
+                }}>
+                    <div>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: hasActive ? '#f87171' : '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {language === 'es' ? 'Faltas Activas' : 'Active Sanctions'}
+                        </span>
+                        <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>
+                            {activeSanctions.length}
+                        </div>
+                    </div>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: hasActive ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={hasActive ? '#ef4444' : '#34d399'} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                    </div>
+                </div>
+
+                {/* Graves */}
                 <div className="mac-widget-card" style={{ padding: '1rem 1.25rem', borderLeft: '4px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
                         <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             {language === 'es' ? 'Faltas Graves' : 'Major Offenses'}
                         </span>
-                        <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{countGrave}</div>
+                        <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>
+                            {countGrave}
+                            {countGraveActive > 0 && (
+                                <span style={{ fontSize: '0.8rem', color: '#f87171', fontWeight: 700, marginLeft: '6px' }}>
+                                    ({countGraveActive} {language === 'es' ? 'activas' : 'act.'})
+                                </span>
+                            )}
+                        </div>
                     </div>
                     <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -352,12 +463,20 @@ function IASanctionProfile() {
                     </div>
                 </div>
 
+                {/* Medias */}
                 <div className="mac-widget-card" style={{ padding: '1rem 1.25rem', borderLeft: '4px solid #f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
                         <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             {language === 'es' ? 'Faltas Medias' : 'Moderate Offenses'}
                         </span>
-                        <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{countMedia}</div>
+                        <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>
+                            {countMedia}
+                            {countMediaActive > 0 && (
+                                <span style={{ fontSize: '0.8rem', color: '#fbbf24', fontWeight: 700, marginLeft: '6px' }}>
+                                    ({countMediaActive} {language === 'es' ? 'activas' : 'act.'})
+                                </span>
+                            )}
+                        </div>
                     </div>
                     <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -368,35 +487,26 @@ function IASanctionProfile() {
                     </div>
                 </div>
 
+                {/* Leves */}
                 <div className="mac-widget-card" style={{ padding: '1rem 1.25rem', borderLeft: '4px solid #38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
                         <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             {language === 'es' ? 'Faltas Leves' : 'Minor Offenses'}
                         </span>
-                        <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{countLeve}</div>
+                        <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>
+                            {countLeve}
+                            {countLeveActive > 0 && (
+                                <span style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 700, marginLeft: '6px' }}>
+                                    ({countLeveActive} {language === 'es' ? 'activas' : 'act.'})
+                                </span>
+                            )}
+                        </div>
                     </div>
                     <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="12" cy="12" r="10"/>
                             <line x1="12" y1="16" x2="12" y2="12"/>
                             <line x1="12" y1="8" x2="12.01" y2="8"/>
-                        </svg>
-                    </div>
-                </div>
-
-                <div className="mac-widget-card" style={{ padding: '1rem 1.25rem', borderLeft: '4px solid #8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            {language === 'es' ? 'Total Sanciones' : 'Total Sanctions'}
-                        </span>
-                        <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>{sanctions.length}</div>
-                    </div>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(139, 92, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
                         </svg>
                     </div>
                 </div>
@@ -411,12 +521,12 @@ function IASanctionProfile() {
                     <span>{language === 'es' ? 'Historial Disciplinario' : 'Disciplinary History Timeline'}</span>
                 </h3>
                 <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                    {sanctions.length} {language === 'es' ? 'registros en expediente' : 'records logged'}
+                    {enrichedSanctions.length} {language === 'es' ? 'registros en expediente' : 'records logged'}
                 </span>
             </div>
 
             <div className="sanctions-timeline">
-                {sanctions.length === 0 ? (
+                {enrichedSanctions.length === 0 ? (
                     <div className="mac-doc-empty">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '0.5rem' }}>
                             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
@@ -425,9 +535,10 @@ function IASanctionProfile() {
                         <span>{language === 'es' ? 'No se encontraron expedientes disciplinarios para este oficial.' : 'No disciplinary records found for this officer.'}</span>
                     </div>
                 ) : (
-                    sanctions.map((item, index) => {
+                    enrichedSanctions.map((item, index) => {
                         const cfg = severityConfig[item.type] || severityConfig.Media;
-                        const isLast = index === sanctions.length - 1;
+                        const isLast = index === enrichedSanctions.length - 1;
+                        const isSanctionActive = item.expiry.isActive;
 
                         return (
                             <div
@@ -445,9 +556,9 @@ function IASanctionProfile() {
                                         width: '18px',
                                         height: '18px',
                                         borderRadius: '50%',
-                                        background: cfg.color,
+                                        background: isSanctionActive ? cfg.color : '#64748b',
                                         border: '3px solid rgba(15, 23, 42, 0.9)',
-                                        boxShadow: `0 0 12px ${cfg.color}`,
+                                        boxShadow: isSanctionActive ? `0 0 12px ${cfg.color}` : 'none',
                                         marginTop: '1.25rem',
                                         zIndex: 2,
                                         flexShrink: 0
@@ -463,13 +574,17 @@ function IASanctionProfile() {
                                     style={{
                                         flex: 1,
                                         padding: '1.35rem 1.5rem',
-                                        borderLeft: `4px solid ${cfg.color}`,
-                                        position: 'relative'
+                                        borderLeft: `4px solid ${isSanctionActive ? cfg.color : '#64748b'}`,
+                                        position: 'relative',
+                                        ...(isSanctionActive ? {
+                                            background: 'linear-gradient(135deg, rgba(30, 20, 28, 0.6), rgba(15, 23, 42, 0.8))'
+                                        } : {})
                                     }}
                                 >
                                     {/* Header Row */}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.75rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                            {/* Severity Tag */}
                                             <span style={{
                                                 display: 'inline-flex',
                                                 alignItems: 'center',
@@ -488,14 +603,55 @@ function IASanctionProfile() {
                                                 <span>{cfg.label}</span>
                                             </span>
 
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#94a3b8', fontSize: '0.82rem' }}>
+                                            {/* Active / Expired Pill */}
+                                            {isSanctionActive ? (
+                                                <span style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '5px',
+                                                    background: 'rgba(239, 68, 68, 0.2)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.45)',
+                                                    color: '#fca5a5',
+                                                    borderRadius: '12px',
+                                                    padding: '0.25rem 0.65rem',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 700
+                                                }}>
+                                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444' }}></span>
+                                                    <span>
+                                                        {language === 'es' ? 'ACTIVA • Caduca: ' : 'ACTIVE • Expires: '}
+                                                        <strong style={{ color: '#ffffff' }}>{item.expiry.expiryDateFormatted}</strong>
+                                                        {` (${item.expiry.daysRemaining === 0 ? (language === 'es' ? 'Hoy' : 'Today') : `${item.expiry.daysRemaining}d`})`}
+                                                    </span>
+                                                </span>
+                                            ) : (
+                                                <span style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '5px',
+                                                    background: 'rgba(100, 116, 139, 0.15)',
+                                                    border: '1px solid rgba(100, 116, 139, 0.3)',
+                                                    color: '#94a3b8',
+                                                    borderRadius: '12px',
+                                                    padding: '0.25rem 0.65rem',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 600
+                                                }}>
+                                                    <span>
+                                                        {language === 'es' ? 'CADUCADA' : 'EXPIRED'} ({language === 'es' ? 'Venció el ' : 'Expired '}{item.expiry.expiryDateFormatted})
+                                                    </span>
+                                                </span>
+                                            )}
+
+                                            {/* Imposition Date */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#94a3b8', fontSize: '0.8rem' }}>
                                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                                                     <line x1="16" y1="2" x2="16" y2="6"/>
                                                     <line x1="8" y1="2" x2="8" y2="6"/>
                                                     <line x1="3" y1="10" x2="21" y2="10"/>
                                                 </svg>
-                                                <span>{item.date}</span>
+                                                <span>{language === 'es' ? 'Imposición: ' : 'Issued: '}<strong>{item.date}</strong></span>
                                             </div>
                                         </div>
 
@@ -688,14 +844,14 @@ function IASanctionProfile() {
                                         value={formData.type}
                                         onChange={e => setFormData({ ...formData, type: e.target.value })}
                                     >
-                                        <option value="Leve">{language === 'es' ? 'Falta Leve (Amonestación / Menor)' : 'Minor Offense (Leve)'}</option>
-                                        <option value="Media">{language === 'es' ? 'Falta Media (Suspensión Temporal / Moderada)' : 'Moderate Offense (Media)'}</option>
-                                        <option value="Grave">{language === 'es' ? 'Falta Grave (Expulsión / Severa)' : 'Major Offense (Grave)'}</option>
+                                        <option value="Leve">{language === 'es' ? `Falta Leve (${durations.Leve} días de vigencia)` : `Minor Offense (${durations.Leve} days active)`}</option>
+                                        <option value="Media">{language === 'es' ? `Falta Media (${durations.Media} días de vigencia)` : `Moderate Offense (${durations.Media} days active)`}</option>
+                                        <option value="Grave">{language === 'es' ? `Falta Grave (${durations.Grave} días de vigencia)` : `Major Offense (${durations.Grave} days active)`}</option>
                                     </select>
                                 </div>
 
                                 <div className="mac-form-group">
-                                    <label className="mac-form-label">{language === 'es' ? 'Fecha del Incidente' : 'Incident Date'}</label>
+                                    <label className="mac-form-label">{language === 'es' ? 'Fecha de Imposición de la Falta' : 'Sanction Imposition Date'}</label>
                                     <input
                                         type="date"
                                         className="mac-form-input"
@@ -703,6 +859,11 @@ function IASanctionProfile() {
                                         value={formData.date}
                                         onChange={e => setFormData({ ...formData, date: e.target.value })}
                                     />
+                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                                        {language === 'es' 
+                                            ? `La falta caducará automáticamente tras los días configurados desde esta fecha.` 
+                                            : `The fault will expire automatically after the configured days from this date.`}
+                                    </span>
                                 </div>
 
                                 <div className="mac-form-group">

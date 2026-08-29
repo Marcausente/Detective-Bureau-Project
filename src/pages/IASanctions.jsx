@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { 
+    DEFAULT_SANCTION_DURATIONS, 
+    fetchSanctionDurations, 
+    calculateSubjectStatus 
+} from '../utils/sanctionConfig';
 import '../index.css';
 
 function IASanctions() {
@@ -12,7 +17,8 @@ function IASanctions() {
     const [profiles, setProfiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterCategory, setFilterCategory] = useState('all'); // 'all', 'with_sanctions', 'clean'
+    const [filterCategory, setFilterCategory] = useState('all'); // 'all', 'active', 'expired', 'clean'
+    const [durations, setDurations] = useState(DEFAULT_SANCTION_DURATIONS);
 
     // Modal & CRUD State
     const [showModal, setShowModal] = useState(false);
@@ -21,15 +27,58 @@ function IASanctions() {
     const [editingId, setEditingId] = useState(null);
 
     useEffect(() => {
-        loadProfiles();
+        loadData();
     }, []);
 
-    const loadProfiles = async () => {
+    const loadData = async () => {
+        setLoading(true);
         try {
-            setLoading(true);
-            const { data, error } = await supabase.rpc('get_ia_subjects');
-            if (error) throw error;
-            setProfiles(data || []);
+            // Load custom durations from app_settings
+            const loadedDurations = await fetchSanctionDurations();
+            setDurations(loadedDurations);
+
+            // Try loading full profiles with sanctions
+            let loadedProfiles = [];
+
+            const { data: fullData, error: fullError } = await supabase.rpc('get_ia_subjects_full');
+            if (!fullError && fullData) {
+                loadedProfiles = fullData;
+            } else {
+                // Fallback to direct supabase query
+                const { data: directData, error: directError } = await supabase
+                    .from('ia_subject_profiles')
+                    .select(`
+                        id,
+                        nombre,
+                        apellido,
+                        no_placa,
+                        created_at,
+                        ia_sanctions (
+                            id,
+                            sanction_type,
+                            sanction_date,
+                            description,
+                            created_at
+                        )
+                    `)
+                    .order('nombre', { ascending: true });
+
+                if (!directError && directData) {
+                    loadedProfiles = directData.map(p => ({
+                        ...p,
+                        sanctions: p.ia_sanctions || []
+                    }));
+                } else {
+                    // Fallback to legacy RPC
+                    const { data: legacyData } = await supabase.rpc('get_ia_subjects');
+                    loadedProfiles = (legacyData || []).map(p => ({
+                        ...p,
+                        sanctions: []
+                    }));
+                }
+            }
+
+            setProfiles(loadedProfiles || []);
         } catch (err) {
             console.error('Error loading profiles:', err);
         } finally {
@@ -71,7 +120,7 @@ function IASanctions() {
                 if (error) throw error;
             }
             setShowModal(false);
-            loadProfiles();
+            loadData();
         } catch (err) {
             alert((language === 'es' ? 'Error al guardar perfil: ' : 'Error saving profile: ') + err.message);
         } finally {
@@ -88,14 +137,25 @@ function IASanctions() {
         try {
             const { error } = await supabase.rpc('delete_ia_subject_profile', { p_id: id });
             if (error) throw error;
-            loadProfiles();
+            loadData();
         } catch (err) {
             alert((language === 'es' ? 'Error al eliminar perfil: ' : 'Error deleting profile: ') + err.message);
         }
     };
 
+    // Calculate processed profile data with real-time active status
+    const processedProfiles = useMemo(() => {
+        return profiles.map(profile => {
+            const status = calculateSubjectStatus(profile, durations);
+            return {
+                ...profile,
+                status
+            };
+        });
+    }, [profiles, durations]);
+
     const filteredProfiles = useMemo(() => {
-        return profiles.filter(p => {
+        return processedProfiles.filter(p => {
             const fullName = `${p.nombre} ${p.apellido}`.toLowerCase();
             const badge = (p.no_placa || '').toLowerCase();
             const query = searchTerm.toLowerCase();
@@ -103,19 +163,24 @@ function IASanctions() {
 
             if (!matchesQuery) return false;
 
-            if (filterCategory === 'with_sanctions') {
-                return (p.sanction_count || 0) > 0;
+            if (filterCategory === 'active') {
+                return p.status.hasActive;
+            }
+            if (filterCategory === 'expired') {
+                return !p.status.hasActive && p.status.totalCount > 0;
             }
             if (filterCategory === 'clean') {
-                return (p.sanction_count || 0) === 0;
+                return p.status.totalCount === 0;
             }
             return true;
         });
-    }, [profiles, searchTerm, filterCategory]);
+    }, [processedProfiles, searchTerm, filterCategory]);
 
-    const totalOfficers = profiles.length;
-    const totalSanctioned = profiles.filter(p => (p.sanction_count || 0) > 0).length;
-    const totalRecords = profiles.reduce((acc, p) => acc + (Number(p.sanction_count) || 0), 0);
+    const totalOfficers = processedProfiles.length;
+    const totalActiveOfficers = processedProfiles.filter(p => p.status.hasActive).length;
+    const totalExpiredOnlyOfficers = processedProfiles.filter(p => !p.status.hasActive && p.status.totalCount > 0).length;
+    const totalCleanOfficers = processedProfiles.filter(p => p.status.totalCount === 0).length;
+    const totalRecords = processedProfiles.reduce((acc, p) => acc + p.status.totalCount, 0);
 
     return (
         <div className="mac-dashboard-container">
@@ -173,7 +238,7 @@ function IASanctions() {
                             {language === 'es' ? 'REGISTRO DE SANCIONES' : 'DISCIPLINARY SANCTIONS REGISTRY'}
                         </h1>
                         <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.82rem' }}>
-                            {language === 'es' ? 'Base de datos y archivo de expedientes disciplinarios de oficiales.' : 'Database of officer disciplinary files and sanction records.'}
+                            {language === 'es' ? 'Control de personal con faltas activas y expedientes disciplinarios.' : 'Control of officers with active sanctions and disciplinary records.'}
                         </p>
                     </div>
                 </div>
@@ -222,52 +287,114 @@ function IASanctions() {
 
             {/* Quick Metrics Bar & Filter Tabs */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
-                <div className="mac-doc-tabs" style={{ margin: 0 }}>
+                <div className="mac-doc-tabs" style={{ margin: 0, flexWrap: 'wrap', gap: '6px' }}>
                     {[
-                        { id: 'all', label: language === 'es' ? 'Todos los Oficiales' : 'All Officers', count: totalOfficers },
-                        { id: 'with_sanctions', label: language === 'es' ? 'Con Sanciones' : 'With Sanctions', count: totalSanctioned },
-                        { id: 'clean', label: language === 'es' ? 'Sin Sanciones' : 'Clean Record', count: totalOfficers - totalSanctioned }
-                    ].map(tab => (
-                        <button
-                            key={tab.id}
-                            className={`mac-doc-tab ${filterCategory === tab.id ? 'active' : ''}`}
-                            onClick={() => setFilterCategory(tab.id)}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                        >
-                            <span>{tab.label}</span>
-                            <span style={{
-                                fontSize: '0.72rem',
-                                padding: '1px 7px',
-                                borderRadius: '12px',
-                                background: filterCategory === tab.id ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)',
-                                color: filterCategory === tab.id ? '#ffffff' : '#94a3b8',
-                                fontWeight: 700
-                            }}>
-                                {tab.count}
-                            </span>
-                        </button>
-                    ))}
+                        { 
+                            id: 'all', 
+                            label: language === 'es' ? 'Todos los Oficiales' : 'All Officers', 
+                            count: totalOfficers,
+                            badgeColor: null
+                        },
+                        { 
+                            id: 'active', 
+                            label: language === 'es' ? 'Faltas ACTIVAS' : 'ACTIVE Sanctions', 
+                            count: totalActiveOfficers,
+                            isAlert: true,
+                            badgeColor: '#ef4444'
+                        },
+                        { 
+                            id: 'expired', 
+                            label: language === 'es' ? 'Sanciones Caducadas' : 'Expired Sanctions', 
+                            count: totalExpiredOnlyOfficers,
+                            badgeColor: '#f59e0b'
+                        },
+                        { 
+                            id: 'clean', 
+                            label: language === 'es' ? 'Sin Sanciones' : 'Clean Record', 
+                            count: totalCleanOfficers,
+                            badgeColor: '#10b981'
+                        }
+                    ].map(tab => {
+                        const isSelected = filterCategory === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                className={`mac-doc-tab ${isSelected ? 'active' : ''}`}
+                                onClick={() => setFilterCategory(tab.id)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    ...(tab.isAlert ? {
+                                        borderColor: isSelected ? '#ef4444' : 'rgba(239, 68, 68, 0.4)',
+                                        background: isSelected ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.08)',
+                                        color: isSelected ? '#ffffff' : '#f87171'
+                                    } : {})
+                                }}
+                            >
+                                {tab.isAlert && (
+                                    <span style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        borderRadius: '50%',
+                                        backgroundColor: '#ef4444',
+                                        boxShadow: '0 0 8px #ef4444',
+                                        display: 'inline-block'
+                                    }} />
+                                )}
+                                <span>{tab.label}</span>
+                                <span style={{
+                                    fontSize: '0.72rem',
+                                    padding: '1px 7px',
+                                    borderRadius: '12px',
+                                    background: isSelected 
+                                        ? (tab.badgeColor ? `${tab.badgeColor}40` : 'rgba(255,255,255,0.25)') 
+                                        : 'rgba(255,255,255,0.08)',
+                                    color: isSelected ? '#ffffff' : (tab.badgeColor || '#94a3b8'),
+                                    fontWeight: 700
+                                }}>
+                                    {tab.count}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                {/* Summary Info Chips */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
                         padding: '0.35rem 0.85rem',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        background: totalActiveOfficers > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+                        border: `1px solid ${totalActiveOfficers > 0 ? 'rgba(239, 68, 68, 0.35)' : 'rgba(16, 185, 129, 0.25)'}`,
                         borderRadius: '20px',
                         fontSize: '0.78rem',
-                        color: '#f87171',
-                        fontWeight: 600
+                        color: totalActiveOfficers > 0 ? '#f87171' : '#34d399',
+                        fontWeight: 700
                     }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                            <line x1="12" y1="9" x2="12" y2="13"/>
-                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
                         </svg>
-                        <span>{totalRecords} {language === 'es' ? 'Sanciones Totales Registradas' : 'Total Sanctions Logged'}</span>
+                        <span>{totalActiveOfficers} {language === 'es' ? 'Oficiales con Sanción Activa' : 'Officers with Active Sanctions'}</span>
+                    </div>
+
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '0.35rem 0.85rem',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '20px',
+                        fontSize: '0.78rem',
+                        color: '#cbd5e1',
+                        fontWeight: 600
+                    }}>
+                        <span>{totalRecords} {language === 'es' ? 'Sanciones en Total' : 'Total Sanctions Logged'}</span>
                     </div>
                 </div>
             </div>
@@ -276,7 +403,7 @@ function IASanctions() {
             {loading ? (
                 <div className="mac-doc-empty">
                     <span className="mac-status-dot" style={{ animation: 'pulse 1s infinite', backgroundColor: '#ef4444' }}></span>
-                    <span>{language === 'es' ? 'Cargando registro de personal...' : 'Loading personnel registry...'}</span>
+                    <span>{language === 'es' ? 'Cargando registro de personal y vigencias...' : 'Loading personnel registry and expiration data...'}</span>
                 </div>
             ) : filteredProfiles.length === 0 ? (
                 <div className="mac-doc-empty">
@@ -284,13 +411,21 @@ function IASanctions() {
                         <circle cx="11" cy="11" r="8"/>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                     </svg>
-                    <span>{language === 'es' ? 'No se encontraron oficiales en el registro.' : 'No officer profiles found.'}</span>
+                    <span>
+                        {filterCategory === 'active'
+                            ? (language === 'es' ? '¡Excelente! No hay oficiales con faltas activas actualmente.' : 'Great! No officers with active sanctions at this moment.')
+                            : (language === 'es' ? 'No se encontraron oficiales en el registro.' : 'No officer profiles found.')}
+                    </span>
                 </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.25rem' }}>
                     {filteredProfiles.map(profile => {
-                        const hasSanctions = (profile.sanction_count || 0) > 0;
+                        const { status } = profile;
+                        const hasActive = status.hasActive;
+                        const hasExpired = !hasActive && status.totalCount > 0;
                         const initials = `${(profile.nombre?.[0] || '').toUpperCase()}${(profile.apellido?.[0] || '').toUpperCase()}` || 'OF';
+
+                        const cardBorderColor = hasActive ? '#ef4444' : hasExpired ? '#f59e0b' : '#10b981';
 
                         return (
                             <div
@@ -300,173 +435,226 @@ function IASanctions() {
                                 style={{
                                     cursor: 'pointer',
                                     display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '1.1rem',
+                                    flexDirection: 'column',
+                                    gap: '0.85rem',
                                     padding: '1.25rem 1.35rem',
                                     position: 'relative',
                                     transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-                                    borderLeft: `4px solid ${hasSanctions ? '#ef4444' : '#10b981'}`
+                                    borderLeft: `4px solid ${cardBorderColor}`,
+                                    ...(hasActive ? {
+                                        background: 'linear-gradient(135deg, rgba(30, 18, 25, 0.65), rgba(15, 23, 42, 0.8))',
+                                        boxShadow: '0 4px 20px rgba(239, 68, 68, 0.1)'
+                                    } : {})
                                 }}
                                 onMouseEnter={e => {
                                     e.currentTarget.style.transform = 'translateY(-3px)';
-                                    e.currentTarget.style.boxShadow = `0 12px 28px -6px ${hasSanctions ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.15)'}`;
-                                    e.currentTarget.style.borderColor = hasSanctions ? '#ef4444' : '#10b981';
+                                    e.currentTarget.style.boxShadow = `0 14px 30px -6px ${hasActive ? 'rgba(239, 68, 68, 0.3)' : hasExpired ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.15)'}`;
+                                    e.currentTarget.style.borderColor = cardBorderColor;
                                 }}
                                 onMouseLeave={e => {
                                     e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = 'none';
+                                    e.currentTarget.style.boxShadow = hasActive ? '0 4px 20px rgba(239, 68, 68, 0.1)' : 'none';
                                     e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
                                 }}
                             >
-                                {/* Avatar Monogram */}
+                                {/* Top Row: Avatar, Name & Edit/Delete Actions */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    {/* Avatar Monogram */}
+                                    <div style={{
+                                        width: '52px',
+                                        height: '52px',
+                                        borderRadius: '16px',
+                                        background: hasActive 
+                                            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(153, 27, 27, 0.35))' 
+                                            : hasExpired
+                                            ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(180, 83, 9, 0.25))'
+                                            : 'linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(6, 78, 59, 0.25))',
+                                        border: `1.5px solid ${hasActive ? 'rgba(239, 68, 68, 0.45)' : hasExpired ? 'rgba(245, 158, 11, 0.35)' : 'rgba(16, 185, 129, 0.35)'}`,
+                                        color: hasActive ? '#f87171' : hasExpired ? '#fbbf24' : '#34d399',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '1.15rem',
+                                        fontWeight: 800,
+                                        letterSpacing: '0.05em',
+                                        flexShrink: 0,
+                                        boxShadow: `0 4px 12px ${hasActive ? 'rgba(239, 68, 68, 0.2)' : 'rgba(0,0,0,0.2)'}`
+                                    }}>
+                                        {initials}
+                                    </div>
+
+                                    {/* Officer Name & Badge */}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{
+                                            fontWeight: 700,
+                                            fontSize: '1.02rem',
+                                            color: '#ffffff',
+                                            letterSpacing: '-0.01em',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis'
+                                        }}>
+                                            {profile.nombre} {profile.apellido}
+                                        </div>
+
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '0.2rem', color: '#94a3b8', fontSize: '0.8rem' }}>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-gold, #f59e0b)' }}>
+                                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                            </svg>
+                                            <span>{language === 'es' ? 'Placa: ' : 'Badge: '}</span>
+                                            <span style={{ color: 'var(--accent-gold, #f59e0b)', fontWeight: 600 }}>#{profile.no_placa}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            gap: '0.35rem',
+                                            paddingLeft: '0.4rem'
+                                        }}
+                                        onClick={e => e.stopPropagation()}
+                                    >
+                                        <button
+                                            onClick={(e) => openForEdit(e, profile)}
+                                            style={{
+                                                width: '28px',
+                                                height: '28px',
+                                                borderRadius: '8px',
+                                                background: 'rgba(255, 255, 255, 0.06)',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                color: '#cbd5e1',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                                                e.currentTarget.style.color = '#ffffff';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                                                e.currentTarget.style.color = '#cbd5e1';
+                                            }}
+                                            title={language === 'es' ? 'Editar Oficial' : 'Edit Officer'}
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 20h9"/>
+                                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                            </svg>
+                                        </button>
+                                        <button
+                                            onClick={(e) => handleDelete(e, profile.id)}
+                                            style={{
+                                                width: '28px',
+                                                height: '28px',
+                                                borderRadius: '8px',
+                                                background: 'rgba(239, 68, 68, 0.08)',
+                                                border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                color: '#f87171',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                                            }}
+                                            title={language === 'es' ? 'Eliminar Oficial' : 'Delete Officer'}
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="3 6 5 6 21 6"/>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Active Sanction / Expiration Status Box */}
                                 <div style={{
-                                    width: '54px',
-                                    height: '54px',
-                                    borderRadius: '16px',
-                                    background: hasSanctions 
-                                        ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.22), rgba(153, 27, 27, 0.3))' 
-                                        : 'linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(6, 78, 59, 0.25))',
-                                    border: `1px solid ${hasSanctions ? 'rgba(239, 68, 68, 0.35)' : 'rgba(16, 185, 129, 0.35)'}`,
-                                    color: hasSanctions ? '#f87171' : '#34d399',
+                                    padding: '0.6rem 0.85rem',
+                                    borderRadius: '10px',
+                                    background: hasActive ? 'rgba(239, 68, 68, 0.12)' : hasExpired ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                                    border: `1px solid ${hasActive ? 'rgba(239, 68, 68, 0.3)' : hasExpired ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '1.15rem',
-                                    fontWeight: 800,
-                                    letterSpacing: '0.05em',
-                                    flexShrink: 0,
-                                    boxShadow: `0 4px 12px ${hasSanctions ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.1)'}`
+                                    justifyContent: 'space-between',
+                                    gap: '0.5rem',
+                                    flexWrap: 'wrap'
                                 }}>
-                                    {initials}
-                                </div>
+                                    {hasActive ? (
+                                        <>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{
+                                                    width: '8px',
+                                                    height: '8px',
+                                                    borderRadius: '50%',
+                                                    backgroundColor: '#ef4444',
+                                                    boxShadow: '0 0 8px #ef4444'
+                                                }} />
+                                                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                                    {status.activeCount === 1 
+                                                        ? (language === 'es' ? `FALTA ${status.mostSevereActive?.toUpperCase()} ACTIVA` : `ACTIVE ${status.mostSevereActive?.toUpperCase()} FAULT`)
+                                                        : (language === 'es' ? `${status.activeCount} FALTAS ACTIVAS` : `${status.activeCount} ACTIVE FAULTS`)}
+                                                </span>
+                                            </div>
 
-                                {/* Officer Info */}
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{
-                                        fontWeight: 700,
-                                        fontSize: '1.02rem',
-                                        color: '#ffffff',
-                                        letterSpacing: '-0.01em',
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis'
-                                    }}>
-                                        {profile.nombre} {profile.apellido}
-                                    </div>
-
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '0.2rem', color: '#94a3b8', fontSize: '0.8rem' }}>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-gold, #f59e0b)' }}>
-                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                                        </svg>
-                                        <span>{language === 'es' ? 'Placa: ' : 'Badge: '}</span>
-                                        <span style={{ color: 'var(--accent-gold, #f59e0b)', fontWeight: 600 }}>#{profile.no_placa}</span>
-                                    </div>
-
-                                    {/* Sanction Status Pill */}
-                                    <div style={{ marginTop: '0.45rem', display: 'flex', alignItems: 'center' }}>
-                                        <span style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '5px',
-                                            fontSize: '0.72rem',
-                                            fontWeight: 700,
-                                            padding: '0.2rem 0.6rem',
-                                            borderRadius: '12px',
-                                            background: hasSanctions ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.12)',
-                                            color: hasSanctions ? '#f87171' : '#34d399',
-                                            border: `1px solid ${hasSanctions ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.25)'}`
-                                        }}>
-                                            <span style={{
-                                                width: '6px',
-                                                height: '6px',
-                                                borderRadius: '50%',
-                                                backgroundColor: hasSanctions ? '#ef4444' : '#10b981',
-                                                boxShadow: `0 0 6px ${hasSanctions ? '#ef4444' : '#10b981'}`
-                                            }} />
-                                            <span>
-                                                {profile.sanction_count} {language === 'es' 
-                                                    ? (profile.sanction_count === 1 ? 'Sanción Registrada' : 'Sanciones Registradas') 
-                                                    : (profile.sanction_count === 1 ? 'Sanction Logged' : 'Sanctions Logged')}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem' }}>
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <circle cx="12" cy="12" r="10"/>
+                                                    <polyline points="12 6 12 12 16 14"/>
+                                                </svg>
+                                                <span style={{ color: '#fca5a5', fontWeight: 600 }}>
+                                                    {language === 'es' ? 'Caduca: ' : 'Expires: '}
+                                                    <strong style={{ color: '#ffffff' }}>{status.latestExpiryDateFormatted}</strong>
+                                                </span>
+                                                <span style={{
+                                                    fontSize: '0.7rem',
+                                                    padding: '1px 6px',
+                                                    borderRadius: '8px',
+                                                    background: 'rgba(239, 68, 68, 0.25)',
+                                                    color: '#fecaca',
+                                                    fontWeight: 700
+                                                }}>
+                                                    {status.maxDaysRemaining === 0 
+                                                        ? (language === 'es' ? 'Hoy' : 'Today')
+                                                        : (language === 'es' ? `${status.maxDaysRemaining}d restantes` : `${status.maxDaysRemaining}d left`)}
+                                                </span>
+                                            </div>
+                                        </>
+                                    ) : hasExpired ? (
+                                        <>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
+                                                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#fbbf24' }}>
+                                                    {status.totalCount} {language === 'es' ? (status.totalCount === 1 ? 'Sanción Caducada' : 'Sanciones Caducadas') : (status.totalCount === 1 ? 'Expired Sanction' : 'Expired Sanctions')}
+                                                </span>
+                                            </div>
+                                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                                {language === 'es' ? 'Sin faltas vigentes' : 'No active sanctions'}
                                             </span>
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Actions Group */}
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '0.35rem',
-                                        paddingLeft: '0.5rem',
-                                        borderLeft: '1px solid rgba(255, 255, 255, 0.08)'
-                                    }}
-                                    onClick={e => e.stopPropagation()}
-                                >
-                                    <button
-                                        onClick={(e) => openForEdit(e, profile)}
-                                        style={{
-                                            width: '30px',
-                                            height: '30px',
-                                            borderRadius: '8px',
-                                            background: 'rgba(255, 255, 255, 0.06)',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                                            color: '#cbd5e1',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                        onMouseEnter={e => {
-                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                                            e.currentTarget.style.color = '#ffffff';
-                                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
-                                        }}
-                                        onMouseLeave={e => {
-                                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
-                                            e.currentTarget.style.color = '#cbd5e1';
-                                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                                        }}
-                                        title={language === 'es' ? 'Editar Oficial' : 'Edit Officer'}
-                                    >
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M12 20h9"/>
-                                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                                        </svg>
-                                    </button>
-                                    <button
-                                        onClick={(e) => handleDelete(e, profile.id)}
-                                        style={{
-                                            width: '30px',
-                                            height: '30px',
-                                            borderRadius: '8px',
-                                            background: 'rgba(239, 68, 68, 0.08)',
-                                            border: '1px solid rgba(239, 68, 68, 0.2)',
-                                            color: '#f87171',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                        onMouseEnter={e => {
-                                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-                                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-                                        }}
-                                        onMouseLeave={e => {
-                                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
-                                            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)';
-                                        }}
-                                        title={language === 'es' ? 'Eliminar Oficial' : 'Delete Officer'}
-                                    >
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <polyline points="3 6 5 6 21 6"/>
-                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                            <line x1="10" y1="11" x2="10" y2="17"/>
-                                            <line x1="14" y1="11" x2="14" y2="17"/>
-                                        </svg>
-                                    </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+                                                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#34d399' }}>
+                                                    {language === 'es' ? 'Expediente Limpio' : 'Clean Record'}
+                                                </span>
+                                            </div>
+                                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                                {language === 'es' ? '0 Sanciones' : '0 Records'}
+                                            </span>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         );
