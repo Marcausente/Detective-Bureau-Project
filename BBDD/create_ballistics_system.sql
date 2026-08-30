@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS public.ballistics_bullets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     incidente_relacionado TEXT NOT NULL,
-    calibre TEXT NOT NULL,
+    calibre TEXT NOT NULL DEFAULT 'N/A',
     numero_serie TEXT NOT NULL,
     modelo_arma TEXT NOT NULL DEFAULT 'N/A',
     author_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS public.ballistics_bullets (
 );
 
 -- Migration query in case table already exists
+ALTER TABLE public.ballistics_bullets ADD COLUMN IF NOT EXISTS calibre TEXT NOT NULL DEFAULT 'N/A';
 ALTER TABLE public.ballistics_bullets ADD COLUMN IF NOT EXISTS modelo_arma TEXT NOT NULL DEFAULT 'N/A';
+ALTER TABLE public.ballistics_bullets ALTER COLUMN calibre SET DEFAULT 'N/A';
 
 -- 2. Create Seized Weapons Table (Tabla de Armas Incautadas)
 CREATE TABLE IF NOT EXISTS public.ballistics_weapons (
@@ -67,8 +69,8 @@ DROP FUNCTION IF EXISTS create_ballistics_bullet(text, text, text, text);
 -- Create Seized Bullet
 CREATE OR REPLACE FUNCTION create_ballistics_bullet(
     p_incidente TEXT,
-    p_calibre TEXT,
-    p_num_serie TEXT,
+    p_calibre TEXT DEFAULT 'N/A',
+    p_num_serie TEXT DEFAULT '',
     p_modelo_arma TEXT DEFAULT 'N/A'
 )
 RETURNS UUID AS $$
@@ -76,7 +78,13 @@ DECLARE
     v_new_id UUID;
 BEGIN
     INSERT INTO public.ballistics_bullets (incidente_relacionado, calibre, numero_serie, modelo_arma, author_id)
-    VALUES (p_incidente, p_calibre, p_num_serie, COALESCE(NULLIF(TRIM(p_modelo_arma), ''), 'N/A'), auth.uid())
+    VALUES (
+        p_incidente, 
+        COALESCE(NULLIF(TRIM(p_calibre), ''), 'N/A'), 
+        p_num_serie, 
+        COALESCE(NULLIF(TRIM(p_modelo_arma), ''), 'N/A'), 
+        auth.uid()
+    )
     RETURNING id INTO v_new_id;
     RETURN v_new_id;
 END;

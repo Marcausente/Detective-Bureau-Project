@@ -24,8 +24,6 @@ function Ballistics() {
     // Form inputs - Bullet
     const [bulletForm, setBulletForm] = useState({
         incidente: '',
-        calibre: '',
-        modelo_arma: 'N/A',
         num_serie: ''
     });
 
@@ -127,9 +125,9 @@ function Ballistics() {
         try {
             const { data, error } = await supabase.rpc('create_ballistics_bullet', {
                 p_incidente: bulletForm.incidente,
-                p_calibre: bulletForm.calibre,
+                p_calibre: 'N/A',
                 p_num_serie: bulletForm.num_serie,
-                p_modelo_arma: bulletForm.modelo_arma || 'N/A'
+                p_modelo_arma: 'N/A'
             });
             if (error) throw error;
 
@@ -147,7 +145,7 @@ function Ballistics() {
             }
 
             setShowBulletModal(false);
-            setBulletForm({ incidente: '', calibre: '', modelo_arma: 'N/A', num_serie: '' });
+            setBulletForm({ incidente: '', num_serie: '' });
             await loadData();
         } catch (err) {
             alert('Error al añadir casquillo: ' + err.message);
@@ -774,9 +772,12 @@ function Ballistics() {
                                                                             }}
                                                                         >
                                                                             <div><strong style={{ color: '#f8fafc' }}>Incidente:</strong> {bullet.incidente_relacionado}</div>
-                                                                            <div style={{ color: '#cbd5e1', marginTop: '2px' }}>
-                                                                                <strong>Calibre:</strong> {bullet.calibre} | <strong>Modelo:</strong> {bullet.modelo_arma || 'N/A'}
-                                                                            </div>
+                                                                            {((bullet.calibre && bullet.calibre !== 'N/A') || (bullet.modelo_arma && bullet.modelo_arma !== 'N/A')) && (
+                                                                                <div style={{ color: '#cbd5e1', marginTop: '2px' }}>
+                                                                                    {bullet.calibre && bullet.calibre !== 'N/A' && <><strong>Calibre:</strong> {bullet.calibre} </>}
+                                                                                    {bullet.modelo_arma && bullet.modelo_arma !== 'N/A' && <>| <strong>Modelo:</strong> {bullet.modelo_arma}</>}
+                                                                                </div>
+                                                                            )}
                                                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px' }}>
                                                                                 <span>Por: {bullet.author_rank} {bullet.author_name}</span>
                                                                                 <span>{new Date(bullet.created_at).toLocaleDateString()}</span>
@@ -918,16 +919,27 @@ function Ballistics() {
                                                 </div>
 
                                                 {/* Bullet Metadata */}
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '0.75rem' }}>
-                                                    <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.55rem', borderRadius: '8px' }}>
-                                                        <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('relatedIncident') || 'Incidente'}</span>
-                                                        <strong style={{ color: '#f8fafc', fontSize: '0.85rem' }}>{item.incidente_relacionado}</strong>
-                                                    </div>
-                                                    <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.55rem', borderRadius: '8px' }}>
-                                                        <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('bulletCaliber') || 'Calibre'}</span>
-                                                        <strong style={{ color: '#60a5fa', fontSize: '0.85rem' }}>{item.calibre}</strong>
-                                                    </div>
+                                                <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.6rem 0.75rem', borderRadius: '8px', marginBottom: '0.65rem' }}>
+                                                    <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('relatedIncident') || 'Incidente'}</span>
+                                                    <strong style={{ color: '#f8fafc', fontSize: '0.88rem' }}>{item.incidente_relacionado}</strong>
                                                 </div>
+
+                                                {((item.calibre && item.calibre !== 'N/A') || (item.modelo_arma && item.modelo_arma !== 'N/A')) && (
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginBottom: '0.65rem' }}>
+                                                        {item.calibre && item.calibre !== 'N/A' && (
+                                                            <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.55rem', borderRadius: '8px' }}>
+                                                                <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('bulletCaliber') || 'Calibre'}</span>
+                                                                <strong style={{ color: '#60a5fa', fontSize: '0.85rem' }}>{item.calibre}</strong>
+                                                            </div>
+                                                        )}
+                                                        {item.modelo_arma && item.modelo_arma !== 'N/A' && (
+                                                            <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.55rem', borderRadius: '8px' }}>
+                                                                <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('weaponModel') || 'Modelo del Arma'}</span>
+                                                                <strong style={{ color: '#f87171', fontSize: '0.85rem' }}>{item.modelo_arma}</strong>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
 
                                                 <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.55rem 0.75rem', borderRadius: '8px', marginBottom: '0.75rem' }}>
                                                     <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('serialNumber') || 'Número de Serie'}</span>
@@ -1124,48 +1136,6 @@ function Ballistics() {
                                         padding: '0.65rem 0.9rem'
                                     }}
                                 />
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                        {t('bulletCaliber') || 'Calibre'}
-                                    </label>
-                                    <input
-                                        className="form-input"
-                                        required
-                                        value={bulletForm.calibre}
-                                        onChange={e => setBulletForm({ ...bulletForm, calibre: e.target.value })}
-                                        placeholder="Ej: 9mm, .45 ACP, 5.56mm"
-                                        style={{
-                                            background: 'rgba(15, 23, 42, 0.75)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            borderRadius: '10px',
-                                            color: '#ffffff',
-                                            fontSize: '0.88rem',
-                                            padding: '0.65rem 0.9rem'
-                                        }}
-                                    />
-                                </div>
-                                <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                        {t('weaponModel') || 'Modelo del Arma'}
-                                    </label>
-                                    <input
-                                        className="form-input"
-                                        value={bulletForm.modelo_arma}
-                                        onChange={e => setBulletForm({ ...bulletForm, modelo_arma: e.target.value })}
-                                        placeholder="Ej: Combat Pistol (Opcional)"
-                                        style={{
-                                            background: 'rgba(15, 23, 42, 0.75)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            borderRadius: '10px',
-                                            color: '#ffffff',
-                                            fontSize: '0.88rem',
-                                            padding: '0.65rem 0.9rem'
-                                        }}
-                                    />
-                                </div>
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
