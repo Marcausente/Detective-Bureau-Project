@@ -1,6 +1,6 @@
 -- =======================================================
--- MIGRATION: ADD EDITING SUPPORT FOR BALLISTICS (BALÍSTICA)
--- Permite editar casquillos y armas incautadas
+-- MIGRATION: ADD EDITING & BATCH SUPPORT FOR BALLISTICS (BALÍSTICA)
+-- Permite editar y registrar en lote casquillos y armas incautadas
 -- =======================================================
 
 -- 1. Ensure RLS UPDATE policies exist
@@ -76,6 +76,64 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 4. Grant Permissions
+-- 4. RPC Function: Batch Create Bullets (Varios casquillos para el mismo incidente)
+CREATE OR REPLACE FUNCTION create_ballistics_bullets_batch(
+    p_incidente TEXT,
+    p_bullets JSONB
+)
+RETURNS VOID AS $$
+DECLARE
+    v_item JSONB;
+BEGIN
+    FOR v_item IN SELECT * FROM jsonb_array_elements(p_bullets)
+    LOOP
+        INSERT INTO public.ballistics_bullets (
+            incidente_relacionado,
+            calibre,
+            numero_serie,
+            modelo_arma,
+            author_id
+        ) VALUES (
+            p_incidente,
+            COALESCE(NULLIF(TRIM(v_item->>'calibre'), ''), 'N/A'),
+            v_item->>'num_serie',
+            COALESCE(NULLIF(TRIM(v_item->>'modelo_arma'), ''), 'N/A'),
+            auth.uid()
+        );
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 5. RPC Function: Batch Create Weapons (Varias armas para el mismo incidente)
+CREATE OR REPLACE FUNCTION create_ballistics_weapons_batch(
+    p_incidente TEXT,
+    p_weapons JSONB
+)
+RETURNS VOID AS $$
+DECLARE
+    v_item JSONB;
+BEGIN
+    FOR v_item IN SELECT * FROM jsonb_array_elements(p_weapons)
+    LOOP
+        INSERT INTO public.ballistics_weapons (
+            propietario,
+            incidente_relacionado,
+            modelo,
+            numero_serie,
+            author_id
+        ) VALUES (
+            v_item->>'propietario',
+            p_incidente,
+            v_item->>'modelo',
+            v_item->>'num_serie',
+            auth.uid()
+        );
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 6. Grant Permissions
 GRANT EXECUTE ON FUNCTION update_ballistics_bullet TO authenticated;
 GRANT EXECUTE ON FUNCTION update_ballistics_weapon TO authenticated;
+GRANT EXECUTE ON FUNCTION create_ballistics_bullets_batch TO authenticated;
+GRANT EXECUTE ON FUNCTION create_ballistics_weapons_batch TO authenticated;

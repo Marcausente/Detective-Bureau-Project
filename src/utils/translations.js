@@ -487,6 +487,12 @@ export const translations = {
         editSeizedWeapon: "Edit Seized Weapon",
         editBulletCasingDesc: "Modify the details of this bullet casing record.",
         editSeizedWeaponDesc: "Modify the details of this seized weapon record.",
+        pasteScriptReport: "📋 Quick Format / Paste Script Report",
+        pasteScriptReportDesc: "Paste one or several ballistic reports directly from your clipboard to auto-fill.",
+        processPastedReport: "⚡ Auto-Fill from Text",
+        addAnotherBullet: "+ Add Another Bullet",
+        addBulletCasingsBatch: "Register Bullet Casings",
+        saveAllBullets: "Save Bullets",
     },
     es: {
         // Layout / Sidebar
@@ -976,5 +982,11 @@ export const translations = {
         editSeizedWeapon: "Editar Arma Incautada",
         editBulletCasingDesc: "Modifica los detalles de este registro de casquillo.",
         editSeizedWeaponDesc: "Modifica los detalles de este registro de arma incautada.",
+        pasteScriptReport: "📋 Formato Rápido / Pegar Informe del Script",
+        pasteScriptReportDesc: "Pega uno o varios informes balísticos directamente del portapapeles para rellenar automáticamente.",
+        processPastedReport: "⚡ Auto-rellenar desde Texto",
+        addAnotherBullet: "+ Añadir Otra Bala",
+        addBulletCasingsBatch: "Registrar Casquillos",
+        saveAllBullets: "Guardar Casquillos",
     }
 };

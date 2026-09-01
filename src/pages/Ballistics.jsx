@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { parseMultipleBallisticReports, parseSingleBallisticReport } from '../utils/ballisticsParser';
 import '../index.css';
 
 function Ballistics() {
@@ -23,16 +24,32 @@ function Ballistics() {
     const [editingBullet, setEditingBullet] = useState(null);
     const [editingWeapon, setEditingWeapon] = useState(null);
 
-    // Form inputs - Bullet
-    const [bulletForm, setBulletForm] = useState({
+    // Batch Bullet Form State
+    const [bulletBatchIncident, setBulletBatchIncident] = useState('');
+    const [bulletRows, setBulletRows] = useState([
+        { id: 1, num_serie: '', calibre: '', modelo_arma: '' }
+    ]);
+    const [bulletPasteText, setBulletPasteText] = useState('');
+    const [showBulletPasteBox, setShowBulletPasteBox] = useState(false);
+    const [bulletPasteSuccessMsg, setBulletPasteSuccessMsg] = useState('');
+
+    // Batch Weapon Form State
+    const [weaponBatchIncident, setWeaponBatchIncident] = useState('');
+    const [weaponRows, setWeaponRows] = useState([
+        { id: 1, propietario: '', modelo: '', num_serie: '' }
+    ]);
+
+    // Single Edit Forms
+    const [editBulletForm, setEditBulletForm] = useState({
         incidente: '',
         num_serie: '',
         calibre: '',
         modelo_arma: ''
     });
+    const [editBulletPasteText, setEditBulletPasteText] = useState('');
+    const [showEditBulletPasteBox, setShowEditBulletPasteBox] = useState(false);
 
-    // Form inputs - Weapon
-    const [weaponForm, setWeaponForm] = useState({
+    const [editWeaponForm, setEditWeaponForm] = useState({
         propietario: '',
         incidente: '',
         modelo: '',
@@ -40,7 +57,7 @@ function Ballistics() {
     });
 
     // Match alerts state
-    const [alertMatch, setAlertMatch] = useState(null); // stores the most recent match for popup alert
+    const [alertMatch, setAlertMatch] = useState(null);
     const [seenMatchIds, setSeenMatchIds] = useState([]);
     const [activeTab, setActiveTab] = useState('coincidences');
     const [expandedWeapons, setExpandedWeapons] = useState([]);
@@ -122,20 +139,37 @@ function Ballistics() {
         setCoincidences(sortedMatches);
     };
 
-    // Open Edit Modals
+    // Open Modals
+    const handleOpenAddBullets = () => {
+        setBulletBatchIncident('');
+        setBulletRows([{ id: Date.now(), num_serie: '', calibre: '', modelo_arma: '' }]);
+        setBulletPasteText('');
+        setShowBulletPasteBox(false);
+        setBulletPasteSuccessMsg('');
+        setShowBulletModal(true);
+    };
+
+    const handleOpenAddWeapons = () => {
+        setWeaponBatchIncident('');
+        setWeaponRows([{ id: Date.now(), propietario: '', modelo: '', num_serie: '' }]);
+        setShowWeaponModal(true);
+    };
+
     const handleOpenEditBullet = (bullet) => {
         setEditingBullet(bullet);
-        setBulletForm({
+        setEditBulletForm({
             incidente: bullet.incidente_relacionado || '',
             num_serie: bullet.numero_serie || '',
             calibre: (bullet.calibre && bullet.calibre !== 'N/A') ? bullet.calibre : '',
             modelo_arma: (bullet.modelo_arma && bullet.modelo_arma !== 'N/A') ? bullet.modelo_arma : ''
         });
+        setEditBulletPasteText('');
+        setShowEditBulletPasteBox(false);
     };
 
     const handleOpenEditWeapon = (weapon) => {
         setEditingWeapon(weapon);
-        setWeaponForm({
+        setEditWeaponForm({
             propietario: weapon.propietario || '',
             incidente: weapon.incidente_relacionado || '',
             modelo: weapon.modelo || '',
@@ -143,78 +177,234 @@ function Ballistics() {
         });
     };
 
-    // Submissions - Create
-    const handleCreateBullet = async (e) => {
+    // Dynamic Row Manipulation - Bullets
+    const handleAddBulletRow = () => {
+        setBulletRows(prev => [
+            ...prev,
+            { id: Date.now() + Math.random(), num_serie: '', calibre: '', modelo_arma: '' }
+        ]);
+    };
+
+    const handleRemoveBulletRow = (rowId) => {
+        setBulletRows(prev => {
+            if (prev.length <= 1) {
+                return [{ id: Date.now(), num_serie: '', calibre: '', modelo_arma: '' }];
+            }
+            return prev.filter(r => r.id !== rowId);
+        });
+    };
+
+    const handleBulletRowChange = (rowId, field, value) => {
+        setBulletRows(prev => prev.map(r => r.id === rowId ? { ...r, [field]: value } : r));
+    };
+
+    // Process pasted text in Batch Bullet Modal
+    const handleProcessBatchBulletPaste = (textToProcess) => {
+        const text = textToProcess !== undefined ? textToProcess : bulletPasteText;
+        if (!text || !text.trim()) return;
+
+        const parsedList = parseMultipleBallisticReports(text);
+        if (parsedList.length === 0) {
+            alert('No se detectaron informes balísticos con formato válido. Asegúrate de incluir datos como "Arma:", "Serie:" y "Calibre:".');
+            return;
+        }
+
+        // Auto set incident if not set and present in reports
+        const firstWithInc = parsedList.find(p => p.incidente);
+        if (firstWithInc && !bulletBatchIncident.trim()) {
+            setBulletBatchIncident(firstWithInc.incidente);
+        }
+
+        // Map into bulletRows
+        const newRows = parsedList.map((p, idx) => ({
+            id: Date.now() + idx + Math.random(),
+            num_serie: p.num_serie || '',
+            calibre: p.calibre || '',
+            modelo_arma: p.modelo_arma || ''
+        }));
+
+        setBulletRows(newRows);
+        setBulletPasteText('');
+        setShowBulletPasteBox(false);
+        setBulletPasteSuccessMsg(`¡${parsedList.length} casquillo(s) importados con éxito!`);
+        setTimeout(() => setBulletPasteSuccessMsg(''), 4000);
+    };
+
+    // Process pasted text in Single Edit Bullet Modal
+    const handleProcessEditBulletPaste = (textToProcess) => {
+        const text = textToProcess !== undefined ? textToProcess : editBulletPasteText;
+        if (!text || !text.trim()) return;
+
+        const parsed = parseSingleBallisticReport(text);
+        if (!parsed || (!parsed.num_serie && !parsed.modelo_arma && !parsed.calibre)) {
+            alert('No se detectó un formato balístico válido.');
+            return;
+        }
+
+        setEditBulletForm(prev => ({
+            incidente: parsed.incidente ? parsed.incidente : prev.incidente,
+            num_serie: parsed.num_serie ? parsed.num_serie : prev.num_serie,
+            calibre: parsed.calibre ? parsed.calibre : prev.calibre,
+            modelo_arma: parsed.modelo_arma ? parsed.modelo_arma : prev.modelo_arma
+        }));
+        setEditBulletPasteText('');
+        setShowEditBulletPasteBox(false);
+    };
+
+    // Dynamic Row Manipulation - Weapons
+    const handleAddWeaponRow = () => {
+        setWeaponRows(prev => [
+            ...prev,
+            { id: Date.now() + Math.random(), propietario: '', modelo: '', num_serie: '' }
+        ]);
+    };
+
+    const handleRemoveWeaponRow = (rowId) => {
+        setWeaponRows(prev => {
+            if (prev.length <= 1) {
+                return [{ id: Date.now(), propietario: '', modelo: '', num_serie: '' }];
+            }
+            return prev.filter(r => r.id !== rowId);
+        });
+    };
+
+    const handleWeaponRowChange = (rowId, field, value) => {
+        setWeaponRows(prev => prev.map(r => r.id === rowId ? { ...r, [field]: value } : r));
+    };
+
+    // Submissions - Create Bullets (Batch / Single)
+    const handleCreateBulletsBatch = async (e) => {
         e.preventDefault();
+        if (!bulletBatchIncident.trim()) {
+            alert('Por favor especifica el Incidente Relacionado.');
+            return;
+        }
+
+        // Filter non-empty serial numbers
+        const validBullets = bulletRows.filter(r => r.num_serie && r.num_serie.trim() !== '');
+        if (validBullets.length === 0) {
+            alert('Debes ingresar al menos un número de serie balístico válido.');
+            return;
+        }
+
         setSubmitting(true);
         try {
-            const { data, error } = await supabase.rpc('create_ballistics_bullet', {
-                p_incidente: bulletForm.incidente,
-                p_calibre: bulletForm.calibre?.trim() || 'N/A',
-                p_num_serie: bulletForm.num_serie,
-                p_modelo_arma: bulletForm.modelo_arma?.trim() || 'N/A'
-            });
-            if (error) throw error;
+            // Attempt batch RPC first
+            const batchPayload = validBullets.map(b => ({
+                num_serie: b.num_serie.trim(),
+                calibre: b.calibre?.trim() || 'N/A',
+                modelo_arma: b.modelo_arma?.trim() || 'N/A'
+            }));
 
-            const cleanBulletSn = bulletForm.num_serie.trim().toLowerCase();
-            if (cleanBulletSn !== '' && cleanBulletSn !== 'n/a') {
-                const matchedWeapon = weapons.find(w => w.numero_serie && w.numero_serie.trim().toLowerCase() === cleanBulletSn);
-                if (matchedWeapon) {
-                    setAlertMatch({
-                        serialNumber: bulletForm.num_serie,
-                        bulletIncident: bulletForm.incidente,
-                        weaponModel: matchedWeapon.modelo,
-                        weaponOwner: matchedWeapon.propietario
+            const { error: batchError } = await supabase.rpc('create_ballistics_bullets_batch', {
+                p_incidente: bulletBatchIncident.trim(),
+                p_bullets: batchPayload
+            });
+
+            if (batchError) {
+                // Fallback to individual calls
+                for (const b of validBullets) {
+                    const { error } = await supabase.rpc('create_ballistics_bullet', {
+                        p_incidente: bulletBatchIncident.trim(),
+                        p_calibre: b.calibre?.trim() || 'N/A',
+                        p_num_serie: b.num_serie.trim(),
+                        p_modelo_arma: b.modelo_arma?.trim() || 'N/A'
                     });
+                    if (error) throw error;
+                }
+            }
+
+            // Check for match alerts with current weapons
+            for (const b of validBullets) {
+                const cleanSn = b.num_serie.trim().toLowerCase();
+                if (cleanSn && cleanSn !== 'n/a') {
+                    const matchedWeapon = weapons.find(w => w.numero_serie && w.numero_serie.trim().toLowerCase() === cleanSn);
+                    if (matchedWeapon) {
+                        setAlertMatch({
+                            serialNumber: b.num_serie,
+                            bulletIncident: bulletBatchIncident,
+                            weaponModel: matchedWeapon.modelo,
+                            weaponOwner: matchedWeapon.propietario
+                        });
+                    }
                 }
             }
 
             setShowBulletModal(false);
-            setBulletForm({ incidente: '', num_serie: '', calibre: '', modelo_arma: '' });
             await loadData();
         } catch (err) {
-            alert('Error al añadir casquillo: ' + err.message);
+            alert('Error al añadir casquillos: ' + err.message);
         } finally {
             setSubmitting(false);
         }
     };
 
-    const handleCreateWeapon = async (e) => {
+    // Submissions - Create Weapons (Batch / Single)
+    const handleCreateWeaponsBatch = async (e) => {
         e.preventDefault();
+        if (!weaponBatchIncident.trim()) {
+            alert('Por favor especifica el Incidente Relacionado.');
+            return;
+        }
+
+        const validWeapons = weaponRows.filter(r => r.num_serie && r.num_serie.trim() !== '' && r.modelo && r.modelo.trim() !== '');
+        if (validWeapons.length === 0) {
+            alert('Debes ingresar al menos un arma con Modelo y Número de Serie.');
+            return;
+        }
+
         setSubmitting(true);
         try {
-            const { data, error } = await supabase.rpc('create_ballistics_weapon', {
-                p_propietario: weaponForm.propietario,
-                p_incidente: weaponForm.incidente,
-                p_modelo: weaponForm.modelo,
-                p_num_serie: weaponForm.num_serie
-            });
-            if (error) throw error;
+            const batchPayload = validWeapons.map(w => ({
+                propietario: w.propietario?.trim() || 'Desconocido',
+                modelo: w.modelo.trim(),
+                num_serie: w.num_serie.trim()
+            }));
 
-            const cleanWeaponSn = weaponForm.num_serie.trim().toLowerCase();
-            if (cleanWeaponSn !== '' && cleanWeaponSn !== 'n/a') {
-                const matchedBullet = bullets.find(b => b.numero_serie && b.numero_serie.trim().toLowerCase() === cleanWeaponSn);
-                if (matchedBullet) {
-                    setAlertMatch({
-                        serialNumber: weaponForm.num_serie,
-                        bulletIncident: matchedBullet.incidente_relacionado,
-                        weaponModel: weaponForm.modelo,
-                        weaponOwner: weaponForm.propietario
+            const { error: batchError } = await supabase.rpc('create_ballistics_weapons_batch', {
+                p_incidente: weaponBatchIncident.trim(),
+                p_weapons: batchPayload
+            });
+
+            if (batchError) {
+                // Fallback to individual calls
+                for (const w of validWeapons) {
+                    const { error } = await supabase.rpc('create_ballistics_weapon', {
+                        p_propietario: w.propietario?.trim() || 'Desconocido',
+                        p_incidente: weaponBatchIncident.trim(),
+                        p_modelo: w.modelo.trim(),
+                        p_num_serie: w.num_serie.trim()
                     });
+                    if (error) throw error;
+                }
+            }
+
+            // Check for match alerts with current bullets
+            for (const w of validWeapons) {
+                const cleanSn = w.num_serie.trim().toLowerCase();
+                if (cleanSn && cleanSn !== 'n/a') {
+                    const matchedBullet = bullets.find(b => b.numero_serie && b.numero_serie.trim().toLowerCase() === cleanSn);
+                    if (matchedBullet) {
+                        setAlertMatch({
+                            serialNumber: w.num_serie,
+                            bulletIncident: matchedBullet.incidente_relacionado,
+                            weaponModel: w.modelo,
+                            weaponOwner: w.propietario || 'Desconocido'
+                        });
+                    }
                 }
             }
 
             setShowWeaponModal(false);
-            setWeaponForm({ propietario: '', incidente: '', modelo: '', num_serie: '' });
             await loadData();
         } catch (err) {
-            alert('Error al añadir arma: ' + err.message);
+            alert('Error al añadir armas: ' + err.message);
         } finally {
             setSubmitting(false);
         }
     };
 
-    // Submissions - Update / Edit
+    // Submissions - Update / Edit Bullet
     const handleUpdateBullet = async (e) => {
         e.preventDefault();
         if (!editingBullet) return;
@@ -222,20 +412,20 @@ function Ballistics() {
         try {
             const { error } = await supabase.rpc('update_ballistics_bullet', {
                 p_id: editingBullet.id,
-                p_incidente: bulletForm.incidente,
-                p_calibre: bulletForm.calibre?.trim() || 'N/A',
-                p_num_serie: bulletForm.num_serie,
-                p_modelo_arma: bulletForm.modelo_arma?.trim() || 'N/A'
+                p_incidente: editBulletForm.incidente,
+                p_calibre: editBulletForm.calibre?.trim() || 'N/A',
+                p_num_serie: editBulletForm.num_serie,
+                p_modelo_arma: editBulletForm.modelo_arma?.trim() || 'N/A'
             });
             if (error) throw error;
 
-            const cleanBulletSn = bulletForm.num_serie.trim().toLowerCase();
+            const cleanBulletSn = editBulletForm.num_serie.trim().toLowerCase();
             if (cleanBulletSn !== '' && cleanBulletSn !== 'n/a') {
                 const matchedWeapon = weapons.find(w => w.numero_serie && w.numero_serie.trim().toLowerCase() === cleanBulletSn);
                 if (matchedWeapon) {
                     setAlertMatch({
-                        serialNumber: bulletForm.num_serie,
-                        bulletIncident: bulletForm.incidente,
+                        serialNumber: editBulletForm.num_serie,
+                        bulletIncident: editBulletForm.incidente,
                         weaponModel: matchedWeapon.modelo,
                         weaponOwner: matchedWeapon.propietario
                     });
@@ -243,7 +433,6 @@ function Ballistics() {
             }
 
             setEditingBullet(null);
-            setBulletForm({ incidente: '', num_serie: '', calibre: '', modelo_arma: '' });
             await loadData();
         } catch (err) {
             alert('Error al actualizar casquillo: ' + err.message);
@@ -252,6 +441,7 @@ function Ballistics() {
         }
     };
 
+    // Submissions - Update / Edit Weapon
     const handleUpdateWeapon = async (e) => {
         e.preventDefault();
         if (!editingWeapon) return;
@@ -259,28 +449,27 @@ function Ballistics() {
         try {
             const { error } = await supabase.rpc('update_ballistics_weapon', {
                 p_id: editingWeapon.id,
-                p_propietario: weaponForm.propietario,
-                p_incidente: weaponForm.incidente,
-                p_modelo: weaponForm.modelo,
-                p_num_serie: weaponForm.num_serie
+                p_propietario: editWeaponForm.propietario,
+                p_incidente: editWeaponForm.incidente,
+                p_modelo: editWeaponForm.modelo,
+                p_num_serie: editWeaponForm.num_serie
             });
             if (error) throw error;
 
-            const cleanWeaponSn = weaponForm.num_serie.trim().toLowerCase();
+            const cleanWeaponSn = editWeaponForm.num_serie.trim().toLowerCase();
             if (cleanWeaponSn !== '' && cleanWeaponSn !== 'n/a') {
                 const matchedBullet = bullets.find(b => b.numero_serie && b.numero_serie.trim().toLowerCase() === cleanWeaponSn);
                 if (matchedBullet) {
                     setAlertMatch({
-                        serialNumber: weaponForm.num_serie,
+                        serialNumber: editWeaponForm.num_serie,
                         bulletIncident: matchedBullet.incidente_relacionado,
-                        weaponModel: weaponForm.modelo,
-                        weaponOwner: weaponForm.propietario
+                        weaponModel: editWeaponForm.modelo,
+                        weaponOwner: editWeaponForm.propietario
                     });
                 }
             }
 
             setEditingWeapon(null);
-            setWeaponForm({ propietario: '', incidente: '', modelo: '', num_serie: '' });
             await loadData();
         } catch (err) {
             alert('Error al actualizar arma: ' + err.message);
@@ -471,6 +660,21 @@ function Ballistics() {
                     align-items: center;
                     flex-shrink: 0;
                 }
+                .batch-bullet-row {
+                    background: rgba(15, 23, 42, 0.5);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 12px;
+                    padding: 0.75rem 0.9rem;
+                    display: grid;
+                    grid-template-columns: 1fr 1fr 1fr 34px;
+                    gap: 0.6rem;
+                    align-items: center;
+                    transition: all 0.2s;
+                }
+                .batch-bullet-row:hover {
+                    border-color: rgba(96, 165, 250, 0.35);
+                    background: rgba(15, 23, 42, 0.75);
+                }
             `}</style>
 
             {/* Apple Command Topbar */}
@@ -625,10 +829,7 @@ function Ballistics() {
                     {/* Action Buttons */}
                     <button
                         type="button"
-                        onClick={() => {
-                            setBulletForm({ incidente: '', num_serie: '', calibre: '', modelo_arma: '' });
-                            setShowBulletModal(true);
-                        }}
+                        onClick={handleOpenAddBullets}
                         style={{
                             display: 'flex', alignItems: 'center', gap: '6px',
                             padding: '0.4rem 1.05rem',
@@ -647,15 +848,12 @@ function Ballistics() {
                             <line x1="12" y1="5" x2="12" y2="19" />
                             <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
-                        {t('addBulletCasing') || 'Registrar Casquillo'}
+                        {t('addBulletCasing') || 'Registrar Casquillos'}
                     </button>
 
                     <button
                         type="button"
-                        onClick={() => {
-                            setWeaponForm({ propietario: '', incidente: '', modelo: '', num_serie: '' });
-                            setShowWeaponModal(true);
-                        }}
+                        onClick={handleOpenAddWeapons}
                         style={{
                             display: 'flex', alignItems: 'center', gap: '6px',
                             padding: '0.4rem 1.05rem',
@@ -675,7 +873,7 @@ function Ballistics() {
                             <line x1="12" y1="5" x2="12" y2="19" />
                             <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
-                        {t('addSeizedWeapon') || 'Registrar Arma Incautada'}
+                        {t('addSeizedWeapon') || 'Registrar Armas'}
                     </button>
                 </div>
             </div>
@@ -1300,12 +1498,14 @@ function Ballistics() {
                 </div>
             )}
 
-            {/* --- ADD BULLET CASING MODAL --- */}
+            {/* --- ADD BULLET CASINGS MODAL (MULTI-BULLET & SCRIPT FORMAT IMPORT) --- */}
             {showBulletModal && (
                 <div className="mac-modal-overlay">
                     <div className="mac-modal-content" style={{
-                        maxWidth: '540px',
-                        width: '92vw',
+                        maxWidth: '720px',
+                        width: '94vw',
+                        maxHeight: '90vh',
+                        overflowY: 'auto',
                         borderRadius: '20px',
                         background: 'rgba(30, 41, 59, 0.96)',
                         backdropFilter: 'blur(24px)',
@@ -1314,7 +1514,8 @@ function Ballistics() {
                         padding: '1.5rem',
                         boxSizing: 'border-box'
                     }}>
-                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
+                        {/* Header */}
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div className="mac-window-dots">
                                     <span className="mac-window-dot close" onClick={() => setShowBulletModal(false)} title="Cerrar" />
@@ -1322,22 +1523,119 @@ function Ballistics() {
                                     <span className="mac-window-dot max" />
                                 </div>
                                 <h3 style={{ margin: '0 0 0 10px', fontSize: '1.15rem', color: '#f8fafc', fontWeight: 800, letterSpacing: '-0.01em' }}>
-                                    {t('addBulletCasing') || 'Registrar Casquillo'}
+                                    {t('addBulletCasingsBatch') || 'Registrar Casquillos'}
                                 </h3>
                             </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setShowBulletPasteBox(prev => !prev)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    background: showBulletPasteBox ? 'rgba(234, 179, 8, 0.2)' : 'rgba(59, 130, 246, 0.15)',
+                                    border: showBulletPasteBox ? '1px solid rgba(234, 179, 8, 0.5)' : '1px solid rgba(59, 130, 246, 0.35)',
+                                    color: showBulletPasteBox ? '#fde047' : '#93c5fd',
+                                    padding: '0.35rem 0.8rem',
+                                    borderRadius: '12px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                📋 {showBulletPasteBox ? 'Ocultar Portapapeles' : 'Pegar Formato Script'}
+                            </button>
                         </div>
 
-                        <form onSubmit={handleCreateBullet} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                        {/* Script Format Quick Paste Box */}
+                        {showBulletPasteBox && (
+                            <div style={{
+                                background: 'rgba(15, 23, 42, 0.85)',
+                                border: '1px solid rgba(234, 179, 8, 0.4)',
+                                borderRadius: '14px',
+                                padding: '1rem',
+                                marginBottom: '1.25rem',
+                                boxShadow: '0 8px 24px rgba(0,0,0,0.3)'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fde047' }}>
+                                        {t('pasteScriptReport') || '📋 Pegar Informe(s) del Script (Formato Rápido)'}
+                                    </span>
+                                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                        Puedes pegar uno o varios informes a la vez
+                                    </span>
+                                </div>
+                                <textarea
+                                    rows={4}
+                                    value={bulletPasteText}
+                                    onChange={(e) => setBulletPasteText(e.target.value)}
+                                    placeholder={`[INFORME BALÍSTICO]\nArma: Endurance\nSerie: 466080ECB348251\nCalibre: Balas 9mm\nFecha: 2026-09-01 22:53`}
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(0, 0, 0, 0.4)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '8px',
+                                        color: '#f8fafc',
+                                        fontFamily: 'monospace',
+                                        fontSize: '0.82rem',
+                                        padding: '0.6rem 0.8rem',
+                                        boxSizing: 'border-box',
+                                        resize: 'vertical'
+                                    }}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.6rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleProcessBatchBulletPaste()}
+                                        style={{
+                                            background: '#eab308',
+                                            color: '#0f172a',
+                                            border: 'none',
+                                            padding: '0.4rem 1rem',
+                                            borderRadius: '8px',
+                                            fontWeight: 800,
+                                            fontSize: '0.78rem',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {t('processPastedReport') || '⚡ Auto-rellenar desde Texto'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {bulletPasteSuccessMsg && (
+                            <div style={{
+                                background: 'rgba(34, 197, 94, 0.15)',
+                                border: '1px solid rgba(34, 197, 94, 0.4)',
+                                color: '#86efac',
+                                padding: '0.5rem 0.85rem',
+                                borderRadius: '10px',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                marginBottom: '1rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}>
+                                <span>✓</span> {bulletPasteSuccessMsg}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleCreateBulletsBatch} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                            {/* General Incident */}
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label" style={{ fontSize: '0.82rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                    {t('relatedIncident') || 'Incidente Relacionado'} *
+                                    {t('relatedIncident') || 'Incidente Relacionado'} (común para todas las balas) *
                                 </label>
                                 <input
                                     className="form-input"
                                     required
-                                    value={bulletForm.incidente}
-                                    onChange={e => setBulletForm({ ...bulletForm, incidente: e.target.value })}
-                                    placeholder="Ej: Tiroteo en Grove St"
+                                    value={bulletBatchIncident}
+                                    onChange={e => setBulletBatchIncident(e.target.value)}
+                                    placeholder="Ej: Tiroteo en Grove St / Asalto en Banco Central"
                                     style={{
                                         background: 'rgba(15, 23, 42, 0.75)',
                                         border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -1349,76 +1647,145 @@ function Ballistics() {
                                 />
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#60a5fa', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                        {t('bulletCaliber') || 'Calibre'} <span style={{ opacity: 0.6, fontSize: '0.75rem', fontWeight: 400 }}>(Opcional)</span>
-                                    </label>
-                                    <input
-                                        className="form-input"
-                                        value={bulletForm.calibre}
-                                        onChange={e => setBulletForm({ ...bulletForm, calibre: e.target.value })}
-                                        placeholder="Ej: 9mm, 5.56mm"
-                                        style={{
-                                            background: 'rgba(15, 23, 42, 0.75)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            borderRadius: '10px',
-                                            color: '#ffffff',
-                                            fontSize: '0.88rem',
-                                            padding: '0.65rem 0.9rem'
-                                        }}
-                                    />
-                                </div>
-                                <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#f87171', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                        {t('weaponModel') || 'Modelo del Arma'} <span style={{ opacity: 0.6, fontSize: '0.75rem', fontWeight: 400 }}>(Opcional)</span>
-                                    </label>
-                                    <input
-                                        className="form-input"
-                                        value={bulletForm.modelo_arma}
-                                        onChange={e => setBulletForm({ ...bulletForm, modelo_arma: e.target.value })}
-                                        placeholder="Ej: Combat Pistol, Carabina"
-                                        style={{
-                                            background: 'rgba(15, 23, 42, 0.75)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            borderRadius: '10px',
-                                            color: '#ffffff',
-                                            fontSize: '0.88rem',
-                                            padding: '0.65rem 0.9rem'
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#fde047', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                    {t('serialNumber') || 'Número de Serie Balístico'} *
-                                </label>
-                                <input
-                                    className="form-input"
-                                    required
-                                    value={bulletForm.num_serie}
-                                    onChange={e => setBulletForm({ ...bulletForm, num_serie: e.target.value })}
-                                    placeholder="Ej: SN-12948-BALA"
+                            {/* Bullets List Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.4rem' }}>
+                                <span style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Casquillos a subir ({bulletRows.length}):
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={handleAddBulletRow}
                                     style={{
-                                        background: 'rgba(15, 23, 42, 0.75)',
-                                        border: '1px solid rgba(234, 179, 8, 0.4)',
-                                        borderRadius: '10px',
-                                        color: '#fde047',
-                                        fontFamily: 'monospace',
+                                        background: 'rgba(59, 130, 246, 0.15)',
+                                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                                        color: '#93c5fd',
+                                        padding: '0.3rem 0.75rem',
+                                        borderRadius: '8px',
+                                        fontSize: '0.76rem',
                                         fontWeight: 700,
-                                        fontSize: '0.9rem',
-                                        padding: '0.65rem 0.9rem'
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
                                     }}
-                                />
+                                >
+                                    + Añadir otra bala
+                                </button>
                             </div>
 
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
+                            {/* Bullets List Table / Cards */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', maxHeight: '340px', overflowY: 'auto', paddingRight: '4px' }} className="custom-scrollbar">
+                                {bulletRows.map((row, index) => (
+                                    <div key={row.id} className="batch-bullet-row">
+                                        <div>
+                                            <span style={{ fontSize: '0.7rem', color: '#fbbf24', display: 'block', marginBottom: '2px', fontWeight: 700 }}>
+                                                Nº Serie *
+                                            </span>
+                                            <input
+                                                className="form-input"
+                                                required
+                                                value={row.num_serie}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    // Auto intercept if someone pastes a full script report into the serial input
+                                                    if (val.includes('[INFORME') || val.includes('Arma:') || val.includes('Serie:')) {
+                                                        const parsed = parseSingleBallisticReport(val);
+                                                        if (parsed) {
+                                                            handleBulletRowChange(row.id, 'num_serie', parsed.num_serie || val);
+                                                            if (parsed.calibre) handleBulletRowChange(row.id, 'calibre', parsed.calibre);
+                                                            if (parsed.modelo_arma) handleBulletRowChange(row.id, 'modelo_arma', parsed.modelo_arma);
+                                                            if (parsed.incidente && !bulletBatchIncident.trim()) setBulletBatchIncident(parsed.incidente);
+                                                            return;
+                                                        }
+                                                    }
+                                                    handleBulletRowChange(row.id, 'num_serie', val);
+                                                }}
+                                                placeholder="466080ECB348251"
+                                                style={{
+                                                    background: 'rgba(0, 0, 0, 0.35)',
+                                                    border: '1px solid rgba(234, 179, 8, 0.35)',
+                                                    borderRadius: '8px',
+                                                    color: '#fbbf24',
+                                                    fontFamily: 'monospace',
+                                                    fontWeight: 700,
+                                                    fontSize: '0.82rem',
+                                                    padding: '0.45rem 0.65rem'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <span style={{ fontSize: '0.7rem', color: '#60a5fa', display: 'block', marginBottom: '2px', fontWeight: 700 }}>
+                                                Calibre
+                                            </span>
+                                            <input
+                                                className="form-input"
+                                                value={row.calibre}
+                                                onChange={e => handleBulletRowChange(row.id, 'calibre', e.target.value)}
+                                                placeholder="Balas 9mm"
+                                                style={{
+                                                    background: 'rgba(0, 0, 0, 0.35)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                    borderRadius: '8px',
+                                                    color: '#93c5fd',
+                                                    fontSize: '0.82rem',
+                                                    padding: '0.45rem 0.65rem'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <span style={{ fontSize: '0.7rem', color: '#f87171', display: 'block', marginBottom: '2px', fontWeight: 700 }}>
+                                                Arma / Modelo
+                                            </span>
+                                            <input
+                                                className="form-input"
+                                                value={row.modelo_arma}
+                                                onChange={e => handleBulletRowChange(row.id, 'modelo_arma', e.target.value)}
+                                                placeholder="Endurance"
+                                                style={{
+                                                    background: 'rgba(0, 0, 0, 0.35)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                    borderRadius: '8px',
+                                                    color: '#fca5a5',
+                                                    fontSize: '0.82rem',
+                                                    padding: '0.45rem 0.65rem'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveBulletRow(row.id)}
+                                            style={{
+                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                color: '#f87171',
+                                                borderRadius: '8px',
+                                                width: '28px',
+                                                height: '28px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                marginTop: '16px',
+                                                padding: 0
+                                            }}
+                                            title="Eliminar fila"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Form Footer Actions */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
                                 <button type="button" className="login-button btn-secondary" onClick={() => setShowBulletModal(false)} style={{ width: 'auto', padding: '0.5rem 1.4rem', borderRadius: '10px' }}>
                                     {t('cancelBtn') || 'Cancelar'}
                                 </button>
                                 <button type="submit" className="login-button" style={{ width: 'auto', padding: '0.5rem 1.6rem', borderRadius: '10px', fontWeight: 700 }} disabled={submitting}>
-                                    {submitting ? (t('savingBtn') || 'Guardando...') : (t('saveBtn') || 'Guardar Registro')}
+                                    {submitting ? (t('savingBtn') || 'Guardando...') : `Guardar ${bulletRows.filter(r => r.num_serie).length || bulletRows.length} Casquillo(s)`}
                                 </button>
                             </div>
                         </form>
@@ -1430,7 +1797,7 @@ function Ballistics() {
             {editingBullet && (
                 <div className="mac-modal-overlay">
                     <div className="mac-modal-content" style={{
-                        maxWidth: '540px',
+                        maxWidth: '560px',
                         width: '92vw',
                         borderRadius: '20px',
                         background: 'rgba(30, 41, 59, 0.96)',
@@ -1440,7 +1807,7 @@ function Ballistics() {
                         padding: '1.5rem',
                         boxSizing: 'border-box'
                     }}>
-                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div className="mac-window-dots">
                                     <span className="mac-window-dot close" onClick={() => setEditingBullet(null)} title="Cerrar" />
@@ -1455,7 +1822,71 @@ function Ballistics() {
                                     {t('editBulletCasing') || 'Editar Casquillo'}
                                 </h3>
                             </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setShowEditBulletPasteBox(prev => !prev)}
+                                style={{
+                                    background: 'rgba(234, 179, 8, 0.15)',
+                                    border: '1px solid rgba(234, 179, 8, 0.4)',
+                                    color: '#fde047',
+                                    padding: '0.3rem 0.75rem',
+                                    borderRadius: '10px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                📋 {showEditBulletPasteBox ? 'Ocultar Portapapeles' : 'Pegar Formato Script'}
+                            </button>
                         </div>
+
+                        {showEditBulletPasteBox && (
+                            <div style={{
+                                background: 'rgba(15, 23, 42, 0.85)',
+                                border: '1px solid rgba(234, 179, 8, 0.4)',
+                                borderRadius: '14px',
+                                padding: '0.85rem',
+                                marginBottom: '1.25rem'
+                            }}>
+                                <textarea
+                                    rows={3}
+                                    value={editBulletPasteText}
+                                    onChange={(e) => setEditBulletPasteText(e.target.value)}
+                                    placeholder={`[INFORME BALÍSTICO]\nArma: Endurance\nSerie: 466080ECB348251\nCalibre: Balas 9mm\nFecha: 2026-09-01 22:53`}
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(0, 0, 0, 0.4)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '8px',
+                                        color: '#f8fafc',
+                                        fontFamily: 'monospace',
+                                        fontSize: '0.82rem',
+                                        padding: '0.6rem 0.8rem',
+                                        boxSizing: 'border-box',
+                                        resize: 'vertical'
+                                    }}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleProcessEditBulletPaste()}
+                                        style={{
+                                            background: '#eab308',
+                                            color: '#0f172a',
+                                            border: 'none',
+                                            padding: '0.35rem 0.85rem',
+                                            borderRadius: '8px',
+                                            fontWeight: 800,
+                                            fontSize: '0.76rem',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ⚡ Rellenar Campos
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         <form onSubmit={handleUpdateBullet} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
                             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -1465,8 +1896,8 @@ function Ballistics() {
                                 <input
                                     className="form-input"
                                     required
-                                    value={bulletForm.incidente}
-                                    onChange={e => setBulletForm({ ...bulletForm, incidente: e.target.value })}
+                                    value={editBulletForm.incidente}
+                                    onChange={e => setEditBulletForm({ ...editBulletForm, incidente: e.target.value })}
                                     placeholder="Ej: Tiroteo en Grove St"
                                     style={{
                                         background: 'rgba(15, 23, 42, 0.75)',
@@ -1486,9 +1917,9 @@ function Ballistics() {
                                     </label>
                                     <input
                                         className="form-input"
-                                        value={bulletForm.calibre}
-                                        onChange={e => setBulletForm({ ...bulletForm, calibre: e.target.value })}
-                                        placeholder="Ej: 9mm, 5.56mm"
+                                        value={editBulletForm.calibre}
+                                        onChange={e => setEditBulletForm({ ...editBulletForm, calibre: e.target.value })}
+                                        placeholder="Ej: Balas 9mm, 5.56mm"
                                         style={{
                                             background: 'rgba(15, 23, 42, 0.75)',
                                             border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -1505,9 +1936,9 @@ function Ballistics() {
                                     </label>
                                     <input
                                         className="form-input"
-                                        value={bulletForm.modelo_arma}
-                                        onChange={e => setBulletForm({ ...bulletForm, modelo_arma: e.target.value })}
-                                        placeholder="Ej: Combat Pistol, Carabina"
+                                        value={editBulletForm.modelo_arma}
+                                        onChange={e => setEditBulletForm({ ...editBulletForm, modelo_arma: e.target.value })}
+                                        placeholder="Ej: Endurance, Combat Pistol"
                                         style={{
                                             background: 'rgba(15, 23, 42, 0.75)',
                                             border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -1527,9 +1958,16 @@ function Ballistics() {
                                 <input
                                     className="form-input"
                                     required
-                                    value={bulletForm.num_serie}
-                                    onChange={e => setBulletForm({ ...bulletForm, num_serie: e.target.value })}
-                                    placeholder="Ej: SN-12948-BALA"
+                                    value={editBulletForm.num_serie}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        if (val.includes('[INFORME') || val.includes('Arma:') || val.includes('Serie:')) {
+                                            handleProcessEditBulletPaste(val);
+                                            return;
+                                        }
+                                        setEditBulletForm({ ...editBulletForm, num_serie: val });
+                                    }}
+                                    placeholder="Ej: 466080ECB348251"
                                     style={{
                                         background: 'rgba(15, 23, 42, 0.75)',
                                         border: '1px solid rgba(234, 179, 8, 0.4)',
@@ -1556,12 +1994,14 @@ function Ballistics() {
                 </div>
             )}
 
-            {/* --- ADD SEIZED WEAPON MODAL --- */}
+            {/* --- ADD SEIZED WEAPONS MODAL (BATCH / MULTI-WEAPON) --- */}
             {showWeaponModal && (
                 <div className="mac-modal-overlay">
                     <div className="mac-modal-content" style={{
-                        maxWidth: '540px',
-                        width: '92vw',
+                        maxWidth: '720px',
+                        width: '94vw',
+                        maxHeight: '90vh',
+                        overflowY: 'auto',
                         borderRadius: '20px',
                         background: 'rgba(30, 41, 59, 0.96)',
                         backdropFilter: 'blur(24px)',
@@ -1570,7 +2010,7 @@ function Ballistics() {
                         padding: '1.5rem',
                         boxSizing: 'border-box'
                     }}>
-                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div className="mac-window-dots">
                                     <span className="mac-window-dot close" onClick={() => setShowWeaponModal(false)} title="Cerrar" />
@@ -1578,55 +2018,13 @@ function Ballistics() {
                                     <span className="mac-window-dot max" />
                                 </div>
                                 <h3 style={{ margin: '0 0 0 10px', fontSize: '1.15rem', color: '#f8fafc', fontWeight: 800, letterSpacing: '-0.01em' }}>
-                                    {t('addSeizedWeapon') || 'Registrar Arma Incautada'}
+                                    {t('addSeizedWeapon') || 'Registrar Armas Incautadas'}
                                 </h3>
                             </div>
                         </div>
 
-                        <form onSubmit={handleCreateWeapon} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                        {t('ownerName') || 'Propietario'} *
-                                    </label>
-                                    <input
-                                        className="form-input"
-                                        required
-                                        value={weaponForm.propietario}
-                                        onChange={e => setWeaponForm({ ...weaponForm, propietario: e.target.value })}
-                                        placeholder="Ej: Desconocido, John Doe"
-                                        style={{
-                                            background: 'rgba(15, 23, 42, 0.75)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            borderRadius: '10px',
-                                            color: '#ffffff',
-                                            fontSize: '0.88rem',
-                                            padding: '0.65rem 0.9rem'
-                                        }}
-                                    />
-                                </div>
-                                <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#f87171', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                        {t('weaponModel') || 'Modelo del Arma'} *
-                                    </label>
-                                    <input
-                                        className="form-input"
-                                        required
-                                        value={weaponForm.modelo}
-                                        onChange={e => setWeaponForm({ ...weaponForm, modelo: e.target.value })}
-                                        placeholder="Ej: Combat Pistol, Special Carbine"
-                                        style={{
-                                            background: 'rgba(15, 23, 42, 0.75)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            borderRadius: '10px',
-                                            color: '#ffffff',
-                                            fontSize: '0.88rem',
-                                            padding: '0.65rem 0.9rem'
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
+                        <form onSubmit={handleCreateWeaponsBatch} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                            {/* Incident for weapons batch */}
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label" style={{ fontSize: '0.82rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
                                     {t('relatedIncident') || 'Incidente Relacionado'} *
@@ -1634,9 +2032,9 @@ function Ballistics() {
                                 <input
                                     className="form-input"
                                     required
-                                    value={weaponForm.incidente}
-                                    onChange={e => setWeaponForm({ ...weaponForm, incidente: e.target.value })}
-                                    placeholder="Ej: Asalto en Licorería"
+                                    value={weaponBatchIncident}
+                                    onChange={e => setWeaponBatchIncident(e.target.value)}
+                                    placeholder="Ej: Asalto en Licorería / Redada en Rancho"
                                     style={{
                                         background: 'rgba(15, 23, 42, 0.75)',
                                         border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -1648,35 +2046,131 @@ function Ballistics() {
                                 />
                             </div>
 
-                            <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#fde047', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                    {t('serialNumber') || 'Número de Serie Balístico'} *
-                                </label>
-                                <input
-                                    className="form-input"
-                                    required
-                                    value={weaponForm.num_serie}
-                                    onChange={e => setWeaponForm({ ...weaponForm, num_serie: e.target.value })}
-                                    placeholder="Ej: SN-12948-BALA"
+                            {/* Weapons list header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.4rem' }}>
+                                <span style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    Armas a registrar ({weaponRows.length}):
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={handleAddWeaponRow}
                                     style={{
-                                        background: 'rgba(15, 23, 42, 0.75)',
-                                        border: '1px solid rgba(234, 179, 8, 0.4)',
-                                        borderRadius: '10px',
-                                        color: '#fde047',
-                                        fontFamily: 'monospace',
+                                        background: 'rgba(239, 68, 68, 0.15)',
+                                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                                        color: '#fca5a5',
+                                        padding: '0.3rem 0.75rem',
+                                        borderRadius: '8px',
+                                        fontSize: '0.76rem',
                                         fontWeight: 700,
-                                        fontSize: '0.9rem',
-                                        padding: '0.65rem 0.9rem'
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
                                     }}
-                                />
+                                >
+                                    + Añadir otra arma
+                                </button>
                             </div>
 
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
+                            {/* Weapons List */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', maxHeight: '340px', overflowY: 'auto', paddingRight: '4px' }} className="custom-scrollbar">
+                                {weaponRows.map(row => (
+                                    <div key={row.id} className="batch-bullet-row">
+                                        <div>
+                                            <span style={{ fontSize: '0.7rem', color: '#f87171', display: 'block', marginBottom: '2px', fontWeight: 700 }}>
+                                                Modelo de Arma *
+                                            </span>
+                                            <input
+                                                className="form-input"
+                                                required
+                                                value={row.modelo}
+                                                onChange={e => handleWeaponRowChange(row.id, 'modelo', e.target.value)}
+                                                placeholder="Ej: Combat Pistol"
+                                                style={{
+                                                    background: 'rgba(0, 0, 0, 0.35)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                    borderRadius: '8px',
+                                                    color: '#fca5a5',
+                                                    fontSize: '0.82rem',
+                                                    padding: '0.45rem 0.65rem'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <span style={{ fontSize: '0.7rem', color: '#fbbf24', display: 'block', marginBottom: '2px', fontWeight: 700 }}>
+                                                Nº Serie *
+                                            </span>
+                                            <input
+                                                className="form-input"
+                                                required
+                                                value={row.num_serie}
+                                                onChange={e => handleWeaponRowChange(row.id, 'num_serie', e.target.value)}
+                                                placeholder="466080ECB348251"
+                                                style={{
+                                                    background: 'rgba(0, 0, 0, 0.35)',
+                                                    border: '1px solid rgba(234, 179, 8, 0.35)',
+                                                    borderRadius: '8px',
+                                                    color: '#fbbf24',
+                                                    fontFamily: 'monospace',
+                                                    fontWeight: 700,
+                                                    fontSize: '0.82rem',
+                                                    padding: '0.45rem 0.65rem'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <span style={{ fontSize: '0.7rem', color: '#cbd5e1', display: 'block', marginBottom: '2px', fontWeight: 700 }}>
+                                                Propietario
+                                            </span>
+                                            <input
+                                                className="form-input"
+                                                value={row.propietario}
+                                                onChange={e => handleWeaponRowChange(row.id, 'propietario', e.target.value)}
+                                                placeholder="Ej: John Doe"
+                                                style={{
+                                                    background: 'rgba(0, 0, 0, 0.35)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                    borderRadius: '8px',
+                                                    color: '#ffffff',
+                                                    fontSize: '0.82rem',
+                                                    padding: '0.45rem 0.65rem'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveWeaponRow(row.id)}
+                                            style={{
+                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                color: '#f87171',
+                                                borderRadius: '8px',
+                                                width: '28px',
+                                                height: '28px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                marginTop: '16px',
+                                                padding: 0
+                                            }}
+                                            title="Eliminar fila"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
                                 <button type="button" className="login-button btn-secondary" onClick={() => setShowWeaponModal(false)} style={{ width: 'auto', padding: '0.5rem 1.4rem', borderRadius: '10px' }}>
                                     {t('cancelBtn') || 'Cancelar'}
                                 </button>
                                 <button type="submit" className="login-button" style={{ width: 'auto', padding: '0.5rem 1.6rem', borderRadius: '10px', fontWeight: 700 }} disabled={submitting}>
-                                    {submitting ? (t('savingBtn') || 'Guardando...') : (t('saveBtn') || 'Guardar Registro')}
+                                    {submitting ? (t('savingBtn') || 'Guardando...') : `Guardar ${weaponRows.filter(r => r.num_serie).length || weaponRows.length} Arma(s)`}
                                 </button>
                             </div>
                         </form>
@@ -1688,7 +2182,7 @@ function Ballistics() {
             {editingWeapon && (
                 <div className="mac-modal-overlay">
                     <div className="mac-modal-content" style={{
-                        maxWidth: '540px',
+                        maxWidth: '560px',
                         width: '92vw',
                         borderRadius: '20px',
                         background: 'rgba(30, 41, 59, 0.96)',
@@ -1724,8 +2218,8 @@ function Ballistics() {
                                     <input
                                         className="form-input"
                                         required
-                                        value={weaponForm.propietario}
-                                        onChange={e => setWeaponForm({ ...weaponForm, propietario: e.target.value })}
+                                        value={editWeaponForm.propietario}
+                                        onChange={e => setEditWeaponForm({ ...editWeaponForm, propietario: e.target.value })}
                                         placeholder="Ej: Desconocido, John Doe"
                                         style={{
                                             background: 'rgba(15, 23, 42, 0.75)',
@@ -1744,8 +2238,8 @@ function Ballistics() {
                                     <input
                                         className="form-input"
                                         required
-                                        value={weaponForm.modelo}
-                                        onChange={e => setWeaponForm({ ...weaponForm, modelo: e.target.value })}
+                                        value={editWeaponForm.modelo}
+                                        onChange={e => setEditWeaponForm({ ...editWeaponForm, modelo: e.target.value })}
                                         placeholder="Ej: Combat Pistol, Special Carbine"
                                         style={{
                                             background: 'rgba(15, 23, 42, 0.75)',
@@ -1766,8 +2260,8 @@ function Ballistics() {
                                 <input
                                     className="form-input"
                                     required
-                                    value={weaponForm.incidente}
-                                    onChange={e => setWeaponForm({ ...weaponForm, incidente: e.target.value })}
+                                    value={editWeaponForm.incidente}
+                                    onChange={e => setEditWeaponForm({ ...editWeaponForm, incidente: e.target.value })}
                                     placeholder="Ej: Asalto en Licorería"
                                     style={{
                                         background: 'rgba(15, 23, 42, 0.75)',
@@ -1787,9 +2281,9 @@ function Ballistics() {
                                 <input
                                     className="form-input"
                                     required
-                                    value={weaponForm.num_serie}
-                                    onChange={e => setWeaponForm({ ...weaponForm, num_serie: e.target.value })}
-                                    placeholder="Ej: SN-12948-BALA"
+                                    value={editWeaponForm.num_serie}
+                                    onChange={e => setEditWeaponForm({ ...editWeaponForm, num_serie: e.target.value })}
+                                    placeholder="Ej: 466080ECB348251"
                                     style={{
                                         background: 'rgba(15, 23, 42, 0.75)',
                                         border: '1px solid rgba(234, 179, 8, 0.4)',
