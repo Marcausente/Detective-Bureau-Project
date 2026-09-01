@@ -17,14 +17,18 @@ function Ballistics() {
     const [dbError, setDbError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Modals visibility
+    // Modals visibility & edit targets
     const [showWeaponModal, setShowWeaponModal] = useState(false);
     const [showBulletModal, setShowBulletModal] = useState(false);
+    const [editingBullet, setEditingBullet] = useState(null);
+    const [editingWeapon, setEditingWeapon] = useState(null);
 
     // Form inputs - Bullet
     const [bulletForm, setBulletForm] = useState({
         incidente: '',
-        num_serie: ''
+        num_serie: '',
+        calibre: '',
+        modelo_arma: ''
     });
 
     // Form inputs - Weapon
@@ -118,22 +122,43 @@ function Ballistics() {
         setCoincidences(sortedMatches);
     };
 
-    // Submissions
+    // Open Edit Modals
+    const handleOpenEditBullet = (bullet) => {
+        setEditingBullet(bullet);
+        setBulletForm({
+            incidente: bullet.incidente_relacionado || '',
+            num_serie: bullet.numero_serie || '',
+            calibre: (bullet.calibre && bullet.calibre !== 'N/A') ? bullet.calibre : '',
+            modelo_arma: (bullet.modelo_arma && bullet.modelo_arma !== 'N/A') ? bullet.modelo_arma : ''
+        });
+    };
+
+    const handleOpenEditWeapon = (weapon) => {
+        setEditingWeapon(weapon);
+        setWeaponForm({
+            propietario: weapon.propietario || '',
+            incidente: weapon.incidente_relacionado || '',
+            modelo: weapon.modelo || '',
+            num_serie: weapon.numero_serie || ''
+        });
+    };
+
+    // Submissions - Create
     const handleCreateBullet = async (e) => {
         e.preventDefault();
         setSubmitting(true);
         try {
             const { data, error } = await supabase.rpc('create_ballistics_bullet', {
                 p_incidente: bulletForm.incidente,
-                p_calibre: 'N/A',
+                p_calibre: bulletForm.calibre?.trim() || 'N/A',
                 p_num_serie: bulletForm.num_serie,
-                p_modelo_arma: 'N/A'
+                p_modelo_arma: bulletForm.modelo_arma?.trim() || 'N/A'
             });
             if (error) throw error;
 
             const cleanBulletSn = bulletForm.num_serie.trim().toLowerCase();
             if (cleanBulletSn !== '' && cleanBulletSn !== 'n/a') {
-                const matchedWeapon = weapons.find(w => w.numero_serie.trim().toLowerCase() === cleanBulletSn);
+                const matchedWeapon = weapons.find(w => w.numero_serie && w.numero_serie.trim().toLowerCase() === cleanBulletSn);
                 if (matchedWeapon) {
                     setAlertMatch({
                         serialNumber: bulletForm.num_serie,
@@ -145,7 +170,7 @@ function Ballistics() {
             }
 
             setShowBulletModal(false);
-            setBulletForm({ incidente: '', num_serie: '' });
+            setBulletForm({ incidente: '', num_serie: '', calibre: '', modelo_arma: '' });
             await loadData();
         } catch (err) {
             alert('Error al añadir casquillo: ' + err.message);
@@ -168,7 +193,7 @@ function Ballistics() {
 
             const cleanWeaponSn = weaponForm.num_serie.trim().toLowerCase();
             if (cleanWeaponSn !== '' && cleanWeaponSn !== 'n/a') {
-                const matchedBullet = bullets.find(b => b.numero_serie.trim().toLowerCase() === cleanWeaponSn);
+                const matchedBullet = bullets.find(b => b.numero_serie && b.numero_serie.trim().toLowerCase() === cleanWeaponSn);
                 if (matchedBullet) {
                     setAlertMatch({
                         serialNumber: weaponForm.num_serie,
@@ -184,6 +209,81 @@ function Ballistics() {
             await loadData();
         } catch (err) {
             alert('Error al añadir arma: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Submissions - Update / Edit
+    const handleUpdateBullet = async (e) => {
+        e.preventDefault();
+        if (!editingBullet) return;
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('update_ballistics_bullet', {
+                p_id: editingBullet.id,
+                p_incidente: bulletForm.incidente,
+                p_calibre: bulletForm.calibre?.trim() || 'N/A',
+                p_num_serie: bulletForm.num_serie,
+                p_modelo_arma: bulletForm.modelo_arma?.trim() || 'N/A'
+            });
+            if (error) throw error;
+
+            const cleanBulletSn = bulletForm.num_serie.trim().toLowerCase();
+            if (cleanBulletSn !== '' && cleanBulletSn !== 'n/a') {
+                const matchedWeapon = weapons.find(w => w.numero_serie && w.numero_serie.trim().toLowerCase() === cleanBulletSn);
+                if (matchedWeapon) {
+                    setAlertMatch({
+                        serialNumber: bulletForm.num_serie,
+                        bulletIncident: bulletForm.incidente,
+                        weaponModel: matchedWeapon.modelo,
+                        weaponOwner: matchedWeapon.propietario
+                    });
+                }
+            }
+
+            setEditingBullet(null);
+            setBulletForm({ incidente: '', num_serie: '', calibre: '', modelo_arma: '' });
+            await loadData();
+        } catch (err) {
+            alert('Error al actualizar casquillo: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleUpdateWeapon = async (e) => {
+        e.preventDefault();
+        if (!editingWeapon) return;
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('update_ballistics_weapon', {
+                p_id: editingWeapon.id,
+                p_propietario: weaponForm.propietario,
+                p_incidente: weaponForm.incidente,
+                p_modelo: weaponForm.modelo,
+                p_num_serie: weaponForm.num_serie
+            });
+            if (error) throw error;
+
+            const cleanWeaponSn = weaponForm.num_serie.trim().toLowerCase();
+            if (cleanWeaponSn !== '' && cleanWeaponSn !== 'n/a') {
+                const matchedBullet = bullets.find(b => b.numero_serie && b.numero_serie.trim().toLowerCase() === cleanWeaponSn);
+                if (matchedBullet) {
+                    setAlertMatch({
+                        serialNumber: weaponForm.num_serie,
+                        bulletIncident: matchedBullet.incidente_relacionado,
+                        weaponModel: weaponForm.modelo,
+                        weaponOwner: weaponForm.propietario
+                    });
+                }
+            }
+
+            setEditingWeapon(null);
+            setWeaponForm({ propietario: '', incidente: '', modelo: '', num_serie: '' });
+            await loadData();
+        } catch (err) {
+            alert('Error al actualizar arma: ' + err.message);
         } finally {
             setSubmitting(false);
         }
@@ -525,7 +625,10 @@ function Ballistics() {
                     {/* Action Buttons */}
                     <button
                         type="button"
-                        onClick={() => setShowBulletModal(true)}
+                        onClick={() => {
+                            setBulletForm({ incidente: '', num_serie: '', calibre: '', modelo_arma: '' });
+                            setShowBulletModal(true);
+                        }}
                         style={{
                             display: 'flex', alignItems: 'center', gap: '6px',
                             padding: '0.4rem 1.05rem',
@@ -549,7 +652,10 @@ function Ballistics() {
 
                     <button
                         type="button"
-                        onClick={() => setShowWeaponModal(true)}
+                        onClick={() => {
+                            setWeaponForm({ propietario: '', incidente: '', modelo: '', num_serie: '' });
+                            setShowWeaponModal(true);
+                        }}
                         style={{
                             display: 'flex', alignItems: 'center', gap: '6px',
                             padding: '0.4rem 1.05rem',
@@ -685,7 +791,7 @@ function Ballistics() {
                                                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
                                                     display: 'flex',
                                                     flexDirection: 'column',
-                                                    justify: 'space-between',
+                                                    justifyContent: 'space-between',
                                                     transition: 'all 0.25s ease'
                                                 }}
                                             >
@@ -711,23 +817,50 @@ function Ballistics() {
                                                             </span>
                                                         </div>
 
-                                                        {group.isNew ? (
-                                                            <span className="glow-badge">
-                                                                ★ {t('newBadge') || 'NUEVA'} ({group.newBullets.length})
-                                                            </span>
-                                                        ) : (
-                                                            <span style={{
-                                                                fontSize: '0.72rem',
-                                                                fontWeight: 600,
-                                                                color: '#4ade80',
-                                                                background: 'rgba(34, 197, 94, 0.12)',
-                                                                border: '1px solid rgba(34, 197, 94, 0.25)',
-                                                                padding: '2px 8px',
-                                                                borderRadius: '12px'
-                                                            }}>
-                                                                ✓ {group.bullets.length} Vinculados
-                                                            </span>
-                                                        )}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            {group.weapon.can_delete && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleOpenEditWeapon(group.weapon)}
+                                                                    style={{
+                                                                        background: 'rgba(59, 130, 246, 0.12)',
+                                                                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                                                                        color: '#60a5fa',
+                                                                        borderRadius: '8px',
+                                                                        width: '26px',
+                                                                        height: '26px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        cursor: 'pointer',
+                                                                        transition: 'all 0.2s'
+                                                                    }}
+                                                                    title={t('editSeizedWeapon') || 'Editar arma'}
+                                                                >
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                                    </svg>
+                                                                </button>
+                                                            )}
+                                                            {group.isNew ? (
+                                                                <span className="glow-badge">
+                                                                    ★ {t('newBadge') || 'NUEVA'} ({group.newBullets.length})
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{
+                                                                    fontSize: '0.72rem',
+                                                                    fontWeight: 600,
+                                                                    color: '#4ade80',
+                                                                    background: 'rgba(34, 197, 94, 0.12)',
+                                                                    border: '1px solid rgba(34, 197, 94, 0.25)',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '12px'
+                                                                }}>
+                                                                    ✓ {group.bullets.length} Vinculados
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
 
                                                     {/* Weapon Info Box */}
@@ -768,10 +901,34 @@ function Ballistics() {
                                                                                 borderRadius: '8px',
                                                                                 fontSize: '0.78rem',
                                                                                 borderLeft: isBulletNew ? '3px solid #eab308' : '3px solid #60a5fa',
-                                                                                border: '1px solid rgba(255, 255, 255, 0.04)'
+                                                                                border: '1px solid rgba(255, 255, 255, 0.04)',
+                                                                                position: 'relative'
                                                                             }}
                                                                         >
-                                                                            <div><strong style={{ color: '#f8fafc' }}>Incidente:</strong> {bullet.incidente_relacionado}</div>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                                                <div><strong style={{ color: '#f8fafc' }}>Incidente:</strong> {bullet.incidente_relacionado}</div>
+                                                                                {bullet.can_delete && (
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => handleOpenEditBullet(bullet)}
+                                                                                        style={{
+                                                                                            background: 'transparent',
+                                                                                            border: 'none',
+                                                                                            color: '#60a5fa',
+                                                                                            cursor: 'pointer',
+                                                                                            padding: '2px',
+                                                                                            opacity: 0.8,
+                                                                                            display: 'inline-flex'
+                                                                                        }}
+                                                                                        title={t('editBulletCasing') || 'Editar casquillo'}
+                                                                                    >
+                                                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                                                        </svg>
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
                                                                             {((bullet.calibre && bullet.calibre !== 'N/A') || (bullet.modelo_arma && bullet.modelo_arma !== 'N/A')) && (
                                                                                 <div style={{ color: '#cbd5e1', marginTop: '2px' }}>
                                                                                     {bullet.calibre && bullet.calibre !== 'N/A' && <><strong>Calibre:</strong> {bullet.calibre} </>}
@@ -879,43 +1036,70 @@ function Ballistics() {
                                                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
                                                 display: 'flex',
                                                 flexDirection: 'column',
-                                                justify: 'space-between',
+                                                justifyContent: 'space-between',
                                                 position: 'relative'
                                             }}
                                         >
                                             <div>
-                                                {/* Header window controls & trash */}
+                                                {/* Header window controls & edit / trash buttons */}
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }}></span>
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }}></span>
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
                                                     </div>
-                                                    {item.can_delete && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleDeleteBullet(item.id)}
-                                                            style={{
-                                                                background: 'rgba(239, 68, 68, 0.1)',
-                                                                border: '1px solid rgba(239, 68, 68, 0.25)',
-                                                                color: '#f87171',
-                                                                borderRadius: '8px',
-                                                                width: '26px',
-                                                                height: '26px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justify: 'center',
-                                                                cursor: 'pointer',
-                                                                transition: 'all 0.2s'
-                                                            }}
-                                                            title="Eliminar casquillo"
-                                                        >
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                <polyline points="3 6 5 6 21 6" />
-                                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                                            </svg>
-                                                        </button>
-                                                    )}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        {item.can_delete && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenEditBullet(item)}
+                                                                style={{
+                                                                    background: 'rgba(59, 130, 246, 0.1)',
+                                                                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                                                                    color: '#60a5fa',
+                                                                    borderRadius: '8px',
+                                                                    width: '26px',
+                                                                    height: '26px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s'
+                                                                }}
+                                                                title={t('editBulletCasing') || 'Editar casquillo'}
+                                                            >
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                                </svg>
+                                                            </button>
+                                                        )}
+                                                        {item.can_delete && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteBullet(item.id)}
+                                                                style={{
+                                                                    background: 'rgba(239, 68, 68, 0.1)',
+                                                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                                    color: '#f87171',
+                                                                    borderRadius: '8px',
+                                                                    width: '26px',
+                                                                    height: '26px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s'
+                                                                }}
+                                                                title="Eliminar casquillo"
+                                                            >
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <polyline points="3 6 5 6 21 6" />
+                                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                                </svg>
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 {/* Bullet Metadata */}
@@ -1007,43 +1191,70 @@ function Ballistics() {
                                                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
                                                 display: 'flex',
                                                 flexDirection: 'column',
-                                                justify: 'space-between',
+                                                justifyContent: 'space-between',
                                                 position: 'relative'
                                             }}
                                         >
                                             <div>
-                                                {/* Header window controls & trash */}
+                                                {/* Header window controls & edit / trash buttons */}
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }}></span>
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }}></span>
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
                                                     </div>
-                                                    {item.can_delete && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleDeleteWeapon(item.id)}
-                                                            style={{
-                                                                background: 'rgba(239, 68, 68, 0.1)',
-                                                                border: '1px solid rgba(239, 68, 68, 0.25)',
-                                                                color: '#f87171',
-                                                                borderRadius: '8px',
-                                                                width: '26px',
-                                                                height: '26px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justify: 'center',
-                                                                cursor: 'pointer',
-                                                                transition: 'all 0.2s'
-                                                            }}
-                                                            title="Eliminar arma"
-                                                        >
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                <polyline points="3 6 5 6 21 6" />
-                                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                                            </svg>
-                                                        </button>
-                                                    )}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        {item.can_delete && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenEditWeapon(item)}
+                                                                style={{
+                                                                    background: 'rgba(59, 130, 246, 0.1)',
+                                                                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                                                                    color: '#60a5fa',
+                                                                    borderRadius: '8px',
+                                                                    width: '26px',
+                                                                    height: '26px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s'
+                                                                }}
+                                                                title={t('editSeizedWeapon') || 'Editar arma'}
+                                                            >
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                                </svg>
+                                                            </button>
+                                                        )}
+                                                        {item.can_delete && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteWeapon(item.id)}
+                                                                style={{
+                                                                    background: 'rgba(239, 68, 68, 0.1)',
+                                                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                                    color: '#f87171',
+                                                                    borderRadius: '8px',
+                                                                    width: '26px',
+                                                                    height: '26px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s'
+                                                                }}
+                                                                title="Eliminar arma"
+                                                            >
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <polyline points="3 6 5 6 21 6" />
+                                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                                </svg>
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 {/* Weapon Title / Model */}
@@ -1119,7 +1330,7 @@ function Ballistics() {
                         <form onSubmit={handleCreateBullet} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label" style={{ fontSize: '0.82rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                    {t('relatedIncident') || 'Incidente Relacionado'}
+                                    {t('relatedIncident') || 'Incidente Relacionado'} *
                                 </label>
                                 <input
                                     className="form-input"
@@ -1138,9 +1349,50 @@ function Ballistics() {
                                 />
                             </div>
 
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#60a5fa', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                        {t('bulletCaliber') || 'Calibre'} <span style={{ opacity: 0.6, fontSize: '0.75rem', fontWeight: 400 }}>(Opcional)</span>
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        value={bulletForm.calibre}
+                                        onChange={e => setBulletForm({ ...bulletForm, calibre: e.target.value })}
+                                        placeholder="Ej: 9mm, 5.56mm"
+                                        style={{
+                                            background: 'rgba(15, 23, 42, 0.75)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 0.9rem'
+                                        }}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#f87171', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                        {t('weaponModel') || 'Modelo del Arma'} <span style={{ opacity: 0.6, fontSize: '0.75rem', fontWeight: 400 }}>(Opcional)</span>
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        value={bulletForm.modelo_arma}
+                                        onChange={e => setBulletForm({ ...bulletForm, modelo_arma: e.target.value })}
+                                        placeholder="Ej: Combat Pistol, Carabina"
+                                        style={{
+                                            background: 'rgba(15, 23, 42, 0.75)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 0.9rem'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label" style={{ fontSize: '0.82rem', color: '#fde047', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                    {t('serialNumber') || 'Número de Serie Balístico'}
+                                    {t('serialNumber') || 'Número de Serie Balístico'} *
                                 </label>
                                 <input
                                     className="form-input"
@@ -1167,6 +1419,136 @@ function Ballistics() {
                                 </button>
                                 <button type="submit" className="login-button" style={{ width: 'auto', padding: '0.5rem 1.6rem', borderRadius: '10px', fontWeight: 700 }} disabled={submitting}>
                                     {submitting ? (t('savingBtn') || 'Guardando...') : (t('saveBtn') || 'Guardar Registro')}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* --- EDIT BULLET CASING MODAL --- */}
+            {editingBullet && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-content" style={{
+                        maxWidth: '540px',
+                        width: '92vw',
+                        borderRadius: '20px',
+                        background: 'rgba(30, 41, 59, 0.96)',
+                        backdropFilter: 'blur(24px)',
+                        border: '1px solid rgba(59, 130, 246, 0.4)',
+                        boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.85)',
+                        padding: '1.5rem',
+                        boxSizing: 'border-box'
+                    }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div className="mac-window-dots">
+                                    <span className="mac-window-dot close" onClick={() => setEditingBullet(null)} title="Cerrar" />
+                                    <span className="mac-window-dot min" />
+                                    <span className="mac-window-dot max" />
+                                </div>
+                                <h3 style={{ margin: '0 0 0 10px', fontSize: '1.15rem', color: '#93c5fd', fontWeight: 800, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                    </svg>
+                                    {t('editBulletCasing') || 'Editar Casquillo'}
+                                </h3>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleUpdateBullet} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                    {t('relatedIncident') || 'Incidente Relacionado'} *
+                                </label>
+                                <input
+                                    className="form-input"
+                                    required
+                                    value={bulletForm.incidente}
+                                    onChange={e => setBulletForm({ ...bulletForm, incidente: e.target.value })}
+                                    placeholder="Ej: Tiroteo en Grove St"
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '10px',
+                                        color: '#ffffff',
+                                        fontSize: '0.88rem',
+                                        padding: '0.65rem 0.9rem'
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#60a5fa', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                        {t('bulletCaliber') || 'Calibre'}
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        value={bulletForm.calibre}
+                                        onChange={e => setBulletForm({ ...bulletForm, calibre: e.target.value })}
+                                        placeholder="Ej: 9mm, 5.56mm"
+                                        style={{
+                                            background: 'rgba(15, 23, 42, 0.75)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 0.9rem'
+                                        }}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#f87171', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                        {t('weaponModel') || 'Modelo del Arma'}
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        value={bulletForm.modelo_arma}
+                                        onChange={e => setBulletForm({ ...bulletForm, modelo_arma: e.target.value })}
+                                        placeholder="Ej: Combat Pistol, Carabina"
+                                        style={{
+                                            background: 'rgba(15, 23, 42, 0.75)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 0.9rem'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#fde047', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                    {t('serialNumber') || 'Número de Serie Balístico'} *
+                                </label>
+                                <input
+                                    className="form-input"
+                                    required
+                                    value={bulletForm.num_serie}
+                                    onChange={e => setBulletForm({ ...bulletForm, num_serie: e.target.value })}
+                                    placeholder="Ej: SN-12948-BALA"
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(234, 179, 8, 0.4)',
+                                        borderRadius: '10px',
+                                        color: '#fde047',
+                                        fontFamily: 'monospace',
+                                        fontWeight: 700,
+                                        fontSize: '0.9rem',
+                                        padding: '0.65rem 0.9rem'
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setEditingBullet(null)} style={{ width: 'auto', padding: '0.5rem 1.4rem', borderRadius: '10px' }}>
+                                    {t('cancelBtn') || 'Cancelar'}
+                                </button>
+                                <button type="submit" className="login-button" style={{ width: 'auto', padding: '0.5rem 1.6rem', borderRadius: '10px', fontWeight: 700 }} disabled={submitting}>
+                                    {submitting ? (t('savingBtn') || 'Guardando...') : (t('saveChanges') || 'Guardar Cambios')}
                                 </button>
                             </div>
                         </form>
@@ -1205,7 +1587,7 @@ function Ballistics() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                        {t('ownerName') || 'Propietario'}
+                                        {t('ownerName') || 'Propietario'} *
                                     </label>
                                     <input
                                         className="form-input"
@@ -1225,7 +1607,7 @@ function Ballistics() {
                                 </div>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label className="form-label" style={{ fontSize: '0.82rem', color: '#f87171', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                        {t('weaponModel') || 'Modelo del Arma'}
+                                        {t('weaponModel') || 'Modelo del Arma'} *
                                     </label>
                                     <input
                                         className="form-input"
@@ -1247,7 +1629,7 @@ function Ballistics() {
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label" style={{ fontSize: '0.82rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                    {t('relatedIncident') || 'Incidente Relacionado'}
+                                    {t('relatedIncident') || 'Incidente Relacionado'} *
                                 </label>
                                 <input
                                     className="form-input"
@@ -1268,7 +1650,7 @@ function Ballistics() {
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label" style={{ fontSize: '0.82rem', color: '#fde047', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
-                                    {t('serialNumber') || 'Número de Serie Balístico'}
+                                    {t('serialNumber') || 'Número de Serie Balístico'} *
                                 </label>
                                 <input
                                     className="form-input"
@@ -1295,6 +1677,138 @@ function Ballistics() {
                                 </button>
                                 <button type="submit" className="login-button" style={{ width: 'auto', padding: '0.5rem 1.6rem', borderRadius: '10px', fontWeight: 700 }} disabled={submitting}>
                                     {submitting ? (t('savingBtn') || 'Guardando...') : (t('saveBtn') || 'Guardar Registro')}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* --- EDIT SEIZED WEAPON MODAL --- */}
+            {editingWeapon && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-content" style={{
+                        maxWidth: '540px',
+                        width: '92vw',
+                        borderRadius: '20px',
+                        background: 'rgba(30, 41, 59, 0.96)',
+                        backdropFilter: 'blur(24px)',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.85)',
+                        padding: '1.5rem',
+                        boxSizing: 'border-box'
+                    }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div className="mac-window-dots">
+                                    <span className="mac-window-dot close" onClick={() => setEditingWeapon(null)} title="Cerrar" />
+                                    <span className="mac-window-dot min" />
+                                    <span className="mac-window-dot max" />
+                                </div>
+                                <h3 style={{ margin: '0 0 0 10px', fontSize: '1.15rem', color: '#fca5a5', fontWeight: 800, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                    </svg>
+                                    {t('editSeizedWeapon') || 'Editar Arma Incautada'}
+                                </h3>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleUpdateWeapon} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                        {t('ownerName') || 'Propietario'} *
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        required
+                                        value={weaponForm.propietario}
+                                        onChange={e => setWeaponForm({ ...weaponForm, propietario: e.target.value })}
+                                        placeholder="Ej: Desconocido, John Doe"
+                                        style={{
+                                            background: 'rgba(15, 23, 42, 0.75)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 0.9rem'
+                                        }}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#f87171', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                        {t('weaponModel') || 'Modelo del Arma'} *
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        required
+                                        value={weaponForm.modelo}
+                                        onChange={e => setWeaponForm({ ...weaponForm, modelo: e.target.value })}
+                                        placeholder="Ej: Combat Pistol, Special Carbine"
+                                        style={{
+                                            background: 'rgba(15, 23, 42, 0.75)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            padding: '0.65rem 0.9rem'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                    {t('relatedIncident') || 'Incidente Relacionado'} *
+                                </label>
+                                <input
+                                    className="form-input"
+                                    required
+                                    value={weaponForm.incidente}
+                                    onChange={e => setWeaponForm({ ...weaponForm, incidente: e.target.value })}
+                                    placeholder="Ej: Asalto en Licorería"
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '10px',
+                                        color: '#ffffff',
+                                        fontSize: '0.88rem',
+                                        padding: '0.65rem 0.9rem'
+                                    }}
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#fde047', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                    {t('serialNumber') || 'Número de Serie Balístico'} *
+                                </label>
+                                <input
+                                    className="form-input"
+                                    required
+                                    value={weaponForm.num_serie}
+                                    onChange={e => setWeaponForm({ ...weaponForm, num_serie: e.target.value })}
+                                    placeholder="Ej: SN-12948-BALA"
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(234, 179, 8, 0.4)',
+                                        borderRadius: '10px',
+                                        color: '#fde047',
+                                        fontFamily: 'monospace',
+                                        fontWeight: 700,
+                                        fontSize: '0.9rem',
+                                        padding: '0.65rem 0.9rem'
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
+                                <button type="button" className="login-button btn-secondary" onClick={() => setEditingWeapon(null)} style={{ width: 'auto', padding: '0.5rem 1.4rem', borderRadius: '10px' }}>
+                                    {t('cancelBtn') || 'Cancelar'}
+                                </button>
+                                <button type="submit" className="login-button" style={{ width: 'auto', padding: '0.5rem 1.6rem', borderRadius: '10px', fontWeight: 700 }} disabled={submitting}>
+                                    {submitting ? (t('savingBtn') || 'Guardando...') : (t('saveChanges') || 'Guardar Cambios')}
                                 </button>
                             </div>
                         </form>

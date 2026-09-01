@@ -483,6 +483,10 @@ export const translations = {
         ballistics_module_desc_lssd: "Ballistics Module of the Sheriff Criminal Unit Bureau.",
         bulletCasings: "Bullet Casings",
         seizedWeapons: "Seized Weapons",
+        editBulletCasing: "Edit Bullet Casing",
+        editSeizedWeapon: "Edit Seized Weapon",
+        editBulletCasingDesc: "Modify the details of this bullet casing record.",
+        editSeizedWeaponDesc: "Modify the details of this seized weapon record.",
     },
     es: {
         // Layout / Sidebar
@@ -968,5 +972,9 @@ export const translations = {
         ballistics_module_desc_lssd: "Módulo de Balística de la Sheriff Criminal Unit Bureau.",
         bulletCasings: "Casquillos Incautados",
         seizedWeapons: "Armas Incautadas",
+        editBulletCasing: "Editar Casquillo",
+        editSeizedWeapon: "Editar Arma Incautada",
+        editBulletCasingDesc: "Modifica los detalles de este registro de casquillo.",
+        editSeizedWeaponDesc: "Modifica los detalles de este registro de arma incautada.",
     }
 };
