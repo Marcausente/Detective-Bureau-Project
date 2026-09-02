@@ -73,13 +73,26 @@ function Ballistics() {
         // Check in batch
         const inBatchCount = bulletRows.filter(r => (r.num_serie || '').trim().toLowerCase() === sn).length;
         if (inBatchCount > 1) {
-            return { type: 'batch', message: '⚠️ Duplicado en este grupo' };
+            return { type: 'batch', message: '❌ Número de serie repetido en este mismo grupo' };
         }
 
         // Check in DB
-        const dbMatch = bullets.find(b => (b.numero_serie || '').trim().toLowerCase() === sn);
-        if (dbMatch) {
-            return { type: 'db', message: `⚠️ Ya existe en sistema (Incidente: ${dbMatch.incidente_relacionado || 'N/A'})` };
+        const currentIncidentClean = (bulletBatchIncident || '').trim().toLowerCase();
+        const matchingBullets = bullets.filter(b => (b.numero_serie || '').trim().toLowerCase() === sn);
+        if (matchingBullets.length > 0) {
+            const sameIncidentMatch = matchingBullets.find(b => (b.incidente_relacionado || '').trim().toLowerCase() === currentIncidentClean);
+            if (sameIncidentMatch && currentIncidentClean) {
+                return { 
+                    type: 'db', 
+                    message: `❌ Ya existe en este mismo incidente (${sameIncidentMatch.incidente_relacionado || 'N/A'})` 
+                };
+            } else {
+                const otherIncidents = [...new Set(matchingBullets.map(b => b.incidente_relacionado || 'N/A'))].join(', ');
+                return { 
+                    type: 'multi_incident', 
+                    message: `⚠️ ¡Aviso! Registrado en otro(s) incidente(s): "${otherIncidents}". (Misma arma en diferentes incidentes)` 
+                };
+            }
         }
 
         return null;
@@ -475,23 +488,37 @@ function Ballistics() {
         }
 
         // 2. Check for duplicates against existing bullets in DATABASE
-        const dbDuplicates = [];
+        // Only block duplicates if they belong to the SAME incident!
+        const currentIncidentClean = bulletBatchIncident.trim().toLowerCase();
+        const sameIncidentDuplicates = [];
+        const multiIncidentMatches = [];
+
         validBullets.forEach(b => {
             const cleanSn = b.num_serie.trim().toLowerCase();
             if (cleanSn && cleanSn !== 'n/a') {
-                const existing = bullets.find(dbB => dbB.numero_serie && dbB.numero_serie.trim().toLowerCase() === cleanSn);
-                if (existing) {
-                    dbDuplicates.push({
-                        serial: b.num_serie.trim(),
-                        incident: existing.incidente_relacionado || 'Desconocido'
-                    });
-                }
+                const dbMatches = bullets.filter(dbB => dbB.numero_serie && dbB.numero_serie.trim().toLowerCase() === cleanSn);
+                dbMatches.forEach(existing => {
+                    const existingIncidentClean = (existing.incidente_relacionado || '').trim().toLowerCase();
+                    if (existingIncidentClean === currentIncidentClean) {
+                        sameIncidentDuplicates.push({
+                            serial: b.num_serie.trim(),
+                            incident: existing.incidente_relacionado || 'Mismo incidente'
+                        });
+                    } else {
+                        multiIncidentMatches.push({
+                            serial: b.num_serie.trim(),
+                            existingIncident: existing.incidente_relacionado || 'Incidente previo',
+                            newIncident: bulletBatchIncident.trim(),
+                            weaponModel: existing.modelo_arma || b.modelo_arma
+                        });
+                    }
+                });
             }
         });
 
-        if (dbDuplicates.length > 0) {
-            const dupDetails = dbDuplicates.map(d => `• Serie: "${d.serial}" (Ya registrado en Incidente: "${d.incident}")`).join('\n');
-            alert(`⚠️ Error al guardar: Los siguientes casquillos ya existen en la base de datos:\n\n${dupDetails}\n\nPara no subir casquillos repetidos, modifícalos o elimínalos antes de continuar.`);
+        if (sameIncidentDuplicates.length > 0) {
+            const dupDetails = sameIncidentDuplicates.map(d => `• Serie: "${d.serial}" (Ya registrado en este incidente: "${d.incident}")`).join('\n');
+            alert(`⚠️ Error al guardar: No se pueden registrar casquillos repetidos para el mismo incidente:\n\n${dupDetails}\n\nSolo se permite registrar el mismo número de serie si corresponde a un incidente diferente.`);
             return;
         }
 
@@ -536,6 +563,12 @@ function Ballistics() {
                         });
                     }
                 }
+            }
+
+            // Multi-incident match alert notice
+            if (multiIncidentMatches.length > 0) {
+                const summaryList = multiIncidentMatches.map(m => `• Serie: "${m.serial}" ➔ Disparado en "${m.existingIncident}" y en "${m.newIncident}"`).join('\n');
+                alert(`🚨 ¡ALERTA BALÍSTICA: COINCIDENCIA ENTRE INCIDENTES!\n\nSe han registrado casquillos que demuestran que la MISMA ARMA ha disparado en diferentes incidentes:\n\n${summaryList}\n\nLos registros han quedado vinculados en el sistema.`);
             }
 
             setShowBulletModal(false);
@@ -659,11 +692,21 @@ function Ballistics() {
         if (!editingBullet) return;
 
         const cleanBulletSn = editBulletForm.num_serie.trim().toLowerCase();
+        const editIncClean = editBulletForm.incidente.trim().toLowerCase();
+        let multiIncMatchAlert = null;
+
         if (cleanBulletSn !== '' && cleanBulletSn !== 'n/a') {
-            const existing = bullets.find(b => b.id !== editingBullet.id && b.numero_serie && b.numero_serie.trim().toLowerCase() === cleanBulletSn);
-            if (existing) {
-                alert(`⚠️ Error: El número de serie "${editBulletForm.num_serie}" ya está registrado en otro casquillo (Incidente: "${existing.incidente_relacionado}").`);
+            const matchingBullets = bullets.filter(b => b.id !== editingBullet.id && b.numero_serie && b.numero_serie.trim().toLowerCase() === cleanBulletSn);
+            const sameIncMatch = matchingBullets.find(b => (b.incidente_relacionado || '').trim().toLowerCase() === editIncClean);
+            if (sameIncMatch && editIncClean) {
+                alert(`⚠️ Error: El número de serie "${editBulletForm.num_serie}" ya está registrado en este mismo incidente ("${sameIncMatch.incidente_relacionado || 'N/A'}").`);
                 return;
+            }
+
+            const otherIncs = matchingBullets.filter(b => (b.incidente_relacionado || '').trim().toLowerCase() !== editIncClean);
+            if (otherIncs.length > 0) {
+                const list = [...new Set(otherIncs.map(b => b.incidente_relacionado))].join(', ');
+                multiIncMatchAlert = `🚨 ¡Alerta Balística: Coincidencia entre Incidentes!\n\nEl número de serie "${editBulletForm.num_serie}" también pertenece a casquillo(s) del incidente(s):\n"${list}"\n\nIndica que la misma arma ha disparado en diferentes incidentes.`;
             }
         }
 
@@ -688,6 +731,10 @@ function Ballistics() {
                         weaponOwner: matchedWeapon.propietario
                     });
                 }
+            }
+
+            if (multiIncMatchAlert) {
+                alert(multiIncMatchAlert);
             }
 
             setEditingBullet(null);
@@ -1594,6 +1641,34 @@ function Ballistics() {
                                                     <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('serialNumber') || 'Número de Serie'}</span>
                                                     <strong style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.9rem', letterSpacing: '0.04em' }}>{item.numero_serie}</strong>
                                                 </div>
+
+                                                {/* Multi-incident Badge Notice */}
+                                                {(() => {
+                                                    if (!item.numero_serie || item.numero_serie === 'N/A') return null;
+                                                    const cleanSn = item.numero_serie.trim().toLowerCase();
+                                                    const otherBullets = bullets.filter(b => b.id !== item.id && b.numero_serie && b.numero_serie.trim().toLowerCase() === cleanSn && (b.incidente_relacionado || '').trim().toLowerCase() !== (item.incidente_relacionado || '').trim().toLowerCase());
+                                                    if (otherBullets.length > 0) {
+                                                        const otherIncidents = [...new Set(otherBullets.map(b => b.incidente_relacionado))];
+                                                        return (
+                                                            <div style={{
+                                                                background: 'rgba(234, 179, 8, 0.12)',
+                                                                border: '1px solid rgba(234, 179, 8, 0.35)',
+                                                                borderRadius: '8px',
+                                                                padding: '0.45rem 0.65rem',
+                                                                marginBottom: '0.75rem',
+                                                                display: 'flex',
+                                                                alignItems: 'flex-start',
+                                                                gap: '6px'
+                                                            }}>
+                                                                <span style={{ fontSize: '0.85rem', lineHeight: '1.2' }}>⚠️</span>
+                                                                <div style={{ fontSize: '0.72rem', color: '#fde047', lineHeight: '1.3' }}>
+                                                                    <strong>Misma arma disparada en:</strong> {otherIncidents.join(', ')}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
                                             </div>
 
                                             <div style={{
@@ -2272,14 +2347,25 @@ function Ballistics() {
                                 />
                                 {(() => {
                                     const cleanSn = editBulletForm.num_serie.trim().toLowerCase();
+                                    const editIncClean = editBulletForm.incidente.trim().toLowerCase();
                                     if (cleanSn && cleanSn !== 'n/a') {
-                                        const existing = bullets.find(b => b.id !== editingBullet.id && b.numero_serie && b.numero_serie.trim().toLowerCase() === cleanSn);
-                                        if (existing) {
-                                            return (
-                                                <span style={{ fontSize: '0.72rem', color: '#f87171', fontWeight: 700, display: 'block', marginTop: '4px' }}>
-                                                    ⚠️ Este número de serie ya existe en otro casquillo (Incidente: {existing.incidente_relacionado || 'N/A'})
-                                                </span>
-                                            );
+                                        const matchingBullets = bullets.filter(b => (!editingBullet || b.id !== editingBullet.id) && b.numero_serie && b.numero_serie.trim().toLowerCase() === cleanSn);
+                                        if (matchingBullets.length > 0) {
+                                            const sameInc = matchingBullets.find(b => (b.incidente_relacionado || '').trim().toLowerCase() === editIncClean);
+                                            if (sameInc && editIncClean) {
+                                                return (
+                                                    <span style={{ fontSize: '0.72rem', color: '#f87171', fontWeight: 700, display: 'block', marginTop: '4px' }}>
+                                                        ❌ Este número de serie ya está registrado en este mismo incidente ("{sameInc.incidente_relacionado || 'N/A'}")
+                                                    </span>
+                                                );
+                                            } else {
+                                                const otherIncs = [...new Set(matchingBullets.map(b => b.incidente_relacionado || 'N/A'))].join(', ');
+                                                return (
+                                                    <span style={{ fontSize: '0.72rem', color: '#fde047', fontWeight: 700, display: 'block', marginTop: '4px' }}>
+                                                        ⚠️ ¡Misma arma! Registrada previamente en otro(s) incidente(s): "{otherIncs}". Se guardará como coincidencia multi-incidente.
+                                                    </span>
+                                                );
+                                            }
                                         }
                                     }
                                     return null;
