@@ -760,6 +760,11 @@ function CaseDetail() {
     const isAssignedEncargado = currentUser && assignments && assignments.some(a => a.user_id === currentUser.id && a.role === 'Encargado');
     const isAyudante = currentUser && currentUser.rol === 'Ayudante';
     const canEditCase = (isHighCommand || isCreator || isAssignedEncargado) && !isAyudante;
+    const canChangeCaseStatus = currentUser && (
+        ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol) ||
+        (currentUser.rol && currentUser.rol.toLowerCase().includes('detective')) ||
+        !['Ayudante', 'Invitado', 'Externo'].includes(currentUser.rol)
+    );
 
     const isCaseOpen = !info || !info.status || info.status.toLowerCase() === 'open' || info.status.toLowerCase() === 'abierto';
 
@@ -856,23 +861,68 @@ function CaseDetail() {
                         </button>
                     )}
 
-                    {isCaseOpen && (
-                        <>
-                            <button 
-                                className="mac-btn mac-btn-secondary"
-                                onClick={() => handleStatusChange('Closed')}
-                                style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#f87171' }}
-                            >
-                                Cerrar Caso
-                            </button>
-                            <button 
-                                className="mac-btn mac-btn-secondary"
-                                onClick={() => handleStatusChange('Archived')}
-                                style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#94a3b8' }}
-                            >
-                                Archivar
-                            </button>
-                        </>
+                    {canChangeCaseStatus && (
+                        isCaseOpen ? (
+                            <>
+                                <button 
+                                    className="mac-btn mac-btn-secondary"
+                                    onClick={() => handleStatusChange('Closed')}
+                                    style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#f87171' }}
+                                >
+                                    {t('closeCaseBtn') || 'Cerrar Caso'}
+                                </button>
+                                <button 
+                                    className="mac-btn mac-btn-secondary"
+                                    onClick={() => handleStatusChange('Archived')}
+                                    style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#94a3b8' }}
+                                >
+                                    {t('archiveCaseBtn') || 'Archivar Caso'}
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button 
+                                    className="mac-btn mac-btn-secondary"
+                                    onClick={() => handleStatusChange('Open')}
+                                    style={{ 
+                                        padding: '0.25rem 0.75rem', 
+                                        fontSize: '0.75rem', 
+                                        borderRadius: '6px', 
+                                        color: '#86efac',
+                                        border: '1px solid rgba(34, 197, 94, 0.4)',
+                                        background: 'rgba(34, 197, 94, 0.15)',
+                                        fontWeight: 700,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="1 4 1 10 7 10" />
+                                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                                    </svg>
+                                    <span>{t('reopenCaseBtn') || 'Reabrir Caso'}</span>
+                                </button>
+                                {info.status !== 'Archived' && info.status !== 'Archivado' && (
+                                    <button 
+                                        className="mac-btn mac-btn-secondary"
+                                        onClick={() => handleStatusChange('Archived')}
+                                        style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#94a3b8' }}
+                                    >
+                                        {t('archiveCaseBtn') || 'Archivar Caso'}
+                                    </button>
+                                )}
+                                {info.status !== 'Closed' && info.status !== 'Cerrado' && (
+                                    <button 
+                                        className="mac-btn mac-btn-secondary"
+                                        onClick={() => handleStatusChange('Closed')}
+                                        style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#f87171' }}
+                                    >
+                                        {t('closeCaseBtn') || 'Cerrar Caso'}
+                                    </button>
+                                )}
+                            </>
+                        )
                     )}
 
                     {(currentUser?.rol === 'Administrador' || currentUser?.rol === 'Coordinador') && (

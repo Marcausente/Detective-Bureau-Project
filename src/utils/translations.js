@@ -512,6 +512,9 @@ export const translations = {
         linkBallisticsModalTitle: "Link Ballistics to Case",
         noLinkedBallistics: "No ballistics evidence linked",
         selectCasePlaceholder: "-- Select Case --",
+        reopenCaseBtn: "Reopen Case",
+        closeCaseBtn: "Close Case",
+        archiveCaseBtn: "Archive Case",
     },
     es: {
         // Layout / Sidebar
@@ -1026,5 +1029,8 @@ export const translations = {
         linkBallisticsModalTitle: "Vincular Balística al Caso",
         noLinkedBallistics: "Sin balística vinculada a este caso",
         selectCasePlaceholder: "-- Seleccionar Caso --",
+        reopenCaseBtn: "Reabrir Caso",
+        closeCaseBtn: "Cerrar Caso",
+        archiveCaseBtn: "Archivar Caso",
     }
 };
