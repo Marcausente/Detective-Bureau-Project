@@ -52,9 +52,6 @@ function Ballistics() {
     const [weaponRows, setWeaponRows] = useState([
         { id: 1, propietario: '', modelo: '', num_serie: '' }
     ]);
-    const [weaponPasteText, setWeaponPasteText] = useState('');
-    const [showWeaponPasteBox, setShowWeaponPasteBox] = useState(false);
-    const [weaponPasteSuccessMsg, setWeaponPasteSuccessMsg] = useState('');
 
     // Single Edit Forms
     const [editBulletForm, setEditBulletForm] = useState({
@@ -250,9 +247,6 @@ function Ballistics() {
     const handleOpenAddWeapons = () => {
         setWeaponBatchIncident('');
         setWeaponRows([{ id: Date.now(), propietario: '', modelo: '', num_serie: '' }]);
-        setWeaponPasteText('');
-        setShowWeaponPasteBox(false);
-        setWeaponPasteSuccessMsg('');
         setShowWeaponModal(true);
     };
 
@@ -309,55 +303,6 @@ function Ballistics() {
                     num_serie: p.num_serie || '',
                     calibre: p.calibre || '',
                     modelo_arma: p.modelo_arma || ''
-                });
-                addedCount++;
-            }
-        });
-
-        const firstWithInc = parsedList.find(p => p.incidente);
-        let updatedIncident = currentIncident;
-        if (firstWithInc && !currentIncident.trim()) {
-            updatedIncident = firstWithInc.incidente;
-        }
-
-        return {
-            newRows,
-            addedCount,
-            skippedCount,
-            updatedIncident
-        };
-    };
-
-    const mergeParsedWeaponsIntoRows = (parsedList, currentRows, currentIncident) => {
-        const isSingleEmpty = currentRows.length === 1 && (!currentRows[0].num_serie || !currentRows[0].num_serie.trim());
-        const baseRows = isSingleEmpty ? [] : [...currentRows];
-
-        let addedCount = 0;
-        let skippedCount = 0;
-        const newRows = [...baseRows];
-
-        parsedList.forEach((p, idx) => {
-            const cleanSn = (p.num_serie || '').trim().toLowerCase();
-            if (!cleanSn || cleanSn === 'n/a') {
-                newRows.push({
-                    id: Date.now() + idx + Math.random(),
-                    propietario: p.propietario || '',
-                    modelo: p.modelo_arma || '',
-                    num_serie: p.num_serie || ''
-                });
-                addedCount++;
-                return;
-            }
-
-            const exists = newRows.some(r => (r.num_serie || '').trim().toLowerCase() === cleanSn);
-            if (exists) {
-                skippedCount++;
-            } else {
-                newRows.push({
-                    id: Date.now() + idx + Math.random(),
-                    propietario: p.propietario || '',
-                    modelo: p.modelo_arma || '',
-                    num_serie: p.num_serie || ''
                 });
                 addedCount++;
             }
@@ -466,34 +411,6 @@ function Ballistics() {
 
     const handleWeaponRowChange = (rowId, field, value) => {
         setWeaponRows(prev => prev.map(r => r.id === rowId ? { ...r, [field]: value } : r));
-    };
-
-    // Process pasted text in Batch Weapon Modal (Appends non-duplicate weapons)
-    const handleProcessBatchWeaponPaste = (textToProcess) => {
-        const text = textToProcess !== undefined ? textToProcess : weaponPasteText;
-        if (!text || !text.trim()) return;
-
-        const parsedList = parseMultipleBallisticReports(text);
-        if (parsedList.length === 0) {
-            alert('No se detectaron informes con formato válido. Asegúrate de incluir datos como "Arma:" o "Modelo:", "Serie:" y opcionalmente "Propietario:".');
-            return;
-        }
-
-        const { newRows, addedCount, skippedCount, updatedIncident } = mergeParsedWeaponsIntoRows(parsedList, weaponRows, weaponBatchIncident);
-        setWeaponRows(newRows);
-        setWeaponBatchIncident(updatedIncident);
-        setWeaponPasteText('');
-        setShowWeaponPasteBox(false);
-
-        if (addedCount > 0) {
-            const msg = skippedCount > 0
-                ? `¡${addedCount} arma(s) añadida(s) (${skippedCount} ya estaba en la lista)! Total: ${newRows.length}`
-                : `¡${addedCount} arma(s) añadida(s) a la lista! Total: ${newRows.length}`;
-            setWeaponPasteSuccessMsg(msg);
-        } else {
-            setWeaponPasteSuccessMsg(`El/las arma(s) pegadas ya estaban presentes en la lista.`);
-        }
-        setTimeout(() => setWeaponPasteSuccessMsg(''), 4000);
     };
 
     // Submissions - Create Bullets (Batch / Single)
@@ -3015,7 +2932,7 @@ function Ballistics() {
                 </div>
             )}
 
-            {/* --- ADD SEIZED WEAPONS MODAL (BATCH / MULTI-WEAPON & SCRIPT IMPORT) --- */}
+            {/* --- ADD SEIZED WEAPONS MODAL (BATCH / MULTI-WEAPON) --- */}
             {showWeaponModal && (
                 <div className="mac-modal-overlay">
                     <div className="mac-modal-content" style={{
@@ -3031,7 +2948,7 @@ function Ballistics() {
                         padding: '1.5rem',
                         boxSizing: 'border-box'
                     }}>
-                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div className="mac-window-dots">
                                     <span className="mac-window-dot close" onClick={() => setShowWeaponModal(false)} title="Cerrar" />
@@ -3042,103 +2959,7 @@ function Ballistics() {
                                     {t('addSeizedWeapon') || 'Registrar Armas Incautadas'}
                                 </h3>
                             </div>
-
-                            <button
-                                type="button"
-                                onClick={() => setShowWeaponPasteBox(prev => !prev)}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    background: showWeaponPasteBox ? 'rgba(234, 179, 8, 0.2)' : 'rgba(239, 68, 68, 0.15)',
-                                    border: showWeaponPasteBox ? '1px solid rgba(234, 179, 8, 0.5)' : '1px solid rgba(239, 68, 68, 0.35)',
-                                    color: showWeaponPasteBox ? '#fde047' : '#fca5a5',
-                                    padding: '0.35rem 0.8rem',
-                                    borderRadius: '12px',
-                                    fontSize: '0.78rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                📋 {showWeaponPasteBox ? 'Ocultar Portapapeles' : 'Pegar Formato Script'}
-                            </button>
                         </div>
-
-                        {/* Script Format Quick Paste Box for Weapons */}
-                        {showWeaponPasteBox && (
-                            <div style={{
-                                background: 'rgba(15, 23, 42, 0.85)',
-                                border: '1px solid rgba(234, 179, 8, 0.4)',
-                                borderRadius: '14px',
-                                padding: '1rem',
-                                marginBottom: '1.25rem',
-                                boxShadow: '0 8px 24px rgba(0,0,0,0.3)'
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fde047' }}>
-                                        📋 Pegar Informe(s) de Armas (Formato Rápido)
-                                    </span>
-                                    <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                                        Puedes pegar uno o varios informes a la vez
-                                    </span>
-                                </div>
-                                <textarea
-                                    rows={4}
-                                    value={weaponPasteText}
-                                    onChange={(e) => setWeaponPasteText(e.target.value)}
-                                    placeholder={`[INFORME BALÍSTICO]\nArma: Combat Pistol\nSerie: 466080ECB348251\nPropietario: John Doe\nFecha: 2026-09-01 22:53`}
-                                    style={{
-                                        width: '100%',
-                                        background: 'rgba(0, 0, 0, 0.4)',
-                                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                                        borderRadius: '8px',
-                                        color: '#f8fafc',
-                                        fontFamily: 'monospace',
-                                        fontSize: '0.82rem',
-                                        padding: '0.6rem 0.8rem',
-                                        boxSizing: 'border-box',
-                                        resize: 'vertical'
-                                    }}
-                                />
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.6rem' }}>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleProcessBatchWeaponPaste()}
-                                        style={{
-                                            background: '#eab308',
-                                            color: '#0f172a',
-                                            border: 'none',
-                                            padding: '0.4rem 1rem',
-                                            borderRadius: '8px',
-                                            fontWeight: 800,
-                                            fontSize: '0.78rem',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        ⚡ Auto-rellenar Armas
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {weaponPasteSuccessMsg && (
-                            <div style={{
-                                background: 'rgba(34, 197, 94, 0.15)',
-                                border: '1px solid rgba(34, 197, 94, 0.4)',
-                                color: '#86efac',
-                                padding: '0.5rem 0.85rem',
-                                borderRadius: '10px',
-                                fontSize: '0.82rem',
-                                fontWeight: 700,
-                                marginBottom: '1rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}>
-                                <span>✓</span> {weaponPasteSuccessMsg}
-                            </div>
-                        )}
 
                         <form onSubmit={handleCreateWeaponsBatch} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
                             {/* Incident for weapons batch */}
@@ -3224,29 +3045,7 @@ function Ballistics() {
                                                     className="form-input"
                                                     required
                                                     value={row.num_serie}
-                                                    onChange={e => {
-                                                        const val = e.target.value;
-                                                        if (val.includes('[INFORME') || val.includes('Arma:') || val.includes('Serie:') || val.includes('Modelo:')) {
-                                                            const parsedList = parseMultipleBallisticReports(val);
-                                                            if (parsedList && parsedList.length > 0) {
-                                                                const base = weaponRows.filter(r => r.id !== row.id || (r.num_serie && r.num_serie.trim() !== ''));
-                                                                const res = mergeParsedWeaponsIntoRows(parsedList, base, weaponBatchIncident);
-                                                                setWeaponRows(res.newRows);
-                                                                setWeaponBatchIncident(res.updatedIncident);
-                                                                if (res.addedCount > 0) {
-                                                                    const msg = res.skippedCount > 0
-                                                                        ? `¡${res.addedCount} arma(s) añadida(s) (${res.skippedCount} ya estaba en la lista)! Total: ${res.newRows.length}`
-                                                                        : `¡${res.addedCount} arma(s) añadida(s) a la lista! Total: ${res.newRows.length}`;
-                                                                    setWeaponPasteSuccessMsg(msg);
-                                                                } else {
-                                                                    setWeaponPasteSuccessMsg(`El/las arma(s) pegadas ya estaban en la lista.`);
-                                                                }
-                                                                setTimeout(() => setWeaponPasteSuccessMsg(''), 4000);
-                                                                return;
-                                                            }
-                                                        }
-                                                        handleWeaponRowChange(row.id, 'num_serie', val);
-                                                    }}
+                                                    onChange={e => handleWeaponRowChange(row.id, 'num_serie', e.target.value)}
                                                     placeholder="466080ECB348251"
                                                     style={{
                                                         background: 'rgba(0, 0, 0, 0.35)',
