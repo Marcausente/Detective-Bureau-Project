@@ -222,6 +222,105 @@ function Ballistics() {
         });
     };
 
+    // Merge helpers to append newly parsed reports to current list without replacing existing rows
+    const mergeParsedBulletsIntoRows = (parsedList, currentRows, currentIncident) => {
+        const isSingleEmpty = currentRows.length === 1 && (!currentRows[0].num_serie || !currentRows[0].num_serie.trim());
+        const baseRows = isSingleEmpty ? [] : [...currentRows];
+
+        let addedCount = 0;
+        let skippedCount = 0;
+        const newRows = [...baseRows];
+
+        parsedList.forEach((p, idx) => {
+            const cleanSn = (p.num_serie || '').trim().toLowerCase();
+            if (!cleanSn || cleanSn === 'n/a') {
+                newRows.push({
+                    id: Date.now() + idx + Math.random(),
+                    num_serie: p.num_serie || '',
+                    calibre: p.calibre || '',
+                    modelo_arma: p.modelo_arma || ''
+                });
+                addedCount++;
+                return;
+            }
+
+            const exists = newRows.some(r => (r.num_serie || '').trim().toLowerCase() === cleanSn);
+            if (exists) {
+                skippedCount++;
+            } else {
+                newRows.push({
+                    id: Date.now() + idx + Math.random(),
+                    num_serie: p.num_serie || '',
+                    calibre: p.calibre || '',
+                    modelo_arma: p.modelo_arma || ''
+                });
+                addedCount++;
+            }
+        });
+
+        const firstWithInc = parsedList.find(p => p.incidente);
+        let updatedIncident = currentIncident;
+        if (firstWithInc && !currentIncident.trim()) {
+            updatedIncident = firstWithInc.incidente;
+        }
+
+        return {
+            newRows,
+            addedCount,
+            skippedCount,
+            updatedIncident
+        };
+    };
+
+    const mergeParsedWeaponsIntoRows = (parsedList, currentRows, currentIncident) => {
+        const isSingleEmpty = currentRows.length === 1 && (!currentRows[0].num_serie || !currentRows[0].num_serie.trim());
+        const baseRows = isSingleEmpty ? [] : [...currentRows];
+
+        let addedCount = 0;
+        let skippedCount = 0;
+        const newRows = [...baseRows];
+
+        parsedList.forEach((p, idx) => {
+            const cleanSn = (p.num_serie || '').trim().toLowerCase();
+            if (!cleanSn || cleanSn === 'n/a') {
+                newRows.push({
+                    id: Date.now() + idx + Math.random(),
+                    propietario: p.propietario || '',
+                    modelo: p.modelo_arma || '',
+                    num_serie: p.num_serie || ''
+                });
+                addedCount++;
+                return;
+            }
+
+            const exists = newRows.some(r => (r.num_serie || '').trim().toLowerCase() === cleanSn);
+            if (exists) {
+                skippedCount++;
+            } else {
+                newRows.push({
+                    id: Date.now() + idx + Math.random(),
+                    propietario: p.propietario || '',
+                    modelo: p.modelo_arma || '',
+                    num_serie: p.num_serie || ''
+                });
+                addedCount++;
+            }
+        });
+
+        const firstWithInc = parsedList.find(p => p.incidente);
+        let updatedIncident = currentIncident;
+        if (firstWithInc && !currentIncident.trim()) {
+            updatedIncident = firstWithInc.incidente;
+        }
+
+        return {
+            newRows,
+            addedCount,
+            skippedCount,
+            updatedIncident
+        };
+    };
+
     // Dynamic Row Manipulation - Bullets
     const handleAddBulletRow = () => {
         setBulletRows(prev => [
@@ -243,7 +342,7 @@ function Ballistics() {
         setBulletRows(prev => prev.map(r => r.id === rowId ? { ...r, [field]: value } : r));
     };
 
-    // Process pasted text in Batch Bullet Modal
+    // Process pasted text in Batch Bullet Modal (Appends non-duplicate bullets)
     const handleProcessBatchBulletPaste = (textToProcess) => {
         const text = textToProcess !== undefined ? textToProcess : bulletPasteText;
         if (!text || !text.trim()) return;
@@ -254,24 +353,20 @@ function Ballistics() {
             return;
         }
 
-        // Auto set incident if not set and present in reports
-        const firstWithInc = parsedList.find(p => p.incidente);
-        if (firstWithInc && !bulletBatchIncident.trim()) {
-            setBulletBatchIncident(firstWithInc.incidente);
-        }
-
-        // Map into bulletRows
-        const newRows = parsedList.map((p, idx) => ({
-            id: Date.now() + idx + Math.random(),
-            num_serie: p.num_serie || '',
-            calibre: p.calibre || '',
-            modelo_arma: p.modelo_arma || ''
-        }));
-
+        const { newRows, addedCount, skippedCount, updatedIncident } = mergeParsedBulletsIntoRows(parsedList, bulletRows, bulletBatchIncident);
         setBulletRows(newRows);
+        setBulletBatchIncident(updatedIncident);
         setBulletPasteText('');
         setShowBulletPasteBox(false);
-        setBulletPasteSuccessMsg(`¡${parsedList.length} casquillo(s) importados con éxito!`);
+
+        if (addedCount > 0) {
+            const msg = skippedCount > 0
+                ? `¡${addedCount} casquillo(s) añadido(s) (${skippedCount} ya estaba en la lista)! Total: ${newRows.length}`
+                : `¡${addedCount} casquillo(s) añadido(s) a la lista! Total: ${newRows.length}`;
+            setBulletPasteSuccessMsg(msg);
+        } else {
+            setBulletPasteSuccessMsg(`El/los casquillo(s) pegados ya estaban presentes en la lista.`);
+        }
         setTimeout(() => setBulletPasteSuccessMsg(''), 4000);
     };
 
@@ -317,7 +412,7 @@ function Ballistics() {
         setWeaponRows(prev => prev.map(r => r.id === rowId ? { ...r, [field]: value } : r));
     };
 
-    // Process pasted text in Batch Weapon Modal
+    // Process pasted text in Batch Weapon Modal (Appends non-duplicate weapons)
     const handleProcessBatchWeaponPaste = (textToProcess) => {
         const text = textToProcess !== undefined ? textToProcess : weaponPasteText;
         if (!text || !text.trim()) return;
@@ -328,22 +423,20 @@ function Ballistics() {
             return;
         }
 
-        const firstWithInc = parsedList.find(p => p.incidente);
-        if (firstWithInc && !weaponBatchIncident.trim()) {
-            setWeaponBatchIncident(firstWithInc.incidente);
-        }
-
-        const newRows = parsedList.map((p, idx) => ({
-            id: Date.now() + idx + Math.random(),
-            propietario: p.propietario || '',
-            modelo: p.modelo_arma || '',
-            num_serie: p.num_serie || ''
-        }));
-
+        const { newRows, addedCount, skippedCount, updatedIncident } = mergeParsedWeaponsIntoRows(parsedList, weaponRows, weaponBatchIncident);
         setWeaponRows(newRows);
+        setWeaponBatchIncident(updatedIncident);
         setWeaponPasteText('');
         setShowWeaponPasteBox(false);
-        setWeaponPasteSuccessMsg(`¡${parsedList.length} arma(s) importada(s) con éxito!`);
+
+        if (addedCount > 0) {
+            const msg = skippedCount > 0
+                ? `¡${addedCount} arma(s) añadida(s) (${skippedCount} ya estaba en la lista)! Total: ${newRows.length}`
+                : `¡${addedCount} arma(s) añadida(s) a la lista! Total: ${newRows.length}`;
+            setWeaponPasteSuccessMsg(msg);
+        } else {
+            setWeaponPasteSuccessMsg(`El/las arma(s) pegadas ya estaban presentes en la lista.`);
+        }
         setTimeout(() => setWeaponPasteSuccessMsg(''), 4000);
     };
 
@@ -1866,25 +1959,20 @@ function Ballistics() {
                                                         // Auto intercept if someone pastes a full script report into the serial input
                                                         if (val.includes('[INFORME') || val.includes('Arma:') || val.includes('Serie:') || val.includes('Modelo:')) {
                                                             const parsedList = parseMultipleBallisticReports(val);
-                                                            if (parsedList && parsedList.length > 1) {
-                                                                const newRows = parsedList.map((p, idx) => ({
-                                                                    id: Date.now() + idx + Math.random(),
-                                                                    num_serie: p.num_serie || '',
-                                                                    calibre: p.calibre || '',
-                                                                    modelo_arma: p.modelo_arma || ''
-                                                                }));
-                                                                setBulletRows(newRows);
-                                                                const firstWithInc = parsedList.find(p => p.incidente);
-                                                                if (firstWithInc && !bulletBatchIncident.trim()) setBulletBatchIncident(firstWithInc.incidente);
-                                                                setBulletPasteSuccessMsg(`¡${parsedList.length} casquillos auto-rellenados!`);
+                                                            if (parsedList && parsedList.length > 0) {
+                                                                const base = bulletRows.filter(r => r.id !== row.id || (r.num_serie && r.num_serie.trim() !== ''));
+                                                                const res = mergeParsedBulletsIntoRows(parsedList, base, bulletBatchIncident);
+                                                                setBulletRows(res.newRows);
+                                                                setBulletBatchIncident(res.updatedIncident);
+                                                                if (res.addedCount > 0) {
+                                                                    const msg = res.skippedCount > 0
+                                                                        ? `¡${res.addedCount} casquillo(s) añadido(s) (${res.skippedCount} ya estaba en la lista)! Total: ${res.newRows.length}`
+                                                                        : `¡${res.addedCount} casquillo(s) añadido(s) a la lista! Total: ${res.newRows.length}`;
+                                                                    setBulletPasteSuccessMsg(msg);
+                                                                } else {
+                                                                    setBulletPasteSuccessMsg(`El/los casquillo(s) pegados ya estaban en la lista.`);
+                                                                }
                                                                 setTimeout(() => setBulletPasteSuccessMsg(''), 4000);
-                                                                return;
-                                                            } else if (parsedList && parsedList.length === 1) {
-                                                                const parsed = parsedList[0];
-                                                                handleBulletRowChange(row.id, 'num_serie', parsed.num_serie || val);
-                                                                if (parsed.calibre) handleBulletRowChange(row.id, 'calibre', parsed.calibre);
-                                                                if (parsed.modelo_arma) handleBulletRowChange(row.id, 'modelo_arma', parsed.modelo_arma);
-                                                                if (parsed.incidente && !bulletBatchIncident.trim()) setBulletBatchIncident(parsed.incidente);
                                                                 return;
                                                             }
                                                         }
@@ -2424,25 +2512,20 @@ function Ballistics() {
                                                         const val = e.target.value;
                                                         if (val.includes('[INFORME') || val.includes('Arma:') || val.includes('Serie:') || val.includes('Modelo:')) {
                                                             const parsedList = parseMultipleBallisticReports(val);
-                                                            if (parsedList && parsedList.length > 1) {
-                                                                const newRows = parsedList.map((p, idx) => ({
-                                                                    id: Date.now() + idx + Math.random(),
-                                                                    propietario: p.propietario || '',
-                                                                    modelo: p.modelo_arma || '',
-                                                                    num_serie: p.num_serie || ''
-                                                                }));
-                                                                setWeaponRows(newRows);
-                                                                const firstWithInc = parsedList.find(p => p.incidente);
-                                                                if (firstWithInc && !weaponBatchIncident.trim()) setWeaponBatchIncident(firstWithInc.incidente);
-                                                                setWeaponPasteSuccessMsg(`¡${parsedList.length} armas auto-rellenadas!`);
+                                                            if (parsedList && parsedList.length > 0) {
+                                                                const base = weaponRows.filter(r => r.id !== row.id || (r.num_serie && r.num_serie.trim() !== ''));
+                                                                const res = mergeParsedWeaponsIntoRows(parsedList, base, weaponBatchIncident);
+                                                                setWeaponRows(res.newRows);
+                                                                setWeaponBatchIncident(res.updatedIncident);
+                                                                if (res.addedCount > 0) {
+                                                                    const msg = res.skippedCount > 0
+                                                                        ? `¡${res.addedCount} arma(s) añadida(s) (${res.skippedCount} ya estaba en la lista)! Total: ${res.newRows.length}`
+                                                                        : `¡${res.addedCount} arma(s) añadida(s) a la lista! Total: ${res.newRows.length}`;
+                                                                    setWeaponPasteSuccessMsg(msg);
+                                                                } else {
+                                                                    setWeaponPasteSuccessMsg(`El/las arma(s) pegadas ya estaban en la lista.`);
+                                                                }
                                                                 setTimeout(() => setWeaponPasteSuccessMsg(''), 4000);
-                                                                return;
-                                                            } else if (parsedList && parsedList.length === 1) {
-                                                                const parsed = parsedList[0];
-                                                                handleWeaponRowChange(row.id, 'num_serie', parsed.num_serie || val);
-                                                                if (parsed.modelo_arma) handleWeaponRowChange(row.id, 'modelo', parsed.modelo_arma);
-                                                                if (parsed.propietario) handleWeaponRowChange(row.id, 'propietario', parsed.propietario);
-                                                                if (parsed.incidente && !weaponBatchIncident.trim()) setWeaponBatchIncident(parsed.incidente);
                                                                 return;
                                                             }
                                                         }
