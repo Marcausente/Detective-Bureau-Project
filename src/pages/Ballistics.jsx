@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -6,6 +7,8 @@ import { parseMultipleBallisticReports, parseSingleBallisticReport } from '../ut
 import '../index.css';
 
 function Ballistics() {
+    const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { t } = useLanguage();
     const { isLSSD } = useTheme();
 
@@ -13,10 +16,21 @@ function Ballistics() {
     const [bullets, setBullets] = useState([]);
     const [weapons, setWeapons] = useState([]);
     const [coincidences, setCoincidences] = useState([]);
+    const [ballisticsMatches, setBallisticsMatches] = useState([]);
+    const [casesList, setCasesList] = useState([]);
+    const [coincidenceFilter, setCoincidenceFilter] = useState('all'); // all, open, linked, rejected
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [dbError, setDbError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Case Linking / Rejection Modals
+    const [linkMatchModal, setLinkMatchModal] = useState({ open: false, group: null });
+    const [rejectMatchModal, setRejectMatchModal] = useState({ open: false, group: null });
+    const [selectedCaseForLink, setSelectedCaseForLink] = useState('');
+    const [rejectionReasonInput, setRejectionReasonInput] = useState('');
+    const [linkBulletModal, setLinkBulletModal] = useState({ open: false, bullet: null });
+    const [linkWeaponModal, setLinkWeaponModal] = useState({ open: false, weapon: null });
 
     // Modals visibility & edit targets
     const [showWeaponModal, setShowWeaponModal] = useState(false);
@@ -117,6 +131,16 @@ function Ballistics() {
         return null;
     };
 
+    // Read URL search params
+    useEffect(() => {
+        const urlSearch = searchParams.get('search');
+        const urlTab = searchParams.get('tab');
+        if (urlSearch) setSearchTerm(urlSearch);
+        if (urlTab && ['coincidences', 'bullets', 'weapons'].includes(urlTab)) {
+            setActiveTab(urlTab);
+        }
+    }, [searchParams]);
+
     // Load initial data
     useEffect(() => {
         loadData();
@@ -137,7 +161,7 @@ function Ballistics() {
             if (bulletsError) {
                 console.error("Error fetching bullets:", bulletsError);
                 if (bulletsError.message.includes("does not exist")) {
-                    setDbError("El sistema de base de datos de Balística no está inicializado. Por favor ejecuta el archivo SQL 'BBDD/create_ballistics_system.sql' en tu panel de Supabase.");
+                    setDbError("El sistema de base de datos de Balística no está inicializado. Por favor ejecuta el archivo SQL 'BBDD/link_cases_ballistics.sql' o 'BBDD/create_ballistics_system.sql' en tu panel de Supabase.");
                     setLoading(false);
                     return;
                 }
@@ -147,6 +171,25 @@ function Ballistics() {
             // Fetch Weapons
             const { data: weaponsData, error: weaponsError } = await supabase.rpc('get_ballistics_weapons');
             if (weaponsError) throw weaponsError;
+
+            // Fetch Ballistics Matches Status
+            try {
+                const { data: matchesData } = await supabase.rpc('get_ballistics_matches');
+                setBallisticsMatches(matchesData || []);
+            } catch (mErr) {
+                console.warn("Could not fetch ballistics matches RPC:", mErr);
+            }
+
+            // Fetch Cases list
+            try {
+                const { data: casesData } = await supabase
+                    .from('cases')
+                    .select('id, title, case_number, status')
+                    .order('case_number', { ascending: false });
+                setCasesList(casesData || []);
+            } catch (cErr) {
+                console.warn("Could not fetch cases list:", cErr);
+            }
 
             const fetchedBullets = bulletsData || [];
             const fetchedWeapons = weaponsData || [];
@@ -815,6 +858,174 @@ function Ballistics() {
         }
     };
 
+    // Link Match (Coincidence) to Case
+    const handleOpenLinkMatchModal = (group) => {
+        setLinkMatchModal({ open: true, group });
+        setSelectedCaseForLink(group.caseId || '');
+    };
+
+    const handleConfirmLinkMatch = async () => {
+        if (!linkMatchModal.group || !selectedCaseForLink) return;
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('set_ballistics_match_status', {
+                p_weapon_id: linkMatchModal.group.weapon.id,
+                p_status: 'Con caso',
+                p_case_id: selectedCaseForLink
+            });
+            if (error) throw error;
+            setLinkMatchModal({ open: false, group: null });
+            await loadData();
+        } catch (err) {
+            alert('Error al vincular coincidencia a caso: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Reject Match
+    const handleOpenRejectMatchModal = (group) => {
+        setRejectMatchModal({ open: true, group });
+        setRejectionReasonInput(group.motivoRechazo || '');
+    };
+
+    const handleConfirmRejectMatch = async () => {
+        if (!rejectMatchModal.group) return;
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('set_ballistics_match_status', {
+                p_weapon_id: rejectMatchModal.group.weapon.id,
+                p_status: 'Rechazada',
+                p_case_id: null,
+                p_motivo: rejectionReasonInput.trim() || 'Coincidencia descartada'
+            });
+            if (error) throw error;
+            setRejectMatchModal({ open: false, group: null });
+            await loadData();
+        } catch (err) {
+            alert('Error al rechazar coincidencia: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Reopen Match
+    const handleReopenMatch = async (group) => {
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('set_ballistics_match_status', {
+                p_weapon_id: group.weapon.id,
+                p_status: 'Abierta',
+                p_case_id: null
+            });
+            if (error) throw error;
+            await loadData();
+        } catch (err) {
+            alert('Error al reabrir coincidencia: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Unlink Match
+    const handleUnlinkMatch = async (group) => {
+        if (!confirm('¿Desvincular esta coincidencia del caso y dejarla abierta?')) return;
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('set_ballistics_match_status', {
+                p_weapon_id: group.weapon.id,
+                p_status: 'Abierta',
+                p_case_id: null
+            });
+            if (error) throw error;
+            await loadData();
+        } catch (err) {
+            alert('Error al desvincular coincidencia: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Link / Unlink Single Bullet
+    const handleOpenLinkBulletModal = (bullet) => {
+        setLinkBulletModal({ open: true, bullet });
+        setSelectedCaseForLink(bullet.case_id || '');
+    };
+
+    const handleConfirmLinkBullet = async () => {
+        if (!linkBulletModal.bullet || !selectedCaseForLink) return;
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('link_ballistics_bullet_to_case', {
+                p_bullet_id: linkBulletModal.bullet.id,
+                p_case_id: selectedCaseForLink
+            });
+            if (error) throw error;
+            setLinkBulletModal({ open: false, bullet: null });
+            await loadData();
+        } catch (err) {
+            alert('Error al vincular casquillo a caso: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleUnlinkBullet = async (bulletId) => {
+        if (!confirm('¿Desvincular este casquillo del caso?')) return;
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('unlink_ballistics_bullet_from_case', {
+                p_bullet_id: bulletId
+            });
+            if (error) throw error;
+            await loadData();
+        } catch (err) {
+            alert('Error al desvincular casquillo: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Link / Unlink Single Weapon
+    const handleOpenLinkWeaponModal = (weapon) => {
+        setLinkWeaponModal({ open: true, weapon });
+        setSelectedCaseForLink(weapon.case_id || '');
+    };
+
+    const handleConfirmLinkWeapon = async () => {
+        if (!linkWeaponModal.weapon || !selectedCaseForLink) return;
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('link_ballistics_weapon_to_case', {
+                p_weapon_id: linkWeaponModal.weapon.id,
+                p_case_id: selectedCaseForLink
+            });
+            if (error) throw error;
+            setLinkWeaponModal({ open: false, weapon: null });
+            await loadData();
+        } catch (err) {
+            alert('Error al vincular arma a caso: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleUnlinkWeapon = async (weaponId) => {
+        if (!confirm('¿Desvincular esta arma del caso?')) return;
+        setSubmitting(true);
+        try {
+            const { error } = await supabase.rpc('unlink_ballistics_weapon_from_case', {
+                p_weapon_id: weaponId
+            });
+            if (error) throw error;
+            await loadData();
+        } catch (err) {
+            alert('Error al desvincular arma: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     // Mark all matches as seen
     const handleMarkAllMatchesAsSeen = () => {
         const allIds = coincidences.map(c => c.id);
@@ -848,7 +1059,8 @@ function Ballistics() {
             (b.numero_serie && b.numero_serie.toLowerCase().includes(term)) ||
             (b.incidente_relacionado && b.incidente_relacionado.toLowerCase().includes(term)) ||
             (b.calibre && b.calibre.toLowerCase().includes(term)) ||
-            (b.modelo_arma && b.modelo_arma.toLowerCase().includes(term))
+            (b.modelo_arma && b.modelo_arma.toLowerCase().includes(term)) ||
+            (b.case_title && b.case_title.toLowerCase().includes(term))
         );
     }, [bullets, searchTerm]);
 
@@ -859,11 +1071,12 @@ function Ballistics() {
             (w.numero_serie && w.numero_serie.toLowerCase().includes(term)) ||
             (w.propietario && w.propietario.toLowerCase().includes(term)) ||
             (w.modelo && w.modelo.toLowerCase().includes(term)) ||
-            (w.incidente_relacionado && w.incidente_relacionado.toLowerCase().includes(term))
+            (w.incidente_relacionado && w.incidente_relacionado.toLowerCase().includes(term)) ||
+            (w.case_title && w.case_title.toLowerCase().includes(term))
         );
     }, [weapons, searchTerm]);
 
-    const groupedCoincidences = useMemo(() => {
+    const allGroupedCoincidences = useMemo(() => {
         return weapons.map(weapon => {
             if (!weapon.numero_serie) return null;
             const cleanWeaponSn = weapon.numero_serie.trim().toLowerCase();
@@ -875,17 +1088,32 @@ function Ballistics() {
 
             if (matchingBullets.length === 0) return null;
 
+            // Find database match status if recorded
+            const matchRecord = ballisticsMatches.find(m =>
+                m.weapon_id === weapon.id ||
+                (m.serial_number && m.serial_number.trim().toLowerCase() === cleanWeaponSn)
+            );
+
+            const status = matchRecord?.status || (weapon.case_id ? 'Con caso' : 'Abierta');
+            const caseId = matchRecord?.case_id || weapon.case_id || null;
+            const caseTitle = matchRecord?.case_title || weapon.case_title || null;
+            const caseNumber = matchRecord?.case_number || weapon.case_number || null;
+            const motivoRechazo = matchRecord?.motivo_rechazo || '';
+            const updaterName = matchRecord?.updater_name || '';
+            const updatedAt = matchRecord?.updated_at || null;
+
             // Search filter check for coincidences
             if (searchTerm.trim()) {
                 const term = searchTerm.toLowerCase();
                 const matchesSn = weapon.numero_serie.toLowerCase().includes(term);
                 const matchesModel = weapon.modelo.toLowerCase().includes(term);
                 const matchesOwner = weapon.propietario.toLowerCase().includes(term);
+                const matchesCase = caseTitle && caseTitle.toLowerCase().includes(term);
                 const matchesBullets = matchingBullets.some(b =>
                     (b.incidente_relacionado && b.incidente_relacionado.toLowerCase().includes(term)) ||
                     (b.calibre && b.calibre.toLowerCase().includes(term))
                 );
-                if (!matchesSn && !matchesModel && !matchesOwner && !matchesBullets) return null;
+                if (!matchesSn && !matchesModel && !matchesOwner && !matchesCase && !matchesBullets) return null;
             }
 
             const newBullets = matchingBullets.filter(bullet => {
@@ -898,6 +1126,13 @@ function Ballistics() {
                 bullets: matchingBullets,
                 newBullets,
                 isNew: newBullets.length > 0,
+                status,
+                caseId,
+                caseTitle,
+                caseNumber,
+                motivoRechazo,
+                updaterName,
+                updatedAt,
                 latestDate: matchingBullets.reduce((latest, bullet) => {
                     const bDate = new Date(bullet.created_at);
                     const wDate = new Date(weapon.created_at);
@@ -906,7 +1141,23 @@ function Ballistics() {
                 }, new Date(weapon.created_at))
             };
         }).filter(Boolean).sort((a, b) => b.latestDate - a.latestDate);
-    }, [weapons, bullets, seenMatchIds, searchTerm]);
+    }, [weapons, bullets, ballisticsMatches, seenMatchIds, searchTerm]);
+
+    const coincidenceCounts = useMemo(() => {
+        return {
+            all: allGroupedCoincidences.length,
+            open: allGroupedCoincidences.filter(g => g.status === 'Abierta').length,
+            linked: allGroupedCoincidences.filter(g => g.status === 'Con caso').length,
+            rejected: allGroupedCoincidences.filter(g => g.status === 'Rechazada').length,
+        };
+    }, [allGroupedCoincidences]);
+
+    const groupedCoincidences = useMemo(() => {
+        if (coincidenceFilter === 'open') return allGroupedCoincidences.filter(g => g.status === 'Abierta');
+        if (coincidenceFilter === 'linked') return allGroupedCoincidences.filter(g => g.status === 'Con caso');
+        if (coincidenceFilter === 'rejected') return allGroupedCoincidences.filter(g => g.status === 'Rechazada');
+        return allGroupedCoincidences;
+    }, [allGroupedCoincidences, coincidenceFilter]);
 
     const unseenCoincidencesCount = useMemo(() => {
         return groupedCoincidences.filter(g => g.isNew).length;
@@ -1260,10 +1511,81 @@ function Ballistics() {
                 </div>
             ) : (
                 <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.35rem', paddingBottom: '1rem' }} className="custom-scrollbar">
-
                     {/* RENDERING COINCIDENCES TAB */}
                     {activeTab === 'coincidences' && (
                         <div>
+                            {/* Coincidence Status Sub-filters */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setCoincidenceFilter('all')}
+                                    style={{
+                                        padding: '0.35rem 0.85rem',
+                                        borderRadius: '20px',
+                                        background: coincidenceFilter === 'all' ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.05)',
+                                        border: coincidenceFilter === 'all' ? '1px solid rgba(255, 255, 255, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                        color: coincidenceFilter === 'all' ? '#ffffff' : '#94a3b8',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    {t('filterAll') || 'Todas'} ({coincidenceCounts.all})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCoincidenceFilter('open')}
+                                    style={{
+                                        padding: '0.35rem 0.85rem',
+                                        borderRadius: '20px',
+                                        background: coincidenceFilter === 'open' ? 'rgba(234, 179, 8, 0.22)' : 'rgba(234, 179, 8, 0.06)',
+                                        border: coincidenceFilter === 'open' ? '1px solid rgba(234, 179, 8, 0.5)' : '1px solid rgba(234, 179, 8, 0.2)',
+                                        color: coincidenceFilter === 'open' ? '#fde047' : '#eab308',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    🟡 {t('filterOpen') || 'Abiertas'} ({coincidenceCounts.open})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCoincidenceFilter('linked')}
+                                    style={{
+                                        padding: '0.35rem 0.85rem',
+                                        borderRadius: '20px',
+                                        background: coincidenceFilter === 'linked' ? 'rgba(34, 197, 94, 0.22)' : 'rgba(34, 197, 94, 0.06)',
+                                        border: coincidenceFilter === 'linked' ? '1px solid rgba(34, 197, 94, 0.5)' : '1px solid rgba(34, 197, 94, 0.2)',
+                                        color: coincidenceFilter === 'linked' ? '#86efac' : '#4ade80',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    🟢 {t('filterWithCase') || 'Con Caso'} ({coincidenceCounts.linked})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCoincidenceFilter('rejected')}
+                                    style={{
+                                        padding: '0.35rem 0.85rem',
+                                        borderRadius: '20px',
+                                        background: coincidenceFilter === 'rejected' ? 'rgba(239, 68, 68, 0.22)' : 'rgba(239, 68, 68, 0.06)',
+                                        border: coincidenceFilter === 'rejected' ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(239, 68, 68, 0.2)',
+                                        color: coincidenceFilter === 'rejected' ? '#fca5a5' : '#f87171',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    🔴 {t('filterRejected') || 'Rechazadas'} ({coincidenceCounts.rejected})
+                                </button>
+                            </div>
+
                             {groupedCoincidences.length === 0 ? (
                                 <div style={{
                                     textAlign: 'center',
@@ -1279,7 +1601,7 @@ function Ballistics() {
                                         <line x1="21" y1="21" x2="16.65" y2="16.65" />
                                     </svg>
                                     <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#cbd5e1' }}>
-                                        No se han detectado coincidencias de número de serie todavía.
+                                        No hay coincidencias que coincidan con el filtro seleccionado.
                                     </div>
                                 </div>
                             ) : (
@@ -1297,7 +1619,13 @@ function Ballistics() {
                                                 style={{
                                                     background: group.isNew ? 'rgba(234, 179, 8, 0.05)' : 'rgba(15, 23, 42, 0.65)',
                                                     backdropFilter: 'blur(16px)',
-                                                    border: group.isNew ? '1px solid rgba(234, 179, 8, 0.6)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                                    border: group.status === 'Con caso' 
+                                                        ? '1px solid rgba(34, 197, 94, 0.45)'
+                                                        : group.status === 'Rechazada'
+                                                        ? '1px solid rgba(239, 68, 68, 0.35)'
+                                                        : group.isNew 
+                                                        ? '1px solid rgba(234, 179, 8, 0.6)' 
+                                                        : '1px solid rgba(255, 255, 255, 0.08)',
                                                     borderRadius: '16px',
                                                     padding: '1.2rem',
                                                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
@@ -1330,6 +1658,53 @@ function Ballistics() {
                                                         </div>
 
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            {/* Status Badge */}
+                                                            {group.status === 'Con caso' ? (
+                                                                <span 
+                                                                    onClick={() => group.caseId && navigate(`/cases?id=${group.caseId}`)}
+                                                                    style={{
+                                                                        fontSize: '0.72rem',
+                                                                        fontWeight: 700,
+                                                                        color: '#86efac',
+                                                                        background: 'rgba(34, 197, 94, 0.15)',
+                                                                        border: '1px solid rgba(34, 197, 94, 0.35)',
+                                                                        padding: '2px 8px',
+                                                                        borderRadius: '12px',
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '4px',
+                                                                        cursor: group.caseId ? 'pointer' : 'default'
+                                                                    }}
+                                                                    title={group.caseTitle ? `Caso #${group.caseNumber}: ${group.caseTitle}` : 'Con Caso'}
+                                                                >
+                                                                    📁 {group.caseTitle ? `Caso #${group.caseNumber}` : 'Con Caso'}
+                                                                </span>
+                                                            ) : group.status === 'Rechazada' ? (
+                                                                <span style={{
+                                                                    fontSize: '0.72rem',
+                                                                    fontWeight: 700,
+                                                                    color: '#fca5a5',
+                                                                    background: 'rgba(239, 68, 68, 0.15)',
+                                                                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '12px'
+                                                                }} title={group.motivoRechazo || 'Rechazada'}>
+                                                                    🔴 {t('statusRejected') || 'Rechazada'}
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{
+                                                                    fontSize: '0.72rem',
+                                                                    fontWeight: 700,
+                                                                    color: '#fde047',
+                                                                    background: 'rgba(234, 179, 8, 0.15)',
+                                                                    border: '1px solid rgba(234, 179, 8, 0.35)',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '12px'
+                                                                }}>
+                                                                    🟡 {t('statusOpen') || 'Abierta'}
+                                                                </span>
+                                                            )}
+
                                                             {group.weapon.can_delete && (
                                                                 <button
                                                                     type="button"
@@ -1355,21 +1730,9 @@ function Ballistics() {
                                                                     </svg>
                                                                 </button>
                                                             )}
-                                                            {group.isNew ? (
+                                                            {group.isNew && (
                                                                 <span className="glow-badge">
                                                                     ★ {t('newBadge') || 'NUEVA'} ({group.newBullets.length})
-                                                                </span>
-                                                            ) : (
-                                                                <span style={{
-                                                                    fontSize: '0.72rem',
-                                                                    fontWeight: 600,
-                                                                    color: '#4ade80',
-                                                                    background: 'rgba(34, 197, 94, 0.12)',
-                                                                    border: '1px solid rgba(34, 197, 94, 0.25)',
-                                                                    padding: '2px 8px',
-                                                                    borderRadius: '12px'
-                                                                }}>
-                                                                    ✓ {group.bullets.length} Vinculados
                                                                 </span>
                                                             )}
                                                         </div>
@@ -1392,8 +1755,28 @@ function Ballistics() {
                                                         <div style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: 1.5 }}>
                                                             <div><span style={{ color: '#94a3b8' }}>Propietario:</span> <strong>{group.weapon.propietario}</strong></div>
                                                             <div><span style={{ color: '#94a3b8' }}>Incidente Incautación:</span> <strong>{group.weapon.incidente_relacionado}</strong></div>
+                                                            {group.caseTitle && (
+                                                                <div style={{ marginTop: '3px' }}>
+                                                                    <span style={{ color: '#86efac' }}>Expediente Penal:</span> <strong>Caso #{group.caseNumber} - {group.caseTitle}</strong>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
+
+                                                    {/* Rejection Notice if any */}
+                                                    {group.status === 'Rechazada' && group.motivoRechazo && (
+                                                        <div style={{
+                                                            background: 'rgba(239, 68, 68, 0.08)',
+                                                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                            borderRadius: '8px',
+                                                            padding: '0.45rem 0.65rem',
+                                                            marginBottom: '0.85rem',
+                                                            fontSize: '0.74rem',
+                                                            color: '#fca5a5'
+                                                        }}>
+                                                            <strong>Motivo de descarte:</strong> {group.motivoRechazo}
+                                                        </div>
+                                                    )}
 
                                                     {/* Expanded Bullet Relationships */}
                                                     {isExpanded && (
@@ -1460,45 +1843,166 @@ function Ballistics() {
                                                 </div>
 
                                                 {/* Action Buttons */}
-                                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                                                    <button
-                                                        type="button"
-                                                        style={{
-                                                            flex: 1,
-                                                            padding: '0.42rem',
-                                                            borderRadius: '10px',
-                                                            background: 'rgba(255, 255, 255, 0.06)',
-                                                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                                                            color: '#cbd5e1',
-                                                            fontSize: '0.78rem',
-                                                            fontWeight: 600,
-                                                            cursor: 'pointer',
-                                                            transition: 'all 0.2s'
-                                                        }}
-                                                        onClick={() => toggleWeaponExpand(group.weapon.id)}
-                                                    >
-                                                        {isExpanded ? 'Ocultar Casquillos ▲' : `Ver Casquillos (${group.bullets.length}) ▼`}
-                                                    </button>
-                                                    {group.isNew && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
+                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                         <button
                                                             type="button"
                                                             style={{
                                                                 flex: 1,
                                                                 padding: '0.42rem',
                                                                 borderRadius: '10px',
-                                                                background: 'rgba(234, 179, 8, 0.2)',
-                                                                border: '1px solid rgba(234, 179, 8, 0.4)',
-                                                                color: '#fde047',
+                                                                background: 'rgba(255, 255, 255, 0.06)',
+                                                                border: '1px solid rgba(255, 255, 255, 0.12)',
+                                                                color: '#cbd5e1',
                                                                 fontSize: '0.78rem',
-                                                                fontWeight: 700,
+                                                                fontWeight: 600,
                                                                 cursor: 'pointer',
                                                                 transition: 'all 0.2s'
                                                             }}
-                                                            onClick={() => handleMarkWeaponMatchesAsSeen(group.weapon, group.bullets)}
+                                                            onClick={() => toggleWeaponExpand(group.weapon.id)}
                                                         >
-                                                            Marcar vistos ✓
+                                                            {isExpanded ? 'Ocultar Casquillos ▲' : `Ver Casquillos (${group.bullets.length}) ▼`}
                                                         </button>
-                                                    )}
+                                                        {group.isNew && (
+                                                            <button
+                                                                type="button"
+                                                                style={{
+                                                                    padding: '0.42rem 0.75rem',
+                                                                    borderRadius: '10px',
+                                                                    background: 'rgba(234, 179, 8, 0.2)',
+                                                                    border: '1px solid rgba(234, 179, 8, 0.4)',
+                                                                    color: '#fde047',
+                                                                    fontSize: '0.78rem',
+                                                                    fontWeight: 700,
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s'
+                                                                }}
+                                                                onClick={() => handleMarkWeaponMatchesAsSeen(group.weapon, group.bullets)}
+                                                            >
+                                                                ✓ Visto
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Case Linking / Status Actions */}
+                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                        {group.status === 'Abierta' && (
+                                                            <>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleOpenLinkMatchModal(group)}
+                                                                    style={{
+                                                                        flex: 1,
+                                                                        padding: '0.42rem',
+                                                                        borderRadius: '10px',
+                                                                        background: 'rgba(34, 197, 94, 0.15)',
+                                                                        border: '1px solid rgba(34, 197, 94, 0.35)',
+                                                                        color: '#86efac',
+                                                                        fontSize: '0.78rem',
+                                                                        fontWeight: 700,
+                                                                        cursor: 'pointer',
+                                                                        transition: 'all 0.2s',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        gap: '5px'
+                                                                    }}
+                                                                >
+                                                                    📁 {t('linkToCase') || 'Vincular a Caso'}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleOpenRejectMatchModal(group)}
+                                                                    style={{
+                                                                        padding: '0.42rem 0.75rem',
+                                                                        borderRadius: '10px',
+                                                                        background: 'rgba(239, 68, 68, 0.12)',
+                                                                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                                        color: '#fca5a5',
+                                                                        fontSize: '0.78rem',
+                                                                        fontWeight: 600,
+                                                                        cursor: 'pointer',
+                                                                        transition: 'all 0.2s'
+                                                                    }}
+                                                                    title="Rechazar coincidencia"
+                                                                >
+                                                                    ✕ {t('rejectCoincidence') || 'Rechazar'}
+                                                                </button>
+                                                            </>
+                                                        )}
+
+                                                        {group.status === 'Con caso' && (
+                                                            <>
+                                                                {group.caseId && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => navigate(`/cases?id=${group.caseId}`)}
+                                                                        style={{
+                                                                            flex: 1,
+                                                                            padding: '0.42rem',
+                                                                            borderRadius: '10px',
+                                                                            background: 'rgba(59, 130, 246, 0.15)',
+                                                                            border: '1px solid rgba(59, 130, 246, 0.35)',
+                                                                            color: '#93c5fd',
+                                                                            fontSize: '0.78rem',
+                                                                            fontWeight: 700,
+                                                                            cursor: 'pointer',
+                                                                            transition: 'all 0.2s',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            gap: '5px'
+                                                                        }}
+                                                                    >
+                                                                        📁 Ver Caso
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleUnlinkMatch(group)}
+                                                                    style={{
+                                                                        padding: '0.42rem 0.75rem',
+                                                                        borderRadius: '10px',
+                                                                        background: 'rgba(239, 68, 68, 0.12)',
+                                                                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                                        color: '#fca5a5',
+                                                                        fontSize: '0.78rem',
+                                                                        fontWeight: 600,
+                                                                        cursor: 'pointer',
+                                                                        transition: 'all 0.2s'
+                                                                    }}
+                                                                    title="Desvincular del caso"
+                                                                >
+                                                                    ✕ Desvincular
+                                                                </button>
+                                                            </>
+                                                        )}
+
+                                                        {group.status === 'Rechazada' && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleReopenMatch(group)}
+                                                                style={{
+                                                                    flex: 1,
+                                                                    padding: '0.42rem',
+                                                                    borderRadius: '10px',
+                                                                    background: 'rgba(234, 179, 8, 0.15)',
+                                                                    border: '1px solid rgba(234, 179, 8, 0.35)',
+                                                                    color: '#fde047',
+                                                                    fontSize: '0.78rem',
+                                                                    fontWeight: 700,
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.2s',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    gap: '5px'
+                                                                }}
+                                                            >
+                                                                ↻ {t('reopenCoincidence') || 'Reabrir Coincidencia'}
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
@@ -1542,7 +2046,7 @@ function Ballistics() {
                                             style={{
                                                 background: 'rgba(15, 23, 42, 0.65)',
                                                 backdropFilter: 'blur(16px)',
-                                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                border: item.case_id ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
                                                 borderRadius: '16px',
                                                 padding: '1.15rem',
                                                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
@@ -1561,6 +2065,62 @@ function Ballistics() {
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        {item.case_id ? (
+                                                            <span
+                                                                onClick={() => navigate(`/cases?id=${item.case_id}`)}
+                                                                style={{
+                                                                    fontSize: '0.7rem',
+                                                                    fontWeight: 700,
+                                                                    color: '#86efac',
+                                                                    background: 'rgba(34, 197, 94, 0.15)',
+                                                                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                                                                    padding: '2px 7px',
+                                                                    borderRadius: '10px',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                                title={`Caso #${item.case_number}: ${item.case_title}`}
+                                                            >
+                                                                📁 Caso #{item.case_number}
+                                                            </span>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenLinkBulletModal(item)}
+                                                                style={{
+                                                                    fontSize: '0.7rem',
+                                                                    fontWeight: 600,
+                                                                    color: '#94a3b8',
+                                                                    background: 'rgba(255, 255, 255, 0.06)',
+                                                                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                                                                    padding: '2px 7px',
+                                                                    borderRadius: '10px',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                + Vincular Caso
+                                                            </button>
+                                                        )}
+                                                        {item.case_id && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleUnlinkBullet(item.id)}
+                                                                style={{
+                                                                    background: 'rgba(239, 68, 68, 0.1)',
+                                                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                                    color: '#f87171',
+                                                                    borderRadius: '8px',
+                                                                    width: '24px',
+                                                                    height: '24px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                                title="Desvincular del caso"
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        )}
                                                         {item.can_delete && (
                                                             <button
                                                                 type="button"
@@ -1673,7 +2233,7 @@ function Ballistics() {
 
                                             <div style={{
                                                 display: 'flex',
-                                                justify: 'space-between',
+                                                justifyContent: 'space-between',
                                                 fontSize: '0.73rem',
                                                 color: '#94a3b8',
                                                 borderTop: '1px solid rgba(255, 255, 255, 0.06)',
@@ -1725,7 +2285,7 @@ function Ballistics() {
                                             style={{
                                                 background: 'rgba(15, 23, 42, 0.65)',
                                                 backdropFilter: 'blur(16px)',
-                                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                border: item.case_id ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
                                                 borderRadius: '16px',
                                                 padding: '1.15rem',
                                                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
@@ -1744,6 +2304,62 @@ function Ballistics() {
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        {item.case_id ? (
+                                                            <span
+                                                                onClick={() => navigate(`/cases?id=${item.case_id}`)}
+                                                                style={{
+                                                                    fontSize: '0.7rem',
+                                                                    fontWeight: 700,
+                                                                    color: '#86efac',
+                                                                    background: 'rgba(34, 197, 94, 0.15)',
+                                                                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                                                                    padding: '2px 7px',
+                                                                    borderRadius: '10px',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                                title={`Caso #${item.case_number}: ${item.case_title}`}
+                                                            >
+                                                                📁 Caso #{item.case_number}
+                                                            </span>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenLinkWeaponModal(item)}
+                                                                style={{
+                                                                    fontSize: '0.7rem',
+                                                                    fontWeight: 600,
+                                                                    color: '#94a3b8',
+                                                                    background: 'rgba(255, 255, 255, 0.06)',
+                                                                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                                                                    padding: '2px 7px',
+                                                                    borderRadius: '10px',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                + Vincular Caso
+                                                            </button>
+                                                        )}
+                                                        {item.case_id && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleUnlinkWeapon(item.id)}
+                                                                style={{
+                                                                    background: 'rgba(239, 68, 68, 0.1)',
+                                                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                                    color: '#f87171',
+                                                                    borderRadius: '8px',
+                                                                    width: '24px',
+                                                                    height: '24px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                                title="Desvincular del caso"
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        )}
                                                         {item.can_delete && (
                                                             <button
                                                                 type="button"
@@ -1809,7 +2425,7 @@ function Ballistics() {
                                                     </div>
                                                     <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.55rem', borderRadius: '8px' }}>
                                                         <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('relatedIncident') || 'Incidente'}</span>
-                                                        <strong style={{ color: '#cbd5e1', fontSize: '0.85rem' }}>{item.incidente_relacionado}</strong>
+                                                        <strong style={{ color: '#f8fafc', fontSize: '0.85rem' }}>{item.incidente_relacionado}</strong>
                                                     </div>
                                                 </div>
 
@@ -1817,11 +2433,25 @@ function Ballistics() {
                                                     <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('serialNumber') || 'Número de Serie'}</span>
                                                     <strong style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.9rem', letterSpacing: '0.04em' }}>{item.numero_serie}</strong>
                                                 </div>
+
+                                                {item.case_title && (
+                                                    <div style={{
+                                                        background: 'rgba(34, 197, 94, 0.1)',
+                                                        border: '1px solid rgba(34, 197, 94, 0.25)',
+                                                        borderRadius: '8px',
+                                                        padding: '0.45rem 0.65rem',
+                                                        marginBottom: '0.75rem',
+                                                        fontSize: '0.75rem',
+                                                        color: '#86efac'
+                                                    }}>
+                                                        📁 <strong>Caso #{item.case_number}:</strong> {item.case_title}
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div style={{
                                                 display: 'flex',
-                                                justify: 'space-between',
+                                                justifyContent: 'space-between',
                                                 fontSize: '0.73rem',
                                                 color: '#94a3b8',
                                                 borderTop: '1px solid rgba(255, 255, 255, 0.06)',
@@ -2844,6 +3474,360 @@ function Ballistics() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* --- MODAL: VINCULAR COINCIDENCIA A CASO --- */}
+            {linkMatchModal.open && linkMatchModal.group && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-content" style={{
+                        maxWidth: '480px',
+                        width: '92vw',
+                        borderRadius: '20px',
+                        background: 'rgba(30, 41, 59, 0.96)',
+                        backdropFilter: 'blur(24px)',
+                        border: '1px solid rgba(34, 197, 94, 0.4)',
+                        boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.85)',
+                        padding: '1.5rem',
+                        boxSizing: 'border-box'
+                    }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div className="mac-window-dots">
+                                    <span className="mac-window-dot close" onClick={() => setLinkMatchModal({ open: false, group: null })} title="Cerrar" />
+                                    <span className="mac-window-dot min" />
+                                    <span className="mac-window-dot max" />
+                                </div>
+                                <h3 style={{ margin: '0 0 0 10px', fontSize: '1.15rem', color: '#86efac', fontWeight: 800, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    📁 {t('linkToCase') || 'Vincular Coincidencia a Caso'}
+                                </h3>
+                            </div>
+                        </div>
+
+                        <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.85rem', borderRadius: '12px', marginBottom: '1rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ fontSize: '0.85rem', color: '#f8fafc', fontWeight: 700, marginBottom: '4px' }}>
+                                Arma: {linkMatchModal.group.weapon.modelo} (N/S: {linkMatchModal.group.weapon.numero_serie})
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                                {linkMatchModal.group.bullets.length} casquillo(s) vinculados en esta coincidencia.
+                            </div>
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                            <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                Selecciona el Expediente Penal *
+                            </label>
+                            <select
+                                className="form-input"
+                                value={selectedCaseForLink}
+                                onChange={(e) => setSelectedCaseForLink(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    background: 'rgba(15, 23, 42, 0.85)',
+                                    border: '1px solid rgba(34, 197, 94, 0.4)',
+                                    borderRadius: '10px',
+                                    color: '#ffffff',
+                                    fontSize: '0.88rem',
+                                    padding: '0.65rem 0.9rem'
+                                }}
+                            >
+                                <option value="">{t('selectCasePlaceholder') || '-- Seleccionar Caso --'}</option>
+                                {casesList.map(c => (
+                                    <option key={c.id} value={c.id}>
+                                        Caso #{c.case_number}: {c.title} ({c.status || 'Abierto'})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
+                            <button
+                                type="button"
+                                className="login-button btn-secondary"
+                                onClick={() => setLinkMatchModal({ open: false, group: null })}
+                                style={{ width: 'auto', padding: '0.5rem 1.4rem', borderRadius: '10px' }}
+                            >
+                                {t('cancelBtn') || 'Cancelar'}
+                            </button>
+                            <button
+                                type="button"
+                                className="login-button"
+                                onClick={handleConfirmLinkMatch}
+                                disabled={!selectedCaseForLink || submitting}
+                                style={{
+                                    width: 'auto',
+                                    padding: '0.5rem 1.6rem',
+                                    borderRadius: '10px',
+                                    fontWeight: 700,
+                                    background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)'
+                                }}
+                            >
+                                {submitting ? 'Vinculando...' : 'Vincular Coincidencia'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- MODAL: RECHAZAR COINCIDENCIA --- */}
+            {rejectMatchModal.open && rejectMatchModal.group && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-content" style={{
+                        maxWidth: '480px',
+                        width: '92vw',
+                        borderRadius: '20px',
+                        background: 'rgba(30, 41, 59, 0.96)',
+                        backdropFilter: 'blur(24px)',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.85)',
+                        padding: '1.5rem',
+                        boxSizing: 'border-box'
+                    }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div className="mac-window-dots">
+                                    <span className="mac-window-dot close" onClick={() => setRejectMatchModal({ open: false, group: null })} title="Cerrar" />
+                                    <span className="mac-window-dot min" />
+                                    <span className="mac-window-dot max" />
+                                </div>
+                                <h3 style={{ margin: '0 0 0 10px', fontSize: '1.15rem', color: '#fca5a5', fontWeight: 800, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    🔴 {t('rejectCoincidence') || 'Rechazar Coincidencia Balística'}
+                                </h3>
+                            </div>
+                        </div>
+
+                        <p style={{ fontSize: '0.82rem', color: '#cbd5e1', marginBottom: '1rem', lineHeight: 1.5 }}>
+                            Al rechazar esta coincidencia quedará registrada como <strong>Descartada / Rechazada</strong> en el laboratorio de balística. Puedes indicar el motivo a continuación.
+                        </p>
+
+                        <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                            <label className="form-label" style={{ fontSize: '0.82rem', color: '#fca5a5', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                {t('rejectionReason') || 'Motivo del Rechazo'}
+                            </label>
+                            <textarea
+                                rows={3}
+                                className="form-input"
+                                value={rejectionReasonInput}
+                                onChange={(e) => setRejectionReasonInput(e.target.value)}
+                                placeholder={t('rejectionReasonPlaceholder') || 'ej. Falso positivo, estrías inconsistentes, arma transferida antes del hecho...'}
+                                style={{
+                                    width: '100%',
+                                    background: 'rgba(15, 23, 42, 0.85)',
+                                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                                    borderRadius: '10px',
+                                    color: '#ffffff',
+                                    fontSize: '0.85rem',
+                                    padding: '0.65rem 0.9rem',
+                                    boxSizing: 'border-box',
+                                    resize: 'vertical'
+                                }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
+                            <button
+                                type="button"
+                                className="login-button btn-secondary"
+                                onClick={() => setRejectMatchModal({ open: false, group: null })}
+                                style={{ width: 'auto', padding: '0.5rem 1.4rem', borderRadius: '10px' }}
+                            >
+                                {t('cancelBtn') || 'Cancelar'}
+                            </button>
+                            <button
+                                type="button"
+                                className="login-button"
+                                onClick={handleConfirmRejectMatch}
+                                disabled={submitting}
+                                style={{
+                                    width: 'auto',
+                                    padding: '0.5rem 1.6rem',
+                                    borderRadius: '10px',
+                                    fontWeight: 700,
+                                    background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
+                                }}
+                            >
+                                {submitting ? 'Rechazando...' : 'Confirmar Rechazo'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- MODAL: VINCULAR CASQUILLO A CASO --- */}
+            {linkBulletModal.open && linkBulletModal.bullet && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-content" style={{
+                        maxWidth: '460px',
+                        width: '92vw',
+                        borderRadius: '20px',
+                        background: 'rgba(30, 41, 59, 0.96)',
+                        backdropFilter: 'blur(24px)',
+                        border: '1px solid rgba(59, 130, 246, 0.4)',
+                        boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.85)',
+                        padding: '1.5rem',
+                        boxSizing: 'border-box'
+                    }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div className="mac-window-dots">
+                                    <span className="mac-window-dot close" onClick={() => setLinkBulletModal({ open: false, bullet: null })} title="Cerrar" />
+                                    <span className="mac-window-dot min" />
+                                    <span className="mac-window-dot max" />
+                                </div>
+                                <h3 style={{ margin: '0 0 0 10px', fontSize: '1.15rem', color: '#93c5fd', fontWeight: 800, letterSpacing: '-0.01em' }}>
+                                    📁 Vincular Casquillo a Caso
+                                </h3>
+                            </div>
+                        </div>
+
+                        <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.85rem', borderRadius: '12px', marginBottom: '1rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ fontSize: '0.85rem', color: '#f8fafc', fontWeight: 700, marginBottom: '4px' }}>
+                                Incidente: {linkBulletModal.bullet.incidente_relacionado}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: '#fbbf24', fontFamily: 'monospace' }}>
+                                N/S: {linkBulletModal.bullet.numero_serie}
+                            </div>
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                            <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                Selecciona el Expediente Penal *
+                            </label>
+                            <select
+                                className="form-input"
+                                value={selectedCaseForLink}
+                                onChange={(e) => setSelectedCaseForLink(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    background: 'rgba(15, 23, 42, 0.85)',
+                                    border: '1px solid rgba(59, 130, 246, 0.4)',
+                                    borderRadius: '10px',
+                                    color: '#ffffff',
+                                    fontSize: '0.88rem',
+                                    padding: '0.65rem 0.9rem'
+                                }}
+                            >
+                                <option value="">{t('selectCasePlaceholder') || '-- Seleccionar Caso --'}</option>
+                                {casesList.map(c => (
+                                    <option key={c.id} value={c.id}>
+                                        Caso #{c.case_number}: {c.title} ({c.status || 'Abierto'})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
+                            <button
+                                type="button"
+                                className="login-button btn-secondary"
+                                onClick={() => setLinkBulletModal({ open: false, bullet: null })}
+                                style={{ width: 'auto', padding: '0.5rem 1.4rem', borderRadius: '10px' }}
+                            >
+                                {t('cancelBtn') || 'Cancelar'}
+                            </button>
+                            <button
+                                type="button"
+                                className="login-button"
+                                onClick={handleConfirmLinkBullet}
+                                disabled={!selectedCaseForLink || submitting}
+                                style={{ width: 'auto', padding: '0.5rem 1.6rem', borderRadius: '10px', fontWeight: 700 }}
+                            >
+                                {submitting ? 'Vinculando...' : 'Vincular Casquillo'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- MODAL: VINCULAR ARMA A CASO --- */}
+            {linkWeaponModal.open && linkWeaponModal.weapon && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-content" style={{
+                        maxWidth: '460px',
+                        width: '92vw',
+                        borderRadius: '20px',
+                        background: 'rgba(30, 41, 59, 0.96)',
+                        backdropFilter: 'blur(24px)',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.85)',
+                        padding: '1.5rem',
+                        boxSizing: 'border-box'
+                    }}>
+                        <div className="mac-modal-header" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.12)', paddingBottom: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div className="mac-window-dots">
+                                    <span className="mac-window-dot close" onClick={() => setLinkWeaponModal({ open: false, weapon: null })} title="Cerrar" />
+                                    <span className="mac-window-dot min" />
+                                    <span className="mac-window-dot max" />
+                                </div>
+                                <h3 style={{ margin: '0 0 0 10px', fontSize: '1.15rem', color: '#fca5a5', fontWeight: 800, letterSpacing: '-0.01em' }}>
+                                    📁 Vincular Arma a Caso
+                                </h3>
+                            </div>
+                        </div>
+
+                        <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.85rem', borderRadius: '12px', marginBottom: '1rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ fontSize: '0.85rem', color: '#f8fafc', fontWeight: 700, marginBottom: '4px' }}>
+                                {linkWeaponModal.weapon.modelo} (Propietario: {linkWeaponModal.weapon.propietario})
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: '#fbbf24', fontFamily: 'monospace' }}>
+                                N/S: {linkWeaponModal.weapon.numero_serie}
+                            </div>
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                            <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem', display: 'block' }}>
+                                Selecciona el Expediente Penal *
+                            </label>
+                            <select
+                                className="form-input"
+                                value={selectedCaseForLink}
+                                onChange={(e) => setSelectedCaseForLink(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    background: 'rgba(15, 23, 42, 0.85)',
+                                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                                    borderRadius: '10px',
+                                    color: '#ffffff',
+                                    fontSize: '0.88rem',
+                                    padding: '0.65rem 0.9rem'
+                                }}
+                            >
+                                <option value="">{t('selectCasePlaceholder') || '-- Seleccionar Caso --'}</option>
+                                {casesList.map(c => (
+                                    <option key={c.id} value={c.id}>
+                                        Caso #{c.case_number}: {c.title} ({c.status || 'Abierto'})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
+                            <button
+                                type="button"
+                                className="login-button btn-secondary"
+                                onClick={() => setLinkWeaponModal({ open: false, weapon: null })}
+                                style={{ width: 'auto', padding: '0.5rem 1.4rem', borderRadius: '10px' }}
+                            >
+                                {t('cancelBtn') || 'Cancelar'}
+                            </button>
+                            <button
+                                type="button"
+                                className="login-button"
+                                onClick={handleConfirmLinkWeapon}
+                                disabled={!selectedCaseForLink || submitting}
+                                style={{
+                                    width: 'auto',
+                                    padding: '0.5rem 1.6rem',
+                                    borderRadius: '10px',
+                                    fontWeight: 700,
+                                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                                }}
+                            >
+                                {submitting ? 'Vinculando...' : 'Vincular Arma'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -43,6 +43,7 @@ function CaseDetail() {
     const [showLinkIncidentModal, setShowLinkIncidentModal] = useState(false);
     const [showLinkOutingModal, setShowLinkOutingModal] = useState(false);
     const [showLinkComplaintModal, setShowLinkComplaintModal] = useState(false);
+    const [showLinkBallisticsModal, setShowLinkBallisticsModal] = useState(false);
 
     // Temp Selection State
     const [selectedAssignments, setSelectedAssignments] = useState([]);
@@ -50,6 +51,10 @@ function CaseDetail() {
     const [selectedIncident, setSelectedIncident] = useState('');
     const [selectedOuting, setSelectedOuting] = useState('');
     const [selectedComplaint, setSelectedComplaint] = useState('');
+    const [ballisticsModalTab, setBallisticsModalTab] = useState('coincidences');
+    const [availableBallistics, setAvailableBallistics] = useState({ coincidences: [], weapons: [], bullets: [] });
+    const [selectedBallisticItem, setSelectedBallisticItem] = useState('');
+    const [submittingBallistics, setSubmittingBallistics] = useState(false);
 
     // Edit/Delete Permissions State
     const [currentUser, setCurrentUser] = useState(null);
@@ -376,6 +381,103 @@ function CaseDetail() {
         }
     };
 
+    const openLinkBallisticsModal = async (initialTab = 'coincidences') => {
+        setBallisticsModalTab(initialTab);
+        setSelectedBallisticItem('');
+        try {
+            const { data, error } = await supabase.rpc('get_available_ballistics_to_link');
+            if (!error && data) {
+                setAvailableBallistics({
+                    coincidences: data.coincidences || [],
+                    weapons: data.weapons || [],
+                    bullets: data.bullets || []
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching available ballistics:', err);
+        }
+        setShowLinkBallisticsModal(true);
+    };
+
+    const handleLinkBallisticItem = async () => {
+        if (!selectedBallisticItem) return;
+        setSubmittingBallistics(true);
+        try {
+            if (ballisticsModalTab === 'coincidences') {
+                const { error } = await supabase.rpc('set_ballistics_match_status', {
+                    p_weapon_id: selectedBallisticItem,
+                    p_status: 'Con caso',
+                    p_case_id: id,
+                    p_motivo_rechazo: null
+                });
+                if (error) throw error;
+            } else if (ballisticsModalTab === 'weapons') {
+                const { error } = await supabase.rpc('link_ballistics_weapon_to_case', {
+                    p_weapon_id: selectedBallisticItem,
+                    p_case_id: id
+                });
+                if (error) throw error;
+            } else if (ballisticsModalTab === 'bullets') {
+                const { error } = await supabase.rpc('link_ballistics_bullet_to_case', {
+                    p_bullet_id: selectedBallisticItem,
+                    p_case_id: id
+                });
+                if (error) throw error;
+            }
+            setShowLinkBallisticsModal(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error al vincular elemento balístico: ' + err.message);
+        } finally {
+            setSubmittingBallistics(false);
+        }
+    };
+
+    const handleUnlinkBallisticsMatch = async (e, weaponId) => {
+        e.stopPropagation();
+        if (!window.confirm(language === 'es' ? '¿Deseas desvincular esta coincidencia balística del caso?' : 'Do you want to unlink this ballistics match from the case?')) return;
+        try {
+            const { error } = await supabase.rpc('set_ballistics_match_status', {
+                p_weapon_id: weaponId,
+                p_status: 'Abierta',
+                p_case_id: null,
+                p_motivo_rechazo: null
+            });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error al desvincular coincidencia: ' + err.message);
+        }
+    };
+
+    const handleUnlinkBallisticsWeapon = async (e, weaponId) => {
+        e.stopPropagation();
+        if (!window.confirm(language === 'es' ? '¿Deseas desvincular esta arma del caso?' : 'Do you want to unlink this weapon from the case?')) return;
+        try {
+            const { error } = await supabase.rpc('unlink_ballistics_weapon_from_case', {
+                p_weapon_id: weaponId
+            });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error al desvincular arma: ' + err.message);
+        }
+    };
+
+    const handleUnlinkBallisticsBullet = async (e, bulletId) => {
+        e.stopPropagation();
+        if (!window.confirm(language === 'es' ? '¿Deseas desvincular este casquillo del caso?' : 'Do you want to unlink this bullet casing from the case?')) return;
+        try {
+            const { error } = await supabase.rpc('unlink_ballistics_bullet_from_case', {
+                p_bullet_id: bulletId
+            });
+            if (error) throw error;
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error al desvincular casquillo: ' + err.message);
+        }
+    };
+
     const toggleAssignmentSelection = (status, userId) => {
         if (status) {
             setSelectedAssignments(prev => [...prev, userId]);
@@ -647,7 +749,10 @@ function CaseDetail() {
         interrogations = [], 
         incidents: linkedIncidents = [], 
         outings: linkedOutings = [], 
-        complaints: linkedComplaints = [] 
+        complaints: linkedComplaints = [],
+        ballistics_coincidences: linkedMatches = [],
+        ballistics_weapons: linkedWeapons = [],
+        ballistics_bullets: linkedBullets = []
     } = caseData;
 
     const isHighCommand = currentUser && ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol);
@@ -1345,6 +1450,129 @@ function CaseDetail() {
                                 )}
                             </div>
                         </div>
+
+                        {/* 6. Linked Ballistics (Coincidencias, Armas, Balas) */}
+                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <line x1="22" y1="12" x2="18" y2="12" />
+                                        <line x1="6" y1="12" x2="2" y2="12" />
+                                        <line x1="12" y1="6" x2="12" y2="2" />
+                                        <line x1="12" y1="22" x2="12" y2="18" />
+                                    </svg>
+                                    <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                        {t('linkedBallistics') || 'BALÍSTICA VINCULADA'}
+                                    </h4>
+                                </div>
+                                {isCaseOpen && (
+                                    <button onClick={() => openLinkBallisticsModal('coincidences')} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                        Vincular
+                                    </button>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                                {/* Coincidencias */}
+                                {linkedMatches.length > 0 && (
+                                    <div>
+                                        <div style={{ fontSize: '0.7rem', color: '#fbbf24', fontWeight: 700, marginBottom: '0.25rem', textTransform: 'uppercase' }}>
+                                            🎯 {t('coincidences') || 'Coincidencias'} ({linkedMatches.length})
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                            {linkedMatches.map(m => (
+                                                <div
+                                                    key={m.weapon_id}
+                                                    onClick={() => navigate(`/ballistics?tab=coincidences&search=${encodeURIComponent(m.numero_serie)}`)}
+                                                    style={{ padding: '0.45rem 0.55rem', background: 'rgba(251, 191, 36, 0.08)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #fbbf24', position: 'relative' }}
+                                                >
+                                                    <div style={{ paddingRight: '18px' }}>
+                                                        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
+                                                            {m.modelo} <span style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.72rem' }}>({m.numero_serie})</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                                            {m.bullets_count} casquillo(s) vinculados
+                                                        </div>
+                                                    </div>
+                                                    {isCaseOpen && (
+                                                        <button onClick={(e) => handleUnlinkBallisticsMatch(e, m.weapon_id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Armas */}
+                                {linkedWeapons.length > 0 && (
+                                    <div>
+                                        <div style={{ fontSize: '0.7rem', color: '#fca5a5', fontWeight: 700, marginBottom: '0.25rem', textTransform: 'uppercase' }}>
+                                            🔫 {t('seizedWeapons') || 'Armas'} ({linkedWeapons.length})
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                            {linkedWeapons.map(w => (
+                                                <div
+                                                    key={w.id}
+                                                    onClick={() => navigate(`/ballistics?tab=weapons&search=${encodeURIComponent(w.numero_serie)}`)}
+                                                    style={{ padding: '0.45rem 0.55rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #ef4444', position: 'relative' }}
+                                                >
+                                                    <div style={{ paddingRight: '18px' }}>
+                                                        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
+                                                            {w.modelo} <span style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.72rem' }}>({w.numero_serie})</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{w.propietario}</div>
+                                                    </div>
+                                                    {isCaseOpen && (
+                                                        <button onClick={(e) => handleUnlinkBallisticsWeapon(e, w.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Casquillos */}
+                                {linkedBullets.length > 0 && (
+                                    <div>
+                                        <div style={{ fontSize: '0.7rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.25rem', textTransform: 'uppercase' }}>
+                                            🔘 {t('bulletCasings') || 'Casquillos'} ({linkedBullets.length})
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                            {linkedBullets.map(b => (
+                                                <div
+                                                    key={b.id}
+                                                    onClick={() => navigate(`/ballistics?tab=bullets&search=${encodeURIComponent(b.numero_serie)}`)}
+                                                    style={{ padding: '0.45rem 0.55rem', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #3b82f6', position: 'relative' }}
+                                                >
+                                                    <div style={{ paddingRight: '18px' }}>
+                                                        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
+                                                            {b.incidente_relacionado} <span style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.72rem' }}>({b.numero_serie})</span>
+                                                        </div>
+                                                        {b.calibre && <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Calibre: {b.calibre}</div>}
+                                                    </div>
+                                                    {isCaseOpen && (
+                                                        <button onClick={(e) => handleUnlinkBallisticsBullet(e, b.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {linkedMatches.length === 0 && linkedWeapons.length === 0 && linkedBullets.length === 0 && (
+                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                                        {t('noLinkedBallistics') || 'Sin balística vinculada'}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                     </div>
             </div>
 
@@ -1614,6 +1842,136 @@ function CaseDetail() {
                                 handleGoToUpdate(updateId);
                             }}
                         />
+                    </div>
+                </div>
+            )}
+
+            {/* 6. Link Ballistics Modal */}
+            {showLinkBallisticsModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '500px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowLinkBallisticsModal(false)}></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">{t('linkBallisticsModalTitle') || 'Vincular Balística al Caso'}</span>
+                            <div style={{ width: 52 }} />
+                        </div>
+                        <div className="mac-modal-body">
+                            {/* Tab selection */}
+                            <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem', background: 'rgba(0,0,0,0.3)', padding: '3px', borderRadius: '10px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => { setBallisticsModalTab('coincidences'); setSelectedBallisticItem(''); }}
+                                    style={{
+                                        flex: 1,
+                                        padding: '0.35rem',
+                                        borderRadius: '8px',
+                                        background: ballisticsModalTab === 'coincidences' ? 'rgba(251, 191, 36, 0.25)' : 'transparent',
+                                        border: ballisticsModalTab === 'coincidences' ? '1px solid rgba(251, 191, 36, 0.5)' : '1px solid transparent',
+                                        color: ballisticsModalTab === 'coincidences' ? '#fde047' : '#94a3b8',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Coincidencias ({availableBallistics.coincidences.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setBallisticsModalTab('weapons'); setSelectedBallisticItem(''); }}
+                                    style={{
+                                        flex: 1,
+                                        padding: '0.35rem',
+                                        borderRadius: '8px',
+                                        background: ballisticsModalTab === 'weapons' ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
+                                        border: ballisticsModalTab === 'weapons' ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid transparent',
+                                        color: ballisticsModalTab === 'weapons' ? '#fca5a5' : '#94a3b8',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Armas ({availableBallistics.weapons.length})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setBallisticsModalTab('bullets'); setSelectedBallisticItem(''); }}
+                                    style={{
+                                        flex: 1,
+                                        padding: '0.35rem',
+                                        borderRadius: '8px',
+                                        background: ballisticsModalTab === 'bullets' ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
+                                        border: ballisticsModalTab === 'bullets' ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid transparent',
+                                        color: ballisticsModalTab === 'bullets' ? '#93c5fd' : '#94a3b8',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Casquillos ({availableBallistics.bullets.length})
+                                </button>
+                            </div>
+
+                            <div style={{ marginBottom: '1.25rem' }}>
+                                {ballisticsModalTab === 'coincidences' && (
+                                    <select
+                                        className="mac-form-input"
+                                        value={selectedBallisticItem}
+                                        onChange={e => setSelectedBallisticItem(e.target.value)}
+                                        style={{ width: '100%' }}
+                                    >
+                                        <option value="">-- Seleccionar Coincidencia --</option>
+                                        {availableBallistics.coincidences.map(m => (
+                                            <option key={m.weapon_id} value={m.weapon_id}>
+                                                {m.modelo} (N/S: {m.numero_serie}) - {m.bullets_count} casquillos - [{m.status}]
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+
+                                {ballisticsModalTab === 'weapons' && (
+                                    <select
+                                        className="mac-form-input"
+                                        value={selectedBallisticItem}
+                                        onChange={e => setSelectedBallisticItem(e.target.value)}
+                                        style={{ width: '100%' }}
+                                    >
+                                        <option value="">-- Seleccionar Arma --</option>
+                                        {availableBallistics.weapons.map(w => (
+                                            <option key={w.id} value={w.id}>
+                                                {w.modelo} (N/S: {w.numero_serie}) - Propietario: {w.propietario}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+
+                                {ballisticsModalTab === 'bullets' && (
+                                    <select
+                                        className="mac-form-input"
+                                        value={selectedBallisticItem}
+                                        onChange={e => setSelectedBallisticItem(e.target.value)}
+                                        style={{ width: '100%' }}
+                                    >
+                                        <option value="">-- Seleccionar Casquillo --</option>
+                                        {availableBallistics.bullets.map(b => (
+                                            <option key={b.id} value={b.id}>
+                                                {b.incidente_relacionado} (N/S: {b.numero_serie}) - Calibre: {b.calibre}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+
+                            <div className="mac-modal-actions">
+                                <button className="mac-btn mac-btn-secondary" onClick={() => setShowLinkBallisticsModal(false)}>Cancelar</button>
+                                <button className="mac-btn mac-btn-primary" onClick={handleLinkBallisticItem} disabled={!selectedBallisticItem || submittingBallistics}>
+                                    {submittingBallistics ? 'Vinculando...' : 'Vincular al Caso'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
