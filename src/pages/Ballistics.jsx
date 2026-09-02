@@ -515,12 +515,18 @@ function Ballistics() {
                 if (cleanSn && cleanSn !== 'n/a') {
                     const matchedWeapon = weapons.find(w => w.numero_serie && w.numero_serie.trim().toLowerCase() === cleanSn);
                     if (matchedWeapon) {
-                        setAlertMatch({
-                            serialNumber: b.num_serie,
-                            bulletIncident: bulletBatchIncident,
-                            weaponModel: matchedWeapon.modelo,
-                            weaponOwner: matchedWeapon.propietario
-                        });
+                        const matchRecord = ballisticsMatches.find(m =>
+                            m.weapon_id === matchedWeapon.id ||
+                            (m.serial_number && m.serial_number.trim().toLowerCase() === cleanSn)
+                        );
+                        if (!matchRecord || matchRecord.status !== 'Rechazada') {
+                            setAlertMatch({
+                                serialNumber: b.num_serie,
+                                bulletIncident: bulletBatchIncident,
+                                weaponModel: matchedWeapon.modelo,
+                                weaponOwner: matchedWeapon.propietario
+                            });
+                        }
                     }
                 }
             }
@@ -627,12 +633,17 @@ function Ballistics() {
                 if (cleanSn && cleanSn !== 'n/a') {
                     const matchedBullet = bullets.find(b => b.numero_serie && b.numero_serie.trim().toLowerCase() === cleanSn);
                     if (matchedBullet) {
-                        setAlertMatch({
-                            serialNumber: w.num_serie,
-                            bulletIncident: matchedBullet.incidente_relacionado,
-                            weaponModel: w.modelo,
-                            weaponOwner: w.propietario || 'Desconocido'
-                        });
+                        const matchRecord = ballisticsMatches.find(m =>
+                            (m.serial_number && m.serial_number.trim().toLowerCase() === cleanSn)
+                        );
+                        if (!matchRecord || matchRecord.status !== 'Rechazada') {
+                            setAlertMatch({
+                                serialNumber: w.num_serie,
+                                bulletIncident: matchedBullet.incidente_relacionado,
+                                weaponModel: w.modelo,
+                                weaponOwner: w.propietario || 'Desconocido'
+                            });
+                        }
                     }
                 }
             }
@@ -684,12 +695,18 @@ function Ballistics() {
             if (cleanBulletSn !== '' && cleanBulletSn !== 'n/a') {
                 const matchedWeapon = weapons.find(w => w.numero_serie && w.numero_serie.trim().toLowerCase() === cleanBulletSn);
                 if (matchedWeapon) {
-                    setAlertMatch({
-                        serialNumber: editBulletForm.num_serie,
-                        bulletIncident: editBulletForm.incidente,
-                        weaponModel: matchedWeapon.modelo,
-                        weaponOwner: matchedWeapon.propietario
-                    });
+                    const matchRecord = ballisticsMatches.find(m =>
+                        m.weapon_id === matchedWeapon.id ||
+                        (m.serial_number && m.serial_number.trim().toLowerCase() === cleanBulletSn)
+                    );
+                    if (!matchRecord || matchRecord.status !== 'Rechazada') {
+                        setAlertMatch({
+                            serialNumber: editBulletForm.num_serie,
+                            bulletIncident: editBulletForm.incidente,
+                            weaponModel: matchedWeapon.modelo,
+                            weaponOwner: matchedWeapon.propietario
+                        });
+                    }
                 }
             }
 
@@ -734,12 +751,17 @@ function Ballistics() {
             if (cleanWeaponSn !== '' && cleanWeaponSn !== 'n/a') {
                 const matchedBullet = bullets.find(b => b.numero_serie && b.numero_serie.trim().toLowerCase() === cleanWeaponSn);
                 if (matchedBullet) {
-                    setAlertMatch({
-                        serialNumber: editWeaponForm.num_serie,
-                        bulletIncident: matchedBullet.incidente_relacionado,
-                        weaponModel: editWeaponForm.modelo,
-                        weaponOwner: editWeaponForm.propietario
-                    });
+                    const matchRecord = ballisticsMatches.find(m =>
+                        (m.serial_number && m.serial_number.trim().toLowerCase() === cleanWeaponSn)
+                    );
+                    if (!matchRecord || matchRecord.status !== 'Rechazada') {
+                        setAlertMatch({
+                            serialNumber: editWeaponForm.num_serie,
+                            bulletIncident: matchedBullet.incidente_relacionado,
+                            weaponModel: editWeaponForm.modelo,
+                            weaponOwner: editWeaponForm.propietario
+                        });
+                    }
                 }
             }
 
@@ -817,6 +839,19 @@ function Ballistics() {
                 p_motivo: rejectionReasonInput.trim() || 'Coincidencia descartada'
             });
             if (error) throw error;
+
+            // Automatically mark all bullets for this rejected match as seen
+            const weaponId = rejectMatchModal.group.weapon.id;
+            const bulletsList = rejectMatchModal.group.bullets || [];
+            const weaponMatchesIds = bulletsList.map(b => `${b.id}-${weaponId}`);
+            const updated = [...new Set([...seenMatchIds, ...weaponMatchesIds])];
+            setSeenMatchIds(updated);
+            try {
+                localStorage.setItem('seen_ballistics_matches', JSON.stringify(updated));
+            } catch (e) {
+                console.error("Error saving seen matches:", e);
+            }
+
             setRejectMatchModal({ open: false, group: null });
             await loadData();
         } catch (err) {
@@ -1033,7 +1068,8 @@ function Ballistics() {
                 if (!matchesSn && !matchesModel && !matchesOwner && !matchesCase && !matchesBullets) return null;
             }
 
-            const newBullets = matchingBullets.filter(bullet => {
+            const isRejected = status === 'Rechazada';
+            const newBullets = isRejected ? [] : matchingBullets.filter(bullet => {
                 const matchId = `${bullet.id}-${weapon.id}`;
                 return !seenMatchIds.includes(matchId);
             });
@@ -1042,7 +1078,7 @@ function Ballistics() {
                 weapon,
                 bullets: matchingBullets,
                 newBullets,
-                isNew: newBullets.length > 0,
+                isNew: !isRejected && newBullets.length > 0,
                 status,
                 caseId,
                 caseTitle,
@@ -1703,7 +1739,7 @@ function Ballistics() {
                                                             </div>
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                                                 {group.bullets.map(bullet => {
-                                                                    const isBulletNew = !seenMatchIds.includes(`${bullet.id}-${group.weapon.id}`);
+                                                                    const isBulletNew = group.status !== 'Rechazada' && !seenMatchIds.includes(`${bullet.id}-${group.weapon.id}`);
                                                                     return (
                                                                         <div
                                                                             key={bullet.id}
