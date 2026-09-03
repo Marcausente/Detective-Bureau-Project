@@ -102,6 +102,44 @@ const CATEGORY_CONFIG = {
     drawing: { label: 'pencilToolBtn', iconName: 'pencil', bg: 'transparent', border: '#ef4444', text: '#ffffff' }
 };
 
+const RESIZE_HANDLES = [
+    { dir: 'nw', top: '-6px', left: '-6px', cursor: 'nwse-resize' },
+    { dir: 'n', top: '-6px', left: 'calc(50% - 6px)', cursor: 'ns-resize' },
+    { dir: 'ne', top: '-6px', right: '-6px', cursor: 'nesw-resize' },
+    { dir: 'e', top: 'calc(50% - 6px)', right: '-6px', cursor: 'ew-resize' },
+    { dir: 'se', bottom: '-6px', right: '-6px', cursor: 'nwse-resize' },
+    { dir: 's', bottom: '-6px', left: 'calc(50% - 6px)', cursor: 'ns-resize' },
+    { dir: 'sw', bottom: '-6px', left: '-6px', cursor: 'nesw-resize' },
+    { dir: 'w', top: 'calc(50% - 6px)', left: '-6px', cursor: 'ew-resize' }
+];
+
+// Helper to determine natural image dimensions scaled to fit board viewport nicely
+const getImageDimensions = (fileOrUrl) => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            let w = img.naturalWidth || 360;
+            let h = img.naturalHeight || 270;
+            const maxW = 550;
+            const maxH = 450;
+            if (w > maxW || h > maxH) {
+                const ratio = Math.min(maxW / w, maxH / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+            }
+            resolve({ width: Math.max(80, w), height: Math.max(60, h) });
+        };
+        img.onerror = () => {
+            resolve({ width: 340, height: 260 });
+        };
+        if (typeof fileOrUrl === 'string') {
+            img.src = fileOrUrl;
+        } else {
+            img.src = URL.createObjectURL(fileOrUrl);
+        }
+    });
+};
+
 const COLOR_SCHEMES = {
     red: { bg: '#2b1418', border: '#7f1d1d', header: '#991b1b', text: '#fca5a5' },
     yellow: { bg: '#2e2714', border: '#713f12', header: '#854d0e', text: '#fef08a' },
@@ -135,7 +173,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const dragOffsetRef = useRef({ x: 0, y: 0 });
 
     const [isResizing, setIsResizing] = useState(false);
-    const resizeStartRef = useRef({ x: 0, y: 0, initW: 320, initH: 240 });
+    const [resizeDir, setResizeDir] = useState('se');
+    const resizeStartRef = useRef({ clientX: 0, clientY: 0, initX: 0, initY: 0, initW: 320, initH: 240, dir: 'se' });
 
     // Pencil & Shape Drawing State
     const [pencilShape, setPencilShape] = useState('free'); // 'free' | 'line' | 'arrow' | 'rectangle' | 'circle'
@@ -366,6 +405,43 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         }, 400);
     };
 
+    // Save Node Transform (pos_x, pos_y, width, height) in Database (Debounced)
+    const saveNodeTransform = (nodeId, x, y, width, height) => {
+        setSavingStatus('saving');
+        const timeoutKey = 'trans_' + nodeId;
+        if (positionSaveTimeoutsRef.current[timeoutKey]) {
+            clearTimeout(positionSaveTimeoutsRef.current[timeoutKey]);
+        }
+
+        positionSaveTimeoutsRef.current[timeoutKey] = setTimeout(async () => {
+            try {
+                const targetNode = nodes.find(n => n.id === nodeId);
+                const extra = parseNodeExtra(targetNode);
+                extra.height = Math.round(height);
+
+                const updatePayload = {
+                    pos_x: Math.round(x),
+                    pos_y: Math.round(y),
+                    width: Math.round(width)
+                };
+                if (targetNode?.category === 'image' || targetNode?.category === 'drawing' || targetNode?.category === 'todo') {
+                    updatePayload.content = JSON.stringify(extra);
+                }
+
+                const { error } = await supabase
+                    .from('case_board_nodes')
+                    .update(updatePayload)
+                    .eq('id', nodeId);
+
+                if (error) throw error;
+                setSavingStatus('saved');
+            } catch (err) {
+                console.error('Error saving node transform:', err);
+                setSavingStatus('error');
+            }
+        }, 400);
+    };
+
     // Save Link Label Position (Debounced)
     const saveLinkPos = (linkId, pos) => {
         const roundPos = Math.round(pos * 100) / 100;
@@ -394,6 +470,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         try {
                             setSavingStatus('saving');
                             const folder = isGang ? 'gangs' : 'whiteboards';
+                            const dims = await getImageDimensions(file);
                             const publicUrl = await uploadImageToStorage(file, folder);
                             if (publicUrl) {
                                 const { data: { user } } = await supabase.auth.getUser();
@@ -406,8 +483,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     category: 'image',
                                     image_url: publicUrl,
                                     color: 'dark',
-                                    width: 340,
-                                    content: JSON.stringify({ height: 260, isLocked: false }),
+                                    width: dims.width,
+                                    content: JSON.stringify({ height: dims.height, isLocked: false }),
                                     pos_x: posX,
                                     pos_y: posY,
                                     created_by: user ? user.id : null
@@ -492,6 +569,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         try {
             setSavingStatus('saving');
             const folder = isGang ? 'gangs' : 'whiteboards';
+            const dims = await getImageDimensions(file);
             const publicUrl = await uploadImageToStorage(file, folder);
             if (publicUrl) {
                 const { data: { user } } = await supabase.auth.getUser();
@@ -504,8 +582,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     category: 'image',
                     image_url: publicUrl,
                     color: 'dark',
-                    width: 340,
-                    content: JSON.stringify({ height: 260, isLocked: false }),
+                    width: dims.width,
+                    content: JSON.stringify({ height: dims.height, isLocked: false }),
                     pos_x: posX,
                     pos_y: posY,
                     created_by: user ? user.id : null
@@ -572,22 +650,29 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         }
     };
 
-    // Corner Resizing Start (For Images & Cards)
-    const handleResizeMouseDown = (e, nodeId) => {
+    // Multi-directional Resizing Start (For Images & Cards)
+    const handleResizeMouseDown = (e, nodeId, dir = 'se') => {
         e.stopPropagation();
+        e.preventDefault();
         const node = nodes.find(n => n.id === nodeId);
         if (!node) return;
 
         const extra = parseNodeExtra(node);
-        const currentH = extra.height || (node.category === 'image' ? 260 : 200);
+        if (extra.isLocked) return;
+
+        const currentH = extra.height || (node.category === 'image' ? Math.round((node.width || 320) * 0.75) : 200);
 
         setIsResizing(true);
+        setResizeDir(dir);
         setSelectedNodeId(nodeId);
         resizeStartRef.current = {
-            x: e.clientX,
-            y: e.clientY,
+            clientX: e.clientX,
+            clientY: e.clientY,
+            initX: node.pos_x,
+            initY: node.pos_y,
             initW: node.width || 320,
-            initH: currentH
+            initH: currentH,
+            dir
         };
     };
 
@@ -619,12 +704,44 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 return;
             }
 
-            // Resizing Element (Width & Height)
-            if (isResizing && selectedNodeId) {
-                const dx = (e.clientX - resizeStartRef.current.x) / zoom;
-                const dy = (e.clientY - resizeStartRef.current.y) / zoom;
-                const newW = Math.max(120, Math.round(resizeStartRef.current.initW + dx));
-                const newH = Math.max(80, Math.round(resizeStartRef.current.initH + dy));
+            // Resizing Element (Width, Height & Pos)
+            if (isResizing && selectedNodeId && resizeStartRef.current) {
+                const dx = (e.clientX - resizeStartRef.current.clientX) / zoom;
+                const dy = (e.clientY - resizeStartRef.current.clientY) / zoom;
+                const { initX, initY, initW, initH, dir } = resizeStartRef.current;
+
+                let newW = initW;
+                let newH = initH;
+                let newX = initX;
+                let newY = initY;
+
+                if (dir === 'e') {
+                    newW = Math.max(60, Math.round(initW + dx));
+                } else if (dir === 'w') {
+                    newW = Math.max(60, Math.round(initW - dx));
+                    newX = initX + (initW - newW);
+                } else if (dir === 's') {
+                    newH = Math.max(40, Math.round(initH + dy));
+                } else if (dir === 'n') {
+                    newH = Math.max(40, Math.round(initH - dy));
+                    newY = initY + (initH - newH);
+                } else if (dir === 'se') {
+                    newW = Math.max(60, Math.round(initW + dx));
+                    newH = Math.max(40, Math.round(initH + dy));
+                } else if (dir === 'sw') {
+                    newW = Math.max(60, Math.round(initW - dx));
+                    newX = initX + (initW - newW);
+                    newH = Math.max(40, Math.round(initH + dy));
+                } else if (dir === 'ne') {
+                    newW = Math.max(60, Math.round(initW + dx));
+                    newH = Math.max(40, Math.round(initH - dy));
+                    newY = initY + (initH - newH);
+                } else if (dir === 'nw') {
+                    newW = Math.max(60, Math.round(initW - dx));
+                    newX = initX + (initW - newW);
+                    newH = Math.max(40, Math.round(initH - dy));
+                    newY = initY + (initH - newH);
+                }
 
                 setNodes(prev => prev.map(n => {
                     if (n.id === selectedNodeId) {
@@ -632,6 +749,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         extra.height = newH;
                         return {
                             ...n,
+                            pos_x: newX,
+                            pos_y: newY,
                             width: newW,
                             content: (n.category === 'image' || n.category === 'drawing' || n.category === 'todo') ? JSON.stringify(extra) : n.content
                         };
@@ -639,7 +758,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     return n;
                 }));
 
-                saveNodeDimensions(selectedNodeId, newW, newH);
+                saveNodeTransform(selectedNodeId, newX, newY, newW, newH);
                 return;
             }
 
@@ -685,7 +804,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             if (isPanning) setIsPanning(false);
             if (draggingNodeId) setDraggingNodeId(null);
             if (draggingLinkId) setDraggingLinkId(null);
-            if (isResizing) setIsResizing(false);
+            if (isResizing) {
+                setIsResizing(false);
+                setResizeDir(null);
+            }
 
             if (isDrawing && toolMode === 'pencil') {
                 setIsDrawing(false);
@@ -702,7 +824,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [draggingNodeId, draggingLinkId, isPanning, isResizing, isDrawing, toolMode, pencilShape, pencilColor, pencilWidth, currentPoints, selectedNodeId, zoom, pan, links, nodes, getCanvasCoordinates]);
+    }, [draggingNodeId, draggingLinkId, isPanning, isResizing, resizeDir, isDrawing, toolMode, pencilShape, pencilColor, pencilWidth, currentPoints, selectedNodeId, zoom, pan, links, nodes, getCanvasCoordinates]);
 
     // Handle Pan Canvas or Start Drawing / Erasing
     const handleBoardMouseDown = (e) => {
@@ -842,6 +964,34 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         }
     };
 
+    // Bring Node to Front
+    const bringToFront = (nodeId) => {
+        const maxZ = nodes.reduce((max, n) => Math.max(max, parseNodeExtra(n).zIndex || 2), 2);
+        const targetNode = nodes.find(n => n.id === nodeId);
+        if (!targetNode) return;
+        const extra = parseNodeExtra(targetNode);
+        extra.zIndex = maxZ + 1;
+        const updatedContent = (targetNode.category === 'image' || targetNode.category === 'drawing' || targetNode.category === 'todo')
+            ? JSON.stringify(extra)
+            : (targetNode.content || '');
+        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, content: updatedContent } : n));
+        saveNodeDimensions(nodeId, targetNode.width || 320, extra.height || 260);
+    };
+
+    // Send Node to Back
+    const sendToBack = (nodeId) => {
+        const minZ = nodes.reduce((min, n) => Math.min(min, parseNodeExtra(n).zIndex || 2), 2);
+        const targetNode = nodes.find(n => n.id === nodeId);
+        if (!targetNode) return;
+        const extra = parseNodeExtra(targetNode);
+        extra.zIndex = Math.max(1, minZ - 1);
+        const updatedContent = (targetNode.category === 'image' || targetNode.category === 'drawing' || targetNode.category === 'todo')
+            ? JSON.stringify(extra)
+            : (targetNode.content || '');
+        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, content: updatedContent } : n));
+        saveNodeDimensions(nodeId, targetNode.width || 320, extra.height || 260);
+    };
+
     // Clear All Freehand Drawings
     const handleClearAllDrawings = async () => {
         const drawingNodes = nodes.filter(n => n.category === 'drawing');
@@ -926,6 +1076,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             } else {
                 payload.pos_x = Math.max(50, (350 - pan.x) / zoom + (nodes.length % 4) * 30);
                 payload.pos_y = Math.max(50, (250 - pan.y) / zoom + (nodes.length % 4) * 30);
+
+                if (nodeCategory === 'image' && finalImageUrl) {
+                    const dims = await getImageDimensions(finalImageUrl);
+                    payload.width = dims.width;
+                    payload.content = JSON.stringify({ height: dims.height, isLocked: false });
+                }
 
                 const { error } = await supabase
                     .from('case_board_nodes')
@@ -2037,8 +2193,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             <span>Ancho:</span>
                             <input
                                 type="range"
-                                min="120"
-                                max="800"
+                                min="60"
+                                max="1000"
                                 value={selectedElement.width || 320}
                                 onChange={e => {
                                     const newW = parseInt(e.target.value);
@@ -2055,8 +2211,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 <span>Alto:</span>
                                 <input
                                     type="range"
-                                    min="80"
-                                    max="600"
+                                    min="40"
+                                    max="800"
                                     value={parseNodeExtra(selectedElement).height || 260}
                                     onChange={e => {
                                         const newH = parseInt(e.target.value);
@@ -2513,82 +2669,287 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         const extra = parseNodeExtra(node);
                         const isLocked = !!extra.isLocked;
 
-                        // 1. Standalone Image Element Rendering
+                        // 1. Standalone Image Element Rendering (SEB Tactical Style with Real Dimensions & Dynamic Squashing/Resizing)
                         if (node.category === 'image') {
-                            const imgHeight = extra.height || 260;
+                            const imgHeight = extra.height || Math.round(cardWidth * 0.75);
 
                             return (
                                 <div
                                     key={node.id}
                                     className="whiteboard-card"
                                     onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (toolMode === 'pencil' || toolMode === 'eraser') return;
+                                        if (connectingSourceId) {
+                                            if (connectingSourceId !== node.id) {
+                                                setPendingTargetId(node.id);
+                                                setShowLinkLabelModal(true);
+                                            }
+                                        } else {
+                                            setSelectedNodeId(node.id);
+                                        }
+                                    }}
                                     style={{
                                         position: 'absolute',
                                         left: `${node.pos_x}px`,
                                         top: `${node.pos_y}px`,
                                         width: `${cardWidth}px`,
                                         height: `${imgHeight}px`,
+                                        zIndex: isSource ? 35 : isSelected ? 30 : draggingNodeId === node.id ? 25 : (extra.zIndex || 2),
+                                        cursor: isLocked ? 'default' : connectingSourceId ? 'pointer' : toolMode === 'eraser' ? 'cell' : draggingNodeId === node.id ? 'grabbing' : 'grab',
+                                        border: isSource
+                                            ? '2.5px solid #ef4444'
+                                            : isSelected
+                                            ? '2px dashed #eab308'
+                                            : 'none',
+                                        boxShadow: isSelected
+                                            ? '0 0 20px rgba(234, 179, 8, 0.45)'
+                                            : isSource
+                                            ? '0 0 16px rgba(239, 68, 68, 0.8)'
+                                            : '0 6px 18px rgba(0,0,0,0.55)',
                                         borderRadius: '8px',
-                                        background: '#020617',
-                                        border: `2px solid ${isSource ? '#ef4444' : isSelected ? '#eab308' : 'rgba(255,255,255,0.2)'}`,
-                                        boxShadow: isSelected ? '0 0 20px rgba(234, 179, 8, 0.6)' : isSource ? '0 0 16px rgba(239, 68, 68, 0.8)' : '0 8px 24px rgba(0,0,0,0.7)',
-                                        zIndex: isSource ? 15 : isSelected ? 12 : draggingNodeId === node.id ? 10 : 2,
-                                        cursor: isLocked ? 'default' : connectingSourceId ? 'pointer' : toolMode === 'eraser' ? 'cell' : 'move',
-                                        overflow: 'hidden'
+                                        background: 'transparent',
+                                        padding: 0,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        overflow: 'visible',
+                                        transition: isResizing || draggingNodeId === node.id ? 'none' : 'border-color 0.2s ease, box-shadow 0.2s ease'
                                     }}
                                 >
                                     <img
                                         src={node.image_url}
-                                        alt={node.title}
-                                        style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', pointerEvents: 'none' }}
+                                        alt={node.title || 'Foto'}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'fill',
+                                            borderRadius: '8px',
+                                            display: 'block',
+                                            pointerEvents: 'none',
+                                            userSelect: 'none'
+                                        }}
                                     />
 
-                                    <div style={{
-                                        position: 'absolute', top: 0, left: 0, right: 0,
-                                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%)',
-                                        padding: '6px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                                    }}>
-                                        <span style={{ fontSize: '0.72rem', color: '#ffffff', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            {isLocked && <BoardIcon name="lock" size={11} color="#fef08a" />}
-                                            <span>{node.title}</span>
-                                        </span>
-                                        <div style={{ display: 'flex', gap: '4px' }}>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setExpandedImage(node.image_url); }}
-                                                style={{ background: 'rgba(0,0,0,0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center' }}
-                                                title="Ver imagen completa"
-                                            >
-                                                <BoardIcon name="search" size={11} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setConnectingSourceId(isSource ? null : node.id); }}
-                                                style={{ background: isSource ? '#ef4444' : 'rgba(0,0,0,0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center' }}
-                                                title="Conectar hilo"
-                                            >
-                                                <BoardIcon name="link" size={11} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id, node.title); }}
-                                                style={{ background: 'rgba(239, 68, 68, 0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center' }}
-                                                title="Eliminar imagen"
-                                            >
-                                                <BoardIcon name="trash" size={11} />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {!isLocked && (
+                                    {/* Lock Indicator Badge */}
+                                    {isLocked && (
                                         <div
-                                            onMouseDown={(e) => handleResizeMouseDown(e, node.id)}
-                                            style={{
-                                                position: 'absolute', bottom: 0, right: 0, width: '18px', height: '18px',
-                                                cursor: 'nwse-resize', background: 'rgba(234, 179, 8, 0.8)',
-                                                borderTopLeftRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                zIndex: 5
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleToggleLockNode(node.id);
                                             }}
-                                            title="Arrastra para redimensionar"
+                                            title="Imagen fijada. Clic para desfijar."
+                                            style={{
+                                                position: 'absolute',
+                                                top: '8px',
+                                                right: '8px',
+                                                background: 'rgba(15, 23, 42, 0.92)',
+                                                border: '1.5px solid #eab308',
+                                                borderRadius: '6px',
+                                                padding: '2px 7px',
+                                                color: '#fef08a',
+                                                fontSize: '0.72rem',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                                boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
+                                                zIndex: (extra.zIndex || 2) + 20,
+                                                backdropFilter: 'blur(8px)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}
                                         >
-                                            <span style={{ fontSize: '0.65rem', color: '#000', fontWeight: 'bold' }}>⤡</span>
+                                            <BoardIcon name="lock" size={11} color="#fef08a" />
+                                            <span>Fijada</span>
+                                        </div>
+                                    )}
+
+                                    {/* Optional Discrete Title Pill when title is custom */}
+                                    {node.title && !['Imagen', 'Captura / Imagen'].includes(node.title) && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: '8px',
+                                            left: '8px',
+                                            background: 'rgba(15, 23, 42, 0.85)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '6px',
+                                            padding: '2px 8px',
+                                            color: '#ffffff',
+                                            fontSize: '0.72rem',
+                                            fontWeight: 600,
+                                            maxWidth: 'calc(100% - 16px)',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            pointerEvents: 'none',
+                                            backdropFilter: 'blur(8px)'
+                                        }}>
+                                            {node.title}
+                                        </div>
+                                    )}
+
+                                    {/* 8 Corner & Edge Drag Resizing Handles (Only when Selected & NOT Locked) */}
+                                    {isSelected && toolMode === 'move' && !isLocked && (
+                                        <>
+                                            {RESIZE_HANDLES.map(h => (
+                                                <div
+                                                    key={h.dir}
+                                                    onMouseDown={e => handleResizeMouseDown(e, node.id, h.dir)}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: h.top,
+                                                        bottom: h.bottom,
+                                                        left: h.left,
+                                                        right: h.right,
+                                                        width: '12px',
+                                                        height: '12px',
+                                                        backgroundColor: '#ffffff',
+                                                        border: '2px solid #eab308',
+                                                        borderRadius: '50%',
+                                                        cursor: h.cursor,
+                                                        boxShadow: '0 0 8px rgba(234, 179, 8, 0.9)',
+                                                        zIndex: (extra.zIndex || 2) + 50
+                                                    }}
+                                                />
+                                            ))}
+                                        </>
+                                    )}
+
+                                    {/* Quick On-Card Controls when selected (Apple macOS / SEB style) */}
+                                    {isSelected && toolMode === 'move' && (
+                                        <div
+                                            onClick={e => e.stopPropagation()}
+                                            onMouseDown={e => e.stopPropagation()}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '-42px',
+                                                right: '0',
+                                                background: 'rgba(15, 23, 42, 0.95)',
+                                                border: '1px solid #eab308',
+                                                borderRadius: '10px',
+                                                padding: '0.25rem 0.5rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.35rem',
+                                                boxShadow: '0 6px 16px rgba(0,0,0,0.6)',
+                                                backdropFilter: 'blur(10px)',
+                                                zIndex: 9999
+                                            }}
+                                        >
+                                            <button
+                                                onClick={() => handleToggleLockNode(node.id)}
+                                                title={isLocked ? "Desfijar Posición" : "Fijar Posición en el Tablero"}
+                                                style={{
+                                                    background: isLocked ? 'rgba(234, 179, 8, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                                                    border: `1px solid ${isLocked ? '#eab308' : 'rgba(255, 255, 255, 0.2)'}`,
+                                                    color: isLocked ? '#fef08a' : '#ffffff',
+                                                    padding: '0.2rem 0.5rem',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 600,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px'
+                                                }}
+                                            >
+                                                <BoardIcon name={isLocked ? 'lock' : 'unlock'} size={11} color={isLocked ? '#fef08a' : '#ffffff'} />
+                                                <span>{isLocked ? 'Fijada' : 'Fijar'}</span>
+                                            </button>
+
+                                            <button
+                                                onClick={() => setExpandedImage(node.image_url)}
+                                                title="Ver Imagen Completa"
+                                                style={{
+                                                    background: 'rgba(59, 130, 246, 0.25)',
+                                                    border: 'none',
+                                                    color: '#60a5fa',
+                                                    padding: '0.2rem 0.5rem',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 600,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px'
+                                                }}
+                                            >
+                                                <BoardIcon name="search" size={11} color="#60a5fa" />
+                                                <span>Ampliar</span>
+                                            </button>
+
+                                            <button
+                                                onClick={() => setConnectingSourceId(isSource ? null : node.id)}
+                                                title="Unir con Hilo Rojo"
+                                                style={{
+                                                    background: isSource ? '#ef4444' : 'rgba(239, 68, 68, 0.25)',
+                                                    border: 'none',
+                                                    color: isSource ? '#ffffff' : '#fca5a5',
+                                                    padding: '0.2rem 0.5rem',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 600,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px'
+                                                }}
+                                            >
+                                                <BoardIcon name="link" size={11} color={isSource ? '#ffffff' : '#fca5a5'} />
+                                                <span>Hilo</span>
+                                            </button>
+
+                                            <button
+                                                onClick={() => bringToFront(node.id)}
+                                                title="Traer Imagen al Frente"
+                                                style={{
+                                                    background: 'rgba(255, 255, 255, 0.1)',
+                                                    border: 'none',
+                                                    color: '#ffffff',
+                                                    padding: '0.2rem 0.45rem',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 600
+                                                }}
+                                            >
+                                                ⬆️ Frente
+                                            </button>
+
+                                            <button
+                                                onClick={() => sendToBack(node.id)}
+                                                title="Enviar Imagen al Fondo"
+                                                style={{
+                                                    background: 'rgba(255, 255, 255, 0.1)',
+                                                    border: 'none',
+                                                    color: '#ffffff',
+                                                    padding: '0.2rem 0.45rem',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 600
+                                                }}
+                                            >
+                                                ⬇️ Fondo
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleDeleteNode(node.id, node.title)}
+                                                title="Eliminar Imagen"
+                                                style={{
+                                                    background: 'rgba(239, 68, 68, 0.2)',
+                                                    border: 'none',
+                                                    color: '#f87171',
+                                                    padding: '0.2rem 0.5rem',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 600
+                                                }}
+                                            >
+                                                ✕
+                                            </button>
                                         </div>
                                     )}
                                 </div>
