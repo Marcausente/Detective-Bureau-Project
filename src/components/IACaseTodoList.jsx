@@ -131,6 +131,66 @@ function IACaseTodoList({ caseId }) {
         }
     };
 
+    const handleSendTaskToBoard = async (task, catName) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const titleStr = `📋 ${task.content}`;
+            const { data: existing } = await supabase
+                .from('case_board_nodes')
+                .select('id')
+                .eq('ia_case_id', caseId)
+                .eq('title', titleStr);
+
+            if (existing && existing.length > 0) {
+                alert(language === 'es' ? 'Esta tarea ya está en la pizarra del caso de IA.' : 'This task is already on the IA case whiteboard.');
+                return;
+            }
+
+            const payload = {
+                ia_case_id: caseId,
+                title: titleStr,
+                content: `Categoría: ${catName}\nEstado: ${task.is_completed ? '[✓] Completada' : '[ ] Pendiente'}`,
+                category: 'todo',
+                color: task.is_completed ? 'green' : 'blue',
+                pos_x: 120 + Math.floor(Math.random() * 150),
+                pos_y: 120 + Math.floor(Math.random() * 150),
+                created_by: user ? user.id : null
+            };
+
+            const { error } = await supabase.from('case_board_nodes').insert([payload]);
+            if (error) throw error;
+            alert(language === 'es' ? '¡Tarea añadida a la pizarra!' : 'Task added to whiteboard!');
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    };
+
+    const handleSendCategoryToBoard = async (cat) => {
+        if (!cat.tasks || cat.tasks.length === 0) {
+            alert(language === 'es' ? 'La lista no tiene tareas para enviar.' : 'This list has no tasks to send.');
+            return;
+        }
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const itemsToInsert = cat.tasks.map((task, idx) => ({
+                ia_case_id: caseId,
+                title: `📋 ${task.content}`,
+                content: `Categoría: ${cat.name}\nEstado: ${task.is_completed ? '[✓] Completada' : '[ ] Pendiente'}`,
+                category: 'todo',
+                color: task.is_completed ? 'green' : 'blue',
+                pos_x: 120 + (idx % 3) * 260,
+                pos_y: 120 + Math.floor(idx / 3) * 180,
+                created_by: user ? user.id : null
+            }));
+
+            const { error } = await supabase.from('case_board_nodes').insert(itemsToInsert);
+            if (error) throw error;
+            alert(language === 'es' ? '¡Lista de tareas añadida a la pizarra!' : 'Category added to whiteboard!');
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    };
+
     if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '1rem' }}>{language === 'es' ? 'Cargando Tareas...' : 'Loading Tasks...'}</div>;
 
     return (
@@ -189,8 +249,15 @@ function IACaseTodoList({ caseId }) {
                             ) : (
                                 <>
                                     <h4 style={{ margin: 0, color: 'var(--accent-gold)', textTransform: 'uppercase', fontSize: '0.9rem', letterSpacing: '1px' }}>{cat.name}</h4>
-                                    <div className="column-actions">
-                                        <button onClick={() => startEditCategory(cat)} title="Rename" style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5, marginRight: '5px' }}>✎</button>
+                                    <div className="column-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <button
+                                            onClick={() => handleSendCategoryToBoard(cat)}
+                                            title={language === 'es' ? 'Enviar toda la lista a la Pizarra' : 'Send all tasks to Whiteboard'}
+                                            style={{ background: 'rgba(212, 175, 55, 0.15)', border: '1px solid rgba(212, 175, 55, 0.4)', borderRadius: '4px', cursor: 'pointer', color: 'var(--accent-gold)', fontSize: '0.75rem', padding: '2px 8px', fontWeight: 'bold' }}
+                                        >
+                                            📌 {language === 'es' ? 'A Pizarra' : 'To Board'}
+                                        </button>
+                                        <button onClick={() => startEditCategory(cat)} title="Rename" style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5 }}>✎</button>
                                         <button onClick={() => handleDeleteCategory(cat.id)} title="Delete List" style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.5, color: '#f87171' }}>🗑️</button>
                                     </div>
                                 </>
@@ -225,6 +292,13 @@ function IACaseTodoList({ caseId }) {
                                     }}>
                                         {task.content}
                                     </span>
+                                    <button
+                                        onClick={() => handleSendTaskToBoard(task, cat.name)}
+                                        style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '3px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: '0.75rem', padding: '2px 6px' }}
+                                        title={language === 'es' ? 'Enviar tarea a la Pizarra' : 'Send task to Whiteboard'}
+                                    >
+                                        📌
+                                    </button>
                                     <button
                                         onClick={() => handleDeleteTask(task.id)}
                                         style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', opacity: 0.5, fontSize: '0.8rem' }}

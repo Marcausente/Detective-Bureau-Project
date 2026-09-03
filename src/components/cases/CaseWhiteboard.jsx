@@ -11,6 +11,8 @@ const CATEGORY_CONFIG = {
     witness: { label: 'categoryWitness', icon: '👁️', bg: 'rgba(16, 185, 129, 0.15)', border: '#10b981', text: '#a7f3d0' },
     victim: { label: 'categoryVictim', icon: '🎯', bg: 'rgba(244, 63, 94, 0.15)', border: '#f43f5e', text: '#fecdd3' },
     note: { label: 'categoryNote', icon: '📝', bg: 'rgba(234, 179, 8, 0.15)', border: '#eab308', text: '#fef08a' },
+    todo: { label: 'categoryTodo', icon: '📋', bg: 'rgba(59, 130, 246, 0.15)', border: '#3b82f6', text: '#93c5fd' },
+    timeline: { label: 'categoryTimeline', icon: '⏱️', bg: 'rgba(236, 72, 153, 0.15)', border: '#ec4899', text: '#fbcfe8' },
 };
 
 const COLOR_SCHEMES = {
@@ -19,6 +21,7 @@ const COLOR_SCHEMES = {
     blue: { bg: '#131e33', border: '#1e3a8a', header: '#1e40af', text: '#bfdbfe' },
     green: { bg: '#11291f', border: '#064e3b', header: '#065f46', text: '#a7f3d0' },
     purple: { bg: '#251533', border: '#581c87', header: '#6b21a8', text: '#e9d5ff' },
+    pink: { bg: '#331526', border: '#831843', header: '#9d174d', text: '#fbcfe8' },
     dark: { bg: '#18181b', border: '#3f3f46', header: '#27272a', text: '#e4e4e7' }
 };
 
@@ -62,6 +65,26 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const [nodeLinkedUpdates, setNodeLinkedUpdates] = useState([]); // Array of update IDs
     const [nodeIsInactive, setNodeIsInactive] = useState(false);
     const [submittingNode, setSubmittingNode] = useState(false);
+
+    // Import To-Do Modal State
+    const [showImportTodoModal, setShowImportTodoModal] = useState(false);
+    const [todoCategories, setTodoCategories] = useState([]);
+    const [loadingTodos, setLoadingTodos] = useState(false);
+    const [selectedTodoTaskIds, setSelectedTodoTaskIds] = useState([]);
+
+    // Timeline Modal State
+    const [showTimelineModal, setShowTimelineModal] = useState(false);
+    const [timelineEvents, setTimelineEvents] = useState([]);
+    const [selectedTimelineEventIds, setSelectedTimelineEventIds] = useState([]);
+    const [newCustomEvent, setNewCustomEvent] = useState({
+        date: '',
+        time: '',
+        title: '',
+        description: '',
+        type: 'custom',
+        color: 'pink',
+        image_url: ''
+    });
 
     // Preview Modal for Linked Update
     const [selectedPreviewUpdate, setSelectedPreviewUpdate] = useState(null);
@@ -485,6 +508,333 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         }
     };
 
+    // Toggle To-Do Task Node directly on Whiteboard
+    const handleToggleTodoNode = async (e, node) => {
+        e.stopPropagation();
+        const isDone = node.content?.includes('[✓]') || node.color === 'green';
+        const newDone = !isDone;
+
+        let newContent = node.content || '';
+        if (newContent.includes('[✓] Completada') || newContent.includes('[✓] Completado')) {
+            newContent = newContent.replace(/\[✓\] Completad[ao]/g, '[ ] Pendiente');
+        } else if (newContent.includes('[ ] Pendiente')) {
+            newContent = newContent.replace(/\[ \]\s*Pendiente/g, '[✓] Completada');
+        } else {
+            newContent = `Estado: ${newDone ? '[✓] Completada' : '[ ] Pendiente'}\n${newContent}`;
+        }
+
+        const newColor = newDone ? 'green' : 'blue';
+
+        setNodes(prev => prev.map(n => n.id === node.id ? { ...n, color: newColor, content: newContent } : n));
+
+        try {
+            await supabase
+                .from('case_board_nodes')
+                .update({ color: newColor, content: newContent })
+                .eq('id', node.id);
+        } catch (err) {
+            console.error('Error toggling todo card on board:', err);
+        }
+    };
+
+    // Open Import To-Do Modal
+    const openImportTodoModal = async () => {
+        try {
+            setLoadingTodos(true);
+            setShowImportTodoModal(true);
+            let data = [];
+            if (isGang) {
+                const { data: gData, error } = await supabase.rpc('get_gang_todos');
+                if (!error && gData) data = gData;
+            } else if (isIA) {
+                const { data: iaData, error } = await supabase.rpc('get_ia_case_todos', { p_case_id: caseId });
+                if (!error && iaData) data = iaData;
+            } else {
+                const { data: cData, error } = await supabase.rpc('get_case_todos', { p_case_id: caseId });
+                if (!error && cData) data = cData;
+            }
+            setTodoCategories(data || []);
+
+            // Pre-select tasks that aren't on the board yet
+            const existingTitles = new Set(nodes.map(n => n.title.toLowerCase().trim()));
+            const toSelect = [];
+            (data || []).forEach(cat => {
+                (cat.tasks || []).forEach(task => {
+                    const tTitle = `📋 ${task.content}`.toLowerCase().trim();
+                    if (!existingTitles.has(tTitle) && !existingTitles.has(task.content.toLowerCase().trim())) {
+                        toSelect.push(task.id);
+                    }
+                });
+            });
+            setSelectedTodoTaskIds(toSelect);
+        } catch (err) {
+            console.error('Error fetching todos for import:', err);
+        } finally {
+            setLoadingTodos(false);
+        }
+    };
+
+    // Confirm Import Selected To-Dos to Board
+    const handleImportSelectedTodos = async () => {
+        if (selectedTodoTaskIds.length === 0) {
+            alert(language === 'es' ? 'Selecciona al menos una tarea para importar.' : 'Select at least one task to import.');
+            return;
+        }
+
+        const { data: { user } } = await supabase.auth.getUser();
+        const itemsToInsert = [];
+        let curX = Math.max(80, (300 - pan.x) / zoom);
+        let curY = Math.max(80, (200 - pan.y) / zoom);
+
+        todoCategories.forEach(cat => {
+            (cat.tasks || []).forEach(task => {
+                if (selectedTodoTaskIds.includes(task.id)) {
+                    itemsToInsert.push({
+                        [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
+                        title: `📋 ${task.content}`,
+                        content: `Categoría: ${cat.name}\nEstado: ${task.is_completed ? '[✓] Completada' : '[ ] Pendiente'}`,
+                        category: 'todo',
+                        color: task.is_completed ? 'green' : 'blue',
+                        pos_x: curX,
+                        pos_y: curY,
+                        created_by: user ? user.id : null
+                    });
+                    curX += 270;
+                    if (curX > 1000) {
+                        curX = 80;
+                        curY += 220;
+                    }
+                }
+            });
+        });
+
+        try {
+            setLoading(true);
+            const { error } = await supabase.from('case_board_nodes').insert(itemsToInsert);
+            if (error) throw error;
+            setShowImportTodoModal(false);
+            loadBoardData();
+        } catch (err) {
+            alert('Error importing tasks: ' + err.message);
+            setLoading(false);
+        }
+    };
+
+    // Open Timeline Modal (Aggregates Case Updates, Interrogations, and Incident)
+    const openTimelineModal = () => {
+        const events = [];
+
+        // 1. Initial Opening / Scene
+        if (caseData?.info) {
+            const inf = caseData.info;
+            const dt = inf.incident_date || inf.created_at;
+            if (dt) {
+                events.push({
+                    id: 'case_opening',
+                    date: dt ? new Date(dt).toISOString().slice(0, 10) : '',
+                    time: dt ? new Date(dt).toTimeString().slice(0, 5) : '00:00',
+                    timestamp: new Date(dt).getTime(),
+                    title: `Apertura: ${inf.title || 'Caso'}`,
+                    description: inf.description ? inf.description.replace(/<[^>]*>?/gm, '').slice(0, 200) : 'Apertura oficial del caso e inicio de investigación.',
+                    type: 'opening',
+                    color: 'red',
+                    image_url: inf.initial_image_url || null,
+                    author: 'Central / Detective'
+                });
+            }
+        }
+
+        // 2. Case Updates / Novedades
+        if (caseData?.updates && caseData.updates.length > 0) {
+            caseData.updates.forEach((upd, idx) => {
+                const dt = upd.created_at;
+                const img = (upd.images && upd.images.length > 0) ? upd.images[0] : upd.image || null;
+                const numStr = caseData.updates.length - idx;
+                events.push({
+                    id: `upd_${upd.id}`,
+                    update_id: upd.id,
+                    date: dt ? new Date(dt).toISOString().slice(0, 10) : '',
+                    time: dt ? new Date(dt).toTimeString().slice(0, 5) : '00:00',
+                    timestamp: new Date(dt).getTime(),
+                    title: `Novedad #${numStr} (${upd.author_name || 'Agente'})`,
+                    description: upd.content ? upd.content.replace(/<[^>]*>?/gm, '').slice(0, 250) : '',
+                    type: 'update',
+                    color: 'yellow',
+                    image_url: img,
+                    author: `${upd.author_rank || ''} ${upd.author_name || ''}`.trim()
+                });
+            });
+        }
+
+        // 3. Interrogations
+        if (caseData?.interrogations && caseData.interrogations.length > 0) {
+            caseData.interrogations.forEach((inter) => {
+                const dt = inter.created_at || inter.interrogation_date;
+                events.push({
+                    id: `inter_${inter.id}`,
+                    date: dt ? new Date(dt).toISOString().slice(0, 10) : '',
+                    time: dt ? new Date(dt).toTimeString().slice(0, 5) : '00:00',
+                    timestamp: new Date(dt).getTime(),
+                    title: `Interrogatorio: ${inter.suspect_name || inter.title || 'Sospechoso'}`,
+                    description: `Interrogador: ${inter.interrogator_name || 'Detective'}\nEstado: ${inter.status || 'Completado'}\n${inter.summary || ''}`.slice(0, 250),
+                    type: 'interrogation',
+                    color: 'purple',
+                    image_url: inter.photo_url || null,
+                    author: inter.interrogator_name || 'Agente'
+                });
+            });
+        }
+
+        // Sort chronologically ascending
+        events.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        setTimelineEvents(events);
+        setSelectedTimelineEventIds(events.map(e => e.id));
+        setShowTimelineModal(true);
+    };
+
+    // Add Custom Timeline Milestone to list
+    const handleAddCustomTimelineEvent = (e) => {
+        e.preventDefault();
+        if (!newCustomEvent.title.trim()) {
+            alert(language === 'es' ? 'El título del suceso es obligatorio.' : 'Event title is required.');
+            return;
+        }
+
+        const dateStr = newCustomEvent.date || new Date().toISOString().slice(0, 10);
+        const timeStr = newCustomEvent.time || '12:00';
+        const timestamp = new Date(`${dateStr}T${timeStr}:00`).getTime();
+
+        const customEvent = {
+            id: `custom_${Date.now()}`,
+            date: dateStr,
+            time: timeStr,
+            timestamp,
+            title: `⏱️ ${newCustomEvent.title.trim()}`,
+            description: newCustomEvent.description.trim(),
+            type: 'custom',
+            color: newCustomEvent.color || 'pink',
+            image_url: newCustomEvent.image_url || null,
+            author: 'Detective'
+        };
+
+        setTimelineEvents(prev => {
+            const next = [...prev, customEvent];
+            next.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            return next;
+        });
+
+        setSelectedTimelineEventIds(prev => [...prev, customEvent.id]);
+        setNewCustomEvent({ date: '', time: '', title: '', description: '', type: 'custom', color: 'pink', image_url: '' });
+    };
+
+    // Insert Single Timeline Event onto Whiteboard
+    const handleInsertSingleTimelineEvent = async (ev) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            let formattedDate = `${ev.date} ${ev.time}`;
+            try {
+                formattedDate = new Date(`${ev.date}T${ev.time}`).toLocaleString();
+            } catch { }
+
+            const payload = {
+                [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
+                title: ev.title.startsWith('⏱️') ? ev.title : `⏱️ ${ev.title}`,
+                content: `📅 ${formattedDate}\n${ev.description}`,
+                category: 'timeline',
+                color: ev.color || 'pink',
+                image_url: ev.image_url || null,
+                linked_update_ids: ev.update_id ? [ev.update_id] : [],
+                pos_x: Math.max(80, (350 - pan.x) / zoom + (nodes.length % 4) * 30),
+                pos_y: Math.max(80, (250 - pan.y) / zoom + (nodes.length % 4) * 30),
+                created_by: user ? user.id : null
+            };
+
+            const { error } = await supabase.from('case_board_nodes').insert([payload]);
+            if (error) throw error;
+            alert(language === 'es' ? '¡Hito cronológico añadido a la pizarra!' : 'Timeline event added to whiteboard!');
+            loadBoardData();
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    };
+
+    // Generate Full Connected Timeline Chain on Board
+    const handleGenerateFullTimelineOnBoard = async () => {
+        const selected = timelineEvents.filter(e => selectedTimelineEventIds.includes(e.id));
+        if (selected.length === 0) {
+            alert(language === 'es' ? 'Selecciona al menos un evento para generar la línea de tiempo.' : 'Select at least one event to generate the timeline.');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const { data: { user } } = await supabase.auth.getUser();
+
+            let startX = Math.max(60, (200 - pan.x) / zoom);
+            let startY = Math.max(60, (200 - pan.y) / zoom);
+
+            const insertedNodes = [];
+
+            // 1. Insert all timeline nodes sequentially
+            for (let i = 0; i < selected.length; i++) {
+                const ev = selected[i];
+                let formattedDate = `${ev.date} ${ev.time}`;
+                try {
+                    formattedDate = new Date(`${ev.date}T${ev.time}`).toLocaleString();
+                } catch { }
+
+                const payload = {
+                    [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
+                    title: ev.title.startsWith('⏱️') ? ev.title : `⏱️ [${i + 1}] ${ev.title}`,
+                    content: `📅 ${formattedDate}\n${ev.description}`,
+                    category: 'timeline',
+                    color: ev.color || 'pink',
+                    image_url: ev.image_url || null,
+                    linked_update_ids: ev.update_id ? [ev.update_id] : [],
+                    pos_x: startX + i * 290,
+                    pos_y: startY + (i % 2 === 1 ? 50 : 0),
+                    created_by: user ? user.id : null
+                };
+
+                const { data: newNode, error: nErr } = await supabase
+                    .from('case_board_nodes')
+                    .insert([payload])
+                    .select()
+                    .single();
+
+                if (nErr) throw nErr;
+                if (newNode) insertedNodes.push(newNode);
+            }
+
+            // 2. Connect consecutive nodes with red / pink string links
+            const linksToInsert = [];
+            for (let i = 0; i < insertedNodes.length - 1; i++) {
+                linksToInsert.push({
+                    [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
+                    source_id: insertedNodes[i].id,
+                    target_id: insertedNodes[i + 1].id,
+                    label: `${i + 1}º ➔ ${i + 2}º`,
+                    label_pos: 0.5,
+                    color: '#ec4899',
+                    style: 'solid'
+                });
+            }
+
+            if (linksToInsert.length > 0) {
+                const { error: lErr } = await supabase.from('case_board_links').insert(linksToInsert);
+                if (lErr) console.error('Error inserting timeline links:', lErr);
+            }
+
+            setShowTimelineModal(false);
+            await loadBoardData();
+            alert(t('timelineGeneratedSuccess') || '¡Hitos de la línea de tiempo añadidos y conectados en la pizarra!');
+        } catch (err) {
+            alert('Error generating timeline: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Import Evidence & Updates from caseData or Gang Data
     const handleImportCaseEvidence = async () => {
         if (!caseData) return alert("Data not available.");
@@ -869,6 +1219,24 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     </button>
 
                     <button
+                        onClick={openImportTodoModal}
+                        className="login-button btn-secondary"
+                        style={{ width: 'auto', padding: '0.4rem 0.9rem', fontSize: '0.85rem', borderColor: '#3b82f6', color: '#93c5fd' }}
+                        title={language === 'es' ? 'Importar tareas To-Do a la pizarra' : 'Import To-Do tasks to board'}
+                    >
+                        {t('importTodoBtn') || '📋 Importar To-Do'}
+                    </button>
+
+                    <button
+                        onClick={openTimelineModal}
+                        className="login-button btn-secondary"
+                        style={{ width: 'auto', padding: '0.4rem 0.9rem', fontSize: '0.85rem', borderColor: '#ec4899', color: '#fbcfe8' }}
+                        title={language === 'es' ? 'Herramienta de Línea de Tiempo cronológica' : 'Chronological Timeline Tool'}
+                    >
+                        {t('timelineToolBtn') || '⏱️ Línea de Tiempo'}
+                    </button>
+
+                    <button
                         onClick={handleImportCaseEvidence}
                         className="login-button btn-secondary"
                         style={{ width: 'auto', padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}
@@ -1226,9 +1594,33 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                                 {/* Card Body */}
                                 <div style={{ padding: '0.75rem' }}>
-                                    <h4 style={{ margin: '0 0 0.4rem 0', color: scheme.text, fontSize: '0.95rem', fontWeight: 'bold', wordBreak: 'break-word' }}>
-                                        {node.title}
-                                    </h4>
+                                    {node.category === 'todo' ? (
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '0.4rem' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={node.content?.includes('[✓]') || node.color === 'green'}
+                                                onChange={(e) => handleToggleTodoNode(e, node)}
+                                                onClick={(e) => e.stopPropagation()}
+                                                style={{ marginTop: '3px', cursor: 'pointer', accentColor: '#22c55e', width: '16px', height: '16px' }}
+                                                title="Marcar completada / pendiente"
+                                            />
+                                            <h4 style={{
+                                                margin: 0,
+                                                color: (node.content?.includes('[✓]') || node.color === 'green') ? '#a7f3d0' : scheme.text,
+                                                fontSize: '0.95rem',
+                                                fontWeight: 'bold',
+                                                wordBreak: 'break-word',
+                                                textDecoration: (node.content?.includes('[✓]') || node.color === 'green') ? 'line-through' : 'none',
+                                                opacity: (node.content?.includes('[✓]') || node.color === 'green') ? 0.75 : 1
+                                            }}>
+                                                {node.title}
+                                            </h4>
+                                        </div>
+                                    ) : (
+                                        <h4 style={{ margin: '0 0 0.4rem 0', color: scheme.text, fontSize: '0.95rem', fontWeight: 'bold', wordBreak: 'break-word' }}>
+                                            {node.title}
+                                        </h4>
+                                    )}
 
                                     {/* Pinned Photo / Polaroid */}
                                     {node.image_url && (
@@ -1348,9 +1740,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     >
                                         <option value="red">🔴 Rojo Sospechoso</option>
                                         <option value="yellow">🟡 Amarillo Nota</option>
-                                        <option value="blue">🔵 Azul Policial</option>
-                                        <option value="green">🟢 Verde Testigo</option>
+                                        <option value="blue">🔵 Azul Policial / Tarea</option>
+                                        <option value="green">🟢 Verde Testigo / Completado</option>
                                         <option value="purple">🟣 Púrpura Vehículo</option>
+                                        <option value="pink">🌸 Rosa / Cronología</option>
                                         <option value="dark">⚫ Oscuro / Slate</option>
                                     </select>
                                 </div>
@@ -1632,6 +2025,284 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     {t('viewInLogBtn')}
                                 </button>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Import To-Do Tasks */}
+            {showImportTodoModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', zIndex: 10000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                }}>
+                    <div style={{
+                        background: '#1e293b', border: '1px solid #3b82f6', borderRadius: '12px',
+                        width: '100%', maxWidth: '580px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.9)',
+                        maxHeight: '85vh', display: 'flex', flexDirection: 'column'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
+                            <h3 style={{ margin: 0, color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                📋 {t('importTodoModalTitle') || 'Importar Tareas To-Do a la Pizarra'}
+                            </h3>
+                            <button onClick={() => setShowImportTodoModal(false)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>&times;</button>
+                        </div>
+
+                        {loadingTodos ? (
+                            <div style={{ padding: '2rem', textAlign: 'center', color: '#93c5fd' }}>Cargando tareas To-Do...</div>
+                        ) : todoCategories.length === 0 ? (
+                            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                {t('noTasksFound') || 'No se encontraron listas ni tareas en el To-Do de este caso.'}
+                            </div>
+                        ) : (
+                            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '4px', marginBottom: '1rem' }}>
+                                {todoCategories.map(cat => (
+                                    <div key={cat.id} style={{ background: 'rgba(0,0,0,0.3)', padding: '0.85rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                            <span style={{ fontWeight: 'bold', color: 'var(--accent-gold)', fontSize: '0.85rem', textTransform: 'uppercase' }}>{cat.name}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const catTaskIds = (cat.tasks || []).map(t => t.id);
+                                                    const allSelected = catTaskIds.every(id => selectedTodoTaskIds.includes(id));
+                                                    if (allSelected) {
+                                                        setSelectedTodoTaskIds(prev => prev.filter(id => !catTaskIds.includes(id)));
+                                                    } else {
+                                                        setSelectedTodoTaskIds(prev => Array.from(new Set([...prev, ...catTaskIds])));
+                                                    }
+                                                }}
+                                                style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
+                                            >
+                                                {(cat.tasks || []).every(t => selectedTodoTaskIds.includes(t.id)) ? 'Deseleccionar todas' : 'Seleccionar todas'}
+                                            </button>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            {(cat.tasks || []).map(task => {
+                                                const isChecked = selectedTodoTaskIds.includes(task.id);
+                                                return (
+                                                    <label key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)', padding: '4px 0' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setSelectedTodoTaskIds(prev => [...prev, task.id]);
+                                                                } else {
+                                                                    setSelectedTodoTaskIds(prev => prev.filter(id => id !== task.id));
+                                                                }
+                                                            }}
+                                                            style={{ accentColor: '#3b82f6' }}
+                                                        />
+                                                        <span style={{ flex: 1, textDecoration: task.is_completed ? 'line-through' : 'none', opacity: task.is_completed ? 0.7 : 1 }}>
+                                                            {task.content}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '3px', background: task.is_completed ? 'rgba(34,197,94,0.2)' : 'rgba(59,130,246,0.2)', color: task.is_completed ? '#4ade80' : '#93c5fd' }}>
+                                                            {task.is_completed ? '✓ Hecho' : 'Pendiente'}
+                                                        </span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+                            <button className="login-button btn-secondary" onClick={() => setShowImportTodoModal(false)} style={{ width: 'auto' }}>
+                                {t('cancelBtn')}
+                            </button>
+                            <button
+                                className="login-button"
+                                onClick={handleImportSelectedTodos}
+                                disabled={selectedTodoTaskIds.length === 0}
+                                style={{ width: 'auto', background: '#3b82f6', borderColor: '#3b82f6' }}
+                            >
+                                {t('importSelectedTasksBtn') || 'Importar Seleccionadas'} ({selectedTodoTaskIds.length})
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Timeline / Chronology Tool */}
+            {showTimelineModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 10000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                }}>
+                    <div style={{
+                        background: '#1e293b', border: '1px solid #ec4899', borderRadius: '12px',
+                        width: '100%', maxWidth: '750px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.9)',
+                        maxHeight: '90vh', display: 'flex', flexDirection: 'column'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
+                            <div>
+                                <h3 style={{ margin: 0, color: '#fbcfe8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    ⏱️ {t('timelineModalTitle') || 'Línea de Tiempo Cronológica del Caso'}
+                                </h3>
+                                <p style={{ margin: '3px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    {language === 'es' ? 'Ordena cronológicamente los sucesos y colócalos en la pizarra con hilos secuenciales.' : 'Chronologically order case events and place them as connected milestone cards on the board.'}
+                                </p>
+                            </div>
+                            <button onClick={() => setShowTimelineModal(false)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>&times;</button>
+                        </div>
+
+                        {/* Scrollable Timeline Stream */}
+                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingRight: '6px', marginBottom: '1rem' }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--accent-gold)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>📅 Sucesos Registrados ({timelineEvents.length})</span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (selectedTimelineEventIds.length === timelineEvents.length) {
+                                            setSelectedTimelineEventIds([]);
+                                        } else {
+                                            setSelectedTimelineEventIds(timelineEvents.map(e => e.id));
+                                        }
+                                    }}
+                                    style={{ background: 'none', border: 'none', color: '#ec4899', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
+                                >
+                                    {selectedTimelineEventIds.length === timelineEvents.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                                </button>
+                            </div>
+
+                            {timelineEvents.map((ev, index) => {
+                                const isChecked = selectedTimelineEventIds.includes(ev.id);
+                                return (
+                                    <div
+                                        key={ev.id}
+                                        style={{
+                                            background: isChecked ? 'rgba(236, 72, 153, 0.08)' : 'rgba(0,0,0,0.3)',
+                                            border: `1px solid ${isChecked ? '#ec4899' : 'rgba(255,255,255,0.08)'}`,
+                                            borderRadius: '8px', padding: '0.8rem', display: 'flex', gap: '12px', alignItems: 'flex-start'
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedTimelineEventIds(prev => [...prev, ev.id]);
+                                                } else {
+                                                    setSelectedTimelineEventIds(prev => prev.filter(id => id !== ev.id));
+                                                }
+                                            }}
+                                            style={{ marginTop: '4px', accentColor: '#ec4899', width: '16px', height: '16px' }}
+                                        />
+
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ background: '#ec4899', color: 'white', fontSize: '0.7rem', fontWeight: 'bold', padding: '1px 6px', borderRadius: '10px' }}>
+                                                        #{index + 1}
+                                                    </span>
+                                                    <span style={{ fontWeight: 'bold', color: '#ffffff', fontSize: '0.9rem' }}>
+                                                        {ev.title}
+                                                    </span>
+                                                </div>
+                                                <span style={{ fontSize: '0.75rem', color: '#fbcfe8', background: 'rgba(236, 72, 153, 0.2)', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                                    🕒 {ev.date} {ev.time}
+                                                </span>
+                                            </div>
+
+                                            <p style={{ margin: '0 0 6px 0', fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: '1.3' }}>
+                                                {ev.description}
+                                            </p>
+
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Por: {ev.author}</span>
+                                                <button
+                                                    onClick={() => handleInsertSingleTimelineEvent(ev)}
+                                                    className="login-button"
+                                                    style={{ width: 'auto', padding: '0.2rem 0.6rem', fontSize: '0.75rem', background: 'rgba(236,72,153,0.3)', borderColor: '#ec4899', color: '#fbcfe8' }}
+                                                >
+                                                    📌 {t('insertEventToBoard') || 'Añadir a Pizarra'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            {/* Section: Add Custom Timeline Milestone */}
+                            <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px dashed rgba(236, 72, 153, 0.5)', borderRadius: '8px', padding: '1rem', marginTop: '0.5rem' }}>
+                                <h4 style={{ margin: '0 0 0.8rem 0', color: '#fbcfe8', fontSize: '0.85rem' }}>
+                                    ➕ {t('addTimelineEventBtn') || 'Añadir Hito Cronológico Personalizado'}
+                                </h4>
+                                <form onSubmit={handleAddCustomTimelineEvent}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{t('eventDateLabel') || 'Fecha'}</label>
+                                            <input
+                                                type="date"
+                                                className="form-input"
+                                                value={newCustomEvent.date}
+                                                onChange={e => setNewCustomEvent(prev => ({ ...prev, date: e.target.value }))}
+                                                style={{ padding: '0.4rem', fontSize: '0.85rem' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{t('eventTimeLabel') || 'Hora'}</label>
+                                            <input
+                                                type="time"
+                                                className="form-input"
+                                                value={newCustomEvent.time}
+                                                onChange={e => setNewCustomEvent(prev => ({ ...prev, time: e.target.value }))}
+                                                style={{ padding: '0.4rem', fontSize: '0.85rem' }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginBottom: '0.75rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{t('eventTitleLabel') || 'Título del Suceso'} *</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="ej. Avistamiento de vehículo en Grove St / Disparo reportado"
+                                            value={newCustomEvent.title}
+                                            onChange={e => setNewCustomEvent(prev => ({ ...prev, title: e.target.value }))}
+                                            style={{ padding: '0.4rem', fontSize: '0.85rem' }}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div style={{ marginBottom: '0.75rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{t('eventDescLabel') || 'Relato / Detalles del Suceso'}</label>
+                                        <textarea
+                                            className="form-input"
+                                            rows="2"
+                                            placeholder="Relato cronológico de lo sucedido en este punto..."
+                                            value={newCustomEvent.description}
+                                            onChange={e => setNewCustomEvent(prev => ({ ...prev, description: e.target.value }))}
+                                            style={{ padding: '0.4rem', fontSize: '0.85rem' }}
+                                        />
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                        <button type="submit" className="login-button btn-secondary" style={{ width: 'auto', padding: '0.35rem 0.85rem', fontSize: '0.8rem', borderColor: '#ec4899', color: '#fbcfe8' }}>
+                                            ➕ Guardar en la Línea
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+                            <button className="login-button btn-secondary" onClick={() => setShowTimelineModal(false)} style={{ width: 'auto' }}>
+                                {t('cancelBtn')}
+                            </button>
+                            <button
+                                className="login-button"
+                                onClick={handleGenerateFullTimelineOnBoard}
+                                disabled={selectedTimelineEventIds.length === 0}
+                                style={{ width: 'auto', background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', borderColor: '#ec4899' }}
+                            >
+                                {t('generateTimelineOnBoard') || '✨ Generar Línea de Tiempo en Pizarra'} ({selectedTimelineEventIds.length})
+                            </button>
                         </div>
                     </div>
                 </div>

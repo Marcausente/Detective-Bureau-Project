@@ -45,26 +45,50 @@ function IACases() {
     }, [filter]);
 
     const canPinCase = () => {
-        if (!currentUser) return false;
+        if (!currentUser) return true; // Default allow for click attempt if user is in IA dashboard
         const r = (currentUser.rol || '').toLowerCase().trim();
-        return (
-            r === 'administrador' ||
-            r === 'coordinador' ||
-            r === 'comisionado' ||
-            r.includes('admin') ||
-            (currentUser.divisions && currentUser.divisions.includes('Internal Affairs'))
-        );
+        const rank = (currentUser.rango || '').toLowerCase().trim();
+        const isHighCommand = ['administrador', 'coordinador', 'comisionado', 'director', 'fundador'].includes(r) ||
+                              ['sheriff', 'undersheriff', 'assistant sheriff', 'division chief', 'comandante', 'capitan', 'teniente'].includes(rank) ||
+                              r.includes('admin');
+        const isIA = (currentUser.divisions && currentUser.divisions.includes('Internal Affairs')) ||
+                     (currentUser.subdivisions && currentUser.subdivisions.includes('Internal Affairs')) ||
+                     rank === 'internal affairs agent';
+        return isHighCommand || isIA;
     };
 
     const handleTogglePin = async (e, caseId, currentPinned) => {
         e.stopPropagation();
-        if (!canPinCase()) return;
+        if (!canPinCase()) {
+            alert('No tienes permisos suficientes para fijar casos de Asuntos Internos.');
+            return;
+        }
+
+        const newPinnedState = !currentPinned;
+
+        // Optimistic UI update
+        setCases(prev => {
+            const updated = prev.map(c => c.id === caseId ? { ...c, is_pinned: newPinnedState } : c);
+            return updated.sort((a, b) => {
+                const pinA = a.id === caseId ? newPinnedState : !!a.is_pinned;
+                const pinB = b.id === caseId ? newPinnedState : !!b.is_pinned;
+                if (pinA !== pinB) return pinB ? 1 : -1;
+                return (b.case_number || 0) - (a.case_number || 0);
+            });
+        });
+
         try {
-            const { error } = await supabase.rpc('toggle_ia_case_pin', { p_case_id: caseId, p_pinned: !currentPinned });
-            if (error) throw error;
+            let { error } = await supabase.rpc('toggle_ia_case_pin', { p_case_id: caseId, p_pinned: newPinnedState });
+            if (error) {
+                // Fallback direct table update if RPC is missing or fails
+                const fallbackRes = await supabase.from('ia_cases').update({ is_pinned: newPinnedState }).eq('id', caseId);
+                if (fallbackRes.error) throw fallbackRes.error;
+            }
             fetchCases();
         } catch (err) {
             console.error('Error toggling pin:', err);
+            alert('Error al fijar caso: ' + (err.message || JSON.stringify(err)));
+            fetchCases(); // rollback
         }
     };
 

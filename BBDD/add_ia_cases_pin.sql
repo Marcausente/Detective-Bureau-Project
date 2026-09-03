@@ -1,3 +1,7 @@
+-- ==============================================================================
+-- MIGRACIÓN PARA PIN / ANCLAR CASOS DE ASUNTOS INTERNOS (IA)
+-- ==============================================================================
+
 -- 1. Añadir la columna is_pinned a la tabla ia_cases
 ALTER TABLE public.ia_cases ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT false;
 UPDATE public.ia_cases SET is_pinned = FALSE WHERE is_pinned IS NULL;
@@ -21,11 +25,11 @@ RETURNS TABLE (
   is_pinned BOOLEAN
 ) AS $$
 DECLARE
-  v_user_role_text TEXT := NULL;
+  v_user_role_text TEXT := '';
   v_user_id UUID := auth.uid();
 BEGIN
   IF v_user_id IS NOT NULL THEN
-    SELECT u.rol::text INTO v_user_role_text FROM public.users u WHERE u.id = v_user_id;
+    SELECT COALESCE(u.rol::text, '') INTO v_user_role_text FROM public.users u WHERE u.id = v_user_id;
   END IF;
 
   RETURN QUERY
@@ -50,7 +54,7 @@ BEGIN
   FROM public.ia_cases c
   WHERE (p_status_filter IS NULL OR c.status = p_status_filter)
     AND (
-      LOWER(COALESCE(v_user_role_text, '')) IN ('administrador', 'superadmin', 'admin')
+      LOWER(v_user_role_text) IN ('administrador', 'superadmin', 'admin')
       OR (
         c.is_hidden_from_all IS NOT TRUE
         AND (
@@ -60,29 +64,44 @@ BEGIN
         )
       )
     )
-  ORDER BY c.is_pinned DESC, c.case_number DESC;
+  ORDER BY COALESCE(c.is_pinned, FALSE) DESC, c.case_number DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION get_ia_cases(TEXT) TO authenticated;
 
 -- 3. Función para alternar el estado de is_pinned en casos de IA de forma segura
+DROP FUNCTION IF EXISTS toggle_ia_case_pin(UUID, BOOLEAN);
+
 CREATE OR REPLACE FUNCTION toggle_ia_case_pin(p_case_id UUID, p_pinned BOOLEAN)
 RETURNS VOID AS $$
 DECLARE
-    v_user RECORD;
+    v_user_role TEXT := '';
+    v_user_rank TEXT := '';
+    v_divisions TEXT[] := ARRAY[]::TEXT[];
+    v_subdivisions TEXT[] := ARRAY[]::TEXT[];
 BEGIN
-    -- Obtener datos del usuario actual
-    SELECT * INTO v_user 
-    FROM public.users 
-    WHERE id = auth.uid();
+    -- Obtener datos del usuario actual casteando los enums explícitamente a text
+    SELECT 
+        COALESCE(u.rol::text, ''),
+        COALESCE(u.rango::text, ''),
+        COALESCE(u.divisions, ARRAY[]::TEXT[]),
+        COALESCE(u.subdivisions, ARRAY[]::TEXT[])
+    INTO 
+        v_user_role,
+        v_user_rank,
+        v_divisions,
+        v_subdivisions
+    FROM public.users u
+    WHERE u.id = auth.uid();
 
     -- Verificar permisos: IA, Administradores, Coordinador, Comisionado
-    IF v_user.id IS NOT NULL AND (
-       v_user.rol ILIKE '%Admin%'
-       OR TRIM(v_user.rol) IN ('Administrador', 'Coordinador', 'Comisionado')
-       OR (v_user.divisions IS NOT NULL AND 'Internal Affairs' = ANY(v_user.divisions))
-    ) THEN
+    IF v_user_role ILIKE '%Admin%'
+       OR LOWER(TRIM(v_user_role)) IN ('administrador', 'coordinador', 'comisionado', 'director', 'fundador')
+       OR LOWER(TRIM(v_user_rank)) IN ('internal affairs agent', 'sheriff', 'undersheriff', 'assistant sheriff', 'division chief', 'comandante', 'capitan', 'teniente')
+       OR 'Internal Affairs' = ANY(v_divisions)
+       OR 'Internal Affairs' = ANY(v_subdivisions)
+    THEN
         UPDATE public.ia_cases
         SET is_pinned = p_pinned
         WHERE id = p_case_id;
