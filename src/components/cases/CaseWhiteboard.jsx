@@ -3,18 +3,103 @@ import { supabase } from '../../supabaseClient';
 import { uploadImageToStorage } from '../../utils/imageStorage';
 import { useLanguage } from '../../contexts/LanguageContext';
 
+// Sleek vector SVG icon system replacing all emojis
+const BoardIcon = ({ name, size = 14, color = 'currentColor', style = {} }) => {
+    const s = {
+        width: size,
+        height: size,
+        stroke: color,
+        fill: 'none',
+        strokeWidth: 2,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        display: 'inline-block',
+        verticalAlign: 'middle',
+        flexShrink: 0,
+        ...style
+    };
+
+    switch (name) {
+        case 'pin':
+            return <svg style={s} viewBox="0 0 24 24"><line x1="12" y1="17" x2="12" y2="22" /><path d="M5 17h14v-2l-2-2V5h1V3H6v2h1v8l-2 2v2z" /></svg>;
+        case 'move':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" /><path d="M13 13l6 6" /></svg>;
+        case 'pencil':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>;
+        case 'eraser':
+            return <svg style={s} viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" /><path d="M22 21H7" /><path d="m5 11 9 9" /></svg>;
+        case 'image':
+            return <svg style={s} viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg>;
+        case 'plus':
+            return <svg style={s} viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>;
+        case 'todo':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /><path d="m9 14 2 2 4-4" /></svg>;
+        case 'timeline':
+        case 'clock':
+            return <svg style={s} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>;
+        case 'folder':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>;
+        case 'link':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>;
+        case 'target':
+            return <svg style={s} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>;
+        case 'trash':
+            return <svg style={s} viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>;
+        case 'edit':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>;
+        case 'lock':
+            return <svg style={s} viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>;
+        case 'unlock':
+            return <svg style={s} viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 9.9-1" /></svg>;
+        case 'search':
+            return <svg style={s} viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>;
+        case 'user':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>;
+        case 'mapPin':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>;
+        case 'car':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H7.5a1 1 0 0 0-.8.4L4 11l-5.16.86a1 1 0 0 0-.84.99V16h3m14 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm-12 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" /></svg>;
+        case 'eye':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>;
+        case 'note':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>;
+        case 'arrow':
+            return <svg style={s} viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>;
+        case 'line':
+            return <svg style={s} viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" /></svg>;
+        case 'rectangle':
+            return <svg style={s} viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" /></svg>;
+        case 'circle':
+            return <svg style={s} viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /></svg>;
+        case 'free':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M3 12c3-4 6 4 9 0s6 4 9 0" /></svg>;
+        case 'check':
+            return <svg style={s} viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" /></svg>;
+        case 'close':
+            return <svg style={s} viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
+        case 'copy':
+            return <svg style={s} viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>;
+        case 'chevronUp':
+            return <svg style={s} viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15" /></svg>;
+        case 'chevronDown':
+            return <svg style={s} viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9" /></svg>;
+        default:
+            return null;
+    }
+};
+
 const CATEGORY_CONFIG = {
-    suspect: { label: 'categorySuspect', icon: '👤', bg: 'rgba(239, 68, 68, 0.15)', border: '#ef4444', text: '#fca5a5' },
-    evidence: { label: 'categoryEvidence', icon: '🔍', bg: 'rgba(245, 158, 11, 0.15)', border: '#f59e0b', text: '#fde68a' },
-    location: { label: 'categoryLocation', icon: '📍', bg: 'rgba(20, 184, 166, 0.15)', border: '#14b8a6', text: '#99f6e4' },
-    vehicle: { label: 'categoryVehicle', icon: '🚗', bg: 'rgba(168, 85, 247, 0.15)', border: '#a855f7', text: '#e9d5ff' },
-    witness: { label: 'categoryWitness', icon: '👁️', bg: 'rgba(16, 185, 129, 0.15)', border: '#10b981', text: '#a7f3d0' },
-    victim: { label: 'categoryVictim', icon: '🎯', bg: 'rgba(244, 63, 94, 0.15)', border: '#f43f5e', text: '#fecdd3' },
-    note: { label: 'categoryNote', icon: '📝', bg: 'rgba(234, 179, 8, 0.15)', border: '#eab308', text: '#fef08a' },
-    todo: { label: 'categoryTodo', icon: '📋', bg: 'rgba(15, 23, 42, 0.95)', border: 'rgba(56, 189, 248, 0.4)', text: '#38bdf8' },
-    timeline: { label: 'categoryTimeline', icon: '⏱️', bg: 'rgba(236, 72, 153, 0.15)', border: '#ec4899', text: '#fbcfe8' },
-    image: { label: 'addImageBtn', icon: '🖼️', bg: 'rgba(15, 23, 42, 0.85)', border: '#3b82f6', text: '#93c5fd' },
-    drawing: { label: 'pencilToolBtn', icon: '✏️', bg: 'transparent', border: '#ef4444', text: '#ffffff' }
+    suspect: { label: 'categorySuspect', iconName: 'user', bg: 'rgba(239, 68, 68, 0.15)', border: '#ef4444', text: '#fca5a5' },
+    evidence: { label: 'categoryEvidence', iconName: 'search', bg: 'rgba(245, 158, 11, 0.15)', border: '#f59e0b', text: '#fde68a' },
+    location: { label: 'categoryLocation', iconName: 'mapPin', bg: 'rgba(20, 184, 166, 0.15)', border: '#14b8a6', text: '#99f6e4' },
+    vehicle: { label: 'categoryVehicle', iconName: 'car', bg: 'rgba(168, 85, 247, 0.15)', border: '#a855f7', text: '#e9d5ff' },
+    witness: { label: 'categoryWitness', iconName: 'eye', bg: 'rgba(16, 185, 129, 0.15)', border: '#10b981', text: '#a7f3d0' },
+    victim: { label: 'categoryVictim', iconName: 'target', bg: 'rgba(244, 63, 94, 0.15)', border: '#f43f5e', text: '#fecdd3' },
+    note: { label: 'categoryNote', iconName: 'note', bg: 'rgba(234, 179, 8, 0.15)', border: '#eab308', text: '#fef08a' },
+    todo: { label: 'categoryTodo', iconName: 'todo', bg: 'rgba(15, 23, 42, 0.95)', border: 'rgba(56, 189, 248, 0.4)', text: '#38bdf8' },
+    timeline: { label: 'categoryTimeline', iconName: 'timeline', bg: 'rgba(236, 72, 153, 0.15)', border: '#ec4899', text: '#fbcfe8' },
+    image: { label: 'addImageBtn', iconName: 'image', bg: 'rgba(15, 23, 42, 0.85)', border: '#3b82f6', text: '#93c5fd' },
+    drawing: { label: 'pencilToolBtn', iconName: 'pencil', bg: 'transparent', border: '#ef4444', text: '#ffffff' }
 };
 
 const COLOR_SCHEMES = {
@@ -96,6 +181,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const [showTimelineModal, setShowTimelineModal] = useState(false);
     const [timelineItems, setTimelineItems] = useState([]);
     const [editingTimelineItemIndex, setEditingTimelineItemIndex] = useState(null);
+    const [timelineDateInput, setTimelineDateInput] = useState('');
     const [timelineTimeInput, setTimelineTimeInput] = useState('');
     const [timelineTextInput, setTimelineTextInput] = useState('');
     const [activeTimelineNodeId, setActiveTimelineNodeId] = useState(null);
@@ -1123,15 +1209,16 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         } else {
             setActiveTimelineNodeId(null);
             setTimelineItems([
-                { id: 'ev_1', time: '14:15', text: 'Agentes Bradford y Whittaker acuden a la casa tras aviso.' },
-                { id: 'ev_2', time: '14:22', text: 'Encuentran a la víctima inconsciente con marcas en el cuello.' },
-                { id: 'ev_3', time: '14:25', text: 'Llega el facultativo Ryan Cross para atender a la víctima.' },
-                { id: 'ev_4', time: '14:30', text: 'Estabilización y traslado al centro médico más cercano.' },
-                { id: 'ev_5', time: 'Post', text: 'Notificación oficial al departamento de investigación criminal.' }
+                { id: 'ev_1', date: '03/09', time: '14:15', text: 'Agentes Bradford y Whittaker acuden a la casa tras aviso.' },
+                { id: 'ev_2', date: '03/09', time: '14:22', text: 'Encuentran a la víctima inconsciente con marcas en el cuello.' },
+                { id: 'ev_3', date: '03/09', time: '14:25', text: 'Llega el facultativo Ryan Cross para atender a la víctima.' },
+                { id: 'ev_4', date: '03/09', time: '14:30', text: 'Estabilización y traslado al centro médico más cercano.' },
+                { id: 'ev_5', date: '04/09', time: 'Post', text: 'Notificación oficial al departamento de investigación criminal.' }
             ]);
         }
 
         setEditingTimelineItemIndex(null);
+        setTimelineDateInput('');
         setTimelineTimeInput('');
         setTimelineTextInput('');
         setShowTimelineModal(true);
@@ -1145,7 +1232,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             return;
         }
 
-        const timeVal = timelineTimeInput.trim() || '--:--';
+        const dateVal = timelineDateInput.trim();
+        const timeVal = timelineTimeInput.trim() || (dateVal ? '' : '--:--');
         const textVal = timelineTextInput.trim();
 
         if (editingTimelineItemIndex !== null && editingTimelineItemIndex >= 0) {
@@ -1153,6 +1241,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 const next = [...prev];
                 next[editingTimelineItemIndex] = {
                     ...next[editingTimelineItemIndex],
+                    date: dateVal,
                     time: timeVal,
                     text: textVal
                 };
@@ -1162,12 +1251,14 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         } else {
             const newItem = {
                 id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                date: dateVal,
                 time: timeVal,
                 text: textVal
             };
             setTimelineItems(prev => [...prev, newItem]);
         }
 
+        setTimelineDateInput('');
         setTimelineTimeInput('');
         setTimelineTextInput('');
     };
@@ -1176,6 +1267,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         const item = timelineItems[index];
         if (!item) return;
         setEditingTimelineItemIndex(index);
+        setTimelineDateInput(item.date || '');
         setTimelineTimeInput(item.time || '');
         setTimelineTextInput(item.text || '');
     };
@@ -1184,6 +1276,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         setTimelineItems(prev => prev.filter((_, idx) => idx !== index));
         if (editingTimelineItemIndex === index) {
             setEditingTimelineItemIndex(null);
+            setTimelineDateInput('');
             setTimelineTimeInput('');
             setTimelineTextInput('');
         }
@@ -1643,10 +1736,26 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        📌 {isGang ? `Pizarra: ${caseData?.name || 'Gang Unit'}` : t('whiteboardTab')}
+                        <BoardIcon name="pin" size={16} color="var(--accent-gold)" />
+                        <span>{isGang ? `Pizarra: ${caseData?.name || 'Gang Unit'}` : t('whiteboardTab')}</span>
                     </h3>
-                    <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)' }}>
-                        {savingStatus === 'saving' ? `⏳ ${t('savingBoardStatus')}` : savingStatus === 'saved' ? `✓ ${t('savedBoardStatus')}` : '⚠️ Error'}
+                    <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {savingStatus === 'saving' ? (
+                            <>
+                                <BoardIcon name="clock" size={11} color="var(--accent-gold)" />
+                                <span>{t('savingBoardStatus')}</span>
+                            </>
+                        ) : savingStatus === 'saved' ? (
+                            <>
+                                <BoardIcon name="check" size={11} color="#4ade80" />
+                                <span>{t('savedBoardStatus')}</span>
+                            </>
+                        ) : (
+                            <>
+                                <BoardIcon name="close" size={11} color="#ef4444" />
+                                <span>Error</span>
+                            </>
+                        )}
                     </span>
                 </div>
 
@@ -1660,11 +1769,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 background: toolMode === 'move' ? 'rgba(234, 179, 8, 0.3)' : 'transparent',
                                 border: `1px solid ${toolMode === 'move' ? '#eab308' : 'transparent'}`,
                                 color: toolMode === 'move' ? '#fef08a' : '#cbd5e1',
-                                padding: '0.35rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px'
+                                padding: '0.35rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px'
                             }}
                             title="Modo Mover y Seleccionar Tarjetas"
                         >
-                            <span>🖱️</span>
+                            <BoardIcon name="move" size={13} color={toolMode === 'move' ? '#fef08a' : '#cbd5e1'} />
                             <span>{t('moveModeBtn') || 'Mover'}</span>
                         </button>
                         <button
@@ -1673,12 +1782,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 background: toolMode === 'pencil' ? 'rgba(239, 68, 68, 0.3)' : 'transparent',
                                 border: `1px solid ${toolMode === 'pencil' ? '#ef4444' : 'transparent'}`,
                                 color: toolMode === 'pencil' ? '#fca5a5' : '#cbd5e1',
-                                padding: '0.35rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px'
+                                padding: '0.35rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px'
                             }}
                             title="Herramienta de Lápiz y Formas Tácticas"
                         >
-                            <span>✏️</span>
-                            <span>{t('pencilToolBtn') || 'Lápiz'}</span>
+                            <BoardIcon name="pencil" size={13} color={toolMode === 'pencil' ? '#fca5a5' : '#cbd5e1'} />
+                            <span>{t('pencilToolBtn') || 'Lápiz y Formas'}</span>
                         </button>
                         <button
                             onClick={() => { setToolMode('eraser'); setSelectedNodeId(null); }}
@@ -1686,12 +1795,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 background: toolMode === 'eraser' ? 'rgba(236, 72, 153, 0.3)' : 'transparent',
                                 border: `1px solid ${toolMode === 'eraser' ? '#ec4899' : 'transparent'}`,
                                 color: toolMode === 'eraser' ? '#fbcfe8' : '#cbd5e1',
-                                padding: '0.35rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px'
+                                padding: '0.35rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px'
                             }}
                             title="Goma de Borrar: Haz clic en trazos o elementos para eliminarlos"
                         >
-                            <span>🧹</span>
-                            <span>{t('eraserToolBtn') || 'Borrar'}</span>
+                            <BoardIcon name="eraser" size={13} color={toolMode === 'eraser' ? '#fbcfe8' : '#cbd5e1'} />
+                            <span>{t('eraserToolBtn') || 'Goma de Borrar'}</span>
                         </button>
                     </div>
 
@@ -1699,10 +1808,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     <button
                         onClick={() => imageFileInputRef.current?.click()}
                         className="login-button btn-secondary"
-                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', borderColor: '#3b82f6', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', borderColor: '#3b82f6', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '6px' }}
                         title="Subir imagen directamente al tablero (o presiona Ctrl+V para pegar captura)"
                     >
-                        <span>🖼️</span>
+                        <BoardIcon name="image" size={13} color="#93c5fd" />
                         <span>{t('addImageBtn') || 'Añadir Imagen'}</span>
                     </button>
 
@@ -1710,51 +1819,57 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     <button
                         onClick={() => openNodeModal(null)}
                         className="login-button"
-                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
+                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                     >
-                        {t('newCardBtn')}
+                        <BoardIcon name="plus" size={13} />
+                        <span>{t('newCardBtn')}</span>
                     </button>
 
                     {/* To-Do Import Button */}
                     <button
                         onClick={openImportTodoModal}
                         className="login-button btn-secondary"
-                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', borderColor: '#38bdf8', color: '#38bdf8' }}
+                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', borderColor: '#38bdf8', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}
                         title="Importar tareas del To-Do del caso"
                     >
-                        {t('importTodoBtn') || '📋 Importar To-Do'}
+                        <BoardIcon name="todo" size={13} color="#38bdf8" />
+                        <span>{t('importTodoBtn') || 'Importar To-Do'}</span>
                     </button>
 
                     {/* Timeline Tool Button */}
                     <button
-                        onClick={openTimelineModal}
+                        onClick={() => openTimelineModal()}
                         className="login-button btn-secondary"
-                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', borderColor: '#ec4899', color: '#fbcfe8' }}
+                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', borderColor: '#38bdf8', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}
                         title="Herramienta de Línea de Tiempo cronológica"
                     >
-                        {t('timelineToolBtn') || '⏱️ Línea de Tiempo'}
+                        <BoardIcon name="timeline" size={13} color="#38bdf8" />
+                        <span>{t('timelineToolBtn') || 'Línea de Tiempo'}</span>
                     </button>
 
                     {/* Import Case Evidence Button */}
                     <button
                         onClick={handleImportCaseEvidence}
                         className="login-button btn-secondary"
-                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
+                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
                         title="Importar novedades y fotos registradas"
                     >
-                        {t('importEvidenceBtn')}
+                        <BoardIcon name="folder" size={13} />
+                        <span>{t('importEvidenceBtn')}</span>
                     </button>
 
                     {connectingSourceId ? (
                         <button
                             onClick={() => setConnectingSourceId(null)}
-                            style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.35rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 'bold' }}
+                            style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.35rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
                         >
-                            ✕ Cancelar Unión
+                            <BoardIcon name="close" size={12} color="#ffffff" />
+                            <span>Cancelar Unión</span>
                         </button>
                     ) : (
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>
-                            💡 <strong>🔗</strong> en tarjetas para unir
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginLeft: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <BoardIcon name="link" size={12} color="var(--accent-gold)" />
+                            <span>en tarjetas para unir</span>
                         </span>
                     )}
 
@@ -1763,8 +1878,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         <button onClick={() => setZoom(z => Math.max(0.3, +(z - 0.1).toFixed(2)))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', width: '20px' }}>-</button>
                         <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', minWidth: '36px', textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
                         <button onClick={() => setZoom(z => Math.min(1.8, +(z + 0.1).toFixed(2)))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', width: '20px' }}>+</button>
-                        <button onClick={handleFitAll} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.72rem', marginLeft: '3px', fontWeight: 'bold' }}>
-                            🎯 Centrar
+                        <button onClick={handleFitAll} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.72rem', marginLeft: '3px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <BoardIcon name="target" size={11} color="var(--accent-gold)" />
+                            <span>Centrar</span>
                         </button>
                         <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.72rem', marginLeft: '2px' }}>Reset</button>
                     </div>
@@ -1784,11 +1900,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '0.78rem', color: '#fca5a5', fontWeight: 700, marginRight: '0.2rem' }}>Forma:</span>
                         {[
-                            { id: 'free', label: 'Libre', icon: '〰️', title: 'Mano Alzada' },
-                            { id: 'line', label: 'Línea', icon: '📏', title: 'Línea Recta' },
-                            { id: 'arrow', label: 'Flecha', icon: '➡️', title: 'Flecha Táctica' },
-                            { id: 'rectangle', label: 'Rectángulo', icon: '⬛', title: 'Rectángulo / Caja' },
-                            { id: 'circle', label: 'Círculo', icon: '⭕', title: 'Círculo / Óvalo' }
+                            { id: 'free', label: 'Libre', iconName: 'free', title: 'Mano Alzada' },
+                            { id: 'line', label: 'Línea', iconName: 'line', title: 'Línea Recta' },
+                            { id: 'arrow', label: 'Flecha', iconName: 'arrow', title: 'Flecha Táctica' },
+                            { id: 'rectangle', label: 'Rectángulo', iconName: 'rectangle', title: 'Rectángulo / Caja' },
+                            { id: 'circle', label: 'Círculo', iconName: 'circle', title: 'Círculo / Óvalo' }
                         ].map(s => (
                             <button
                                 key={s.id}
@@ -1799,10 +1915,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     border: `1px solid ${pencilShape === s.id ? '#ef4444' : 'rgba(255,255,255,0.15)'}`,
                                     color: pencilShape === s.id ? '#ffffff' : '#cbd5e1',
                                     padding: '0.25rem 0.55rem', borderRadius: '5px', fontSize: '0.75rem', fontWeight: 600,
-                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem'
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem'
                                 }}
                             >
-                                <span>{s.icon}</span>
+                                <BoardIcon name={s.iconName} size={13} color={pencilShape === s.id ? '#ffffff' : '#cbd5e1'} />
                                 <span>{s.label}</span>
                             </button>
                         ))}
@@ -1854,10 +1970,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 style={{
                                     background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444',
                                     color: '#fca5a5', padding: '0.25rem 0.65rem', borderRadius: '5px',
-                                    fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer'
+                                    fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
                                 }}
                             >
-                                🧹 Borrar Trazos ({nodes.filter(n => n.category === 'drawing').length})
+                                <BoardIcon name="trash" size={12} color="#fca5a5" />
+                                <span>Borrar Trazos ({nodes.filter(n => n.category === 'drawing').length})</span>
                             </button>
                         )}
                     </div>
@@ -1869,9 +1986,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 <div style={{
                     position: 'absolute', top: 76, left: '50%', transform: 'translateX(-50%)', zIndex: 20,
                     background: 'rgba(236, 72, 153, 0.95)', color: 'white', padding: '0.35rem 1.2rem',
-                    borderRadius: '20px', fontSize: '0.82rem', fontWeight: 'bold', boxShadow: '0 4px 14px rgba(236, 72, 153, 0.5)'
+                    borderRadius: '20px', fontSize: '0.82rem', fontWeight: 'bold', boxShadow: '0 4px 14px rgba(236, 72, 153, 0.5)',
+                    display: 'flex', alignItems: 'center', gap: '8px'
                 }}>
-                    🧹 Modo Goma de Borrar: Haz clic o arrastra sobre cualquier trazo, imagen o tarjeta para eliminarla
+                    <BoardIcon name="eraser" size={14} color="#ffffff" />
+                    <span>Modo Goma de Borrar: Haz clic sobre trazos, imágenes o tarjetas para eliminarlas</span>
                 </div>
             )}
 
@@ -1880,9 +1999,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 <div style={{
                     position: 'absolute', top: 76, left: '50%', transform: 'translateX(-50%)', zIndex: 25,
                     background: 'rgba(239, 68, 68, 0.95)', color: 'white', padding: '0.35rem 1.2rem',
-                    borderRadius: '20px', fontSize: '0.82rem', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
+                    borderRadius: '20px', fontSize: '0.82rem', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
+                    display: 'flex', alignItems: 'center', gap: '8px'
                 }}>
-                    <span>🧵 {t('connectingModeActive')}</span>
+                    <BoardIcon name="link" size={14} color="#ffffff" />
+                    <span>{t('connectingModeActive') || 'Modo conexión de hilos activo'}</span>
                 </div>
             )}
 
@@ -1901,7 +2022,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     }}
                 >
                     <div style={{ color: '#fef08a', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>📌 {selectedElement.title || selectedElement.category}</span>
+                        <BoardIcon name="pin" size={13} color="#fef08a" />
+                        <span>{selectedElement.title || selectedElement.category}</span>
                     </div>
 
                     {/* Width & Height Resizers */}
@@ -1953,10 +2075,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 background: parseNodeExtra(selectedElement).isLocked ? 'rgba(234, 179, 8, 0.25)' : 'rgba(255, 255, 255, 0.08)',
                                 border: `1px solid ${parseNodeExtra(selectedElement).isLocked ? '#eab308' : 'rgba(255, 255, 255, 0.2)'}`,
                                 color: parseNodeExtra(selectedElement).isLocked ? '#fef08a' : '#ffffff',
-                                padding: '0.3rem 0.65rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer'
+                                padding: '0.3rem 0.65rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '5px'
                             }}
                         >
-                            {parseNodeExtra(selectedElement).isLocked ? '🔒 Fijado' : '🔓 Fijar'}
+                            <BoardIcon name={parseNodeExtra(selectedElement).isLocked ? 'lock' : 'unlock'} size={12} />
+                            <span>{parseNodeExtra(selectedElement).isLocked ? 'Fijado' : 'Fijar'}</span>
                         </button>
 
                         <button
@@ -1964,10 +2088,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             style={{
                                 background: 'rgba(59, 130, 246, 0.2)', border: '1px solid #3b82f6',
                                 color: '#93c5fd', padding: '0.3rem 0.65rem', borderRadius: '6px',
-                                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer'
+                                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '5px'
                             }}
                         >
-                            📋 Duplicar
+                            <BoardIcon name="copy" size={12} color="#93c5fd" />
+                            <span>Duplicar</span>
                         </button>
 
                         <button
@@ -1975,10 +2101,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             style={{
                                 background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444',
                                 color: '#fca5a5', padding: '0.3rem 0.65rem', borderRadius: '6px',
-                                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer'
+                                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '5px'
                             }}
                         >
-                            🔗 Conectar Hilo
+                            <BoardIcon name="link" size={12} color="#fca5a5" />
+                            <span>Conectar Hilo</span>
                         </button>
 
                         <button
@@ -1986,17 +2114,19 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             style={{
                                 background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444',
                                 color: '#fca5a5', padding: '0.3rem 0.65rem', borderRadius: '6px',
-                                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer'
+                                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '5px'
                             }}
                         >
-                            🗑️ Eliminar
+                            <BoardIcon name="trash" size={12} color="#fca5a5" />
+                            <span>Eliminar</span>
                         </button>
 
                         <button
                             onClick={() => setSelectedNodeId(null)}
-                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem', marginLeft: '4px' }}
+                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', marginLeft: '4px' }}
                         >
-                            ✕
+                            <BoardIcon name="close" size={14} />
                         </button>
                     </div>
                 </div>
@@ -2351,15 +2481,18 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             background: 'rgba(30, 41, 59, 0.7)', padding: '2rem', borderRadius: '12px',
                             border: '1px border dashed rgba(255,255,255,0.15)', textAlign: 'center', maxWidth: '420px'
                         }}>
-                            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🕵️‍♂️</div>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                                <BoardIcon name="search" size={36} color="var(--accent-gold)" />
+                            </div>
                             <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-gold)' }}>{t('whiteboardTitle')}</h4>
                             <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{t('emptyBoardMessage')}</p>
                             <button
                                 onClick={() => openNodeModal(null)}
                                 className="login-button"
-                                style={{ width: 'auto', marginTop: '1rem', padding: '0.4rem 1rem' }}
+                                style={{ width: 'auto', marginTop: '1rem', padding: '0.4rem 1rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                             >
-                                {t('newCardBtn')}
+                                <BoardIcon name="plus" size={13} />
+                                <span>{t('newCardBtn')}</span>
                             </button>
                         </div>
                     )}
@@ -2409,30 +2542,31 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         background: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%)',
                                         padding: '6px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                                     }}>
-                                        <span style={{ fontSize: '0.72rem', color: '#ffffff', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
-                                            {isLocked && '🔒 '}{node.title}
+                                        <span style={{ fontSize: '0.72rem', color: '#ffffff', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            {isLocked && <BoardIcon name="lock" size={11} color="#fef08a" />}
+                                            <span>{node.title}</span>
                                         </span>
                                         <div style={{ display: 'flex', gap: '4px' }}>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setExpandedImage(node.image_url); }}
-                                                style={{ background: 'rgba(0,0,0,0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                style={{ background: 'rgba(0,0,0,0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center' }}
                                                 title="Ver imagen completa"
                                             >
-                                                🔍
+                                                <BoardIcon name="search" size={11} />
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setConnectingSourceId(isSource ? null : node.id); }}
-                                                style={{ background: isSource ? '#ef4444' : 'rgba(0,0,0,0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                style={{ background: isSource ? '#ef4444' : 'rgba(0,0,0,0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center' }}
                                                 title="Conectar hilo"
                                             >
-                                                🔗
+                                                <BoardIcon name="link" size={11} />
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id, node.title); }}
-                                                style={{ background: 'rgba(239, 68, 68, 0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                style={{ background: 'rgba(239, 68, 68, 0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center' }}
                                                 title="Eliminar imagen"
                                             >
-                                                🗑️
+                                                <BoardIcon name="trash" size={11} />
                                             </button>
                                         </div>
                                     </div>
@@ -2491,23 +2625,24 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                             alignItems: 'center',
                                             gap: '6px'
                                         }}>
-                                            {isLocked && <span>🔒</span>}
-                                            {node.title || extra.category_name || 'PRÓXIMOS PASOS'}
+                                            <BoardIcon name="todo" size={14} color="#38bdf8" />
+                                            {isLocked && <BoardIcon name="lock" size={12} color="#fef08a" />}
+                                            <span>{node.title || extra.category_name || 'PRÓXIMOS PASOS'}</span>
                                         </span>
                                         <div style={{ display: 'flex', gap: '4px' }}>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setConnectingSourceId(isSource ? null : node.id); }}
-                                                style={{ background: isSource ? '#ef4444' : 'rgba(255,255,255,0.08)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                style={{ background: isSource ? '#ef4444' : 'rgba(255,255,255,0.08)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center' }}
                                                 title="Conectar hilo"
                                             >
-                                                🔗
+                                                <BoardIcon name="link" size={11} />
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id, node.title); }}
-                                                style={{ background: 'rgba(239, 68, 68, 0.3)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                style={{ background: 'rgba(239, 68, 68, 0.3)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center' }}
                                                 title="Eliminar lista To-Do"
                                             >
-                                                🗑️
+                                                <BoardIcon name="trash" size={11} />
                                             </button>
                                         </div>
                                     </div>
@@ -2545,13 +2680,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                             display: 'flex',
                                                             alignItems: 'center',
                                                             justifyContent: 'center',
-                                                            color: '#ffffff',
-                                                            fontSize: '0.72rem',
-                                                            fontWeight: 900,
                                                             boxShadow: isDone ? '0 0 8px rgba(56, 189, 248, 0.4)' : 'none',
                                                             transition: 'all 0.15s ease'
                                                         }}>
-                                                            {isDone && '✓'}
+                                                            {isDone && <BoardIcon name="check" size={11} color="#ffffff" />}
                                                         </div>
 
                                                         {/* Task Text Content */}
@@ -2586,12 +2718,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                     border: `1.5px solid ${(node.content?.includes('[✓]') || node.color === 'green') ? '#38bdf8' : 'rgba(255, 255, 255, 0.25)'}`,
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    color: '#ffffff',
-                                                    fontSize: '0.72rem',
-                                                    fontWeight: 900
+                                                    justifyContent: 'center'
                                                 }}>
-                                                    {(node.content?.includes('[✓]') || node.color === 'green') && '✓'}
+                                                    {(node.content?.includes('[✓]') || node.color === 'green') && <BoardIcon name="check" size={11} color="#ffffff" />}
                                                 </div>
                                                 <span style={{
                                                     fontSize: '0.85rem',
@@ -2635,40 +2764,44 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     {/* Header: Clock Icon + LÍNEA DE TIEMPO in cyan uppercase */}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ color: '#38bdf8', fontSize: '1rem', display: 'flex', alignItems: 'center' }}>🕒</span>
+                                            <BoardIcon name="timeline" size={16} color="#38bdf8" />
                                             <span style={{
                                                 color: '#38bdf8',
                                                 fontSize: '0.82rem',
                                                 fontWeight: 900,
                                                 letterSpacing: '1.2px',
-                                                textTransform: 'uppercase'
+                                                textTransform: 'uppercase',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '5px'
                                             }}>
-                                                {isLocked && <span style={{ marginRight: '4px' }}>🔒</span>}
-                                                {node.title || extra.timeline_title || 'LÍNEA DE TIEMPO'}
+                                                {isLocked && <BoardIcon name="lock" size={12} color="#fef08a" />}
+                                                <span>{node.title || extra.timeline_title || 'LÍNEA DE TIEMPO'}</span>
                                             </span>
                                         </div>
 
                                         <div style={{ display: 'flex', gap: '4px' }}>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); openTimelineModal(node); }}
-                                                style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', borderRadius: '4px', cursor: 'pointer', fontSize: '0.72rem', padding: '2px 6px', fontWeight: 'bold' }}
+                                                style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', borderRadius: '4px', cursor: 'pointer', fontSize: '0.72rem', padding: '2px 7px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}
                                                 title="Editar sucesos de la línea de tiempo"
                                             >
-                                                ✏️ Editar
+                                                <BoardIcon name="edit" size={11} color="#38bdf8" />
+                                                <span>Editar</span>
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setConnectingSourceId(isSource ? null : node.id); }}
-                                                style={{ background: isSource ? '#ef4444' : 'rgba(255,255,255,0.08)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                style={{ background: isSource ? '#ef4444' : 'rgba(255,255,255,0.08)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center' }}
                                                 title="Conectar hilo"
                                             >
-                                                🔗
+                                                <BoardIcon name="link" size={11} />
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id, node.title); }}
-                                                style={{ background: 'rgba(239, 68, 68, 0.3)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                style={{ background: 'rgba(239, 68, 68, 0.3)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center' }}
                                                 title="Eliminar línea de tiempo"
                                             >
-                                                🗑️
+                                                <BoardIcon name="trash" size={11} />
                                             </button>
                                         </div>
                                     </div>
@@ -2687,21 +2820,37 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                         position: 'relative'
                                                     }}
                                                 >
-                                                    {/* Left Time Badge */}
+                                                    {/* Left Date / Time Badge */}
                                                     <div style={{
                                                         background: 'rgba(14, 165, 233, 0.15)',
                                                         border: '1px solid rgba(56, 189, 248, 0.3)',
                                                         color: '#38bdf8',
                                                         padding: '3px 8px',
                                                         borderRadius: '4px',
-                                                        fontSize: '0.78rem',
-                                                        fontWeight: 800,
-                                                        minWidth: '48px',
-                                                        textAlign: 'center',
+                                                        minWidth: '50px',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        lineHeight: '1.25',
                                                         whiteSpace: 'nowrap',
                                                         flexShrink: 0
                                                     }}>
-                                                        {ev.time || '--:--'}
+                                                        {ev.date && (
+                                                            <span style={{ fontSize: '0.67rem', color: '#93c5fd', fontWeight: 700, letterSpacing: '0.4px' }}>
+                                                                {ev.date}
+                                                            </span>
+                                                        )}
+                                                        {ev.time && (
+                                                            <span style={{ fontSize: '0.78rem', color: '#38bdf8', fontWeight: 800 }}>
+                                                                {ev.time}
+                                                            </span>
+                                                        )}
+                                                        {!ev.date && !ev.time && (
+                                                            <span style={{ fontSize: '0.78rem', color: '#38bdf8', fontWeight: 800 }}>
+                                                                --:--
+                                                            </span>
+                                                        )}
                                                     </div>
 
                                                     {/* Right Event Text Description */}
@@ -2728,13 +2877,15 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                             fontSize: '0.75rem',
                                                             cursor: 'pointer',
                                                             opacity: 0.4,
-                                                            padding: '0 2px'
+                                                            padding: '0 2px',
+                                                            display: 'flex',
+                                                            alignItems: 'center'
                                                         }}
                                                         onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
                                                         onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
                                                         title="Eliminar este suceso"
                                                     >
-                                                        ✕
+                                                        <BoardIcon name="close" size={11} />
                                                     </button>
                                                 </div>
                                             ))
@@ -2747,7 +2898,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                 border: '1px dashed rgba(56, 189, 248, 0.25)',
                                                 borderRadius: '6px'
                                             }}>
-                                                <span>No hay sucesos en la línea de tiempo. Haz clic en <b>✏️ Editar</b> para añadir el primer hito.</span>
+                                                <span>No hay sucesos en la línea de tiempo. Haz clic en <b>Editar</b> para añadir el primer hito.</span>
                                             </div>
                                         )}
                                     </div>
@@ -2771,7 +2922,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                 gap: '4px'
                                             }}
                                         >
-                                            ➕ Añadir Hito / Editar
+                                            <BoardIcon name="plus" size={12} color="#38bdf8" />
+                                            <span>Añadir Hito / Editar</span>
                                         </button>
                                     </div>
                                 </div>
@@ -2814,9 +2966,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         <div style={{
                                             background: 'rgba(185, 28, 28, 0.95)', color: 'white', fontWeight: '900', fontSize: '0.8rem',
                                             letterSpacing: '1.5px', padding: '4px 14px', borderRadius: '4px', border: '2px solid #ffffff',
-                                            boxShadow: '0 4px 14px rgba(0,0,0,0.85)', transform: 'rotate(-12deg)', textTransform: 'uppercase', zIndex: 11
+                                            boxShadow: '0 4px 14px rgba(0,0,0,0.85)', transform: 'rotate(-12deg)', textTransform: 'uppercase', zIndex: 11,
+                                            display: 'flex', alignItems: 'center', gap: '4px'
                                         }}>
-                                            ❌ {t('inactiveBadge') || 'INACTIVO'}
+                                            <BoardIcon name="close" size={12} color="#ffffff" />
+                                            <span>{t('inactiveBadge') || 'INACTIVO'}</span>
                                         </div>
                                     </div>
                                 )}
@@ -2833,13 +2987,14 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     background: scheme.header, padding: '0.5rem 0.75rem', borderTopLeftRadius: '6px', borderTopRightRadius: '6px',
                                     display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                                 }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'white', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <span>{catConfig.icon}</span>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <BoardIcon name={catConfig.iconName || 'note'} size={13} color="white" />
                                         <span>{t(catConfig.label) || node.category}</span>
-                                        {isLocked && <span style={{ fontSize: '0.7rem' }}>🔒</span>}
+                                        {isLocked && <BoardIcon name="lock" size={11} color="#fef08a" />}
                                         {node.is_inactive && (
-                                            <span style={{ fontSize: '0.65rem', background: '#ef4444', color: 'white', padding: '1px 5px', borderRadius: '3px', marginLeft: '4px' }}>
-                                                ❌ INACTIVO
+                                            <span style={{ fontSize: '0.65rem', background: '#ef4444', color: 'white', padding: '1px 5px', borderRadius: '3px', marginLeft: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                                <BoardIcon name="close" size={10} color="#ffffff" />
+                                                <span>INACTIVO</span>
                                             </span>
                                         )}
                                     </span>
@@ -2850,25 +3005,25 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                             style={{
                                                 background: isSource ? '#ef4444' : 'rgba(255,255,255,0.15)',
                                                 border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer',
-                                                fontSize: '0.75rem', padding: '1px 5px'
+                                                padding: '3px 5px', display: 'flex', alignItems: 'center'
                                             }}
                                             title="Conectar hilo rojo a otra tarjeta"
                                         >
-                                            🔗
+                                            <BoardIcon name="link" size={11} />
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); openNodeModal(node); }}
-                                            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', padding: '1px 5px' }}
+                                            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center' }}
                                             title="Editar tarjeta"
                                         >
-                                            ✏️
+                                            <BoardIcon name="edit" size={11} />
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id, node.title); }}
-                                            style={{ background: 'rgba(239, 68, 68, 0.4)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', padding: '1px 5px' }}
+                                            style={{ background: 'rgba(239, 68, 68, 0.4)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', padding: '3px 5px', display: 'flex', alignItems: 'center' }}
                                             title="Eliminar tarjeta"
                                         >
-                                            🗑️
+                                            <BoardIcon name="trash" size={11} />
                                         </button>
                                     </div>
                                 </div>
@@ -2924,7 +3079,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                         }}
                                                         title="Clic para ver detalle de la novedad"
                                                     >
-                                                        🔗 Novedad #{numStr}
+                                                        <BoardIcon name="link" size={10} color="var(--accent-gold)" />
+                                                        <span>Novedad #{numStr}</span>
                                                     </span>
                                                 );
                                             })}
@@ -2995,13 +3151,13 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         value={nodeColor}
                                         onChange={e => setNodeColor(e.target.value)}
                                     >
-                                        <option value="red">🔴 Rojo Sospechoso</option>
-                                        <option value="yellow">🟡 Amarillo Nota</option>
-                                        <option value="blue">🔵 Azul Policial / Tarea</option>
-                                        <option value="green">🟢 Verde Testigo / Hecho</option>
-                                        <option value="purple">🟣 Púrpura Vehículo</option>
-                                        <option value="pink">🌸 Rosa / Cronología</option>
-                                        <option value="dark">⚫ Oscuro / Slate</option>
+                                        <option value="red">Rojo (Sospechoso)</option>
+                                        <option value="yellow">Amarillo (Nota)</option>
+                                        <option value="blue">Azul (Policial / Tarea)</option>
+                                        <option value="green">Verde (Testigo / Hecho)</option>
+                                        <option value="purple">Púrpura (Vehículo)</option>
+                                        <option value="pink">Rosa (Cronología)</option>
+                                        <option value="dark">Oscuro (Slate)</option>
                                     </select>
                                 </div>
                             </div>
@@ -3025,7 +3181,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ef4444' }}
                                 />
                                 <label htmlFor="nodeIsInactive" style={{ cursor: 'pointer', fontSize: '0.85rem', color: nodeIsInactive ? '#fca5a5' : 'var(--text-primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', margin: 0, userSelect: 'none' }}>
-                                    ❌ {t('inactiveCardLabel') || 'Marcar como Inactivo (Mostrar cruz roja)'}
+                                    <BoardIcon name="close" size={13} color={nodeIsInactive ? '#fca5a5' : '#ef4444'} />
+                                    <span>{t('inactiveCardLabel') || 'Marcar como Inactivo (Mostrar cruz de archivo)'}</span>
                                 </label>
                             </div>
 
@@ -3088,15 +3245,16 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         <button
                                             type="button"
                                             onClick={() => setNodeImage('')}
-                                            style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '20px', height: '20px', border: 'none', cursor: 'pointer' }}
+                                            style={{ position: 'absolute', top: -5, right: -5, background: 'red', color: 'white', borderRadius: '50%', width: '20px', height: '20px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         >
-                                            &times;
+                                            <BoardIcon name="close" size={12} color="#ffffff" />
                                         </button>
                                     </div>
                                 ) : (
-                                    <label className="custom-file-upload" style={{ display: 'inline-block', width: 'auto', margin: 0, fontSize: '0.85rem' }}>
+                                    <label className="custom-file-upload" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', width: 'auto', margin: 0, fontSize: '0.85rem' }}>
                                         <input type="file" accept="image/*" onChange={handleImageUpload} />
-                                        📷 {t('uploadImageBtn')}
+                                        <BoardIcon name="image" size={14} />
+                                        <span>{t('uploadImageBtn')}</span>
                                     </label>
                                 )}
                             </div>
@@ -3227,13 +3385,16 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
                             <div>
                                 <h3 style={{ margin: 0, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.5px' }}>
-                                    📋 {t('importTodoModalTitle') || 'Importar Listas To-Do a la Pizarra'}
+                                    <BoardIcon name="todo" size={18} color="#38bdf8" />
+                                    <span>{t('importTodoModalTitle') || 'Importar Listas To-Do a la Pizarra'}</span>
                                 </h3>
                                 <p style={{ margin: '3px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                                     {language === 'es' ? 'Se importarán como tarjetas To-Do interactivas sincronizadas en tiempo real.' : 'Will be imported as interactive To-Do checklist cards synchronized in real-time.'}
                                 </p>
                             </div>
-                            <button onClick={() => setShowImportTodoModal(false)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>&times;</button>
+                            <button onClick={() => setShowImportTodoModal(false)} style={{ background: 'none', border: 'none', color: 'white', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                                <BoardIcon name="close" size={16} />
+                            </button>
                         </div>
 
                         {loadingTodos ? (
@@ -3290,7 +3451,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                                 {task.content}
                                                             </span>
                                                             <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '3px', background: task.is_completed ? 'rgba(34,197,94,0.2)' : 'rgba(56,189,248,0.2)', color: task.is_completed ? '#4ade80' : '#38bdf8' }}>
-                                                                {task.is_completed ? '✓ Hecho' : 'Pendiente'}
+                                                                {task.is_completed ? 'Hecho' : 'Pendiente'}
                                                             </span>
                                                         </label>
                                                     );
@@ -3310,9 +3471,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 className="login-button"
                                 onClick={handleImportSelectedTodos}
                                 disabled={selectedTodoTaskIds.length === 0}
-                                style={{ width: 'auto', background: '#0284c7', borderColor: '#38bdf8' }}
+                                style={{ width: 'auto', background: '#0284c7', borderColor: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}
                             >
-                                {t('importSelectedTasksBtn') || 'Importar a la Pizarra'} ({selectedTodoTaskIds.length})
+                                <BoardIcon name="todo" size={13} />
+                                <span>{t('importSelectedTasksBtn') || 'Importar a la Pizarra'} ({selectedTodoTaskIds.length})</span>
                             </button>
                         </div>
                     </div>
@@ -3335,13 +3497,16 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.65rem' }}>
                             <div>
                                 <h3 style={{ margin: 0, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.15rem' }}>
-                                    🕒 {t('timelineModalTitle') || 'Línea de Tiempo del Caso'}
+                                    <BoardIcon name="timeline" size={18} color="#38bdf8" />
+                                    <span>{t('timelineModalTitle') || 'Línea de Tiempo del Caso'}</span>
                                 </h3>
                                 <p style={{ margin: '3px 0 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
                                     {language === 'es' ? 'Gestiona los hitos cronológicos directamente. Se mostrarán secuenciales en una única tarjeta táctica en la pizarra.' : 'Manage chronological events directly. They will be displayed sequentially in a single tactical card on the board.'}
                                 </p>
                             </div>
-                            <button onClick={() => setShowTimelineModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.3rem', cursor: 'pointer' }}>&times;</button>
+                            <button onClick={() => setShowTimelineModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                                <BoardIcon name="close" size={16} />
+                            </button>
                         </div>
 
                         {/* Events List & Form Area */}
@@ -3350,7 +3515,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             {/* Sequence of Events */}
                             <div>
                                 <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f1f5f9', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span>⏱️ Sucesos Registrados ({timelineItems.length})</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <BoardIcon name="timeline" size={14} color="#38bdf8" />
+                                        <span>Sucesos Registrados ({timelineItems.length})</span>
+                                    </span>
                                     <span style={{ fontSize: '0.72rem', color: '#38bdf8' }}>{timelineItems.length > 0 ? 'En orden secuencial' : ''}</span>
                                 </div>
 
@@ -3371,36 +3539,46 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                         type="button"
                                                         onClick={() => handleMoveTimelineItem(idx, -1)}
                                                         disabled={idx === 0}
-                                                        style={{ background: 'none', border: 'none', color: idx === 0 ? '#475569' : '#94a3b8', cursor: idx === 0 ? 'default' : 'pointer', fontSize: '0.7rem', padding: '0 2px' }}
+                                                        style={{ background: 'none', border: 'none', color: idx === 0 ? '#475569' : '#94a3b8', cursor: idx === 0 ? 'default' : 'pointer', padding: '1px 2px', display: 'flex', alignItems: 'center' }}
                                                         title="Mover arriba"
                                                     >
-                                                        ▲
+                                                        <BoardIcon name="chevronUp" size={11} color={idx === 0 ? '#475569' : '#94a3b8'} />
                                                     </button>
                                                     <button
                                                         type="button"
                                                         onClick={() => handleMoveTimelineItem(idx, 1)}
                                                         disabled={idx === timelineItems.length - 1}
-                                                        style={{ background: 'none', border: 'none', color: idx === timelineItems.length - 1 ? '#475569' : '#94a3b8', cursor: idx === timelineItems.length - 1 ? 'default' : 'pointer', fontSize: '0.7rem', padding: '0 2px' }}
+                                                        style={{ background: 'none', border: 'none', color: idx === timelineItems.length - 1 ? '#475569' : '#94a3b8', cursor: idx === timelineItems.length - 1 ? 'default' : 'pointer', padding: '1px 2px', display: 'flex', alignItems: 'center' }}
                                                         title="Mover abajo"
                                                     >
-                                                        ▼
+                                                        <BoardIcon name="chevronDown" size={11} color={idx === timelineItems.length - 1 ? '#475569' : '#94a3b8'} />
                                                     </button>
                                                 </div>
 
-                                                {/* Time Badge */}
+                                                {/* Date & Time Badge */}
                                                 <div style={{
                                                     background: 'rgba(14, 165, 233, 0.18)',
                                                     border: '1px solid rgba(56, 189, 248, 0.4)',
                                                     color: '#38bdf8',
                                                     padding: '3px 8px',
                                                     borderRadius: '4px',
-                                                    fontSize: '0.8rem',
-                                                    fontWeight: 800,
-                                                    minWidth: '52px',
+                                                    minWidth: '54px',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    lineHeight: '1.25',
                                                     textAlign: 'center',
                                                     flexShrink: 0
                                                 }}>
-                                                    {item.time || '--:--'}
+                                                    {item.date && (
+                                                        <span style={{ fontSize: '0.67rem', color: '#93c5fd', fontWeight: 700, letterSpacing: '0.4px' }}>
+                                                            {item.date}
+                                                        </span>
+                                                    )}
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: 800 }}>
+                                                        {item.time || (!item.date ? '--:--' : '')}
+                                                    </span>
                                                 </div>
 
                                                 {/* Text Content */}
@@ -3413,18 +3591,18 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                     <button
                                                         type="button"
                                                         onClick={() => handleStartEditTimelineItem(idx)}
-                                                        style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '0.75rem' }}
+                                                        style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', borderRadius: '4px', cursor: 'pointer', padding: '3px 6px', display: 'flex', alignItems: 'center' }}
                                                         title="Editar suceso"
                                                     >
-                                                        ✎
+                                                        <BoardIcon name="edit" size={12} color="#38bdf8" />
                                                     </button>
                                                     <button
                                                         type="button"
                                                         onClick={() => handleDeleteTimelineItem(idx)}
-                                                        style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#fca5a5', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '0.75rem' }}
+                                                        style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#fca5a5', borderRadius: '4px', cursor: 'pointer', padding: '3px 6px', display: 'flex', alignItems: 'center' }}
                                                         title="Eliminar suceso"
                                                     >
-                                                        🗑️
+                                                        <BoardIcon name="trash" size={12} color="#fca5a5" />
                                                     </button>
                                                 </div>
                                             </div>
@@ -3446,13 +3624,15 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
                                     <h4 style={{ margin: 0, color: '#38bdf8', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        {editingTimelineItemIndex !== null ? '✏️ Modificar Suceso de la Línea' : '➕ Añadir Hito / Suceso a la Línea'}
+                                        <BoardIcon name={editingTimelineItemIndex !== null ? 'edit' : 'plus'} size={13} color="#38bdf8" />
+                                        <span>{editingTimelineItemIndex !== null ? 'Modificar Suceso de la Línea' : 'Añadir Hito / Suceso a la Línea'}</span>
                                     </h4>
                                     {editingTimelineItemIndex !== null && (
                                         <button
                                             type="button"
                                             onClick={() => {
                                                 setEditingTimelineItemIndex(null);
+                                                setTimelineDateInput('');
                                                 setTimelineTimeInput('');
                                                 setTimelineTextInput('');
                                             }}
@@ -3464,7 +3644,21 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 </div>
 
                                 <form onSubmit={handleSaveTimelineItem}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '130px 110px 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.75rem', color: '#cbd5e1', marginBottom: '4px', fontWeight: 600 }}>
+                                                Día / Fecha
+                                            </label>
+                                            <input
+                                                type="text"
+                                                className="form-input"
+                                                placeholder="ej. 03/09, Día 1..."
+                                                value={timelineDateInput}
+                                                onChange={e => setTimelineDateInput(e.target.value)}
+                                                style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%' }}
+                                            />
+                                        </div>
+
                                         <div>
                                             <label style={{ display: 'block', fontSize: '0.75rem', color: '#cbd5e1', marginBottom: '4px', fontWeight: 600 }}>
                                                 Hora / Etiqueta
@@ -3505,10 +3699,14 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                 fontSize: '0.82rem',
                                                 background: editingTimelineItemIndex !== null ? '#0284c7' : 'rgba(56, 189, 248, 0.2)',
                                                 borderColor: '#38bdf8',
-                                                color: '#ffffff'
+                                                color: '#ffffff',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
                                             }}
                                         >
-                                            {editingTimelineItemIndex !== null ? '✓ Guardar Cambios' : '➕ Añadir a la Línea'}
+                                            <BoardIcon name={editingTimelineItemIndex !== null ? 'check' : 'plus'} size={12} color="#ffffff" />
+                                            <span>{editingTimelineItemIndex !== null ? 'Guardar Cambios' : 'Añadir a la Línea'}</span>
                                         </button>
                                     </div>
                                 </form>
@@ -3528,10 +3726,14 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     width: 'auto',
                                     background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
                                     borderColor: '#38bdf8',
-                                    fontWeight: 700
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
                                 }}
                             >
-                                💾 {language === 'es' ? 'Guardar Línea de Tiempo en Pizarra' : 'Save Timeline to Whiteboard'} ({timelineItems.length})
+                                <BoardIcon name="check" size={14} color="#ffffff" />
+                                <span>{language === 'es' ? 'Guardar Línea de Tiempo en Pizarra' : 'Save Timeline to Whiteboard'} ({timelineItems.length})</span>
                             </button>
                         </div>
                     </div>
@@ -3556,8 +3758,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         }}
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                            <h3 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1.1rem' }}>
-                                📝 {t('linkedEntryPreview')}
+                            <h3 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <BoardIcon name="note" size={16} color="var(--accent-gold)" />
+                                <span>{t('linkedEntryPreview')}</span>
                             </h3>
                             <button onClick={() => setSelectedPreviewUpdate(null)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>&times;</button>
                         </div>
