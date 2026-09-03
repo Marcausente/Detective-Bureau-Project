@@ -1711,7 +1711,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const selectedElement = nodes.find(n => n.id === selectedNodeId);
 
     if (loading) {
-        return <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--accent-gold)' }}>🕵️ Cargando Pizarra de Investigación...</div>;
+        return (
+            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <BoardIcon name="search" size={18} color="var(--accent-gold)" />
+                <span>Cargando Pizarra de Investigación...</span>
+            </div>
+        );
     }
 
     return (
@@ -2260,20 +2265,20 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                 }}
                                                 title="Arrastra para mover la etiqueta por el hilo"
                                             >
-                                                <span>🧵 {link.label}</span>
+                                                <span>{link.label}</span>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setEditingLink(link); setEditLinkLabel(link.label || ''); }}
-                                                    style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.7rem', opacity: 0.8, padding: 0 }}
+                                                    style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.8, padding: 0, display: 'inline-flex', alignItems: 'center' }}
                                                     title="Editar texto"
                                                 >
-                                                    ✏️
+                                                    <BoardIcon name="edit" size={10} color="#ffffff" />
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleDeleteLink(link.id); }}
-                                                    style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.7rem', opacity: 0.8, padding: 0 }}
+                                                    style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.8, padding: 0, display: 'inline-flex', alignItems: 'center' }}
                                                     title="Eliminar conexión"
                                                 >
-                                                    ✕
+                                                    <BoardIcon name="close" size={10} color="#ffffff" />
                                                 </button>
                                             </div>
                                         </foreignObject>
@@ -2288,11 +2293,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                         boxShadow: '0 4px 10px rgba(0,0,0,0.6)', cursor: 'pointer'
                                                     }}
                                                 >
-                                                    <span onClick={(e) => { e.stopPropagation(); setEditingLink(link); setEditLinkLabel(''); }}>
-                                                        ✏️ Texto
+                                                    <span onClick={(e) => { e.stopPropagation(); setEditingLink(link); setEditLinkLabel(''); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                        <BoardIcon name="edit" size={10} color="var(--accent-gold)" />
+                                                        <span>Texto</span>
                                                     </span>
-                                                    <span onClick={(e) => { e.stopPropagation(); handleDeleteLink(link.id); }} style={{ color: '#ef4444' }}>
-                                                        🗑️
+                                                    <span onClick={(e) => { e.stopPropagation(); handleDeleteLink(link.id); }} style={{ color: '#ef4444', display: 'inline-flex', alignItems: 'center' }}>
+                                                        <BoardIcon name="trash" size={10} color="#ef4444" />
                                                     </span>
                                                 </div>
                                             </foreignObject>
@@ -3283,7 +3289,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         background: '#1e293b', border: '1px solid var(--accent-gold)', borderRadius: '12px',
                         width: '100%', maxWidth: '400px', padding: '1.5rem'
                     }}>
-                        <h3 style={{ margin: '0 0 1rem 0', color: 'var(--accent-gold)' }}>🧵 {t('connectModeBtn')}</h3>
+                        <h3 style={{ margin: '0 0 1rem 0', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <BoardIcon name="link" size={16} color="var(--accent-gold)" />
+                            <span>{t('connectModeBtn')}</span>
+                        </h3>
                         <form onSubmit={handleConfirmLink}>
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
@@ -3328,7 +3337,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         background: '#1e293b', border: '1px solid var(--accent-gold)', borderRadius: '12px',
                         width: '100%', maxWidth: '420px', padding: '1.5rem'
                     }}>
-                        <h3 style={{ margin: '0 0 1rem 0', color: 'var(--accent-gold)' }}>✏️ {language === 'es' ? 'Editar Texto de Relación' : 'Edit Relationship Text'}</h3>
+                        <h3 style={{ margin: '0 0 1rem 0', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <BoardIcon name="edit" size={16} color="var(--accent-gold)" />
+                            <span>{language === 'es' ? 'Editar Texto de Relación' : 'Edit Relationship Text'}</span>
+                        </h3>
                         <form onSubmit={handleSaveLinkLabel}>
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
@@ -3349,9 +3361,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     type="button"
                                     className="login-button btn-secondary"
                                     onClick={() => handleDeleteLink(editingLink.id)}
-                                    style={{ width: 'auto', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', borderColor: '#ef4444' }}
+                                    style={{ width: 'auto', background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', borderColor: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                                 >
-                                    🗑️ {language === 'es' ? 'Eliminar Hilo' : 'Delete Thread'}
+                                    <BoardIcon name="trash" size={12} color="#ef4444" />
+                                    <span>{language === 'es' ? 'Eliminar Hilo' : 'Delete Thread'}</span>
                                 </button>
                                 <button
                                     type="button"

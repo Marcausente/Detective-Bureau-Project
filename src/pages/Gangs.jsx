@@ -1335,7 +1335,8 @@ function Gangs() {
                             ← Volver a Pandillas
                         </button>
                         <h3 style={{ margin: 0, color: activeBoardGang.color || 'var(--accent-gold)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            📌 Pizarra de Investigación: <span style={{ color: 'white' }}>{activeBoardGang.name}</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><line x1="12" y1="17" x2="12" y2="22" /><path d="M5 17h14v-2l-2-2V5h1V3H6v2h1v8l-2 2v2z" /></svg>
+                            <span>Pizarra de Investigación: <span style={{ color: 'white' }}>{activeBoardGang.name}</span></span>
                         </h3>
                     </div>
                     <div style={{ flex: 1, minHeight: 0, width: '100%', position: 'relative' }}>

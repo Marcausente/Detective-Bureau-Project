@@ -830,7 +830,7 @@ function CaseDetail() {
                             <line x1="12" y1="17" x2="12" y2="22" />
                             <path d="M5 17h14l-1.5-6h2L18 3H6L4.5 11h2z" />
                         </svg>
-                        <span>📌 Pizarra del Caso</span>
+                        <span>Pizarra del Caso</span>
                     </button>
 
                     {canPinCase() && (
@@ -1063,7 +1063,11 @@ function CaseDetail() {
                                 fontWeight: 700
                             }}
                         >
-                            <span>📌 Abrir Pizarra Completa</span>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                <line x1="12" y1="17" x2="12" y2="22" />
+                                <path d="M5 17h14l-1.5-6h2L18 3H6L4.5 11h2z" />
+                            </svg>
+                            <span>Abrir Pizarra Completa</span>
                         </button>
                     </div>
 
@@ -1871,7 +1875,7 @@ function CaseDetail() {
 
                         {/* Title */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                            <span style={{ fontSize: '1.2rem' }}>📌</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><line x1="12" y1="17" x2="12" y2="22" /><path d="M5 17h14v-2l-2-2V5h1V3H6v2h1v8l-2 2v2z" /></svg>
                             <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em' }}>
                                 Pizarra de Investigación #{String(info.case_number).padStart(3, '0')} - {info.title}
                             </span>
