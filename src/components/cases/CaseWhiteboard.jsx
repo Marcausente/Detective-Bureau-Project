@@ -13,6 +13,8 @@ const CATEGORY_CONFIG = {
     note: { label: 'categoryNote', icon: '📝', bg: 'rgba(234, 179, 8, 0.15)', border: '#eab308', text: '#fef08a' },
     todo: { label: 'categoryTodo', icon: '📋', bg: 'rgba(59, 130, 246, 0.15)', border: '#3b82f6', text: '#93c5fd' },
     timeline: { label: 'categoryTimeline', icon: '⏱️', bg: 'rgba(236, 72, 153, 0.15)', border: '#ec4899', text: '#fbcfe8' },
+    image: { label: 'addImageBtn', icon: '🖼️', bg: 'rgba(15, 23, 42, 0.85)', border: '#3b82f6', text: '#93c5fd' },
+    drawing: { label: 'pencilToolBtn', icon: '✏️', bg: 'transparent', border: '#ef4444', text: '#ffffff' }
 };
 
 const COLOR_SCHEMES = {
@@ -32,6 +34,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const [loading, setLoading] = useState(true);
     const [savingStatus, setSavingStatus] = useState('saved'); // 'saved', 'saving', 'error'
 
+    // Interactive Tool Modes: 'move' | 'pencil' | 'eraser'
+    const [toolMode, setToolMode] = useState('move');
+
     // Canvas pan & zoom state
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -39,9 +44,23 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const panStartRef = useRef({ x: 0, y: 0 });
     const boardRef = useRef(null);
 
-    // Node Dragging State
+    // Selection & Element Dragging / Resizing State
+    const [selectedNodeId, setSelectedNodeId] = useState(null);
     const [draggingNodeId, setDraggingNodeId] = useState(null);
     const dragOffsetRef = useRef({ x: 0, y: 0 });
+
+    const [isResizing, setIsResizing] = useState(false);
+    const resizeStartRef = useRef({ x: 0, y: 0, initW: 320, initH: 240 });
+
+    // Pencil & Shape Drawing State
+    const [pencilShape, setPencilShape] = useState('free'); // 'free' | 'line' | 'arrow' | 'rectangle' | 'circle'
+    const [pencilColor, setPencilColor] = useState('#ef4444');
+    const [pencilWidth, setPencilWidth] = useState(4);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [currentPoints, setCurrentPoints] = useState([]);
+
+    // Direct Image Upload Ref
+    const imageFileInputRef = useRef(null);
 
     // Link Creation & Customization State
     const [connectingSourceId, setConnectingSourceId] = useState(null);
@@ -62,7 +81,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const [nodeCategory, setNodeCategory] = useState('note');
     const [nodeColor, setNodeColor] = useState('red');
     const [nodeImage, setNodeImage] = useState('');
-    const [nodeLinkedUpdates, setNodeLinkedUpdates] = useState([]); // Array of update IDs
+    const [nodeLinkedUpdates, setNodeLinkedUpdates] = useState([]);
     const [nodeIsInactive, setNodeIsInactive] = useState(false);
     const [submittingNode, setSubmittingNode] = useState(false);
 
@@ -92,10 +111,36 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     // Image Viewer Modal
     const [expandedImage, setExpandedImage] = useState(null);
 
-    // Debounce save for node positions
+    // Debounce save for node positions & dimensions
     const positionSaveTimeoutsRef = useRef({});
 
     const targetId = isGang ? gangId : caseId;
+
+    // Helper: parse extra JSON metadata stored in node content
+    const parseNodeExtra = (node) => {
+        if (!node || !node.content) return {};
+        try {
+            if (typeof node.content === 'string' && node.content.startsWith('{') && node.content.endsWith('}')) {
+                return JSON.parse(node.content);
+            }
+        } catch { }
+        return {};
+    };
+
+    // Helper: convert Points Array to SVG Path String
+    const pointsToSvgPath = (pts) => {
+        if (!pts || pts.length === 0) return '';
+        return pts.reduce((acc, pt, i) => i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '');
+    };
+
+    // Helper: convert Screen Client Coords to Canvas Board Coords
+    const getCanvasCoordinates = useCallback((e) => {
+        const rect = boardRef.current ? boardRef.current.getBoundingClientRect() : { left: 0, top: 0 };
+        return {
+            x: (e.clientX - rect.left - pan.x) / zoom,
+            y: (e.clientY - rect.top - pan.y) / zoom
+        };
+    }, [pan, zoom]);
 
     // Load Board Data
     const loadBoardData = useCallback(async () => {
@@ -115,7 +160,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             }
         } catch (err) {
             console.error('Error loading whiteboard data:', err);
-            // Fallback direct query if RPC fails
             try {
                 const column = isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id';
                 const { data: nData } = await supabase.from('case_board_nodes').select('*').eq(column, targetId);
@@ -154,7 +198,40 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 console.error('Error saving node position:', err);
                 setSavingStatus('error');
             }
-        }, 500);
+        }, 400);
+    };
+
+    // Save Node Dimension (Width/Height) in Database (Debounced)
+    const saveNodeDimensions = (nodeId, width, height) => {
+        setSavingStatus('saving');
+        const timeoutKey = 'dim_' + nodeId;
+        if (positionSaveTimeoutsRef.current[timeoutKey]) {
+            clearTimeout(positionSaveTimeoutsRef.current[timeoutKey]);
+        }
+
+        positionSaveTimeoutsRef.current[timeoutKey] = setTimeout(async () => {
+            try {
+                const targetNode = nodes.find(n => n.id === nodeId);
+                const extra = parseNodeExtra(targetNode);
+                extra.height = Math.round(height);
+
+                const updatePayload = { width: Math.round(width) };
+                if (targetNode?.category === 'image' || targetNode?.category === 'drawing') {
+                    updatePayload.content = JSON.stringify(extra);
+                }
+
+                const { error } = await supabase
+                    .from('case_board_nodes')
+                    .update(updatePayload)
+                    .eq('id', nodeId);
+
+                if (error) throw error;
+                setSavingStatus('saved');
+            } catch (err) {
+                console.error('Error saving node dimensions:', err);
+                setSavingStatus('error');
+            }
+        }, 400);
     };
 
     // Save Link Label Position (Debounced)
@@ -169,23 +246,178 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             } catch (err) {
                 console.error('Error saving link label position:', err);
             }
-        }, 500);
+        }, 400);
     };
 
-    // Handle Card Drag Start
+    // Global Paste Listener to Paste Images Directly onto Whiteboard
+    useEffect(() => {
+        const handleGlobalPaste = async (e) => {
+            const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+            if (!items) return;
+
+            for (let item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    const file = item.getAsFile();
+                    if (file) {
+                        try {
+                            setSavingStatus('saving');
+                            const folder = isGang ? 'gangs' : 'whiteboards';
+                            const publicUrl = await uploadImageToStorage(file, folder);
+                            if (publicUrl) {
+                                const { data: { user } } = await supabase.auth.getUser();
+                                const posX = Math.max(60, Math.round((400 - pan.x) / zoom));
+                                const posY = Math.max(60, Math.round((300 - pan.y) / zoom));
+
+                                const payload = {
+                                    [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
+                                    title: 'Captura / Imagen',
+                                    category: 'image',
+                                    image_url: publicUrl,
+                                    color: 'dark',
+                                    width: 340,
+                                    content: JSON.stringify({ height: 260, isLocked: false }),
+                                    pos_x: posX,
+                                    pos_y: posY,
+                                    created_by: user ? user.id : null
+                                };
+
+                                const { data: newNode, error } = await supabase
+                                    .from('case_board_nodes')
+                                    .insert([payload])
+                                    .select()
+                                    .single();
+
+                                if (error) throw error;
+                                if (newNode) {
+                                    setNodes(prev => [...prev, newNode]);
+                                    setSelectedNodeId(newNode.id);
+                                }
+                                setSavingStatus('saved');
+                            }
+                        } catch (err) {
+                            console.error('Error pasting image to whiteboard:', err);
+                            setSavingStatus('error');
+                        }
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('paste', handleGlobalPaste);
+        return () => window.removeEventListener('paste', handleGlobalPaste);
+    }, [pan, zoom, isGang, isIA, targetId]);
+
+    // Save Finish Drawing to Database
+    const handleFinishDrawing = async (points) => {
+        if (!points || points.length < 2) return;
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const xs = points.map(p => p.x);
+            const ys = points.map(p => p.y);
+            const minX = Math.round(Math.min(...xs));
+            const minY = Math.round(Math.min(...ys));
+            const maxX = Math.round(Math.max(...xs));
+            const maxY = Math.round(Math.max(...ys));
+
+            const payload = {
+                [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
+                title: `Trazo: ${pencilShape}`,
+                category: 'drawing',
+                color: pencilColor,
+                width: Math.max(20, maxX - minX),
+                content: JSON.stringify({
+                    shape: pencilShape,
+                    strokeWidth: pencilWidth,
+                    points: points.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })),
+                    height: Math.max(20, maxY - minY),
+                    isLocked: false
+                }),
+                pos_x: minX,
+                pos_y: minY,
+                created_by: user ? user.id : null
+            };
+
+            const { data: newNode, error } = await supabase
+                .from('case_board_nodes')
+                .insert([payload])
+                .select()
+                .single();
+
+            if (error) throw error;
+            if (newNode) {
+                setNodes(prev => [...prev, newNode]);
+            }
+        } catch (err) {
+            console.error('Error saving drawn stroke:', err);
+        }
+    };
+
+    // Direct Image Upload File Picker Handler
+    const handleDirectImageUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setSavingStatus('saving');
+            const folder = isGang ? 'gangs' : 'whiteboards';
+            const publicUrl = await uploadImageToStorage(file, folder);
+            if (publicUrl) {
+                const { data: { user } } = await supabase.auth.getUser();
+                const posX = Math.max(60, Math.round((400 - pan.x) / zoom));
+                const posY = Math.max(60, Math.round((300 - pan.y) / zoom));
+
+                const payload = {
+                    [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
+                    title: file.name ? file.name.slice(0, 40) : 'Imagen',
+                    category: 'image',
+                    image_url: publicUrl,
+                    color: 'dark',
+                    width: 340,
+                    content: JSON.stringify({ height: 260, isLocked: false }),
+                    pos_x: posX,
+                    pos_y: posY,
+                    created_by: user ? user.id : null
+                };
+
+                const { data: newNode, error } = await supabase
+                    .from('case_board_nodes')
+                    .insert([payload])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                if (newNode) {
+                    setNodes(prev => [...prev, newNode]);
+                    setSelectedNodeId(newNode.id);
+                }
+                setSavingStatus('saved');
+            }
+        } catch (err) {
+            console.error('Error uploading image to board:', err);
+            alert('Error subiendo imagen: ' + err.message);
+            setSavingStatus('error');
+        } finally {
+            if (imageFileInputRef.current) imageFileInputRef.current.value = '';
+        }
+    };
+
+    // Card / Element Drag Start
     const handleNodeMouseDown = (e, nodeId) => {
         if (e.button === 1) {
             e.preventDefault();
             setIsPanning(true);
-            panStartRef.current = {
-                x: e.clientX - pan.x,
-                y: e.clientY - pan.y
-            };
+            panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
             return;
         }
+
         e.stopPropagation();
+
+        if (toolMode === 'eraser') {
+            handleDeleteNode(nodeId, '', true);
+            return;
+        }
+
         if (connectingSourceId) {
-            // Uniting mode
             if (connectingSourceId !== nodeId) {
                 setPendingTargetId(nodeId);
                 setShowLinkLabelModal(true);
@@ -196,23 +428,44 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         const node = nodes.find(n => n.id === nodeId);
         if (!node) return;
 
-        setDraggingNodeId(nodeId);
-        dragOffsetRef.current = {
-            x: e.clientX / zoom - node.pos_x,
-            y: e.clientY / zoom - node.pos_y
+        setSelectedNodeId(nodeId);
+
+        const extra = parseNodeExtra(node);
+        if (!extra.isLocked) {
+            setDraggingNodeId(nodeId);
+            dragOffsetRef.current = {
+                x: e.clientX / zoom - node.pos_x,
+                y: e.clientY / zoom - node.pos_y
+            };
+        }
+    };
+
+    // Corner Resizing Start (For Images & Cards)
+    const handleResizeMouseDown = (e, nodeId) => {
+        e.stopPropagation();
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        const extra = parseNodeExtra(node);
+        const currentH = extra.height || (node.category === 'image' ? 260 : 200);
+
+        setIsResizing(true);
+        setSelectedNodeId(nodeId);
+        resizeStartRef.current = {
+            x: e.clientX,
+            y: e.clientY,
+            initW: node.width || 320,
+            initH: currentH
         };
     };
 
-    // Global Mouse Move & Mouse Up listeners for dragging and panning
+    // Global Mouse Move & Mouse Up listeners
     useEffect(() => {
         const handleMouseMove = (e) => {
             if (isPanning || (e.buttons & 4) !== 0) {
                 if ((e.buttons & 4) !== 0 && !isPanning) {
                     setIsPanning(true);
-                    panStartRef.current = {
-                        x: e.clientX - pan.x,
-                        y: e.clientY - pan.y
-                    };
+                    panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
                 }
                 if (isPanning) {
                     setPan({
@@ -223,6 +476,42 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 }
             }
 
+            // Pencil Active Stroke Dragging
+            if (isDrawing && toolMode === 'pencil') {
+                const { x, y } = getCanvasCoordinates(e);
+                if (pencilShape === 'free') {
+                    setCurrentPoints(prev => [...prev, { x, y }]);
+                } else {
+                    setCurrentPoints(prev => [prev[0] || { x, y }, { x, y }]);
+                }
+                return;
+            }
+
+            // Resizing Element (Width & Height)
+            if (isResizing && selectedNodeId) {
+                const dx = (e.clientX - resizeStartRef.current.x) / zoom;
+                const dy = (e.clientY - resizeStartRef.current.y) / zoom;
+                const newW = Math.max(120, Math.round(resizeStartRef.current.initW + dx));
+                const newH = Math.max(80, Math.round(resizeStartRef.current.initH + dy));
+
+                setNodes(prev => prev.map(n => {
+                    if (n.id === selectedNodeId) {
+                        const extra = parseNodeExtra(n);
+                        extra.height = newH;
+                        return {
+                            ...n,
+                            width: newW,
+                            content: (n.category === 'image' || n.category === 'drawing') ? JSON.stringify(extra) : n.content
+                        };
+                    }
+                    return n;
+                }));
+
+                saveNodeDimensions(selectedNodeId, newW, newH);
+                return;
+            }
+
+            // Dragging Cards / Images
             if (draggingNodeId) {
                 const newX = e.clientX / zoom - dragOffsetRef.current.x;
                 const newY = e.clientY / zoom - dragOffsetRef.current.y;
@@ -260,12 +549,19 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             }
         };
 
-        const handleMouseUp = (e) => {
-            if (e.button === 1 || (e.buttons & 4) === 0) {
-                if (isPanning) setIsPanning(false);
-            }
+        const handleMouseUp = () => {
+            if (isPanning) setIsPanning(false);
             if (draggingNodeId) setDraggingNodeId(null);
             if (draggingLinkId) setDraggingLinkId(null);
+            if (isResizing) setIsResizing(false);
+
+            if (isDrawing && toolMode === 'pencil') {
+                setIsDrawing(false);
+                if (currentPoints.length >= 2) {
+                    handleFinishDrawing(currentPoints);
+                }
+                setCurrentPoints([]);
+            }
         };
 
         window.addEventListener('mousemove', handleMouseMove);
@@ -274,29 +570,42 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [draggingNodeId, draggingLinkId, isPanning, zoom, pan, links, nodes]);
+    }, [draggingNodeId, draggingLinkId, isPanning, isResizing, isDrawing, toolMode, pencilShape, pencilColor, pencilWidth, currentPoints, selectedNodeId, zoom, pan, links, nodes, getCanvasCoordinates]);
 
-    // Handle Pan Canvas
+    // Handle Pan Canvas or Start Drawing / Erasing
     const handleBoardMouseDown = (e) => {
         if (e.button === 1) {
             e.preventDefault();
             setIsPanning(true);
-            panStartRef.current = {
-                x: e.clientX - pan.x,
-                y: e.clientY - pan.y
-            };
+            panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
             return;
         }
-        if (e.target.closest('.whiteboard-card') || e.target.closest('.whiteboard-controls')) return;
+
+        if (e.target.closest('.whiteboard-card') || e.target.closest('.whiteboard-controls') || e.target.closest('.whiteboard-hud')) {
+            return;
+        }
+
         if (connectingSourceId) {
             setConnectingSourceId(null);
             return;
         }
+
+        const { x, y } = getCanvasCoordinates(e);
+
+        if (toolMode === 'pencil') {
+            setIsDrawing(true);
+            setCurrentPoints([{ x, y }, { x, y }]);
+            return;
+        }
+
+        if (toolMode === 'eraser') {
+            setIsDrawing(true);
+            return;
+        }
+
+        setSelectedNodeId(null);
         setIsPanning(true);
-        panStartRef.current = {
-            x: e.clientX - pan.x,
-            y: e.clientY - pan.y
-        };
+        panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
     };
 
     // Handle Wheel Zoom (Native non-passive listener)
@@ -307,7 +616,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         setZoom(z => Math.min(Math.max(0.3, z * zoomFactor), 2.0));
     }, []);
 
-    // Callback ref for non-passive wheel listener
     const setBoardRef = useCallback((node) => {
         if (boardRef.current) {
             boardRef.current.removeEventListener('wheel', handleWheel);
@@ -336,12 +644,87 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         const contentW = Math.max(maxX - minX + 160, 400);
         const contentH = Math.max(maxY - minY + 160, 300);
 
-        const newZoom = Math.min(Math.max(Math.min(boardWidth / contentW, boardHeight / contentH), 0.5), 1.2);
+        const newZoom = Math.min(Math.max(Math.min(boardWidth / contentW, boardHeight / contentH), 0.45), 1.2);
         setZoom(newZoom);
         setPan({
             x: (boardWidth - (minX + maxX) * newZoom) / 2,
             y: (boardHeight - (minY + maxY) * newZoom) / 2
         });
+    };
+
+    // Toggle Lock Position for Selected Element
+    const handleToggleLockNode = async (nodeId) => {
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
+        const extra = parseNodeExtra(node);
+        const newLockState = !extra.isLocked;
+        extra.isLocked = newLockState;
+
+        const updatedContent = (node.category === 'image' || node.category === 'drawing')
+            ? JSON.stringify(extra)
+            : (node.content || '');
+
+        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, content: updatedContent } : n));
+
+        try {
+            await supabase.from('case_board_nodes').update({ content: updatedContent }).eq('id', nodeId);
+        } catch (err) {
+            console.error('Error toggling lock state:', err);
+        }
+    };
+
+    // Duplicate Selected Node
+    const handleDuplicateNode = async (nodeId) => {
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const payload = {
+                [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
+                title: `${node.title} (Copia)`,
+                content: node.content,
+                category: node.category,
+                color: node.color,
+                image_url: node.image_url,
+                width: node.width,
+                pos_x: node.pos_x + 40,
+                pos_y: node.pos_y + 40,
+                linked_update_ids: node.linked_update_ids,
+                created_by: user ? user.id : null
+            };
+
+            const { data: newNode, error } = await supabase
+                .from('case_board_nodes')
+                .insert([payload])
+                .select()
+                .single();
+
+            if (error) throw error;
+            if (newNode) {
+                setNodes(prev => [...prev, newNode]);
+                setSelectedNodeId(newNode.id);
+            }
+        } catch (err) {
+            alert('Error duplicating element: ' + err.message);
+        }
+    };
+
+    // Clear All Freehand Drawings
+    const handleClearAllDrawings = async () => {
+        const drawingNodes = nodes.filter(n => n.category === 'drawing');
+        if (drawingNodes.length === 0) return;
+        if (!window.confirm(language === 'es' ? `¿Eliminar todos los ${drawingNodes.length} trazos y dibujos de la pizarra?` : `Delete all ${drawingNodes.length} drawings from whiteboard?`)) return;
+
+        try {
+            const drawingIds = drawingNodes.map(d => d.id);
+            const { error } = await supabase.from('case_board_nodes').delete().in('id', drawingIds);
+            if (error) throw error;
+            setNodes(prev => prev.filter(n => n.category !== 'drawing'));
+            if (selectedNodeId && drawingIds.includes(selectedNodeId)) setSelectedNodeId(null);
+        } catch (err) {
+            alert('Error clearing drawings: ' + err.message);
+        }
     };
 
     // Open Modal for New or Edit Node
@@ -409,7 +792,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     .eq('id', editingNode.id);
                 if (error) throw error;
             } else {
-                // Calculate position near current view center
                 payload.pos_x = Math.max(50, (350 - pan.x) / zoom + (nodes.length % 4) * 30);
                 payload.pos_y = Math.max(50, (250 - pan.y) / zoom + (nodes.length % 4) * 30);
 
@@ -429,12 +811,13 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     };
 
     // Delete Node
-    const handleDeleteNode = async (nodeId, title) => {
-        if (!window.confirm(`Delete card "${title}"?`)) return;
+    const handleDeleteNode = async (nodeId, title = '', skipConfirm = false) => {
+        if (!skipConfirm && !window.confirm(`Delete "${title || 'item'}"?`)) return;
         try {
             const { error } = await supabase.from('case_board_nodes').delete().eq('id', nodeId);
             if (error) throw error;
-            loadBoardData();
+            setNodes(prev => prev.filter(n => n.id !== nodeId));
+            if (selectedNodeId === nodeId) setSelectedNodeId(null);
         } catch (err) {
             alert('Error deleting card: ' + err.message);
         }
@@ -555,7 +938,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             }
             setTodoCategories(data || []);
 
-            // Pre-select tasks that aren't on the board yet
             const existingTitles = new Set(nodes.map(n => n.title.toLowerCase().trim()));
             const toSelect = [];
             (data || []).forEach(cat => {
@@ -685,14 +1067,13 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             });
         }
 
-        // Sort chronologically ascending
         events.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         setTimelineEvents(events);
         setSelectedTimelineEventIds(events.map(e => e.id));
         setShowTimelineModal(true);
     };
 
-    // Add Custom Timeline Milestone to list
+    // Add Custom Timeline Milestone
     const handleAddCustomTimelineEvent = (e) => {
         e.preventDefault();
         if (!newCustomEvent.title.trim()) {
@@ -775,7 +1156,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
             const insertedNodes = [];
 
-            // 1. Insert all timeline nodes sequentially
             for (let i = 0; i < selected.length; i++) {
                 const ev = selected[i];
                 let formattedDate = `${ev.date} ${ev.time}`;
@@ -806,7 +1186,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 if (newNode) insertedNodes.push(newNode);
             }
 
-            // 2. Connect consecutive nodes with red / pink string links
             const linksToInsert = [];
             for (let i = 0; i < insertedNodes.length - 1; i++) {
                 linksToInsert.push({
@@ -839,7 +1218,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const handleImportCaseEvidence = async () => {
         if (!caseData) return alert("Data not available.");
 
-        // Fetch fresh existing nodes directly from database to avoid stale React state
         let existingNodes = [...nodes];
         try {
             const column = isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id';
@@ -856,11 +1234,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
         let posX = 100;
         let posY = 100;
-
         const clean = (str) => (str ? String(str).toLowerCase().trim() : '');
 
         if (isGang) {
-            // 1. Members
             if (caseData.members && caseData.members.length > 0) {
                 caseData.members.forEach(m => {
                     const mNameClean = clean(m.name);
@@ -898,7 +1274,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 2. Vehicles
             if (caseData.vehicles && caseData.vehicles.length > 0) {
                 caseData.vehicles.forEach(v => {
                     const plateClean = clean(v.plate);
@@ -914,7 +1289,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         if (plateClean && plateClean !== 'sin placa' && (nTitle.includes(plateClean) || nContent.includes(plateClean))) return true;
                         if (modelClean && ownerClean && nTitle.includes(modelClean) && nContent.includes(ownerClean)) return true;
                         if (img && n.image_url === img) return true;
-                        if (v.images && v.images.length > 0 && v.images.includes(n.image_url)) return true;
                         return false;
                     });
 
@@ -936,7 +1310,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 3. Homes / Properties
             if (caseData.homes && caseData.homes.length > 0) {
                 caseData.homes.forEach(h => {
                     const ownerClean = clean(h.owner);
@@ -951,7 +1324,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         if (ownerClean && ownerClean !== 'ubicación banda' && (nTitle.includes(ownerClean) || nContent.includes(ownerClean))) return true;
                         if (notesClean && notesClean.length > 5 && nContent.includes(notesClean.slice(0, 30))) return true;
                         if (img && n.image_url === img) return true;
-                        if (h.images && h.images.length > 0 && h.images.includes(n.image_url)) return true;
                         return false;
                     });
 
@@ -973,7 +1345,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 4. Intelligence
             if (caseData.info && caseData.info.length > 0) {
                 caseData.info.forEach((i) => {
                     const contentClean = clean(i.content);
@@ -986,7 +1357,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         if (nTitle.includes('inteligencia') && contentClean && nContent.includes(contentClean.slice(0, 30))) return true;
                         if (contentClean && contentClean.length > 5 && nContent === contentClean) return true;
                         if (img && n.image_url === img) return true;
-                        if (i.images && i.images.length > 0 && i.images.includes(n.image_url)) return true;
                         return false;
                     });
 
@@ -1008,7 +1378,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 5. Graffiti
             if (caseData.graffiti && caseData.graffiti.length > 0) {
                 caseData.graffiti.forEach((g) => {
                     const notesClean = clean(g.notes);
@@ -1046,7 +1415,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 return alert(language === 'es' ? "No hay nuevos elementos de la banda para importar." : "No new gang items to import.");
             }
         } else {
-            // Import Regular Case Data
             if (caseData.info?.initial_image_url) {
                 const initialImg = caseData.info.initial_image_url;
                 const alreadyExists = existingNodes.some(n => {
@@ -1169,7 +1537,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         }
     }, [loading, nodes.length === 0]);
 
-    // Handle Image File Upload in Node Form
+    // Handle Image File Upload in Node Form Modal
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -1186,61 +1554,132 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         }
     };
 
+    const selectedElement = nodes.find(n => n.id === selectedNodeId);
+
     if (loading) {
         return <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--accent-gold)' }}>🕵️ Cargando Pizarra de Investigación...</div>;
     }
 
     return (
-        <div className="case-whiteboard-wrapper" style={{ position: 'relative', width: '100%', height: '100%', minHeight: '450px', background: '#0f172a', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden', userSelect: 'none' }}>
+        <div className="case-whiteboard-wrapper" style={{ position: 'relative', width: '100%', height: '100%', minHeight: '500px', background: '#090d16', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden', userSelect: 'none' }}>
+
+            {/* Hidden Input for Direct Image Upload */}
+            <input
+                type="file"
+                ref={imageFileInputRef}
+                accept="image/*"
+                onChange={handleDirectImageUpload}
+                style={{ display: 'none' }}
+            />
 
             {/* Top Bar Controls */}
             <div className="whiteboard-controls" style={{
                 position: 'absolute', top: 16, left: 16, right: 16, zIndex: 20,
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                background: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(12px)',
-                padding: '0.75rem 1.25rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)'
+                background: 'rgba(15, 23, 42, 0.92)', backdropFilter: 'blur(16px)',
+                padding: '0.65rem 1.2rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.14)',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.6)'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--accent-gold)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         📌 {isGang ? `Pizarra: ${caseData?.name || 'Gang Unit'}` : t('whiteboardTab')}
                     </h3>
-                    <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)' }}>
+                    <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)' }}>
                         {savingStatus === 'saving' ? `⏳ ${t('savingBoardStatus')}` : savingStatus === 'saved' ? `✓ ${t('savedBoardStatus')}` : '⚠️ Error'}
                     </span>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {/* Primary Tool Mode Switcher & Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                    {/* Tool Modes: Move / Pencil / Eraser */}
+                    <div style={{ display: 'flex', background: 'rgba(0,0,0,0.4)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', marginRight: '6px' }}>
+                        <button
+                            onClick={() => { setToolMode('move'); setSelectedNodeId(null); }}
+                            style={{
+                                background: toolMode === 'move' ? 'rgba(234, 179, 8, 0.3)' : 'transparent',
+                                border: `1px solid ${toolMode === 'move' ? '#eab308' : 'transparent'}`,
+                                color: toolMode === 'move' ? '#fef08a' : '#cbd5e1',
+                                padding: '0.35rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px'
+                            }}
+                            title="Modo Mover y Seleccionar Tarjetas"
+                        >
+                            <span>🖱️</span>
+                            <span>{t('moveModeBtn') || 'Mover'}</span>
+                        </button>
+                        <button
+                            onClick={() => { setToolMode('pencil'); setSelectedNodeId(null); }}
+                            style={{
+                                background: toolMode === 'pencil' ? 'rgba(239, 68, 68, 0.3)' : 'transparent',
+                                border: `1px solid ${toolMode === 'pencil' ? '#ef4444' : 'transparent'}`,
+                                color: toolMode === 'pencil' ? '#fca5a5' : '#cbd5e1',
+                                padding: '0.35rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px'
+                            }}
+                            title="Herramienta de Lápiz y Formas Tácticas"
+                        >
+                            <span>✏️</span>
+                            <span>{t('pencilToolBtn') || 'Lápiz'}</span>
+                        </button>
+                        <button
+                            onClick={() => { setToolMode('eraser'); setSelectedNodeId(null); }}
+                            style={{
+                                background: toolMode === 'eraser' ? 'rgba(236, 72, 153, 0.3)' : 'transparent',
+                                border: `1px solid ${toolMode === 'eraser' ? '#ec4899' : 'transparent'}`,
+                                color: toolMode === 'eraser' ? '#fbcfe8' : '#cbd5e1',
+                                padding: '0.35rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px'
+                            }}
+                            title="Goma de Borrar: Haz clic en trazos o elementos para eliminarlos"
+                        >
+                            <span>🧹</span>
+                            <span>{t('eraserToolBtn') || 'Borrar'}</span>
+                        </button>
+                    </div>
+
+                    {/* Direct Image Upload Button */}
+                    <button
+                        onClick={() => imageFileInputRef.current?.click()}
+                        className="login-button btn-secondary"
+                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', borderColor: '#3b82f6', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        title="Subir imagen directamente al tablero (o presiona Ctrl+V para pegar captura)"
+                    >
+                        <span>🖼️</span>
+                        <span>{t('addImageBtn') || 'Añadir Imagen'}</span>
+                    </button>
+
+                    {/* New Card Modal Button */}
                     <button
                         onClick={() => openNodeModal(null)}
                         className="login-button"
-                        style={{ width: 'auto', padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}
+                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
                     >
                         {t('newCardBtn')}
                     </button>
 
+                    {/* To-Do Import Button */}
                     <button
                         onClick={openImportTodoModal}
                         className="login-button btn-secondary"
-                        style={{ width: 'auto', padding: '0.4rem 0.9rem', fontSize: '0.85rem', borderColor: '#3b82f6', color: '#93c5fd' }}
-                        title={language === 'es' ? 'Importar tareas To-Do a la pizarra' : 'Import To-Do tasks to board'}
+                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', borderColor: '#3b82f6', color: '#93c5fd' }}
+                        title="Importar tareas del To-Do del caso"
                     >
                         {t('importTodoBtn') || '📋 Importar To-Do'}
                     </button>
 
+                    {/* Timeline Tool Button */}
                     <button
                         onClick={openTimelineModal}
                         className="login-button btn-secondary"
-                        style={{ width: 'auto', padding: '0.4rem 0.9rem', fontSize: '0.85rem', borderColor: '#ec4899', color: '#fbcfe8' }}
-                        title={language === 'es' ? 'Herramienta de Línea de Tiempo cronológica' : 'Chronological Timeline Tool'}
+                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', borderColor: '#ec4899', color: '#fbcfe8' }}
+                        title="Herramienta de Línea de Tiempo cronológica"
                     >
                         {t('timelineToolBtn') || '⏱️ Línea de Tiempo'}
                     </button>
 
+                    {/* Import Case Evidence Button */}
                     <button
                         onClick={handleImportCaseEvidence}
                         className="login-button btn-secondary"
-                        style={{ width: 'auto', padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}
-                        title="Importar evidencias y fotos registradas"
+                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
+                        title="Importar novedades y fotos registradas"
                     >
                         {t('importEvidenceBtn')}
                     </button>
@@ -1248,38 +1687,257 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     {connectingSourceId ? (
                         <button
                             onClick={() => setConnectingSourceId(null)}
-                            style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                            style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.35rem 0.75rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 'bold' }}
                         >
-                            ✕ {language === 'es' ? 'Cancelar Unión' : 'Cancel Link'}
+                            ✕ Cancelar Unión
                         </button>
                     ) : (
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '8px' }}>
-                            {language === 'es' ? '💡 Usa ' : '💡 Use '} <strong>🔗</strong> {language === 'es' ? 'en una tarjeta para unirla con otra' : 'on a card to connect it'}
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>
+                            💡 <strong>🔗</strong> en tarjetas para unir
                         </span>
                     )}
 
                     {/* Zoom & Fit controls */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '12px', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <button onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', width: '24px' }}>-</button>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', minWidth: '40px', textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-                        <button onClick={() => setZoom(z => Math.min(1.8, z + 0.1))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', width: '24px' }}>+</button>
-                        <button onClick={handleFitAll} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.75rem', marginLeft: '4px', fontWeight: 'bold' }}>
-                            🎯 {language === 'es' ? 'Centrar' : 'Fit'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginLeft: '6px', background: 'rgba(0,0,0,0.3)', padding: '2px 5px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <button onClick={() => setZoom(z => Math.max(0.3, +(z - 0.1).toFixed(2)))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', width: '20px' }}>-</button>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', minWidth: '36px', textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+                        <button onClick={() => setZoom(z => Math.min(1.8, +(z + 0.1).toFixed(2)))} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontWeight: 'bold', width: '20px' }}>+</button>
+                        <button onClick={handleFitAll} style={{ background: 'none', border: 'none', color: 'var(--accent-gold)', cursor: 'pointer', fontSize: '0.72rem', marginLeft: '3px', fontWeight: 'bold' }}>
+                            🎯 Centrar
                         </button>
-                        <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', marginLeft: '2px' }}>Reset</button>
+                        <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.72rem', marginLeft: '2px' }}>Reset</button>
                     </div>
                 </div>
             </div>
 
+            {/* Pencil Sub-Toolbar (Active when toolMode === 'pencil') */}
+            {toolMode === 'pencil' && (
+                <div style={{
+                    position: 'absolute', top: 76, left: 16, right: 16, zIndex: 20,
+                    background: 'rgba(15, 23, 42, 0.92)', border: '1px solid #ef4444',
+                    borderRadius: '10px', padding: '0.45rem 1rem', display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.8rem',
+                    backdropFilter: 'blur(16px)', boxShadow: '0 6px 20px rgba(0,0,0,0.5)'
+                }}>
+                    {/* Shapes Selector */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.78rem', color: '#fca5a5', fontWeight: 700, marginRight: '0.2rem' }}>Forma:</span>
+                        {[
+                            { id: 'free', label: 'Libre', icon: '〰️', title: 'Mano Alzada' },
+                            { id: 'line', label: 'Línea', icon: '📏', title: 'Línea Recta' },
+                            { id: 'arrow', label: 'Flecha', icon: '➡️', title: 'Flecha Táctica' },
+                            { id: 'rectangle', label: 'Rectángulo', icon: '⬛', title: 'Rectángulo / Caja' },
+                            { id: 'circle', label: 'Círculo', icon: '⭕', title: 'Círculo / Óvalo' }
+                        ].map(s => (
+                            <button
+                                key={s.id}
+                                onClick={() => setPencilShape(s.id)}
+                                title={s.title}
+                                style={{
+                                    background: pencilShape === s.id ? 'rgba(239, 68, 68, 0.35)' : 'rgba(255, 255, 255, 0.08)',
+                                    border: `1px solid ${pencilShape === s.id ? '#ef4444' : 'rgba(255,255,255,0.15)'}`,
+                                    color: pencilShape === s.id ? '#ffffff' : '#cbd5e1',
+                                    padding: '0.25rem 0.55rem', borderRadius: '5px', fontSize: '0.75rem', fontWeight: 600,
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem'
+                                }}
+                            >
+                                <span>{s.icon}</span>
+                                <span>{s.label}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Color Dots & Width & Clear */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span style={{ fontSize: '0.78rem', color: '#cbd5e1' }}>Color:</span>
+                            {['#ef4444', '#eab308', '#3b82f6', '#22c55e', '#a855f7', '#ffffff'].map(c => (
+                                <button
+                                    key={c}
+                                    onClick={() => setPencilColor(c)}
+                                    style={{
+                                        width: '20px', height: '20px', borderRadius: '50%', backgroundColor: c,
+                                        border: pencilColor === c ? '2px solid #ffffff' : '1px solid rgba(0,0,0,0.3)',
+                                        transform: pencilColor === c ? 'scale(1.2)' : 'scale(1)',
+                                        cursor: 'pointer', boxShadow: pencilColor === c ? `0 0 8px ${c}` : 'none'
+                                    }}
+                                />
+                            ))}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#cbd5e1', fontSize: '0.78rem' }}>
+                            <span>Grosor:</span>
+                            {[
+                                { label: 'Fino', val: 2 },
+                                { label: 'Medio', val: 4 },
+                                { label: 'Grueso', val: 8 }
+                            ].map(w => (
+                                <button
+                                    key={w.val}
+                                    onClick={() => setPencilWidth(w.val)}
+                                    style={{
+                                        background: pencilWidth === w.val ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.08)',
+                                        border: `1px solid ${pencilWidth === w.val ? '#ef4444' : 'rgba(255,255,255,0.15)'}`,
+                                        color: pencilWidth === w.val ? '#ffffff' : '#cbd5e1',
+                                        padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer'
+                                    }}
+                                >
+                                    {w.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {nodes.some(n => n.category === 'drawing') && (
+                            <button
+                                onClick={handleClearAllDrawings}
+                                style={{
+                                    background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444',
+                                    color: '#fca5a5', padding: '0.25rem 0.65rem', borderRadius: '5px',
+                                    fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer'
+                                }}
+                            >
+                                🧹 Borrar Trazos ({nodes.filter(n => n.category === 'drawing').length})
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Eraser Tool Active Notice */}
+            {toolMode === 'eraser' && (
+                <div style={{
+                    position: 'absolute', top: 76, left: '50%', transform: 'translateX(-50%)', zIndex: 20,
+                    background: 'rgba(236, 72, 153, 0.95)', color: 'white', padding: '0.35rem 1.2rem',
+                    borderRadius: '20px', fontSize: '0.82rem', fontWeight: 'bold', boxShadow: '0 4px 14px rgba(236, 72, 153, 0.5)'
+                }}>
+                    🧹 Modo Goma de Borrar: Haz clic o arrastra sobre cualquier trazo, imagen o tarjeta para eliminarla
+                </div>
+            )}
+
             {/* Connecting Active Banner */}
             {connectingSourceId && (
                 <div style={{
-                    position: 'absolute', top: 75, left: '50%', transform: 'translateX(-50%)', zIndex: 25,
-                    background: 'rgba(239, 68, 68, 0.95)', color: 'white', padding: '0.4rem 1.2rem',
-                    borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
-                    display: 'flex', alignItems: 'center', gap: '8px'
+                    position: 'absolute', top: 76, left: '50%', transform: 'translateX(-50%)', zIndex: 25,
+                    background: 'rgba(239, 68, 68, 0.95)', color: 'white', padding: '0.35rem 1.2rem',
+                    borderRadius: '20px', fontSize: '0.82rem', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
                 }}>
                     <span>🧵 {t('connectingModeActive')}</span>
+                </div>
+            )}
+
+            {/* Floating Selected Element Controls Bar (HUD) */}
+            {selectedElement && toolMode === 'move' && (
+                <div
+                    className="whiteboard-hud"
+                    onClick={e => e.stopPropagation()}
+                    onMouseDown={e => e.stopPropagation()}
+                    style={{
+                        position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 30,
+                        background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(234, 179, 8, 0.5)',
+                        borderRadius: '12px', padding: '0.5rem 1.25rem', display: 'flex', alignItems: 'center',
+                        gap: '1.2rem', flexWrap: 'wrap', backdropFilter: 'blur(20px)',
+                        boxShadow: '0 12px 36px rgba(0,0,0,0.8), 0 0 16px rgba(234, 179, 8, 0.2)'
+                    }}
+                >
+                    <div style={{ color: '#fef08a', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>📌 {selectedElement.title || selectedElement.category}</span>
+                    </div>
+
+                    {/* Width & Height Resizers */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '0.78rem', color: '#cbd5e1' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <span>Ancho:</span>
+                            <input
+                                type="range"
+                                min="120"
+                                max="800"
+                                value={selectedElement.width || 320}
+                                onChange={e => {
+                                    const newW = parseInt(e.target.value);
+                                    setNodes(prev => prev.map(n => n.id === selectedElement.id ? { ...n, width: newW } : n));
+                                    saveNodeDimensions(selectedElement.id, newW, parseNodeExtra(selectedElement).height || 240);
+                                }}
+                                style={{ accentColor: '#eab308', cursor: 'pointer', width: '80px' }}
+                            />
+                            <span>{selectedElement.width || 320}px</span>
+                        </div>
+
+                        {selectedElement.category === 'image' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <span>Alto:</span>
+                                <input
+                                    type="range"
+                                    min="80"
+                                    max="600"
+                                    value={parseNodeExtra(selectedElement).height || 260}
+                                    onChange={e => {
+                                        const newH = parseInt(e.target.value);
+                                        const extra = parseNodeExtra(selectedElement);
+                                        extra.height = newH;
+                                        setNodes(prev => prev.map(n => n.id === selectedElement.id ? { ...n, content: JSON.stringify(extra) } : n));
+                                        saveNodeDimensions(selectedElement.id, selectedElement.width || 320, newH);
+                                    }}
+                                    style={{ accentColor: '#eab308', cursor: 'pointer', width: '80px' }}
+                                />
+                                <span>{parseNodeExtra(selectedElement).height || 260}px</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Quick Action Buttons */}
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        <button
+                            onClick={() => handleToggleLockNode(selectedElement.id)}
+                            style={{
+                                background: parseNodeExtra(selectedElement).isLocked ? 'rgba(234, 179, 8, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                                border: `1px solid ${parseNodeExtra(selectedElement).isLocked ? '#eab308' : 'rgba(255, 255, 255, 0.2)'}`,
+                                color: parseNodeExtra(selectedElement).isLocked ? '#fef08a' : '#ffffff',
+                                padding: '0.3rem 0.65rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer'
+                            }}
+                        >
+                            {parseNodeExtra(selectedElement).isLocked ? '🔒 Fijado' : '🔓 Fijar'}
+                        </button>
+
+                        <button
+                            onClick={() => handleDuplicateNode(selectedElement.id)}
+                            style={{
+                                background: 'rgba(59, 130, 246, 0.2)', border: '1px solid #3b82f6',
+                                color: '#93c5fd', padding: '0.3rem 0.65rem', borderRadius: '6px',
+                                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer'
+                            }}
+                        >
+                            📋 Duplicar
+                        </button>
+
+                        <button
+                            onClick={() => setConnectingSourceId(selectedElement.id)}
+                            style={{
+                                background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444',
+                                color: '#fca5a5', padding: '0.3rem 0.65rem', borderRadius: '6px',
+                                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer'
+                            }}
+                        >
+                            🔗 Conectar Hilo
+                        </button>
+
+                        <button
+                            onClick={() => handleDeleteNode(selectedElement.id, selectedElement.title)}
+                            style={{
+                                background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444',
+                                color: '#fca5a5', padding: '0.3rem 0.65rem', borderRadius: '6px',
+                                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer'
+                            }}
+                        >
+                            🗑️ Eliminar
+                        </button>
+
+                        <button
+                            onClick={() => setSelectedNodeId(null)}
+                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem', marginLeft: '4px' }}
+                        >
+                            ✕
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -1288,7 +1946,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 ref={setBoardRef}
                 onMouseDown={handleBoardMouseDown}
                 style={{
-                    width: '100%', height: '100%', minHeight: '750px', cursor: isPanning ? 'grabbing' : 'grab', position: 'relative',
+                    width: '100%', height: '100%', minHeight: '750px',
+                    cursor: toolMode === 'pencil' ? 'crosshair' : toolMode === 'eraser' ? 'cell' : isPanning ? 'grabbing' : 'grab',
+                    position: 'relative',
                     backgroundImage: `
                         radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
                         linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
@@ -1303,7 +1963,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     transformOrigin: '0 0', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0
                 }}>
 
-                    {/* SVG Connector Strings Layer */}
+                    {/* SVG Connector Strings & Drawings Layer */}
                     <svg
                         style={{
                             position: 'absolute',
@@ -1326,6 +1986,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             </filter>
                         </defs>
 
+                        {/* Render Saved Links / Threads */}
                         {links.map((link) => {
                             const source = nodes.find(n => n.id === link.source_id);
                             const target = nodes.find(n => n.id === link.target_id);
@@ -1348,17 +2009,13 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             const midY = (y1 + y2) / 2 + sag;
 
                             const isHovered = hoveredLinkId === link.id;
-
-                            // Calculate position along curve (t in [0.1, 0.9])
                             const tPos = link.label_pos ?? 0.5;
                             const posX = (1 - tPos) * (1 - tPos) * x1 + 2 * (1 - tPos) * tPos * midX + tPos * tPos * x2;
                             const posY = (1 - tPos) * (1 - tPos) * y1 + 2 * (1 - tPos) * tPos * midY + tPos * tPos * y2;
-
                             const hasLabelText = link.label && link.label.trim().length > 0;
 
                             return (
                                 <g key={link.id}>
-                                    {/* Visible Red String Line */}
                                     <path
                                         d={`M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`}
                                         stroke={isHovered ? '#f59e0b' : (link.color || '#ef4444')}
@@ -1368,7 +2025,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         filter={isHovered ? "url(#string-hover-glow)" : "url(#string-glow)"}
                                     />
 
-                                    {/* Invisible Wide Interactive Stroke for Hover & Click */}
                                     <path
                                         d={`M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`}
                                         stroke="transparent"
@@ -1377,16 +2033,21 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
                                         onMouseEnter={() => setHoveredLinkId(link.id)}
                                         onMouseLeave={() => setHoveredLinkId(null)}
-                                        onClick={(e) => { e.stopPropagation(); setEditingLink(link); setEditLinkLabel(link.label || ''); }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (toolMode === 'eraser') {
+                                                handleDeleteLink(link.id);
+                                            } else {
+                                                setEditingLink(link);
+                                                setEditLinkLabel(link.label || '');
+                                            }
+                                        }}
                                     />
 
-                                    {/* Pin Dots */}
                                     <circle cx={x1} cy={y1} r="4" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
                                     <circle cx={x2} cy={y2} r="4" fill="#ef4444" stroke="#ffffff" strokeWidth="1.5" />
 
-                                    {/* Label Badge / Control Item */}
                                     {hasLabelText ? (
-                                        /* Draggable Label Badge */
                                         <foreignObject x={posX - 75} y={posY - 14} width="150" height="32" style={{ pointerEvents: 'auto' }}>
                                             <div
                                                 onMouseEnter={() => setHoveredLinkId(link.id)}
@@ -1412,7 +2073,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setEditingLink(link); setEditLinkLabel(link.label || ''); }}
                                                     style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.7rem', opacity: 0.8, padding: 0 }}
-                                                    title="Editar texto de relación"
+                                                    title="Editar texto"
                                                 >
                                                     ✏️
                                                 </button>
@@ -1426,7 +2087,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                             </div>
                                         </foreignObject>
                                     ) : (
-                                        /* Clean Thread: Floating quick actions on hover */
                                         isHovered && (
                                             <foreignObject x={posX - 55} y={posY - 14} width="110" height="28" style={{ pointerEvents: 'auto' }}>
                                                 <div
@@ -1437,10 +2097,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                                         boxShadow: '0 4px 10px rgba(0,0,0,0.6)', cursor: 'pointer'
                                                     }}
                                                 >
-                                                    <span onClick={(e) => { e.stopPropagation(); setEditingLink(link); setEditLinkLabel(''); }} title="Añadir texto a la relación">
+                                                    <span onClick={(e) => { e.stopPropagation(); setEditingLink(link); setEditLinkLabel(''); }}>
                                                         ✏️ Texto
                                                     </span>
-                                                    <span onClick={(e) => { e.stopPropagation(); handleDeleteLink(link.id); }} style={{ color: '#ef4444' }} title="Eliminar hilo rojo">
+                                                    <span onClick={(e) => { e.stopPropagation(); handleDeleteLink(link.id); }} style={{ color: '#ef4444' }}>
                                                         🗑️
                                                     </span>
                                                 </div>
@@ -1450,6 +2110,177 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 </g>
                             );
                         })}
+
+                        {/* Render Saved Drawings & Shapes */}
+                        {nodes.filter(n => n.category === 'drawing').map(drawNode => {
+                            const extra = parseNodeExtra(drawNode);
+                            const shape = extra.shape || 'free';
+                            const pts = extra.points || [];
+                            const color = drawNode.color || '#ef4444';
+                            const strokeW = extra.strokeWidth || 3;
+                            const isSelected = selectedNodeId === drawNode.id;
+
+                            if (!pts || pts.length === 0) return null;
+
+                            let shapeSvg = null;
+                            if (shape === 'line' && pts.length >= 2) {
+                                shapeSvg = (
+                                    <line
+                                        x1={pts[0].x} y1={pts[0].y}
+                                        x2={pts[pts.length - 1].x} y2={pts[pts.length - 1].y}
+                                        stroke={isSelected ? '#eab308' : color}
+                                        strokeWidth={strokeW + (isSelected ? 2 : 0)}
+                                        strokeLinecap="round"
+                                    />
+                                );
+                            } else if (shape === 'arrow' && pts.length >= 2) {
+                                const x1 = pts[0].x;
+                                const y1 = pts[0].y;
+                                const x2 = pts[pts.length - 1].x;
+                                const y2 = pts[pts.length - 1].y;
+                                const angle = Math.atan2(y2 - y1, x2 - x1);
+                                const headLen = Math.max(14, strokeW * 3.5);
+                                const ax1 = x2 - headLen * Math.cos(angle - Math.PI / 6);
+                                const ay1 = y2 - headLen * Math.sin(angle - Math.PI / 6);
+                                const ax2 = x2 - headLen * Math.cos(angle + Math.PI / 6);
+                                const ay2 = y2 - headLen * Math.sin(angle + Math.PI / 6);
+
+                                shapeSvg = (
+                                    <g>
+                                        <line
+                                            x1={x1} y1={y1} x2={x2} y2={y2}
+                                            stroke={isSelected ? '#eab308' : color}
+                                            strokeWidth={strokeW + (isSelected ? 2 : 0)}
+                                            strokeLinecap="round"
+                                        />
+                                        <polygon
+                                            points={`${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`}
+                                            fill={isSelected ? '#eab308' : color}
+                                            stroke={isSelected ? '#eab308' : color}
+                                            strokeWidth="1"
+                                            strokeLinejoin="round"
+                                        />
+                                    </g>
+                                );
+                            } else if (shape === 'rectangle' && pts.length >= 2) {
+                                const minX = Math.min(pts[0].x, pts[pts.length - 1].x);
+                                const minY = Math.min(pts[0].y, pts[pts.length - 1].y);
+                                const w = Math.abs(pts[pts.length - 1].x - pts[0].x);
+                                const h = Math.abs(pts[pts.length - 1].y - pts[0].y);
+                                shapeSvg = (
+                                    <rect
+                                        x={minX} y={minY} width={w} height={h}
+                                        stroke={isSelected ? '#eab308' : color}
+                                        strokeWidth={strokeW + (isSelected ? 2 : 0)}
+                                        fill="none"
+                                        rx="4"
+                                    />
+                                );
+                            } else if (shape === 'circle' && pts.length >= 2) {
+                                const cx = (pts[0].x + pts[pts.length - 1].x) / 2;
+                                const cy = (pts[0].y + pts[pts.length - 1].y) / 2;
+                                const rx = Math.abs(pts[pts.length - 1].x - pts[0].x) / 2;
+                                const ry = Math.abs(pts[pts.length - 1].y - pts[0].y) / 2;
+                                shapeSvg = (
+                                    <ellipse
+                                        cx={cx} cy={cy} rx={rx} ry={ry}
+                                        stroke={isSelected ? '#eab308' : color}
+                                        strokeWidth={strokeW + (isSelected ? 2 : 0)}
+                                        fill="none"
+                                    />
+                                );
+                            } else {
+                                shapeSvg = (
+                                    <path
+                                        d={pointsToSvgPath(pts)}
+                                        stroke={isSelected ? '#eab308' : color}
+                                        strokeWidth={strokeW + (isSelected ? 2 : 0)}
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    />
+                                );
+                            }
+
+                            return (
+                                <g
+                                    key={drawNode.id}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (toolMode === 'eraser') {
+                                            handleDeleteNode(drawNode.id, drawNode.title, true);
+                                        } else if (toolMode === 'move') {
+                                            setSelectedNodeId(drawNode.id);
+                                        }
+                                    }}
+                                    onMouseEnter={() => {
+                                        if (toolMode === 'eraser' && isDrawing) {
+                                            handleDeleteNode(drawNode.id, drawNode.title, true);
+                                        }
+                                    }}
+                                    style={{
+                                        pointerEvents: 'auto',
+                                        cursor: toolMode === 'eraser' ? 'cell' : toolMode === 'pencil' ? 'crosshair' : 'pointer',
+                                        filter: isSelected ? 'drop-shadow(0 0 6px #eab308)' : 'none'
+                                    }}
+                                >
+                                    {shapeSvg}
+                                </g>
+                            );
+                        })}
+
+                        {/* Live Active Drawing / Shape being drawn */}
+                        {isDrawing && toolMode === 'pencil' && currentPoints.length >= 2 && (
+                            <>
+                                {pencilShape === 'line' ? (
+                                    <line
+                                        x1={currentPoints[0].x} y1={currentPoints[0].y}
+                                        x2={currentPoints[currentPoints.length - 1].x} y2={currentPoints[currentPoints.length - 1].y}
+                                        stroke={pencilColor} strokeWidth={pencilWidth} strokeLinecap="round"
+                                    />
+                                ) : pencilShape === 'arrow' ? (
+                                    (() => {
+                                        const x1 = currentPoints[0].x;
+                                        const y1 = currentPoints[0].y;
+                                        const x2 = currentPoints[currentPoints.length - 1].x;
+                                        const y2 = currentPoints[currentPoints.length - 1].y;
+                                        const angle = Math.atan2(y2 - y1, x2 - x1);
+                                        const headLen = Math.max(14, pencilWidth * 3.5);
+                                        const ax1 = x2 - headLen * Math.cos(angle - Math.PI / 6);
+                                        const ay1 = y2 - headLen * Math.sin(angle - Math.PI / 6);
+                                        const ax2 = x2 - headLen * Math.cos(angle + Math.PI / 6);
+                                        const ay2 = y2 - headLen * Math.sin(angle + Math.PI / 6);
+                                        return (
+                                            <g>
+                                                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={pencilColor} strokeWidth={pencilWidth} strokeLinecap="round" />
+                                                <polygon points={`${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`} fill={pencilColor} stroke={pencilColor} strokeWidth="1" strokeLinejoin="round" />
+                                            </g>
+                                        );
+                                    })()
+                                ) : pencilShape === 'rectangle' ? (
+                                    <rect
+                                        x={Math.min(currentPoints[0].x, currentPoints[currentPoints.length - 1].x)}
+                                        y={Math.min(currentPoints[0].y, currentPoints[currentPoints.length - 1].y)}
+                                        width={Math.abs(currentPoints[currentPoints.length - 1].x - currentPoints[0].x)}
+                                        height={Math.abs(currentPoints[currentPoints.length - 1].y - currentPoints[0].y)}
+                                        stroke={pencilColor} strokeWidth={pencilWidth} fill="none" rx="4"
+                                    />
+                                ) : pencilShape === 'circle' ? (
+                                    <ellipse
+                                        cx={(currentPoints[0].x + currentPoints[currentPoints.length - 1].x) / 2}
+                                        cy={(currentPoints[0].y + currentPoints[currentPoints.length - 1].y) / 2}
+                                        rx={Math.abs(currentPoints[currentPoints.length - 1].x - currentPoints[0].x) / 2}
+                                        ry={Math.abs(currentPoints[currentPoints.length - 1].y - currentPoints[0].y) / 2}
+                                        stroke={pencilColor} strokeWidth={pencilWidth} fill="none"
+                                    />
+                                ) : (
+                                    <path
+                                        d={pointsToSvgPath(currentPoints)}
+                                        stroke={pencilColor} strokeWidth={pencilWidth} fill="none" strokeLinecap="round" strokeLinejoin="round"
+                                    />
+                                )}
+                            </>
+                        )}
                     </svg>
 
                     {/* Empty State Banner */}
@@ -1472,13 +2303,101 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         </div>
                     )}
 
-                    {/* Nodes / Cards */}
-                    {nodes.map((node) => {
+                    {/* Nodes / Cards / Images Render */}
+                    {nodes.filter(n => n.category !== 'drawing').map((node) => {
                         const scheme = COLOR_SCHEMES[node.color] || COLOR_SCHEMES.red;
                         const catConfig = CATEGORY_CONFIG[node.category] || CATEGORY_CONFIG.note;
                         const isSource = connectingSourceId === node.id;
-                        const cardWidth = node.width || 240;
+                        const isSelected = selectedNodeId === node.id;
+                        const cardWidth = node.width || 260;
+                        const extra = parseNodeExtra(node);
+                        const isLocked = !!extra.isLocked;
 
+                        // Standalone Image Element Rendering
+                        if (node.category === 'image') {
+                            const imgHeight = extra.height || 260;
+
+                            return (
+                                <div
+                                    key={node.id}
+                                    className="whiteboard-card"
+                                    onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${node.pos_x}px`,
+                                        top: `${node.pos_y}px`,
+                                        width: `${cardWidth}px`,
+                                        height: `${imgHeight}px`,
+                                        borderRadius: '8px',
+                                        background: '#020617',
+                                        border: `2px solid ${isSource ? '#ef4444' : isSelected ? '#eab308' : 'rgba(255,255,255,0.2)'}`,
+                                        boxShadow: isSelected ? '0 0 20px rgba(234, 179, 8, 0.6)' : isSource ? '0 0 16px rgba(239, 68, 68, 0.8)' : '0 8px 24px rgba(0,0,0,0.7)',
+                                        zIndex: isSource ? 15 : isSelected ? 12 : draggingNodeId === node.id ? 10 : 2,
+                                        cursor: isLocked ? 'default' : connectingSourceId ? 'pointer' : toolMode === 'eraser' ? 'cell' : 'move',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    {/* Standalone Image Body */}
+                                    <img
+                                        src={node.image_url}
+                                        alt={node.title}
+                                        style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', pointerEvents: 'none' }}
+                                    />
+
+                                    {/* Top Control Bar on Hover / Selection */}
+                                    <div style={{
+                                        position: 'absolute', top: 0, left: 0, right: 0,
+                                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%)',
+                                        padding: '6px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                    }}>
+                                        <span style={{ fontSize: '0.72rem', color: '#ffffff', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
+                                            {isLocked && '🔒 '}{node.title}
+                                        </span>
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setExpandedImage(node.image_url); }}
+                                                style={{ background: 'rgba(0,0,0,0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                title="Ver imagen completa"
+                                            >
+                                                🔍
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setConnectingSourceId(isSource ? null : node.id); }}
+                                                style={{ background: isSource ? '#ef4444' : 'rgba(0,0,0,0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                title="Conectar hilo"
+                                            >
+                                                🔗
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id, node.title); }}
+                                                style={{ background: 'rgba(239, 68, 68, 0.6)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                title="Eliminar imagen"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Bottom-Right Interactive Corner Resize Handle */}
+                                    {!isLocked && (
+                                        <div
+                                            onMouseDown={(e) => handleResizeMouseDown(e, node.id)}
+                                            style={{
+                                                position: 'absolute', bottom: 0, right: 0, width: '18px', height: '18px',
+                                                cursor: 'nwse-resize', background: 'rgba(234, 179, 8, 0.8)',
+                                                borderTopLeftRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                zIndex: 5
+                                            }}
+                                            title="Arrastra para redimensionar"
+                                        >
+                                            <span style={{ fontSize: '0.65rem', color: '#000', fontWeight: 'bold' }}>⤡</span>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
+
+                        // Standard Investigation Cards & To-Do / Timeline Cards
                         return (
                             <div
                                 key={node.id}
@@ -1490,48 +2409,31 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     top: `${node.pos_y}px`,
                                     width: `${cardWidth}px`,
                                     background: scheme.bg,
-                                    border: `2px solid ${isSource ? '#ef4444' : node.is_inactive ? '#991b1b' : scheme.border}`,
+                                    border: `2px solid ${isSource ? '#ef4444' : isSelected ? '#eab308' : node.is_inactive ? '#991b1b' : scheme.border}`,
                                     borderRadius: '8px',
-                                    boxShadow: isSource ? '0 0 16px rgba(239, 68, 68, 0.8)' : '0 8px 24px rgba(0, 0, 0, 0.6)',
-                                    zIndex: isSource ? 15 : draggingNodeId === node.id ? 10 : 2,
+                                    boxShadow: isSelected ? '0 0 20px rgba(234, 179, 8, 0.6)' : isSource ? '0 0 16px rgba(239, 68, 68, 0.8)' : '0 8px 24px rgba(0, 0, 0, 0.6)',
+                                    zIndex: isSource ? 15 : isSelected ? 12 : draggingNodeId === node.id ? 10 : 2,
                                     transition: draggingNodeId === node.id ? 'none' : 'box-shadow 0.2s',
-                                    cursor: connectingSourceId ? 'pointer' : 'move',
+                                    cursor: isLocked ? 'default' : connectingSourceId ? 'pointer' : toolMode === 'eraser' ? 'cell' : 'move',
                                     opacity: node.is_inactive ? 0.88 : 1,
                                     filter: node.is_inactive ? 'grayscale(25%)' : 'none'
                                 }}
                             >
-                                {/* Inactive Visual Overlay with Big Red Cross */}
+                                {/* Inactive Visual Overlay */}
                                 {node.is_inactive && (
                                     <div style={{
-                                        position: 'absolute',
-                                        top: 0, left: 0, right: 0, bottom: 0,
-                                        pointerEvents: 'none',
-                                        zIndex: 10,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        borderRadius: '8px',
-                                        overflow: 'hidden'
+                                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                        pointerEvents: 'none', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        borderRadius: '8px', overflow: 'hidden'
                                     }}>
-                                        {/* Red Diagonal SVG Cross Lines */}
                                         <svg style={{ position: 'absolute', width: '100%', height: '100%' }} viewBox="0 0 100 100" preserveAspectRatio="none">
                                             <line x1="0" y1="0" x2="100" y2="100" stroke="#ef4444" strokeWidth="8" strokeLinecap="round" opacity="0.9" />
                                             <line x1="100" y1="0" x2="0" y2="100" stroke="#ef4444" strokeWidth="8" strokeLinecap="round" opacity="0.9" />
                                         </svg>
-                                        {/* Inactive Stamp / Badge */}
                                         <div style={{
-                                            background: 'rgba(185, 28, 28, 0.95)',
-                                            color: 'white',
-                                            fontWeight: '900',
-                                            fontSize: '0.8rem',
-                                            letterSpacing: '1.5px',
-                                            padding: '4px 14px',
-                                            borderRadius: '4px',
-                                            border: '2px solid #ffffff',
-                                            boxShadow: '0 4px 14px rgba(0,0,0,0.85)',
-                                            transform: 'rotate(-12deg)',
-                                            textTransform: 'uppercase',
-                                            zIndex: 11
+                                            background: 'rgba(185, 28, 28, 0.95)', color: 'white', fontWeight: '900', fontSize: '0.8rem',
+                                            letterSpacing: '1.5px', padding: '4px 14px', borderRadius: '4px', border: '2px solid #ffffff',
+                                            boxShadow: '0 4px 14px rgba(0,0,0,0.85)', transform: 'rotate(-12deg)', textTransform: 'uppercase', zIndex: 11
                                         }}>
                                             ❌ {t('inactiveBadge') || 'INACTIVO'}
                                         </div>
@@ -1553,6 +2455,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'white', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         <span>{catConfig.icon}</span>
                                         <span>{t(catConfig.label) || node.category}</span>
+                                        {isLocked && <span style={{ fontSize: '0.7rem' }}>🔒</span>}
                                         {node.is_inactive && (
                                             <span style={{ fontSize: '0.65rem', background: '#ef4444', color: 'white', padding: '1px 5px', borderRadius: '3px', marginLeft: '4px' }}>
                                                 ❌ INACTIVO
@@ -1562,10 +2465,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                                     <div style={{ display: 'flex', gap: '4px' }}>
                                         <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setConnectingSourceId(isSource ? null : node.id);
-                                            }}
+                                            onClick={(e) => { e.stopPropagation(); setConnectingSourceId(isSource ? null : node.id); }}
                                             style={{
                                                 background: isSource ? '#ef4444' : 'rgba(255,255,255,0.15)',
                                                 border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer',
@@ -1721,7 +2621,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         value={nodeCategory}
                                         onChange={e => setNodeCategory(e.target.value)}
                                     >
-                                        {Object.keys(CATEGORY_CONFIG).map(catKey => (
+                                        {Object.keys(CATEGORY_CONFIG).filter(k => k !== 'drawing').map(catKey => (
                                             <option key={catKey} value={catKey}>
                                                 {CATEGORY_CONFIG[catKey].icon} {t(CATEGORY_CONFIG[catKey].label)}
                                             </option>
@@ -1741,7 +2641,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         <option value="red">🔴 Rojo Sospechoso</option>
                                         <option value="yellow">🟡 Amarillo Nota</option>
                                         <option value="blue">🔵 Azul Policial / Tarea</option>
-                                        <option value="green">🟢 Verde Testigo / Completado</option>
+                                        <option value="green">🟢 Verde Testigo / Hecho</option>
                                         <option value="purple">🟣 Púrpura Vehículo</option>
                                         <option value="pink">🌸 Rosa / Cronología</option>
                                         <option value="dark">⚫ Oscuro / Slate</option>
@@ -1749,7 +2649,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 </div>
                             </div>
 
-                            {/* Option: Mark as Inactive */}
                             <div style={{
                                 marginBottom: '1rem',
                                 display: 'flex',
@@ -1769,7 +2668,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ef4444' }}
                                 />
                                 <label htmlFor="nodeIsInactive" style={{ cursor: 'pointer', fontSize: '0.85rem', color: nodeIsInactive ? '#fca5a5' : 'var(--text-primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', margin: 0, userSelect: 'none' }}>
-                                    ❌ {t('inactiveCardLabel') || 'Marcar como Inactivo / No activo (Mostrar cruz roja)'}
+                                    ❌ {t('inactiveCardLabel') || 'Marcar como Inactivo (Mostrar cruz roja)'}
                                 </label>
                             </div>
 
@@ -1786,7 +2685,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 />
                             </div>
 
-                            {/* Section: Link Case Entries / Updates */}
                             {!isGang && (
                                 <div style={{ marginBottom: '1.2rem' }}>
                                     <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--accent-gold)', fontWeight: 'bold', marginBottom: '0.4rem' }}>
@@ -1823,7 +2721,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 </div>
                             )}
 
-                            {/* Image upload / Base64 */}
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>
                                     {t('cardImageLabel')}
@@ -1954,78 +2851,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal: Linked Entry Preview */}
-            {!isGang && selectedPreviewUpdate && (
-                <div
-                    onClick={() => setSelectedPreviewUpdate(null)}
-                    style={{
-                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(5px)', zIndex: 10000,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
-                    }}
-                >
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                            background: '#1e293b', border: '1px solid var(--accent-gold)', borderRadius: '12px',
-                            width: '100%', maxWidth: '560px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.9)'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                            <h3 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1.1rem' }}>
-                                📝 {t('linkedEntryPreview')}
-                            </h3>
-                            <button onClick={() => setSelectedPreviewUpdate(null)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>&times;</button>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
-                            <img src={selectedPreviewUpdate.author_avatar || '/logowebp/anon.webp'} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid var(--accent-gold)' }} />
-                            <div>
-                                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{selectedPreviewUpdate.author_rank} {selectedPreviewUpdate.author_name}</div>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(selectedPreviewUpdate.created_at).toLocaleString()}</div>
-                            </div>
-                        </div>
-
-                        <div
-                            className="quill-content"
-                            style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', color: 'var(--text-primary)', maxHeight: '300px', overflowY: 'auto' }}
-                            dangerouslySetInnerHTML={{ __html: selectedPreviewUpdate.content }}
-                        />
-
-                        {(selectedPreviewUpdate.images && selectedPreviewUpdate.images.length > 0) ? (
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                                {selectedPreviewUpdate.images.map((img, i) => (
-                                    <img key={i} src={img} alt="Evidence" style={{ height: '90px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer' }} onClick={() => setExpandedImage(img)} />
-                                ))}
-                            </div>
-                        ) : selectedPreviewUpdate.image ? (
-                            <div style={{ marginBottom: '1rem' }}>
-                                <img src={selectedPreviewUpdate.image} alt="Evidence" style={{ maxHeight: '120px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer' }} onClick={() => setExpandedImage(selectedPreviewUpdate.image)} />
-                            </div>
-                        ) : null}
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
-                            <button className="login-button btn-secondary" onClick={() => setSelectedPreviewUpdate(null)} style={{ width: 'auto' }}>
-                                {t('closeBtnText')}
-                            </button>
-                            {onGoToUpdate && (
-                                <button
-                                    className="login-button"
-                                    onClick={() => {
-                                        const upId = selectedPreviewUpdate.id;
-                                        setSelectedPreviewUpdate(null);
-                                        onGoToUpdate(upId);
-                                    }}
-                                    style={{ width: 'auto' }}
-                                >
-                                    {t('viewInLogBtn')}
-                                </button>
-                            )}
-                        </div>
                     </div>
                 </div>
             )}
@@ -2303,6 +3128,78 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             >
                                 {t('generateTimelineOnBoard') || '✨ Generar Línea de Tiempo en Pizarra'} ({selectedTimelineEventIds.length})
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Linked Entry Preview */}
+            {!isGang && selectedPreviewUpdate && (
+                <div
+                    onClick={() => setSelectedPreviewUpdate(null)}
+                    style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(5px)', zIndex: 10000,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            background: '#1e293b', border: '1px solid var(--accent-gold)', borderRadius: '12px',
+                            width: '100%', maxWidth: '560px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.9)'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
+                            <h3 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1.1rem' }}>
+                                📝 {t('linkedEntryPreview')}
+                            </h3>
+                            <button onClick={() => setSelectedPreviewUpdate(null)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>&times;</button>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+                            <img src={selectedPreviewUpdate.author_avatar || '/logowebp/anon.webp'} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid var(--accent-gold)' }} />
+                            <div>
+                                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{selectedPreviewUpdate.author_rank} {selectedPreviewUpdate.author_name}</div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{new Date(selectedPreviewUpdate.created_at).toLocaleString()}</div>
+                            </div>
+                        </div>
+
+                        <div
+                            className="quill-content"
+                            style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', color: 'var(--text-primary)', maxHeight: '300px', overflowY: 'auto' }}
+                            dangerouslySetInnerHTML={{ __html: selectedPreviewUpdate.content }}
+                        />
+
+                        {(selectedPreviewUpdate.images && selectedPreviewUpdate.images.length > 0) ? (
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                {selectedPreviewUpdate.images.map((img, i) => (
+                                    <img key={i} src={img} alt="Evidence" style={{ height: '90px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer' }} onClick={() => setExpandedImage(img)} />
+                                ))}
+                            </div>
+                        ) : selectedPreviewUpdate.image ? (
+                            <div style={{ marginBottom: '1rem' }}>
+                                <img src={selectedPreviewUpdate.image} alt="Evidence" style={{ maxHeight: '120px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer' }} onClick={() => setExpandedImage(selectedPreviewUpdate.image)} />
+                            </div>
+                        ) : null}
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+                            <button className="login-button btn-secondary" onClick={() => setSelectedPreviewUpdate(null)} style={{ width: 'auto' }}>
+                                {t('closeBtnText')}
+                            </button>
+                            {onGoToUpdate && (
+                                <button
+                                    className="login-button"
+                                    onClick={() => {
+                                        const upId = selectedPreviewUpdate.id;
+                                        setSelectedPreviewUpdate(null);
+                                        onGoToUpdate(upId);
+                                    }}
+                                    style={{ width: 'auto' }}
+                                >
+                                    {t('viewInLogBtn')}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
