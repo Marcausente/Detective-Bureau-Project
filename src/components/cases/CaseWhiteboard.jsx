@@ -11,7 +11,7 @@ const CATEGORY_CONFIG = {
     witness: { label: 'categoryWitness', icon: '👁️', bg: 'rgba(16, 185, 129, 0.15)', border: '#10b981', text: '#a7f3d0' },
     victim: { label: 'categoryVictim', icon: '🎯', bg: 'rgba(244, 63, 94, 0.15)', border: '#f43f5e', text: '#fecdd3' },
     note: { label: 'categoryNote', icon: '📝', bg: 'rgba(234, 179, 8, 0.15)', border: '#eab308', text: '#fef08a' },
-    todo: { label: 'categoryTodo', icon: '📋', bg: 'rgba(59, 130, 246, 0.15)', border: '#3b82f6', text: '#93c5fd' },
+    todo: { label: 'categoryTodo', icon: '📋', bg: 'rgba(15, 23, 42, 0.95)', border: 'rgba(56, 189, 248, 0.4)', text: '#38bdf8' },
     timeline: { label: 'categoryTimeline', icon: '⏱️', bg: 'rgba(236, 72, 153, 0.15)', border: '#ec4899', text: '#fbcfe8' },
     image: { label: 'addImageBtn', icon: '🖼️', bg: 'rgba(15, 23, 42, 0.85)', border: '#3b82f6', text: '#93c5fd' },
     drawing: { label: 'pencilToolBtn', icon: '✏️', bg: 'transparent', border: '#ef4444', text: '#ffffff' }
@@ -89,6 +89,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const [showImportTodoModal, setShowImportTodoModal] = useState(false);
     const [todoCategories, setTodoCategories] = useState([]);
     const [loadingTodos, setLoadingTodos] = useState(false);
+    const [selectedTodoCategoryIds, setSelectedTodoCategoryIds] = useState([]);
     const [selectedTodoTaskIds, setSelectedTodoTaskIds] = useState([]);
 
     // Timeline Modal State
@@ -142,7 +143,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         };
     }, [pan, zoom]);
 
-    // Load Board Data
+    // Load Board Data (and sync live To-Do status)
     const loadBoardData = useCallback(async () => {
         try {
             setLoading(true);
@@ -154,21 +155,72 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
             if (error) throw error;
 
+            let loadedNodes = [];
+            let loadedLinks = [];
+
             if (data) {
-                setNodes(data.nodes || []);
-                setLinks(data.links || []);
-            }
-        } catch (err) {
-            console.error('Error loading whiteboard data:', err);
-            try {
+                loadedNodes = data.nodes || [];
+                loadedLinks = data.links || [];
+            } else {
                 const column = isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id';
                 const { data: nData } = await supabase.from('case_board_nodes').select('*').eq(column, targetId);
                 const { data: lData } = await supabase.from('case_board_links').select('*').eq(column, targetId);
-                setNodes(nData || []);
-                setLinks(lData || []);
-            } catch (fallbackErr) {
-                console.error('Fallback query error:', fallbackErr);
+                loadedNodes = nData || [];
+                loadedLinks = lData || [];
             }
+
+            // Sync live status of To-Do items from the database
+            try {
+                let liveTodos = [];
+                if (isGang) {
+                    const { data: gData } = await supabase.rpc('get_gang_todos');
+                    if (gData) liveTodos = gData;
+                } else if (isIA) {
+                    const { data: iaData } = await supabase.rpc('get_ia_case_todos', { p_case_id: caseId });
+                    if (iaData) liveTodos = iaData;
+                } else if (caseId) {
+                    const { data: cData } = await supabase.rpc('get_case_todos', { p_case_id: caseId });
+                    if (cData) liveTodos = cData;
+                }
+
+                if (liveTodos.length > 0) {
+                    const taskMap = new Map();
+                    liveTodos.forEach(cat => {
+                        (cat.tasks || []).forEach(t => {
+                            taskMap.set(t.id, t);
+                        });
+                    });
+
+                    loadedNodes = loadedNodes.map(node => {
+                        if (node.category === 'todo') {
+                            const extra = parseNodeExtra(node);
+                            if (Array.isArray(extra.tasks) && extra.tasks.length > 0) {
+                                let changed = false;
+                                const updatedTasks = extra.tasks.map(t => {
+                                    const live = taskMap.get(t.id);
+                                    if (live && live.is_completed !== t.is_completed) {
+                                        changed = true;
+                                        return { ...t, is_completed: live.is_completed, content: live.content || t.content };
+                                    }
+                                    return t;
+                                });
+                                if (changed) {
+                                    extra.tasks = updatedTasks;
+                                    return { ...node, content: JSON.stringify(extra) };
+                                }
+                            }
+                        }
+                        return node;
+                    });
+                }
+            } catch (syncErr) {
+                console.warn('Could not sync live todos with board:', syncErr);
+            }
+
+            setNodes(loadedNodes);
+            setLinks(loadedLinks);
+        } catch (err) {
+            console.error('Error loading whiteboard data:', err);
         } finally {
             setLoading(false);
         }
@@ -216,7 +268,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 extra.height = Math.round(height);
 
                 const updatePayload = { width: Math.round(width) };
-                if (targetNode?.category === 'image' || targetNode?.category === 'drawing') {
+                if (targetNode?.category === 'image' || targetNode?.category === 'drawing' || targetNode?.category === 'todo') {
                     updatePayload.content = JSON.stringify(extra);
                 }
 
@@ -501,7 +553,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         return {
                             ...n,
                             width: newW,
-                            content: (n.category === 'image' || n.category === 'drawing') ? JSON.stringify(extra) : n.content
+                            content: (n.category === 'image' || n.category === 'drawing' || n.category === 'todo') ? JSON.stringify(extra) : n.content
                         };
                     }
                     return n;
@@ -660,7 +712,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         const newLockState = !extra.isLocked;
         extra.isLocked = newLockState;
 
-        const updatedContent = (node.category === 'image' || node.category === 'drawing')
+        const updatedContent = (node.category === 'image' || node.category === 'drawing' || node.category === 'todo')
             ? JSON.stringify(extra)
             : (node.content || '');
 
@@ -891,8 +943,63 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         }
     };
 
-    // Toggle To-Do Task Node directly on Whiteboard
-    const handleToggleTodoNode = async (e, node) => {
+    // Interactive Two-Way To-Do Task Toggle (Synchronizes with DB case_todos/ia_case_todos/gang_todos)
+    const handleToggleBoardTodoTask = async (nodeId, taskId, currentStatus) => {
+        const newStatus = !currentStatus;
+
+        // 1. Optimistically update local nodes state
+        setNodes(prev => prev.map(n => {
+            if (n.id === nodeId) {
+                const extra = parseNodeExtra(n);
+                if (Array.isArray(extra.tasks)) {
+                    extra.tasks = extra.tasks.map(t => t.id === taskId ? { ...t, is_completed: newStatus } : t);
+                    return {
+                        ...n,
+                        content: JSON.stringify(extra)
+                    };
+                }
+            }
+            return n;
+        }));
+
+        // 2. Call Supabase RPC / table update to sync the main To-Do tab
+        if (taskId) {
+            try {
+                if (isIA) {
+                    await supabase.rpc('toggle_ia_todo_task', { p_task_id: taskId, p_status: newStatus });
+                } else if (isGang) {
+                    await supabase.rpc('toggle_gang_todo_task', { p_task_id: taskId, p_status: newStatus });
+                } else {
+                    await supabase.rpc('toggle_todo_task', { p_task_id: taskId, p_status: newStatus });
+                }
+            } catch (rpcErr) {
+                console.warn('RPC toggle failed, fallback to table update:', rpcErr);
+                try {
+                    const tbl = isIA ? 'ia_case_todos' : isGang ? 'gang_todos' : 'case_todos';
+                    await supabase.from(tbl).update({ is_completed: newStatus }).eq('id', taskId);
+                } catch (tblErr) {
+                    console.error('Direct table update failed:', tblErr);
+                }
+            }
+        }
+
+        // 3. Persist updated node content in case_board_nodes
+        try {
+            const targetNode = nodes.find(n => n.id === nodeId);
+            if (targetNode) {
+                const extra = parseNodeExtra(targetNode);
+                if (Array.isArray(extra.tasks)) {
+                    extra.tasks = extra.tasks.map(t => t.id === taskId ? { ...t, is_completed: newStatus } : t);
+                    await supabase.from('case_board_nodes').update({ content: JSON.stringify(extra) }).eq('id', nodeId);
+                }
+            }
+        } catch (err) {
+            console.error('Error saving updated todo node content:', err);
+        }
+    };
+
+    // Legacy / Single Item Toggle
+    const handleToggleLegacyTodoNode = async (e, node) => {
         e.stopPropagation();
         const isDone = node.content?.includes('[✓]') || node.color === 'green';
         const newDone = !isDone;
@@ -916,7 +1023,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 .update({ color: newColor, content: newContent })
                 .eq('id', node.id);
         } catch (err) {
-            console.error('Error toggling todo card on board:', err);
+            console.error('Error toggling legacy todo card on board:', err);
         }
     };
 
@@ -938,17 +1045,14 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             }
             setTodoCategories(data || []);
 
-            const existingTitles = new Set(nodes.map(n => n.title.toLowerCase().trim()));
-            const toSelect = [];
+            // Preselect all categories and tasks by default
+            const catIds = (data || []).map(c => c.id);
+            const taskIds = [];
             (data || []).forEach(cat => {
-                (cat.tasks || []).forEach(task => {
-                    const tTitle = `📋 ${task.content}`.toLowerCase().trim();
-                    if (!existingTitles.has(tTitle) && !existingTitles.has(task.content.toLowerCase().trim())) {
-                        toSelect.push(task.id);
-                    }
-                });
+                (cat.tasks || []).forEach(t => taskIds.push(t.id));
             });
-            setSelectedTodoTaskIds(toSelect);
+            setSelectedTodoCategoryIds(catIds);
+            setSelectedTodoTaskIds(taskIds);
         } catch (err) {
             console.error('Error fetching todos for import:', err);
         } finally {
@@ -968,26 +1072,31 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         let curX = Math.max(80, (300 - pan.x) / zoom);
         let curY = Math.max(80, (200 - pan.y) / zoom);
 
+        // Group by categories to create cohesive To-Do cards
         todoCategories.forEach(cat => {
-            (cat.tasks || []).forEach(task => {
-                if (selectedTodoTaskIds.includes(task.id)) {
-                    itemsToInsert.push({
-                        [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
-                        title: `📋 ${task.content}`,
-                        content: `Categoría: ${cat.name}\nEstado: ${task.is_completed ? '[✓] Completada' : '[ ] Pendiente'}`,
-                        category: 'todo',
-                        color: task.is_completed ? 'green' : 'blue',
-                        pos_x: curX,
-                        pos_y: curY,
-                        created_by: user ? user.id : null
-                    });
-                    curX += 270;
-                    if (curX > 1000) {
-                        curX = 80;
-                        curY += 220;
-                    }
+            const catSelectedTasks = (cat.tasks || []).filter(task => selectedTodoTaskIds.includes(task.id));
+            if (catSelectedTasks.length > 0) {
+                itemsToInsert.push({
+                    [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
+                    title: cat.name,
+                    content: JSON.stringify({
+                        todo_category_id: cat.id,
+                        category_name: cat.name,
+                        tasks: catSelectedTasks.map(t => ({ id: t.id, content: t.content, is_completed: t.is_completed }))
+                    }),
+                    category: 'todo',
+                    color: 'blue',
+                    width: 320,
+                    pos_x: curX,
+                    pos_y: curY,
+                    created_by: user ? user.id : null
+                });
+                curX += 340;
+                if (curX > 1000) {
+                    curX = 80;
+                    curY += 260;
                 }
-            });
+            }
         });
 
         try {
@@ -1658,7 +1767,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     <button
                         onClick={openImportTodoModal}
                         className="login-button btn-secondary"
-                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', borderColor: '#3b82f6', color: '#93c5fd' }}
+                        style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.82rem', borderColor: '#38bdf8', color: '#38bdf8' }}
                         title="Importar tareas del To-Do del caso"
                     >
                         {t('importTodoBtn') || '📋 Importar To-Do'}
@@ -2303,17 +2412,17 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         </div>
                     )}
 
-                    {/* Nodes / Cards / Images Render */}
+                    {/* Nodes / Cards / Images / Checklists Render */}
                     {nodes.filter(n => n.category !== 'drawing').map((node) => {
                         const scheme = COLOR_SCHEMES[node.color] || COLOR_SCHEMES.red;
                         const catConfig = CATEGORY_CONFIG[node.category] || CATEGORY_CONFIG.note;
                         const isSource = connectingSourceId === node.id;
                         const isSelected = selectedNodeId === node.id;
-                        const cardWidth = node.width || 260;
+                        const cardWidth = node.width || (node.category === 'todo' ? 320 : 260);
                         const extra = parseNodeExtra(node);
                         const isLocked = !!extra.isLocked;
 
-                        // Standalone Image Element Rendering
+                        // 1. Standalone Image Element Rendering
                         if (node.category === 'image') {
                             const imgHeight = extra.height || 260;
 
@@ -2337,14 +2446,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         overflow: 'hidden'
                                     }}
                                 >
-                                    {/* Standalone Image Body */}
                                     <img
                                         src={node.image_url}
                                         alt={node.title}
                                         style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', pointerEvents: 'none' }}
                                     />
 
-                                    {/* Top Control Bar on Hover / Selection */}
                                     <div style={{
                                         position: 'absolute', top: 0, left: 0, right: 0,
                                         background: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%)',
@@ -2378,7 +2485,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         </div>
                                     </div>
 
-                                    {/* Bottom-Right Interactive Corner Resize Handle */}
                                     {!isLocked && (
                                         <div
                                             onMouseDown={(e) => handleResizeMouseDown(e, node.id)}
@@ -2397,7 +2503,159 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             );
                         }
 
-                        // Standard Investigation Cards & To-Do / Timeline Cards
+                        // 2. Interactive To-Do Checklist Card (Matching sleek UI from reference image)
+                        if (node.category === 'todo') {
+                            const taskList = Array.isArray(extra.tasks) ? extra.tasks : [];
+
+                            return (
+                                <div
+                                    key={node.id}
+                                    className="whiteboard-card"
+                                    onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${node.pos_x}px`,
+                                        top: `${node.pos_y}px`,
+                                        width: `${cardWidth}px`,
+                                        background: '#090d16',
+                                        border: `1.5px solid ${isSource ? '#ef4444' : isSelected ? '#eab308' : 'rgba(56, 189, 248, 0.4)'}`,
+                                        borderRadius: '10px',
+                                        boxShadow: isSelected ? '0 0 24px rgba(234, 179, 8, 0.6)' : isSource ? '0 0 16px rgba(239, 68, 68, 0.8)' : '0 10px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(56, 189, 248, 0.12)',
+                                        zIndex: isSource ? 15 : isSelected ? 12 : draggingNodeId === node.id ? 10 : 2,
+                                        cursor: isLocked ? 'default' : connectingSourceId ? 'pointer' : toolMode === 'eraser' ? 'cell' : 'move',
+                                        padding: '1.1rem 1.25rem',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    {/* Checklist Header */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                                        <span style={{
+                                            color: '#38bdf8',
+                                            fontSize: '0.82rem',
+                                            fontWeight: 900,
+                                            letterSpacing: '1.2px',
+                                            textTransform: 'uppercase',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px'
+                                        }}>
+                                            {isLocked && <span>🔒</span>}
+                                            {node.title || extra.category_name || 'PRÓXIMOS PASOS'}
+                                        </span>
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setConnectingSourceId(isSource ? null : node.id); }}
+                                                style={{ background: isSource ? '#ef4444' : 'rgba(255,255,255,0.08)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                title="Conectar hilo"
+                                            >
+                                                🔗
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id, node.title); }}
+                                                style={{ background: 'rgba(239, 68, 68, 0.3)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                title="Eliminar lista To-Do"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Tasks List */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                                        {taskList.length > 0 ? (
+                                            taskList.map((task) => {
+                                                const isDone = !!task.is_completed;
+                                                return (
+                                                    <div
+                                                        key={task.id || task.content}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleToggleBoardTodoTask(node.id, task.id, isDone);
+                                                        }}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'flex-start',
+                                                            gap: '10px',
+                                                            cursor: 'pointer',
+                                                            padding: '2px 0',
+                                                            userSelect: 'none'
+                                                        }}
+                                                    >
+                                                        {/* Styled Square Checkbox */}
+                                                        <div style={{
+                                                            width: '18px',
+                                                            height: '18px',
+                                                            minWidth: '18px',
+                                                            borderRadius: '4px',
+                                                            marginTop: '2px',
+                                                            background: isDone ? '#0284c7' : 'rgba(0, 0, 0, 0.5)',
+                                                            border: `1.5px solid ${isDone ? '#38bdf8' : 'rgba(255, 255, 255, 0.25)'}`,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            color: '#ffffff',
+                                                            fontSize: '0.72rem',
+                                                            fontWeight: 900,
+                                                            boxShadow: isDone ? '0 0 8px rgba(56, 189, 248, 0.4)' : 'none',
+                                                            transition: 'all 0.15s ease'
+                                                        }}>
+                                                            {isDone && '✓'}
+                                                        </div>
+
+                                                        {/* Task Text Content */}
+                                                        <span style={{
+                                                            fontSize: '0.85rem',
+                                                            lineHeight: '1.35',
+                                                            color: isDone ? '#94a3b8' : '#f1f5f9',
+                                                            textDecoration: isDone ? 'line-through' : 'none',
+                                                            wordBreak: 'break-word',
+                                                            transition: 'all 0.15s ease'
+                                                        }}>
+                                                            {task.content}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })
+                                        ) : (
+                                            <div
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleToggleLegacyTodoNode(e, node);
+                                                }}
+                                                style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}
+                                            >
+                                                <div style={{
+                                                    width: '18px',
+                                                    height: '18px',
+                                                    minWidth: '18px',
+                                                    borderRadius: '4px',
+                                                    marginTop: '2px',
+                                                    background: (node.content?.includes('[✓]') || node.color === 'green') ? '#0284c7' : 'rgba(0, 0, 0, 0.5)',
+                                                    border: `1.5px solid ${(node.content?.includes('[✓]') || node.color === 'green') ? '#38bdf8' : 'rgba(255, 255, 255, 0.25)'}`,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    color: '#ffffff',
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 900
+                                                }}>
+                                                    {(node.content?.includes('[✓]') || node.color === 'green') && '✓'}
+                                                </div>
+                                                <span style={{
+                                                    fontSize: '0.85rem',
+                                                    color: (node.content?.includes('[✓]') || node.color === 'green') ? '#94a3b8' : '#f1f5f9',
+                                                    textDecoration: (node.content?.includes('[✓]') || node.color === 'green') ? 'line-through' : 'none'
+                                                }}>
+                                                    {node.title}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        // 3. Standard Investigation Cards & Timeline Milestones
                         return (
                             <div
                                 key={node.id}
@@ -2494,33 +2752,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                                 {/* Card Body */}
                                 <div style={{ padding: '0.75rem' }}>
-                                    {node.category === 'todo' ? (
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '0.4rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={node.content?.includes('[✓]') || node.color === 'green'}
-                                                onChange={(e) => handleToggleTodoNode(e, node)}
-                                                onClick={(e) => e.stopPropagation()}
-                                                style={{ marginTop: '3px', cursor: 'pointer', accentColor: '#22c55e', width: '16px', height: '16px' }}
-                                                title="Marcar completada / pendiente"
-                                            />
-                                            <h4 style={{
-                                                margin: 0,
-                                                color: (node.content?.includes('[✓]') || node.color === 'green') ? '#a7f3d0' : scheme.text,
-                                                fontSize: '0.95rem',
-                                                fontWeight: 'bold',
-                                                wordBreak: 'break-word',
-                                                textDecoration: (node.content?.includes('[✓]') || node.color === 'green') ? 'line-through' : 'none',
-                                                opacity: (node.content?.includes('[✓]') || node.color === 'green') ? 0.75 : 1
-                                            }}>
-                                                {node.title}
-                                            </h4>
-                                        </div>
-                                    ) : (
-                                        <h4 style={{ margin: '0 0 0.4rem 0', color: scheme.text, fontSize: '0.95rem', fontWeight: 'bold', wordBreak: 'break-word' }}>
-                                            {node.title}
-                                        </h4>
-                                    )}
+                                    <h4 style={{ margin: '0 0 0.4rem 0', color: scheme.text, fontSize: '0.95rem', fontWeight: 'bold', wordBreak: 'break-word' }}>
+                                        {node.title}
+                                    </h4>
 
                                     {/* Pinned Photo / Polaroid */}
                                     {node.image_url && (
@@ -2855,82 +3089,93 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 </div>
             )}
 
-            {/* Modal: Import To-Do Tasks */}
+            {/* Modal: Import To-Do Checklists */}
             {showImportTodoModal && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', zIndex: 10000,
+                    background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 10000,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
                 }}>
                     <div style={{
-                        background: '#1e293b', border: '1px solid #3b82f6', borderRadius: '12px',
-                        width: '100%', maxWidth: '580px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.9)',
+                        background: '#0f172a', border: '1.5px solid #38bdf8', borderRadius: '12px',
+                        width: '100%', maxWidth: '600px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.9), 0 0 20px rgba(56,189,248,0.2)',
                         maxHeight: '85vh', display: 'flex', flexDirection: 'column'
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                            <h3 style={{ margin: 0, color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                📋 {t('importTodoModalTitle') || 'Importar Tareas To-Do a la Pizarra'}
-                            </h3>
+                            <div>
+                                <h3 style={{ margin: 0, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.5px' }}>
+                                    📋 {t('importTodoModalTitle') || 'Importar Listas To-Do a la Pizarra'}
+                                </h3>
+                                <p style={{ margin: '3px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    {language === 'es' ? 'Se importarán como tarjetas To-Do interactivas sincronizadas en tiempo real.' : 'Will be imported as interactive To-Do checklist cards synchronized in real-time.'}
+                                </p>
+                            </div>
                             <button onClick={() => setShowImportTodoModal(false)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>&times;</button>
                         </div>
 
                         {loadingTodos ? (
-                            <div style={{ padding: '2rem', textAlign: 'center', color: '#93c5fd' }}>Cargando tareas To-Do...</div>
+                            <div style={{ padding: '2rem', textAlign: 'center', color: '#38bdf8' }}>Cargando listas To-Do...</div>
                         ) : todoCategories.length === 0 ? (
                             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                                 {t('noTasksFound') || 'No se encontraron listas ni tareas en el To-Do de este caso.'}
                             </div>
                         ) : (
                             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '4px', marginBottom: '1rem' }}>
-                                {todoCategories.map(cat => (
-                                    <div key={cat.id} style={{ background: 'rgba(0,0,0,0.3)', padding: '0.85rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                            <span style={{ fontWeight: 'bold', color: 'var(--accent-gold)', fontSize: '0.85rem', textTransform: 'uppercase' }}>{cat.name}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const catTaskIds = (cat.tasks || []).map(t => t.id);
-                                                    const allSelected = catTaskIds.every(id => selectedTodoTaskIds.includes(id));
-                                                    if (allSelected) {
-                                                        setSelectedTodoTaskIds(prev => prev.filter(id => !catTaskIds.includes(id)));
-                                                    } else {
-                                                        setSelectedTodoTaskIds(prev => Array.from(new Set([...prev, ...catTaskIds])));
-                                                    }
-                                                }}
-                                                style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
-                                            >
-                                                {(cat.tasks || []).every(t => selectedTodoTaskIds.includes(t.id)) ? 'Deseleccionar todas' : 'Seleccionar todas'}
-                                            </button>
+                                {todoCategories.map(cat => {
+                                    const catTaskIds = (cat.tasks || []).map(t => t.id);
+                                    const allSelected = catTaskIds.length > 0 && catTaskIds.every(id => selectedTodoTaskIds.includes(id));
+
+                                    return (
+                                        <div key={cat.id} style={{ background: 'rgba(0,0,0,0.4)', padding: '0.9rem', borderRadius: '8px', border: '1px solid rgba(56,189,248,0.2)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                                                <span style={{ fontWeight: '900', color: '#38bdf8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                                    {cat.name} ({cat.tasks?.length || 0})
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (allSelected) {
+                                                            setSelectedTodoTaskIds(prev => prev.filter(id => !catTaskIds.includes(id)));
+                                                        } else {
+                                                            setSelectedTodoTaskIds(prev => Array.from(new Set([...prev, ...catTaskIds])));
+                                                        }
+                                                    }}
+                                                    style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
+                                                >
+                                                    {allSelected ? 'Deseleccionar lista' : 'Seleccionar lista'}
+                                                </button>
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                {(cat.tasks || []).map(task => {
+                                                    const isChecked = selectedTodoTaskIds.includes(task.id);
+                                                    return (
+                                                        <label key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-primary)', padding: '3px 0' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) {
+                                                                        setSelectedTodoTaskIds(prev => [...prev, task.id]);
+                                                                    } else {
+                                                                        setSelectedTodoTaskIds(prev => prev.filter(id => id !== task.id));
+                                                                    }
+                                                                }}
+                                                                style={{ accentColor: '#0284c7', width: '16px', height: '16px' }}
+                                                            />
+                                                            <span style={{ flex: 1, textDecoration: task.is_completed ? 'line-through' : 'none', opacity: task.is_completed ? 0.65 : 1 }}>
+                                                                {task.content}
+                                                            </span>
+                                                            <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '3px', background: task.is_completed ? 'rgba(34,197,94,0.2)' : 'rgba(56,189,248,0.2)', color: task.is_completed ? '#4ade80' : '#38bdf8' }}>
+                                                                {task.is_completed ? '✓ Hecho' : 'Pendiente'}
+                                                            </span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            {(cat.tasks || []).map(task => {
-                                                const isChecked = selectedTodoTaskIds.includes(task.id);
-                                                return (
-                                                    <label key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)', padding: '4px 0' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isChecked}
-                                                            onChange={(e) => {
-                                                                if (e.target.checked) {
-                                                                    setSelectedTodoTaskIds(prev => [...prev, task.id]);
-                                                                } else {
-                                                                    setSelectedTodoTaskIds(prev => prev.filter(id => id !== task.id));
-                                                                }
-                                                            }}
-                                                            style={{ accentColor: '#3b82f6' }}
-                                                        />
-                                                        <span style={{ flex: 1, textDecoration: task.is_completed ? 'line-through' : 'none', opacity: task.is_completed ? 0.7 : 1 }}>
-                                                            {task.content}
-                                                        </span>
-                                                        <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '3px', background: task.is_completed ? 'rgba(34,197,94,0.2)' : 'rgba(59,130,246,0.2)', color: task.is_completed ? '#4ade80' : '#93c5fd' }}>
-                                                            {task.is_completed ? '✓ Hecho' : 'Pendiente'}
-                                                        </span>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
 
@@ -2942,9 +3187,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 className="login-button"
                                 onClick={handleImportSelectedTodos}
                                 disabled={selectedTodoTaskIds.length === 0}
-                                style={{ width: 'auto', background: '#3b82f6', borderColor: '#3b82f6' }}
+                                style={{ width: 'auto', background: '#0284c7', borderColor: '#38bdf8' }}
                             >
-                                {t('importSelectedTasksBtn') || 'Importar Seleccionadas'} ({selectedTodoTaskIds.length})
+                                {t('importSelectedTasksBtn') || 'Importar a la Pizarra'} ({selectedTodoTaskIds.length})
                             </button>
                         </div>
                     </div>
@@ -2975,7 +3220,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             <button onClick={() => setShowTimelineModal(false)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>&times;</button>
                         </div>
 
-                        {/* Scrollable Timeline Stream */}
                         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingRight: '6px', marginBottom: '1rem' }}>
                             <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--accent-gold)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span>📅 Sucesos Registrados ({timelineEvents.length})</span>
@@ -3052,7 +3296,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 );
                             })}
 
-                            {/* Section: Add Custom Timeline Milestone */}
+                            {/* Custom Milestone Form */}
                             <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px dashed rgba(236, 72, 153, 0.5)', borderRadius: '8px', padding: '1rem', marginTop: '0.5rem' }}>
                                 <h4 style={{ margin: '0 0 0.8rem 0', color: '#fbcfe8', fontSize: '0.85rem' }}>
                                     ➕ {t('addTimelineEventBtn') || 'Añadir Hito Cronológico Personalizado'}

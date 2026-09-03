@@ -134,24 +134,17 @@ function IACaseTodoList({ caseId }) {
     const handleSendTaskToBoard = async (task, catName) => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            const titleStr = `📋 ${task.content}`;
-            const { data: existing } = await supabase
-                .from('case_board_nodes')
-                .select('id')
-                .eq('ia_case_id', caseId)
-                .eq('title', titleStr);
-
-            if (existing && existing.length > 0) {
-                alert(language === 'es' ? 'Esta tarea ya está en la pizarra del caso de IA.' : 'This task is already on the IA case whiteboard.');
-                return;
-            }
-
             const payload = {
                 ia_case_id: caseId,
-                title: titleStr,
-                content: `Categoría: ${catName}\nEstado: ${task.is_completed ? '[✓] Completada' : '[ ] Pendiente'}`,
+                title: catName || 'To-Do',
+                content: JSON.stringify({
+                    todo_category_id: task.category_id || null,
+                    category_name: catName || 'To-Do',
+                    tasks: [{ id: task.id, content: task.content, is_completed: task.is_completed }]
+                }),
                 category: 'todo',
                 color: task.is_completed ? 'green' : 'blue',
+                width: 320,
                 pos_x: 120 + Math.floor(Math.random() * 150),
                 pos_y: 120 + Math.floor(Math.random() * 150),
                 created_by: user ? user.id : null
@@ -172,18 +165,23 @@ function IACaseTodoList({ caseId }) {
         }
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            const itemsToInsert = cat.tasks.map((task, idx) => ({
+            const payload = {
                 ia_case_id: caseId,
-                title: `📋 ${task.content}`,
-                content: `Categoría: ${cat.name}\nEstado: ${task.is_completed ? '[✓] Completada' : '[ ] Pendiente'}`,
+                title: cat.name,
+                content: JSON.stringify({
+                    todo_category_id: cat.id,
+                    category_name: cat.name,
+                    tasks: cat.tasks.map(t => ({ id: t.id, content: t.content, is_completed: t.is_completed }))
+                }),
                 category: 'todo',
-                color: task.is_completed ? 'green' : 'blue',
-                pos_x: 120 + (idx % 3) * 260,
-                pos_y: 120 + Math.floor(idx / 3) * 180,
+                color: 'blue',
+                width: 340,
+                pos_x: 120 + Math.floor(Math.random() * 120),
+                pos_y: 120 + Math.floor(Math.random() * 120),
                 created_by: user ? user.id : null
-            }));
+            };
 
-            const { error } = await supabase.from('case_board_nodes').insert(itemsToInsert);
+            const { error } = await supabase.from('case_board_nodes').insert([payload]);
             if (error) throw error;
             alert(language === 'es' ? '¡Lista de tareas añadida a la pizarra!' : 'Category added to whiteboard!');
         } catch (err) {
