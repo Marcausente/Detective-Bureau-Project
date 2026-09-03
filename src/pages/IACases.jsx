@@ -29,11 +29,44 @@ function IACases() {
     });
     const [users, setUsers] = useState([]); // IA Users for assignment
     const [submitting, setSubmitting] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
 
     useEffect(() => {
+        const getCurrentUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase.from('users').select('*').eq('id', user.id).single();
+                setCurrentUser(data);
+            }
+        };
+        getCurrentUser();
         fetchCases();
         fetchIAUsers();
     }, [filter]);
+
+    const canPinCase = () => {
+        if (!currentUser) return false;
+        const r = (currentUser.rol || '').toLowerCase().trim();
+        return (
+            r === 'administrador' ||
+            r === 'coordinador' ||
+            r === 'comisionado' ||
+            r.includes('admin') ||
+            (currentUser.divisions && currentUser.divisions.includes('Internal Affairs'))
+        );
+    };
+
+    const handleTogglePin = async (e, caseId, currentPinned) => {
+        e.stopPropagation();
+        if (!canPinCase()) return;
+        try {
+            const { error } = await supabase.rpc('toggle_ia_case_pin', { p_case_id: caseId, p_pinned: !currentPinned });
+            if (error) throw error;
+            fetchCases();
+        } catch (err) {
+            console.error('Error toggling pin:', err);
+        }
+    };
 
     const fetchCases = async () => {
         setLoading(true);
@@ -292,6 +325,7 @@ function IACases() {
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
                     {filteredCases.map(c => {
+                        const isPinned = c.is_pinned;
                         const statusColor = statusColors[c.status] || '#64748b';
                         const statusText = c.status === 'Open' ? (language === 'es' ? 'Abierto' : 'Open') : c.status === 'Closed' ? (language === 'es' ? 'Cerrado' : 'Closed') : (language === 'es' ? 'Archivado' : 'Archived');
                         const isRestricted = c.is_hidden_from_all || (c.hidden_user_ids && c.hidden_user_ids.length > 0);
@@ -334,6 +368,12 @@ function IACases() {
                                             {language === 'es' ? 'CASO-IA #' : 'IA-CASE #'}{String(c.case_number).padStart(3, '0')}
                                         </span>
 
+                                        {isPinned && (
+                                            <span style={{ fontSize: '0.85rem', color: '#fbbf24' }} title={language === 'es' ? "Caso Anclado" : "Pinned Case"}>
+                                                📌
+                                            </span>
+                                        )}
+
                                         {isRestricted && (
                                             <span style={{
                                                 fontSize: '0.7rem',
@@ -356,19 +396,41 @@ function IACases() {
                                         )}
                                     </div>
 
-                                    <span style={{
-                                        fontSize: '0.7rem',
-                                        fontWeight: 800,
-                                        letterSpacing: '0.06em',
-                                        color: statusColor,
-                                        textTransform: 'uppercase',
-                                        background: `${statusColor}18`,
-                                        border: `1px solid ${statusColor}33`,
-                                        padding: '0.2rem 0.6rem',
-                                        borderRadius: '9999px'
-                                    }}>
-                                        {statusText}
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        {canPinCase() && (
+                                            <button 
+                                                onClick={(e) => handleTogglePin(e, c.id, c.is_pinned)}
+                                                style={{ 
+                                                    background: 'transparent', 
+                                                    border: 'none', 
+                                                    cursor: 'pointer', 
+                                                    fontSize: '0.95rem', 
+                                                    padding: '0.2rem',
+                                                    opacity: isPinned ? 1 : 0.35, 
+                                                    transition: 'opacity 0.2s ease, transform 0.15s ease' 
+                                                }}
+                                                title={isPinned ? (language === 'es' ? "Desanclar Caso" : "Unpin Case") : (language === 'es' ? "Anclar Caso" : "Pin Case")}
+                                                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                                onMouseLeave={(e) => e.currentTarget.style.opacity = isPinned ? '1' : '0.35'}
+                                            >
+                                                📌
+                                            </button>
+                                        )}
+
+                                        <span style={{
+                                            fontSize: '0.7rem',
+                                            fontWeight: 800,
+                                            letterSpacing: '0.06em',
+                                            color: statusColor,
+                                            textTransform: 'uppercase',
+                                            background: `${statusColor}18`,
+                                            border: `1px solid ${statusColor}33`,
+                                            padding: '0.2rem 0.6rem',
+                                            borderRadius: '9999px'
+                                        }}>
+                                            {statusText}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {/* Case Title */}

@@ -565,6 +565,33 @@ function IACaseDetail() {
     const canEditCase = userIsIAUser && (userIsHighCommand || info.created_by === currentUser?.id || isAssigned);
     const isCaseOpen = !info || !info.status || info.status.toLowerCase() === 'open' || info.status.toLowerCase() === 'abierto';
 
+    const canPinCase = () => {
+        if (!currentUser) return false;
+        const r = (currentUser.rol || '').toLowerCase().trim();
+        return (
+            r === 'administrador' ||
+            r === 'coordinador' ||
+            r === 'comisionado' ||
+            r.includes('admin') ||
+            (currentUser.divisions && currentUser.divisions.includes('Internal Affairs'))
+        );
+    };
+
+    const handleTogglePin = async () => {
+        if (!canPinCase()) return;
+        try {
+            const currentPinned = !!info.is_pinned;
+            const { error } = await supabase.rpc('toggle_ia_case_pin', { p_case_id: id, p_pinned: !currentPinned });
+            if (error) throw error;
+            setCaseData(prev => ({
+                ...prev,
+                info: { ...prev.info, is_pinned: !currentPinned }
+            }));
+        } catch (err) {
+            console.error('Error toggling pin:', err);
+        }
+    };
+
     const statusColor = isCaseOpen ? '#10b981' : info.status === 'Closed' || info.status === 'Cerrado' ? '#ef4444' : '#64748b';
     const statusText = isCaseOpen ? (language === 'es' ? 'ABIERTO' : 'OPEN') : info.status === 'Closed' || info.status === 'Cerrado' ? (language === 'es' ? 'CERRADO' : 'CLOSED') : (language === 'es' ? 'ARCHIVADO' : 'ARCHIVED');
     const isRestricted = info.is_hidden_from_all || (info.hidden_user_ids && info.hidden_user_ids.length > 0);
@@ -617,6 +644,20 @@ function IACaseDetail() {
                         </svg>
                         <span>📌 {language === 'es' ? 'Pizarra del Caso' : 'Case Board'}</span>
                     </button>
+
+                    {canPinCase() && (
+                        <button 
+                            className="mac-btn mac-btn-secondary"
+                            onClick={handleTogglePin}
+                            style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.3rem', opacity: info.is_pinned ? 1 : 0.75, borderRadius: '6px' }}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="17" x2="12" y2="22" />
+                                <path d="M5 17h14l-1.5-6h2L18 3H6L4.5 11h2z" />
+                            </svg>
+                            <span>{info.is_pinned ? (language === 'es' ? 'Anclado' : 'Pinned') : (language === 'es' ? 'Anclar' : 'Pin')}</span>
+                        </button>
+                    )}
 
                     {canEditCase && (
                         <button
