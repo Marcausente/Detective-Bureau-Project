@@ -92,19 +92,13 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const [selectedTodoCategoryIds, setSelectedTodoCategoryIds] = useState([]);
     const [selectedTodoTaskIds, setSelectedTodoTaskIds] = useState([]);
 
-    // Timeline Modal State
+    // Timeline Modal State (Single cohesive card widget matching reference)
     const [showTimelineModal, setShowTimelineModal] = useState(false);
-    const [timelineEvents, setTimelineEvents] = useState([]);
-    const [selectedTimelineEventIds, setSelectedTimelineEventIds] = useState([]);
-    const [newCustomEvent, setNewCustomEvent] = useState({
-        date: '',
-        time: '',
-        title: '',
-        description: '',
-        type: 'custom',
-        color: 'pink',
-        image_url: ''
-    });
+    const [timelineItems, setTimelineItems] = useState([]);
+    const [editingTimelineItemIndex, setEditingTimelineItemIndex] = useState(null);
+    const [timelineTimeInput, setTimelineTimeInput] = useState('');
+    const [timelineTextInput, setTimelineTextInput] = useState('');
+    const [activeTimelineNodeId, setActiveTimelineNodeId] = useState(null);
 
     // Preview Modal for Linked Update
     const [selectedPreviewUpdate, setSelectedPreviewUpdate] = useState(null);
@@ -1111,148 +1105,106 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         }
     };
 
-    // Open Timeline Modal (Aggregates Case Updates, Interrogations, and Incident)
-    const openTimelineModal = () => {
-        const events = [];
+    // Open Timeline Modal (Load existing unified timeline card or initialize clean sequence)
+    const openTimelineModal = (existingNode = null) => {
+        let nodeToEdit = existingNode;
+        if (!nodeToEdit) {
+            nodeToEdit = nodes.find(n => n.category === 'timeline');
+        }
 
-        // 1. Initial Opening / Scene
-        if (caseData?.info) {
-            const inf = caseData.info;
-            const dt = inf.incident_date || inf.created_at;
-            if (dt) {
-                events.push({
-                    id: 'case_opening',
-                    date: dt ? new Date(dt).toISOString().slice(0, 10) : '',
-                    time: dt ? new Date(dt).toTimeString().slice(0, 5) : '00:00',
-                    timestamp: new Date(dt).getTime(),
-                    title: `Apertura: ${inf.title || 'Caso'}`,
-                    description: inf.description ? inf.description.replace(/<[^>]*>?/gm, '').slice(0, 200) : 'Apertura oficial del caso e inicio de investigación.',
-                    type: 'opening',
-                    color: 'red',
-                    image_url: inf.initial_image_url || null,
-                    author: 'Central / Detective'
-                });
+        if (nodeToEdit) {
+            setActiveTimelineNodeId(nodeToEdit.id);
+            const extra = parseNodeExtra(nodeToEdit);
+            if (Array.isArray(extra.events) && extra.events.length > 0) {
+                setTimelineItems(extra.events);
+            } else {
+                setTimelineItems([]);
             }
+        } else {
+            setActiveTimelineNodeId(null);
+            setTimelineItems([
+                { id: 'ev_1', time: '14:15', text: 'Agentes Bradford y Whittaker acuden a la casa tras aviso.' },
+                { id: 'ev_2', time: '14:22', text: 'Encuentran a la víctima inconsciente con marcas en el cuello.' },
+                { id: 'ev_3', time: '14:25', text: 'Llega el facultativo Ryan Cross para atender a la víctima.' },
+                { id: 'ev_4', time: '14:30', text: 'Estabilización y traslado al centro médico más cercano.' },
+                { id: 'ev_5', time: 'Post', text: 'Notificación oficial al departamento de investigación criminal.' }
+            ]);
         }
 
-        // 2. Case Updates / Novedades
-        if (caseData?.updates && caseData.updates.length > 0) {
-            caseData.updates.forEach((upd, idx) => {
-                const dt = upd.created_at;
-                const img = (upd.images && upd.images.length > 0) ? upd.images[0] : upd.image || null;
-                const numStr = caseData.updates.length - idx;
-                events.push({
-                    id: `upd_${upd.id}`,
-                    update_id: upd.id,
-                    date: dt ? new Date(dt).toISOString().slice(0, 10) : '',
-                    time: dt ? new Date(dt).toTimeString().slice(0, 5) : '00:00',
-                    timestamp: new Date(dt).getTime(),
-                    title: `Novedad #${numStr} (${upd.author_name || 'Agente'})`,
-                    description: upd.content ? upd.content.replace(/<[^>]*>?/gm, '').slice(0, 250) : '',
-                    type: 'update',
-                    color: 'yellow',
-                    image_url: img,
-                    author: `${upd.author_rank || ''} ${upd.author_name || ''}`.trim()
-                });
-            });
-        }
-
-        // 3. Interrogations
-        if (caseData?.interrogations && caseData.interrogations.length > 0) {
-            caseData.interrogations.forEach((inter) => {
-                const dt = inter.created_at || inter.interrogation_date;
-                events.push({
-                    id: `inter_${inter.id}`,
-                    date: dt ? new Date(dt).toISOString().slice(0, 10) : '',
-                    time: dt ? new Date(dt).toTimeString().slice(0, 5) : '00:00',
-                    timestamp: new Date(dt).getTime(),
-                    title: `Interrogatorio: ${inter.suspect_name || inter.title || 'Sospechoso'}`,
-                    description: `Interrogador: ${inter.interrogator_name || 'Detective'}\nEstado: ${inter.status || 'Completado'}\n${inter.summary || ''}`.slice(0, 250),
-                    type: 'interrogation',
-                    color: 'purple',
-                    image_url: inter.photo_url || null,
-                    author: inter.interrogator_name || 'Agente'
-                });
-            });
-        }
-
-        events.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-        setTimelineEvents(events);
-        setSelectedTimelineEventIds(events.map(e => e.id));
+        setEditingTimelineItemIndex(null);
+        setTimelineTimeInput('');
+        setTimelineTextInput('');
         setShowTimelineModal(true);
     };
 
-    // Add Custom Timeline Milestone
-    const handleAddCustomTimelineEvent = (e) => {
-        e.preventDefault();
-        if (!newCustomEvent.title.trim()) {
-            alert(language === 'es' ? 'El título del suceso es obligatorio.' : 'Event title is required.');
+    // Add or Update Single Timeline Event Item in the Modal
+    const handleSaveTimelineItem = (e) => {
+        if (e) e.preventDefault();
+        if (!timelineTextInput.trim()) {
+            alert(language === 'es' ? 'La descripción del suceso es obligatoria.' : 'Event description is required.');
             return;
         }
 
-        const dateStr = newCustomEvent.date || new Date().toISOString().slice(0, 10);
-        const timeStr = newCustomEvent.time || '12:00';
-        const timestamp = new Date(`${dateStr}T${timeStr}:00`).getTime();
+        const timeVal = timelineTimeInput.trim() || '--:--';
+        const textVal = timelineTextInput.trim();
 
-        const customEvent = {
-            id: `custom_${Date.now()}`,
-            date: dateStr,
-            time: timeStr,
-            timestamp,
-            title: `⏱️ ${newCustomEvent.title.trim()}`,
-            description: newCustomEvent.description.trim(),
-            type: 'custom',
-            color: newCustomEvent.color || 'pink',
-            image_url: newCustomEvent.image_url || null,
-            author: 'Detective'
-        };
+        if (editingTimelineItemIndex !== null && editingTimelineItemIndex >= 0) {
+            setTimelineItems(prev => {
+                const next = [...prev];
+                next[editingTimelineItemIndex] = {
+                    ...next[editingTimelineItemIndex],
+                    time: timeVal,
+                    text: textVal
+                };
+                return next;
+            });
+            setEditingTimelineItemIndex(null);
+        } else {
+            const newItem = {
+                id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                time: timeVal,
+                text: textVal
+            };
+            setTimelineItems(prev => [...prev, newItem]);
+        }
 
-        setTimelineEvents(prev => {
-            const next = [...prev, customEvent];
-            next.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-            return next;
-        });
-
-        setSelectedTimelineEventIds(prev => [...prev, customEvent.id]);
-        setNewCustomEvent({ date: '', time: '', title: '', description: '', type: 'custom', color: 'pink', image_url: '' });
+        setTimelineTimeInput('');
+        setTimelineTextInput('');
     };
 
-    // Insert Single Timeline Event onto Whiteboard
-    const handleInsertSingleTimelineEvent = async (ev) => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            let formattedDate = `${ev.date} ${ev.time}`;
-            try {
-                formattedDate = new Date(`${ev.date}T${ev.time}`).toLocaleString();
-            } catch { }
+    const handleStartEditTimelineItem = (index) => {
+        const item = timelineItems[index];
+        if (!item) return;
+        setEditingTimelineItemIndex(index);
+        setTimelineTimeInput(item.time || '');
+        setTimelineTextInput(item.text || '');
+    };
 
-            const payload = {
-                [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
-                title: ev.title.startsWith('⏱️') ? ev.title : `⏱️ ${ev.title}`,
-                content: `📅 ${formattedDate}\n${ev.description}`,
-                category: 'timeline',
-                color: ev.color || 'pink',
-                image_url: ev.image_url || null,
-                linked_update_ids: ev.update_id ? [ev.update_id] : [],
-                pos_x: Math.max(80, (350 - pan.x) / zoom + (nodes.length % 4) * 30),
-                pos_y: Math.max(80, (250 - pan.y) / zoom + (nodes.length % 4) * 30),
-                created_by: user ? user.id : null
-            };
-
-            const { error } = await supabase.from('case_board_nodes').insert([payload]);
-            if (error) throw error;
-            alert(language === 'es' ? '¡Hito cronológico añadido a la pizarra!' : 'Timeline event added to whiteboard!');
-            loadBoardData();
-        } catch (err) {
-            alert('Error: ' + err.message);
+    const handleDeleteTimelineItem = (index) => {
+        setTimelineItems(prev => prev.filter((_, idx) => idx !== index));
+        if (editingTimelineItemIndex === index) {
+            setEditingTimelineItemIndex(null);
+            setTimelineTimeInput('');
+            setTimelineTextInput('');
         }
     };
 
-    // Generate Full Connected Timeline Chain on Board
-    const handleGenerateFullTimelineOnBoard = async () => {
-        const selected = timelineEvents.filter(e => selectedTimelineEventIds.includes(e.id));
-        if (selected.length === 0) {
-            alert(language === 'es' ? 'Selecciona al menos un evento para generar la línea de tiempo.' : 'Select at least one event to generate the timeline.');
+    const handleMoveTimelineItem = (index, direction) => {
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= timelineItems.length) return;
+        setTimelineItems(prev => {
+            const next = [...prev];
+            const temp = next[index];
+            next[index] = next[targetIndex];
+            next[targetIndex] = temp;
+            return next;
+        });
+    };
+
+    // Save Unified Timeline Block to Whiteboard
+    const handleSaveTimelineToBoard = async () => {
+        if (timelineItems.length === 0) {
+            alert(language === 'es' ? 'Añade al menos un suceso a la línea de tiempo.' : 'Add at least one event to the timeline.');
             return;
         }
 
@@ -1260,66 +1212,66 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
 
-            let startX = Math.max(60, (200 - pan.x) / zoom);
-            let startY = Math.max(60, (200 - pan.y) / zoom);
+            const existingTimelineNode = activeTimelineNodeId
+                ? nodes.find(n => n.id === activeTimelineNodeId)
+                : nodes.find(n => n.category === 'timeline');
 
-            const insertedNodes = [];
+            const contentJson = JSON.stringify({
+                timeline_title: 'LÍNEA DE TIEMPO',
+                events: timelineItems
+            });
 
-            for (let i = 0; i < selected.length; i++) {
-                const ev = selected[i];
-                let formattedDate = `${ev.date} ${ev.time}`;
-                try {
-                    formattedDate = new Date(`${ev.date}T${ev.time}`).toLocaleString();
-                } catch { }
+            if (existingTimelineNode) {
+                const { error } = await supabase
+                    .from('case_board_nodes')
+                    .update({
+                        content: contentJson,
+                        title: 'LÍNEA DE TIEMPO'
+                    })
+                    .eq('id', existingTimelineNode.id);
 
+                if (error) throw error;
+            } else {
                 const payload = {
                     [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
-                    title: ev.title.startsWith('⏱️') ? ev.title : `⏱️ [${i + 1}] ${ev.title}`,
-                    content: `📅 ${formattedDate}\n${ev.description}`,
+                    title: 'LÍNEA DE TIEMPO',
+                    content: contentJson,
                     category: 'timeline',
-                    color: ev.color || 'pink',
-                    image_url: ev.image_url || null,
-                    linked_update_ids: ev.update_id ? [ev.update_id] : [],
-                    pos_x: startX + i * 290,
-                    pos_y: startY + (i % 2 === 1 ? 50 : 0),
+                    color: 'blue',
+                    width: 380,
+                    pos_x: Math.max(80, (250 - pan.x) / zoom),
+                    pos_y: Math.max(80, (180 - pan.y) / zoom),
                     created_by: user ? user.id : null
                 };
 
-                const { data: newNode, error: nErr } = await supabase
-                    .from('case_board_nodes')
-                    .insert([payload])
-                    .select()
-                    .single();
-
-                if (nErr) throw nErr;
-                if (newNode) insertedNodes.push(newNode);
-            }
-
-            const linksToInsert = [];
-            for (let i = 0; i < insertedNodes.length - 1; i++) {
-                linksToInsert.push({
-                    [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
-                    source_id: insertedNodes[i].id,
-                    target_id: insertedNodes[i + 1].id,
-                    label: `${i + 1}º ➔ ${i + 2}º`,
-                    label_pos: 0.5,
-                    color: '#ec4899',
-                    style: 'solid'
-                });
-            }
-
-            if (linksToInsert.length > 0) {
-                const { error: lErr } = await supabase.from('case_board_links').insert(linksToInsert);
-                if (lErr) console.error('Error inserting timeline links:', lErr);
+                const { error } = await supabase.from('case_board_nodes').insert([payload]);
+                if (error) throw error;
             }
 
             setShowTimelineModal(false);
             await loadBoardData();
-            alert(t('timelineGeneratedSuccess') || '¡Hitos de la línea de tiempo añadidos y conectados en la pizarra!');
         } catch (err) {
-            alert('Error generating timeline: ' + err.message);
+            alert('Error saving timeline: ' + err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Quick Delete Single Item directly from Whiteboard Timeline Card
+    const handleQuickDeleteTimelineItem = async (nodeId, itemIndex) => {
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
+        const extra = parseNodeExtra(node);
+        const currentEvents = Array.isArray(extra.events) ? extra.events : [];
+        const updatedEvents = currentEvents.filter((_, idx) => idx !== itemIndex);
+        extra.events = updatedEvents;
+
+        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, content: JSON.stringify(extra) } : n));
+
+        try {
+            await supabase.from('case_board_nodes').update({ content: JSON.stringify(extra) }).eq('id', nodeId);
+        } catch (err) {
+            console.error('Error removing timeline item:', err);
         }
     };
 
@@ -2655,7 +2607,178 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             );
                         }
 
-                        // 3. Standard Investigation Cards & Timeline Milestones
+                        // 3. Unified Sequential Timeline Card (Fulfilling user reference image design)
+                        if (node.category === 'timeline') {
+                            const events = Array.isArray(extra.events) ? extra.events : [];
+                            const timelineWidth = node.width || 380;
+
+                            return (
+                                <div
+                                    key={node.id}
+                                    className="whiteboard-card"
+                                    onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${node.pos_x}px`,
+                                        top: `${node.pos_y}px`,
+                                        width: `${timelineWidth}px`,
+                                        background: '#090d16',
+                                        border: `1.5px solid ${isSource ? '#ef4444' : isSelected ? '#eab308' : 'rgba(56, 189, 248, 0.4)'}`,
+                                        borderRadius: '10px',
+                                        boxShadow: isSelected ? '0 0 24px rgba(234, 179, 8, 0.6)' : isSource ? '0 0 16px rgba(239, 68, 68, 0.8)' : '0 10px 30px rgba(0, 0, 0, 0.85), 0 0 16px rgba(56, 189, 248, 0.12)',
+                                        zIndex: isSource ? 15 : isSelected ? 12 : draggingNodeId === node.id ? 10 : 2,
+                                        cursor: isLocked ? 'default' : connectingSourceId ? 'pointer' : toolMode === 'eraser' ? 'cell' : 'move',
+                                        padding: '1.1rem 1.25rem',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    {/* Header: Clock Icon + LÍNEA DE TIEMPO in cyan uppercase */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ color: '#38bdf8', fontSize: '1rem', display: 'flex', alignItems: 'center' }}>🕒</span>
+                                            <span style={{
+                                                color: '#38bdf8',
+                                                fontSize: '0.82rem',
+                                                fontWeight: 900,
+                                                letterSpacing: '1.2px',
+                                                textTransform: 'uppercase'
+                                            }}>
+                                                {isLocked && <span style={{ marginRight: '4px' }}>🔒</span>}
+                                                {node.title || extra.timeline_title || 'LÍNEA DE TIEMPO'}
+                                            </span>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); openTimelineModal(node); }}
+                                                style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', borderRadius: '4px', cursor: 'pointer', fontSize: '0.72rem', padding: '2px 6px', fontWeight: 'bold' }}
+                                                title="Editar sucesos de la línea de tiempo"
+                                            >
+                                                ✏️ Editar
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setConnectingSourceId(isSource ? null : node.id); }}
+                                                style={{ background: isSource ? '#ef4444' : 'rgba(255,255,255,0.08)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                title="Conectar hilo"
+                                            >
+                                                🔗
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id, node.title); }}
+                                                style={{ background: 'rgba(239, 68, 68, 0.3)', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem', padding: '2px 5px' }}
+                                                title="Eliminar línea de tiempo"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Events Sequence (Clean vertical sequence, matching reference image) */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {events.length > 0 ? (
+                                            events.map((ev, idx) => (
+                                                <div
+                                                    key={ev.id || idx}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'flex-start',
+                                                        gap: '12px',
+                                                        padding: '2px 0',
+                                                        position: 'relative'
+                                                    }}
+                                                >
+                                                    {/* Left Time Badge */}
+                                                    <div style={{
+                                                        background: 'rgba(14, 165, 233, 0.15)',
+                                                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                                                        color: '#38bdf8',
+                                                        padding: '3px 8px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 800,
+                                                        minWidth: '48px',
+                                                        textAlign: 'center',
+                                                        whiteSpace: 'nowrap',
+                                                        flexShrink: 0
+                                                    }}>
+                                                        {ev.time || '--:--'}
+                                                    </div>
+
+                                                    {/* Right Event Text Description */}
+                                                    <span style={{
+                                                        color: '#cbd5e1',
+                                                        fontSize: '0.85rem',
+                                                        lineHeight: '1.4',
+                                                        flex: 1,
+                                                        wordBreak: 'break-word'
+                                                    }}>
+                                                        {ev.text || ev.description || ev.content || ''}
+                                                    </span>
+
+                                                    {/* Quick Delete */}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleQuickDeleteTimelineItem(node.id, idx);
+                                                        }}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: '#94a3b8',
+                                                            fontSize: '0.75rem',
+                                                            cursor: 'pointer',
+                                                            opacity: 0.4,
+                                                            padding: '0 2px'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+                                                        title="Eliminar este suceso"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div style={{
+                                                padding: '1rem',
+                                                textAlign: 'center',
+                                                color: '#94a3b8',
+                                                fontSize: '0.82rem',
+                                                border: '1px dashed rgba(56, 189, 248, 0.25)',
+                                                borderRadius: '6px'
+                                            }}>
+                                                <span>No hay sucesos en la línea de tiempo. Haz clic en <b>✏️ Editar</b> para añadir el primer hito.</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Bottom action to add milestone */}
+                                    <div style={{ marginTop: '0.85rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.65rem', display: 'flex', justifyContent: 'flex-end' }}>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                openTimelineModal(node);
+                                            }}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: '#38bdf8',
+                                                fontSize: '0.75rem',
+                                                cursor: 'pointer',
+                                                fontWeight: 600,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}
+                                        >
+                                            ➕ Añadir Hito / Editar
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        // 4. Standard Investigation Cards
                         return (
                             <div
                                 key={node.id}
@@ -3196,163 +3319,196 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 </div>
             )}
 
-            {/* Modal: Timeline / Chronology Tool */}
+            {/* Modal: Timeline / Chronology Tool (Dedicated Sequential Editor) */}
             {showTimelineModal && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)', zIndex: 10000,
+                    background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', zIndex: 10000,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
                 }}>
                     <div style={{
-                        background: '#1e293b', border: '1px solid #ec4899', borderRadius: '12px',
-                        width: '100%', maxWidth: '750px', padding: '1.5rem', boxShadow: '0 20px 50px rgba(0,0,0,0.9)',
+                        background: '#0f172a', border: '1px solid rgba(56, 189, 248, 0.4)', borderRadius: '12px',
+                        width: '100%', maxWidth: '680px', padding: '1.5rem', boxShadow: '0 25px 60px rgba(0,0,0,0.9), 0 0 25px rgba(56, 189, 248, 0.15)',
                         maxHeight: '90vh', display: 'flex', flexDirection: 'column'
                     }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
+                        {/* Modal Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.65rem' }}>
                             <div>
-                                <h3 style={{ margin: 0, color: '#fbcfe8', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    ⏱️ {t('timelineModalTitle') || 'Línea de Tiempo Cronológica del Caso'}
+                                <h3 style={{ margin: 0, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.15rem' }}>
+                                    🕒 {t('timelineModalTitle') || 'Línea de Tiempo del Caso'}
                                 </h3>
-                                <p style={{ margin: '3px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                    {language === 'es' ? 'Ordena cronológicamente los sucesos y colócalos en la pizarra con hilos secuenciales.' : 'Chronologically order case events and place them as connected milestone cards on the board.'}
+                                <p style={{ margin: '3px 0 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
+                                    {language === 'es' ? 'Gestiona los hitos cronológicos directamente. Se mostrarán secuenciales en una única tarjeta táctica en la pizarra.' : 'Manage chronological events directly. They will be displayed sequentially in a single tactical card on the board.'}
                                 </p>
                             </div>
-                            <button onClick={() => setShowTimelineModal(false)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>&times;</button>
+                            <button onClick={() => setShowTimelineModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.3rem', cursor: 'pointer' }}>&times;</button>
                         </div>
 
-                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingRight: '6px', marginBottom: '1rem' }}>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--accent-gold)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>📅 Sucesos Registrados ({timelineEvents.length})</span>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (selectedTimelineEventIds.length === timelineEvents.length) {
-                                            setSelectedTimelineEventIds([]);
-                                        } else {
-                                            setSelectedTimelineEventIds(timelineEvents.map(e => e.id));
-                                        }
-                                    }}
-                                    style={{ background: 'none', border: 'none', color: '#ec4899', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
-                                >
-                                    {selectedTimelineEventIds.length === timelineEvents.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
-                                </button>
+                        {/* Events List & Form Area */}
+                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '6px', marginBottom: '1rem' }}>
+                            
+                            {/* Sequence of Events */}
+                            <div>
+                                <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f1f5f9', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span>⏱️ Sucesos Registrados ({timelineItems.length})</span>
+                                    <span style={{ fontSize: '0.72rem', color: '#38bdf8' }}>{timelineItems.length > 0 ? 'En orden secuencial' : ''}</span>
+                                </div>
+
+                                {timelineItems.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {timelineItems.map((item, idx) => (
+                                            <div
+                                                key={item.id || idx}
+                                                style={{
+                                                    background: editingTimelineItemIndex === idx ? 'rgba(56, 189, 248, 0.12)' : 'rgba(0, 0, 0, 0.4)',
+                                                    border: `1px solid ${editingTimelineItemIndex === idx ? '#38bdf8' : 'rgba(255, 255, 255, 0.1)'}`,
+                                                    borderRadius: '8px', padding: '0.65rem 0.85rem', display: 'flex', gap: '10px', alignItems: 'center'
+                                                }}
+                                            >
+                                                {/* Move Controls */}
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleMoveTimelineItem(idx, -1)}
+                                                        disabled={idx === 0}
+                                                        style={{ background: 'none', border: 'none', color: idx === 0 ? '#475569' : '#94a3b8', cursor: idx === 0 ? 'default' : 'pointer', fontSize: '0.7rem', padding: '0 2px' }}
+                                                        title="Mover arriba"
+                                                    >
+                                                        ▲
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleMoveTimelineItem(idx, 1)}
+                                                        disabled={idx === timelineItems.length - 1}
+                                                        style={{ background: 'none', border: 'none', color: idx === timelineItems.length - 1 ? '#475569' : '#94a3b8', cursor: idx === timelineItems.length - 1 ? 'default' : 'pointer', fontSize: '0.7rem', padding: '0 2px' }}
+                                                        title="Mover abajo"
+                                                    >
+                                                        ▼
+                                                    </button>
+                                                </div>
+
+                                                {/* Time Badge */}
+                                                <div style={{
+                                                    background: 'rgba(14, 165, 233, 0.18)',
+                                                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                                                    color: '#38bdf8',
+                                                    padding: '3px 8px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '0.8rem',
+                                                    fontWeight: 800,
+                                                    minWidth: '52px',
+                                                    textAlign: 'center',
+                                                    flexShrink: 0
+                                                }}>
+                                                    {item.time || '--:--'}
+                                                </div>
+
+                                                {/* Text Content */}
+                                                <div style={{ flex: 1, fontSize: '0.85rem', color: '#e2e8f0', lineHeight: '1.4' }}>
+                                                    {item.text}
+                                                </div>
+
+                                                {/* Action Buttons */}
+                                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleStartEditTimelineItem(idx)}
+                                                        style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '0.75rem' }}
+                                                        title="Editar suceso"
+                                                    >
+                                                        ✎
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteTimelineItem(idx)}
+                                                        style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#fca5a5', borderRadius: '4px', cursor: 'pointer', padding: '3px 8px', fontSize: '0.75rem' }}
+                                                        title="Eliminar suceso"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ padding: '1.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: '8px' }}>
+                                        No hay sucesos en la línea de tiempo todavía. Usa el formulario inferior para añadir el primero.
+                                    </div>
+                                )}
                             </div>
 
-                            {timelineEvents.map((ev, index) => {
-                                const isChecked = selectedTimelineEventIds.includes(ev.id);
-                                return (
-                                    <div
-                                        key={ev.id}
-                                        style={{
-                                            background: isChecked ? 'rgba(236, 72, 153, 0.08)' : 'rgba(0,0,0,0.3)',
-                                            border: `1px solid ${isChecked ? '#ec4899' : 'rgba(255,255,255,0.08)'}`,
-                                            borderRadius: '8px', padding: '0.8rem', display: 'flex', gap: '12px', alignItems: 'flex-start'
-                                        }}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={isChecked}
-                                            onChange={(e) => {
-                                                if (e.target.checked) {
-                                                    setSelectedTimelineEventIds(prev => [...prev, ev.id]);
-                                                } else {
-                                                    setSelectedTimelineEventIds(prev => prev.filter(id => id !== ev.id));
-                                                }
+                            {/* Add / Edit Item Form */}
+                            <div style={{
+                                background: 'rgba(0, 0, 0, 0.4)',
+                                border: `1px solid ${editingTimelineItemIndex !== null ? '#38bdf8' : 'rgba(56, 189, 248, 0.3)'}`,
+                                borderRadius: '10px',
+                                padding: '1.1rem'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                                    <h4 style={{ margin: 0, color: '#38bdf8', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        {editingTimelineItemIndex !== null ? '✏️ Modificar Suceso de la Línea' : '➕ Añadir Hito / Suceso a la Línea'}
+                                    </h4>
+                                    {editingTimelineItemIndex !== null && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setEditingTimelineItemIndex(null);
+                                                setTimelineTimeInput('');
+                                                setTimelineTextInput('');
                                             }}
-                                            style={{ marginTop: '4px', accentColor: '#ec4899', width: '16px', height: '16px' }}
-                                        />
+                                            style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline' }}
+                                        >
+                                            Cancelar edición
+                                        </button>
+                                    )}
+                                </div>
 
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span style={{ background: '#ec4899', color: 'white', fontSize: '0.7rem', fontWeight: 'bold', padding: '1px 6px', borderRadius: '10px' }}>
-                                                        #{index + 1}
-                                                    </span>
-                                                    <span style={{ fontWeight: 'bold', color: '#ffffff', fontSize: '0.9rem' }}>
-                                                        {ev.title}
-                                                    </span>
-                                                </div>
-                                                <span style={{ fontSize: '0.75rem', color: '#fbcfe8', background: 'rgba(236, 72, 153, 0.2)', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                                    🕒 {ev.date} {ev.time}
-                                                </span>
-                                            </div>
-
-                                            <p style={{ margin: '0 0 6px 0', fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: '1.3' }}>
-                                                {ev.description}
-                                            </p>
-
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Por: {ev.author}</span>
-                                                <button
-                                                    onClick={() => handleInsertSingleTimelineEvent(ev)}
-                                                    className="login-button"
-                                                    style={{ width: 'auto', padding: '0.2rem 0.6rem', fontSize: '0.75rem', background: 'rgba(236,72,153,0.3)', borderColor: '#ec4899', color: '#fbcfe8' }}
-                                                >
-                                                    📌 {t('insertEventToBoard') || 'Añadir a Pizarra'}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-
-                            {/* Custom Milestone Form */}
-                            <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px dashed rgba(236, 72, 153, 0.5)', borderRadius: '8px', padding: '1rem', marginTop: '0.5rem' }}>
-                                <h4 style={{ margin: '0 0 0.8rem 0', color: '#fbcfe8', fontSize: '0.85rem' }}>
-                                    ➕ {t('addTimelineEventBtn') || 'Añadir Hito Cronológico Personalizado'}
-                                </h4>
-                                <form onSubmit={handleAddCustomTimelineEvent}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                <form onSubmit={handleSaveTimelineItem}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
                                         <div>
-                                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{t('eventDateLabel') || 'Fecha'}</label>
+                                            <label style={{ display: 'block', fontSize: '0.75rem', color: '#cbd5e1', marginBottom: '4px', fontWeight: 600 }}>
+                                                Hora / Etiqueta
+                                            </label>
                                             <input
-                                                type="date"
+                                                type="text"
                                                 className="form-input"
-                                                value={newCustomEvent.date}
-                                                onChange={e => setNewCustomEvent(prev => ({ ...prev, date: e.target.value }))}
-                                                style={{ padding: '0.4rem', fontSize: '0.85rem' }}
+                                                placeholder="ej. 14:15 o Post"
+                                                value={timelineTimeInput}
+                                                onChange={e => setTimelineTimeInput(e.target.value)}
+                                                style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%' }}
                                             />
                                         </div>
+
                                         <div>
-                                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{t('eventTimeLabel') || 'Hora'}</label>
+                                            <label style={{ display: 'block', fontSize: '0.75rem', color: '#cbd5e1', marginBottom: '4px', fontWeight: 600 }}>
+                                                Descripción del Suceso *
+                                            </label>
                                             <input
-                                                type="time"
+                                                type="text"
                                                 className="form-input"
-                                                value={newCustomEvent.time}
-                                                onChange={e => setNewCustomEvent(prev => ({ ...prev, time: e.target.value }))}
-                                                style={{ padding: '0.4rem', fontSize: '0.85rem' }}
+                                                placeholder="ej. Agentes Bradford y Whittaker acuden a la casa tras aviso."
+                                                value={timelineTextInput}
+                                                onChange={e => setTimelineTextInput(e.target.value)}
+                                                style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%' }}
+                                                required
                                             />
                                         </div>
                                     </div>
 
-                                    <div style={{ marginBottom: '0.75rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{t('eventTitleLabel') || 'Título del Suceso'} *</label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            placeholder="ej. Avistamiento de vehículo en Grove St / Disparo reportado"
-                                            value={newCustomEvent.title}
-                                            onChange={e => setNewCustomEvent(prev => ({ ...prev, title: e.target.value }))}
-                                            style={{ padding: '0.4rem', fontSize: '0.85rem' }}
-                                            required
-                                        />
-                                    </div>
-
-                                    <div style={{ marginBottom: '0.75rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>{t('eventDescLabel') || 'Relato / Detalles del Suceso'}</label>
-                                        <textarea
-                                            className="form-input"
-                                            rows="2"
-                                            placeholder="Relato cronológico de lo sucedido en este punto..."
-                                            value={newCustomEvent.description}
-                                            onChange={e => setNewCustomEvent(prev => ({ ...prev, description: e.target.value }))}
-                                            style={{ padding: '0.4rem', fontSize: '0.85rem' }}
-                                        />
-                                    </div>
-
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                        <button type="submit" className="login-button btn-secondary" style={{ width: 'auto', padding: '0.35rem 0.85rem', fontSize: '0.8rem', borderColor: '#ec4899', color: '#fbcfe8' }}>
-                                            ➕ Guardar en la Línea
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                                        <button
+                                            type="submit"
+                                            className="login-button"
+                                            style={{
+                                                width: 'auto',
+                                                padding: '0.45rem 1rem',
+                                                fontSize: '0.82rem',
+                                                background: editingTimelineItemIndex !== null ? '#0284c7' : 'rgba(56, 189, 248, 0.2)',
+                                                borderColor: '#38bdf8',
+                                                color: '#ffffff'
+                                            }}
+                                        >
+                                            {editingTimelineItemIndex !== null ? '✓ Guardar Cambios' : '➕ Añadir a la Línea'}
                                         </button>
                                     </div>
                                 </form>
@@ -3362,15 +3518,20 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         {/* Modal Footer */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
                             <button className="login-button btn-secondary" onClick={() => setShowTimelineModal(false)} style={{ width: 'auto' }}>
-                                {t('cancelBtn')}
+                                {t('cancelBtn') || 'Cancelar'}
                             </button>
                             <button
                                 className="login-button"
-                                onClick={handleGenerateFullTimelineOnBoard}
-                                disabled={selectedTimelineEventIds.length === 0}
-                                style={{ width: 'auto', background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', borderColor: '#ec4899' }}
+                                onClick={handleSaveTimelineToBoard}
+                                disabled={timelineItems.length === 0}
+                                style={{
+                                    width: 'auto',
+                                    background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                                    borderColor: '#38bdf8',
+                                    fontWeight: 700
+                                }}
                             >
-                                {t('generateTimelineOnBoard') || '✨ Generar Línea de Tiempo en Pizarra'} ({selectedTimelineEventIds.length})
+                                💾 {language === 'es' ? 'Guardar Línea de Tiempo en Pizarra' : 'Save Timeline to Whiteboard'} ({timelineItems.length})
                             </button>
                         </div>
                     </div>

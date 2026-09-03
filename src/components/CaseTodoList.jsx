@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 
 function CaseTodoList({ caseId }) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [newCategoryName, setNewCategoryName] = useState('');
@@ -108,7 +108,6 @@ function CaseTodoList({ caseId }) {
 
     const handleToggleTask = async (taskId, currentStatus) => {
         try {
-            // Optimistic update (optional, but let's just reload for safety first)
             const { error } = await supabase.rpc('toggle_todo_task', {
                 p_task_id: taskId,
                 p_status: !currentStatus
@@ -131,27 +130,61 @@ function CaseTodoList({ caseId }) {
         }
     };
 
+    // Helper: Find existing block on whiteboard for category
     const handleSendTaskToBoard = async (task, catName) => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            const payload = {
-                case_id: caseId,
-                title: catName || 'To-Do',
-                content: JSON.stringify({
-                    todo_category_id: task.category_id || null,
-                    category_name: catName || 'To-Do',
-                    tasks: [{ id: task.id, content: task.content, is_completed: task.is_completed }]
-                }),
-                category: 'todo',
-                color: task.is_completed ? 'green' : 'blue',
-                width: 320,
-                pos_x: 120 + Math.floor(Math.random() * 150),
-                pos_y: 120 + Math.floor(Math.random() * 150),
-                created_by: user ? user.id : null
-            };
+            const { data: existingNodes } = await supabase
+                .from('case_board_nodes')
+                .select('*')
+                .eq('case_id', caseId)
+                .eq('category', 'todo');
 
-            const { error } = await supabase.from('case_board_nodes').insert([payload]);
-            if (error) throw error;
+            const existingBlock = (existingNodes || []).find(n => {
+                try {
+                    const parsed = JSON.parse(n.content);
+                    if (parsed.todo_category_id === task.category_id || parsed.category_name === catName) return true;
+                } catch { }
+                return n.title === catName;
+            });
+
+            if (existingBlock) {
+                let extra = {};
+                try { extra = JSON.parse(existingBlock.content); } catch { }
+                const currentTasks = Array.isArray(extra.tasks) ? extra.tasks : [];
+                const taskIdx = currentTasks.findIndex(t => t.id === task.id);
+                if (taskIdx >= 0) {
+                    currentTasks[taskIdx] = { id: task.id, content: task.content, is_completed: task.is_completed };
+                } else {
+                    currentTasks.push({ id: task.id, content: task.content, is_completed: task.is_completed });
+                }
+                extra.tasks = currentTasks;
+                extra.todo_category_id = task.category_id || extra.todo_category_id;
+                extra.category_name = catName;
+
+                await supabase.from('case_board_nodes').update({
+                    content: JSON.stringify(extra),
+                    title: catName
+                }).eq('id', existingBlock.id);
+            } else {
+                const payload = {
+                    case_id: caseId,
+                    title: catName || 'To-Do',
+                    content: JSON.stringify({
+                        todo_category_id: task.category_id || null,
+                        category_name: catName || 'To-Do',
+                        tasks: [{ id: task.id, content: task.content, is_completed: task.is_completed }]
+                    }),
+                    category: 'todo',
+                    color: 'blue',
+                    width: 320,
+                    pos_x: 120 + Math.floor(Math.random() * 120),
+                    pos_y: 120 + Math.floor(Math.random() * 120),
+                    created_by: user ? user.id : null
+                };
+                await supabase.from('case_board_nodes').insert([payload]);
+            }
+
             alert(t('taskAddedToBoard') || '¡Tarea añadida a la pizarra!');
         } catch (err) {
             alert('Error: ' + err.message);
@@ -165,24 +198,52 @@ function CaseTodoList({ caseId }) {
         }
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            const payload = {
-                case_id: caseId,
-                title: cat.name,
-                content: JSON.stringify({
-                    todo_category_id: cat.id,
-                    category_name: cat.name,
-                    tasks: cat.tasks.map(t => ({ id: t.id, content: t.content, is_completed: t.is_completed }))
-                }),
-                category: 'todo',
-                color: 'blue',
-                width: 340,
-                pos_x: 120 + Math.floor(Math.random() * 120),
-                pos_y: 120 + Math.floor(Math.random() * 120),
-                created_by: user ? user.id : null
-            };
+            const { data: existingNodes } = await supabase
+                .from('case_board_nodes')
+                .select('*')
+                .eq('case_id', caseId)
+                .eq('category', 'todo');
 
-            const { error } = await supabase.from('case_board_nodes').insert([payload]);
-            if (error) throw error;
+            const existingBlock = (existingNodes || []).find(n => {
+                try {
+                    const parsed = JSON.parse(n.content);
+                    if (parsed.todo_category_id === cat.id || parsed.category_name === cat.name) return true;
+                } catch { }
+                return n.title === cat.name;
+            });
+
+            const updatedTasks = cat.tasks.map(t => ({ id: t.id, content: t.content, is_completed: t.is_completed }));
+
+            if (existingBlock) {
+                let extra = {};
+                try { extra = JSON.parse(existingBlock.content); } catch { }
+                extra.todo_category_id = cat.id;
+                extra.category_name = cat.name;
+                extra.tasks = updatedTasks;
+
+                await supabase.from('case_board_nodes').update({
+                    content: JSON.stringify(extra),
+                    title: cat.name
+                }).eq('id', existingBlock.id);
+            } else {
+                const payload = {
+                    case_id: caseId,
+                    title: cat.name,
+                    content: JSON.stringify({
+                        todo_category_id: cat.id,
+                        category_name: cat.name,
+                        tasks: updatedTasks
+                    }),
+                    category: 'todo',
+                    color: 'blue',
+                    width: 340,
+                    pos_x: 120 + Math.floor(Math.random() * 120),
+                    pos_y: 120 + Math.floor(Math.random() * 120),
+                    created_by: user ? user.id : null
+                };
+                await supabase.from('case_board_nodes').insert([payload]);
+            }
+
             alert(t('categoryAddedToBoard') || '¡Lista de tareas añadida a la pizarra!');
         } catch (err) {
             alert('Error: ' + err.message);
