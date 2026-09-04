@@ -83,6 +83,10 @@ const BoardIcon = ({ name, size = 14, color = 'currentColor', style = {} }) => {
             return <svg style={s} viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15" /></svg>;
         case 'chevronDown':
             return <svg style={s} viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9" /></svg>;
+        case 'undo':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M3 7v6h6" /><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" /></svg>;
+        case 'redo':
+            return <svg style={s} viewBox="0 0 24 24"><path d="M21 7v6h-6" /><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13" /></svg>;
         default:
             return null;
     }
@@ -171,10 +175,20 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     const [selectedNodeId, setSelectedNodeId] = useState(null);
     const [draggingNodeId, setDraggingNodeId] = useState(null);
     const dragOffsetRef = useRef({ x: 0, y: 0 });
+    const dragStartPosRef = useRef(null);
 
     const [isResizing, setIsResizing] = useState(false);
     const [resizeDir, setResizeDir] = useState('se');
     const resizeStartRef = useRef({ clientX: 0, clientY: 0, initX: 0, initY: 0, initW: 320, initH: 240, dir: 'se' });
+
+    // Undo / Redo History Stacks
+    const [undoStack, setUndoStack] = useState([]);
+    const [redoStack, setRedoStack] = useState([]);
+
+    const pushUndoAction = useCallback((action) => {
+        setUndoStack(prev => [...prev.slice(-49), action]);
+        setRedoStack([]);
+    }, []);
 
     // Pencil & Shape Drawing State
     const [pencilShape, setPencilShape] = useState('free'); // 'free' | 'line' | 'arrow' | 'rectangle' | 'circle'
@@ -247,11 +261,158 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         return {};
     };
 
-    // Helper: convert Points Array to SVG Path String
+    // Helper: convert Points Array to Smooth Curved SVG Path String using Quadratic Bézier Splines
     const pointsToSvgPath = (pts) => {
         if (!pts || pts.length === 0) return '';
-        return pts.reduce((acc, pt, i) => i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '');
+        if (pts.length === 1) {
+            return `M ${pts[0].x} ${pts[0].y} m -0.5 0 a 0.5 0.5 0 1 0 1 0 a 0.5 0.5 0 1 0 -1 0`;
+        }
+        if (pts.length === 2) {
+            return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y}`;
+        }
+        let d = `M ${pts[0].x} ${pts[0].y}`;
+        for (let i = 1; i < pts.length - 1; i++) {
+            const xc = (pts[i].x + pts[i + 1].x) / 2;
+            const yc = (pts[i].y + pts[i + 1].y) / 2;
+            d += ` Q ${pts[i].x} ${pts[i].y} ${xc} ${yc}`;
+        }
+        d += ` L ${pts[pts.length - 1].x} ${pts[pts.length - 1].y}`;
+        return d;
     };
+
+    // Undo Execution Handler
+    const handleUndo = useCallback(async () => {
+        if (undoStack.length === 0) return;
+        const lastAction = undoStack[undoStack.length - 1];
+        setUndoStack(prev => prev.slice(0, -1));
+        setRedoStack(prev => [...prev, lastAction]);
+
+        try {
+            if (lastAction.type === 'add_node') {
+                await supabase.from('case_board_nodes').delete().eq('id', lastAction.node.id);
+                setNodes(prev => prev.filter(n => n.id !== lastAction.node.id));
+                if (selectedNodeId === lastAction.node.id) setSelectedNodeId(null);
+            } else if (lastAction.type === 'delete_node') {
+                const { error } = await supabase.from('case_board_nodes').insert([lastAction.node]);
+                if (!error) {
+                    setNodes(prev => [...prev, lastAction.node]);
+                }
+            } else if (lastAction.type === 'delete_many_nodes') {
+                const { error } = await supabase.from('case_board_nodes').insert(lastAction.nodes);
+                if (!error) {
+                    setNodes(prev => [...prev, ...lastAction.nodes]);
+                }
+            } else if (lastAction.type === 'move_node') {
+                const { nodeId, before } = lastAction;
+                await supabase.from('case_board_nodes').update({ pos_x: before.pos_x, pos_y: before.pos_y }).eq('id', nodeId);
+                setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, pos_x: before.pos_x, pos_y: before.pos_y } : n));
+            } else if (lastAction.type === 'transform_node') {
+                const { nodeId, before } = lastAction;
+                await supabase.from('case_board_nodes').update({
+                    pos_x: before.pos_x,
+                    pos_y: before.pos_y,
+                    width: before.width,
+                    content: before.content
+                }).eq('id', nodeId);
+                setNodes(prev => prev.map(n => n.id === nodeId ? {
+                    ...n,
+                    pos_x: before.pos_x,
+                    pos_y: before.pos_y,
+                    width: before.width,
+                    content: before.content
+                } : n));
+            } else if (lastAction.type === 'add_link') {
+                await supabase.from('case_board_links').delete().eq('id', lastAction.link.id);
+                setLinks(prev => prev.filter(l => l.id !== lastAction.link.id));
+            } else if (lastAction.type === 'delete_link') {
+                const { error } = await supabase.from('case_board_links').insert([lastAction.link]);
+                if (!error) {
+                    setLinks(prev => [...prev, lastAction.link]);
+                }
+            }
+        } catch (err) {
+            console.error('Error executing undo:', err);
+        }
+    }, [undoStack, selectedNodeId]);
+
+    // Redo Execution Handler
+    const handleRedo = useCallback(async () => {
+        if (redoStack.length === 0) return;
+        const lastAction = redoStack[redoStack.length - 1];
+        setRedoStack(prev => prev.slice(0, -1));
+        setUndoStack(prev => [...prev, lastAction]);
+
+        try {
+            if (lastAction.type === 'add_node') {
+                const { error } = await supabase.from('case_board_nodes').insert([lastAction.node]);
+                if (!error) {
+                    setNodes(prev => [...prev, lastAction.node]);
+                }
+            } else if (lastAction.type === 'delete_node') {
+                await supabase.from('case_board_nodes').delete().eq('id', lastAction.node.id);
+                setNodes(prev => prev.filter(n => n.id !== lastAction.node.id));
+                if (selectedNodeId === lastAction.node.id) setSelectedNodeId(null);
+            } else if (lastAction.type === 'delete_many_nodes') {
+                const ids = lastAction.nodes.map(n => n.id);
+                await supabase.from('case_board_nodes').delete().in('id', ids);
+                setNodes(prev => prev.filter(n => !ids.includes(n.id)));
+            } else if (lastAction.type === 'move_node') {
+                const { nodeId, after } = lastAction;
+                await supabase.from('case_board_nodes').update({ pos_x: after.pos_x, pos_y: after.pos_y }).eq('id', nodeId);
+                setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, pos_x: after.pos_x, pos_y: after.pos_y } : n));
+            } else if (lastAction.type === 'transform_node') {
+                const { nodeId, after } = lastAction;
+                await supabase.from('case_board_nodes').update({
+                    pos_x: after.pos_x,
+                    pos_y: after.pos_y,
+                    width: after.width,
+                    content: after.content
+                }).eq('id', nodeId);
+                setNodes(prev => prev.map(n => n.id === nodeId ? {
+                    ...n,
+                    pos_x: after.pos_x,
+                    pos_y: after.pos_y,
+                    width: after.width,
+                    content: after.content
+                } : n));
+            } else if (lastAction.type === 'add_link') {
+                const { error } = await supabase.from('case_board_links').insert([lastAction.link]);
+                if (!error) {
+                    setLinks(prev => [...prev, lastAction.link]);
+                }
+            } else if (lastAction.type === 'delete_link') {
+                await supabase.from('case_board_links').delete().eq('id', lastAction.link.id);
+                setLinks(prev => prev.filter(l => l.id !== lastAction.link.id));
+            }
+        } catch (err) {
+            console.error('Error executing redo:', err);
+        }
+    }, [redoStack, selectedNodeId]);
+
+    // Keyboard Shortcuts: Ctrl+Z (Undo) and Ctrl+Y / Ctrl+Shift+Z (Redo)
+    useEffect(() => {
+        const handleGlobalKeyDown = (e) => {
+            const tag = e.target?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
+
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key.toLowerCase() === 'z') {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        handleRedo();
+                    } else {
+                        handleUndo();
+                    }
+                } else if (e.key.toLowerCase() === 'y') {
+                    e.preventDefault();
+                    handleRedo();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    }, [handleUndo, handleRedo]);
 
     // Helper: convert Screen Client Coords to Canvas Board Coords
     const getCanvasCoordinates = useCallback((e) => {
@@ -518,7 +679,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
     // Save Finish Drawing to Database
     const handleFinishDrawing = async (points) => {
-        if (!points || points.length < 2) return;
+        if (!points || points.length === 0) return;
         try {
             const { data: { user } } = await supabase.auth.getUser();
             const xs = points.map(p => p.x);
@@ -533,12 +694,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 title: `Trazo: ${pencilShape}`,
                 category: 'drawing',
                 color: pencilColor,
-                width: Math.max(20, maxX - minX),
+                width: Math.max(10, maxX - minX),
                 content: JSON.stringify({
                     shape: pencilShape,
                     strokeWidth: pencilWidth,
                     points: points.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })),
-                    height: Math.max(20, maxY - minY),
+                    height: Math.max(10, maxY - minY),
                     isLocked: false
                 }),
                 pos_x: minX,
@@ -555,6 +716,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             if (error) throw error;
             if (newNode) {
                 setNodes(prev => [...prev, newNode]);
+                pushUndoAction({ type: 'add_node', node: newNode });
             }
         } catch (err) {
             console.error('Error saving drawn stroke:', err);
@@ -599,6 +761,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 if (newNode) {
                     setNodes(prev => [...prev, newNode]);
                     setSelectedNodeId(newNode.id);
+                    pushUndoAction({ type: 'add_node', node: newNode });
                 }
                 setSavingStatus('saved');
             }
@@ -617,6 +780,14 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             e.preventDefault();
             setIsPanning(true);
             panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+            return;
+        }
+
+        // In pencil mode, allow drawing over cards freely!
+        if (toolMode === 'pencil') {
+            const coords = getCanvasCoordinates(e);
+            setIsDrawing(true);
+            setCurrentPoints([coords]);
             return;
         }
 
@@ -643,6 +814,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         const extra = parseNodeExtra(node);
         if (!extra.isLocked) {
             setDraggingNodeId(nodeId);
+            dragStartPosRef.current = { pos_x: node.pos_x, pos_y: node.pos_y };
             dragOffsetRef.current = {
                 x: e.clientX / zoom - node.pos_x,
                 y: e.clientY / zoom - node.pos_y
@@ -672,6 +844,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             initY: node.pos_y,
             initW: node.width || 320,
             initH: currentH,
+            initContent: node.content,
             dir
         };
     };
@@ -697,7 +870,15 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             if (isDrawing && toolMode === 'pencil') {
                 const { x, y } = getCanvasCoordinates(e);
                 if (pencilShape === 'free') {
-                    setCurrentPoints(prev => [...prev, { x, y }]);
+                    setCurrentPoints(prev => {
+                        if (prev.length === 0) return [{ x, y }];
+                        const last = prev[prev.length - 1];
+                        const distSq = (x - last.x) ** 2 + (y - last.y) ** 2;
+                        if (distSq >= 2) {
+                            return [...prev, { x, y }];
+                        }
+                        return prev;
+                    });
                 } else {
                     setCurrentPoints(prev => [prev[0] || { x, y }, { x, y }]);
                 }
@@ -802,16 +983,46 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
         const handleMouseUp = () => {
             if (isPanning) setIsPanning(false);
-            if (draggingNodeId) setDraggingNodeId(null);
+            if (draggingNodeId) {
+                if (dragStartPosRef.current) {
+                    const currentNode = nodes.find(n => n.id === draggingNodeId);
+                    if (currentNode) {
+                        const dx = Math.abs(currentNode.pos_x - dragStartPosRef.current.pos_x);
+                        const dy = Math.abs(currentNode.pos_y - dragStartPosRef.current.pos_y);
+                        if (dx > 2 || dy > 2) {
+                            pushUndoAction({
+                                type: 'move_node',
+                                nodeId: draggingNodeId,
+                                before: dragStartPosRef.current,
+                                after: { pos_x: currentNode.pos_x, pos_y: currentNode.pos_y }
+                            });
+                        }
+                    }
+                    dragStartPosRef.current = null;
+                }
+                setDraggingNodeId(null);
+            }
             if (draggingLinkId) setDraggingLinkId(null);
             if (isResizing) {
+                if (selectedNodeId && resizeStartRef.current) {
+                    const currentNode = nodes.find(n => n.id === selectedNodeId);
+                    if (currentNode) {
+                        const { initX, initY, initW, initContent } = resizeStartRef.current;
+                        pushUndoAction({
+                            type: 'transform_node',
+                            nodeId: selectedNodeId,
+                            before: { pos_x: initX, pos_y: initY, width: initW, content: initContent },
+                            after: { pos_x: currentNode.pos_x, pos_y: currentNode.pos_y, width: currentNode.width, content: currentNode.content }
+                        });
+                    }
+                }
                 setIsResizing(false);
                 setResizeDir(null);
             }
 
             if (isDrawing && toolMode === 'pencil') {
                 setIsDrawing(false);
-                if (currentPoints.length >= 2) {
+                if (currentPoints.length >= 1) {
                     handleFinishDrawing(currentPoints);
                 }
                 setCurrentPoints([]);
@@ -824,7 +1035,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [draggingNodeId, draggingLinkId, isPanning, isResizing, resizeDir, isDrawing, toolMode, pencilShape, pencilColor, pencilWidth, currentPoints, selectedNodeId, zoom, pan, links, nodes, getCanvasCoordinates]);
+    }, [draggingNodeId, draggingLinkId, isPanning, isResizing, resizeDir, isDrawing, toolMode, pencilShape, pencilColor, pencilWidth, currentPoints, selectedNodeId, zoom, pan, links, nodes, getCanvasCoordinates, pushUndoAction]);
 
     // Handle Pan Canvas or Start Drawing / Erasing
     const handleBoardMouseDown = (e) => {
@@ -835,25 +1046,29 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             return;
         }
 
-        if (e.target.closest('.whiteboard-card') || e.target.closest('.whiteboard-controls') || e.target.closest('.whiteboard-hud')) {
+        if (e.target.closest('.whiteboard-controls') || e.target.closest('.whiteboard-hud') || e.target.closest('.modal-overlay')) {
             return;
         }
 
-        if (connectingSourceId) {
-            setConnectingSourceId(null);
-            return;
-        }
-
-        const { x, y } = getCanvasCoordinates(e);
+        const coords = getCanvasCoordinates(e);
 
         if (toolMode === 'pencil') {
             setIsDrawing(true);
-            setCurrentPoints([{ x, y }, { x, y }]);
+            setCurrentPoints([coords]);
             return;
         }
 
         if (toolMode === 'eraser') {
             setIsDrawing(true);
+            return;
+        }
+
+        if (e.target.closest('.whiteboard-card')) {
+            return;
+        }
+
+        if (connectingSourceId) {
+            setConnectingSourceId(null);
             return;
         }
 
@@ -1004,6 +1219,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             if (error) throw error;
             setNodes(prev => prev.filter(n => n.category !== 'drawing'));
             if (selectedNodeId && drawingIds.includes(selectedNodeId)) setSelectedNodeId(null);
+            pushUndoAction({ type: 'delete_many_nodes', nodes: drawingNodes });
         } catch (err) {
             alert('Error clearing drawings: ' + err.message);
         }
@@ -1083,10 +1299,15 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     payload.content = JSON.stringify({ height: dims.height, isLocked: false });
                 }
 
-                const { error } = await supabase
+                const { data: createdNode, error } = await supabase
                     .from('case_board_nodes')
-                    .insert([payload]);
+                    .insert([payload])
+                    .select()
+                    .single();
                 if (error) throw error;
+                if (createdNode) {
+                    pushUndoAction({ type: 'add_node', node: createdNode });
+                }
             }
 
             setShowNodeModal(false);
@@ -1101,11 +1322,15 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     // Delete Node
     const handleDeleteNode = async (nodeId, title = '', skipConfirm = false) => {
         if (!skipConfirm && !window.confirm(`Delete "${title || 'item'}"?`)) return;
+        const deletedNode = nodes.find(n => n.id === nodeId);
         try {
             const { error } = await supabase.from('case_board_nodes').delete().eq('id', nodeId);
             if (error) throw error;
             setNodes(prev => prev.filter(n => n.id !== nodeId));
             if (selectedNodeId === nodeId) setSelectedNodeId(null);
+            if (deletedNode) {
+                pushUndoAction({ type: 'delete_node', node: deletedNode });
+            }
         } catch (err) {
             alert('Error deleting card: ' + err.message);
         }
@@ -1133,14 +1358,20 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 payload.case_id = caseId;
             }
 
-            const { error } = await supabase.from('case_board_links').insert([payload]);
+            const { data: newLink, error } = await supabase.from('case_board_links').insert([payload]).select().single();
             if (error) throw error;
+
+            if (newLink) {
+                setLinks(prev => [...prev, newLink]);
+                pushUndoAction({ type: 'add_link', link: newLink });
+            } else {
+                loadBoardData();
+            }
 
             setConnectingSourceId(null);
             setPendingTargetId(null);
             setNewLinkLabel('');
             setShowLinkLabelModal(false);
-            loadBoardData();
         } catch (err) {
             alert('Error creating link: ' + err.message);
         }
@@ -1170,10 +1401,14 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
     // Delete Connection Link
     const handleDeleteLink = async (linkId) => {
+        const deletedLink = links.find(l => l.id === linkId);
         try {
             const { error } = await supabase.from('case_board_links').delete().eq('id', linkId);
             if (error) throw error;
             setLinks(prev => prev.filter(l => l.id !== linkId));
+            if (deletedLink) {
+                pushUndoAction({ type: 'delete_link', link: deletedLink });
+            }
         } catch (err) {
             alert('Error removing link: ' + err.message);
         }
@@ -1917,7 +2152,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 {/* Primary Tool Mode Switcher & Actions */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                     {/* Tool Modes: Move / Pencil / Eraser */}
-                    <div style={{ display: 'flex', background: 'rgba(0,0,0,0.4)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', marginRight: '6px' }}>
+                    <div style={{ display: 'flex', background: 'rgba(0,0,0,0.4)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', marginRight: '4px' }}>
                         <button
                             onClick={() => { setToolMode('move'); setSelectedNodeId(null); }}
                             style={{
@@ -1956,6 +2191,52 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         >
                             <BoardIcon name="eraser" size={13} color={toolMode === 'eraser' ? '#fbcfe8' : '#cbd5e1'} />
                             <span>{t('eraserToolBtn') || 'Goma de Borrar'}</span>
+                        </button>
+                    </div>
+
+                    {/* Undo / Redo Actions Group */}
+                    <div style={{ display: 'flex', background: 'rgba(0,0,0,0.4)', padding: '2px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', marginRight: '6px' }}>
+                        <button
+                            onClick={handleUndo}
+                            disabled={undoStack.length === 0}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: undoStack.length > 0 ? '#fef08a' : 'rgba(255,255,255,0.3)',
+                                padding: '0.35rem 0.6rem',
+                                borderRadius: '4px',
+                                cursor: undoStack.length > 0 ? 'pointer' : 'not-allowed',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px'
+                            }}
+                            title="Deshacer (Ctrl+Z)"
+                        >
+                            <BoardIcon name="undo" size={13} color={undoStack.length > 0 ? '#fef08a' : 'rgba(255,255,255,0.3)'} />
+                            <span>Deshacer</span>
+                        </button>
+                        <button
+                            onClick={handleRedo}
+                            disabled={redoStack.length === 0}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: redoStack.length > 0 ? '#fef08a' : 'rgba(255,255,255,0.3)',
+                                padding: '0.35rem 0.6rem',
+                                borderRadius: '4px',
+                                cursor: redoStack.length > 0 ? 'pointer' : 'not-allowed',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px'
+                            }}
+                            title="Rehacer (Ctrl+Y)"
+                        >
+                            <BoardIcon name="redo" size={13} color={redoStack.length > 0 ? '#fef08a' : 'rgba(255,255,255,0.3)'} />
+                            <span>Rehacer</span>
                         </button>
                     </div>
 
@@ -2055,7 +2336,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '0.78rem', color: '#fca5a5', fontWeight: 700, marginRight: '0.2rem' }}>Forma:</span>
                         {[
-                            { id: 'free', label: 'Libre', iconName: 'free', title: 'Mano Alzada' },
+                            { id: 'free', label: 'Libre', iconName: 'free', title: 'Mano Alzada Suave' },
                             { id: 'line', label: 'Línea', iconName: 'line', title: 'Línea Recta' },
                             { id: 'arrow', label: 'Flecha', iconName: 'arrow', title: 'Flecha Táctica' },
                             { id: 'rectangle', label: 'Rectángulo', iconName: 'rectangle', title: 'Rectángulo / Caja' },
@@ -2083,7 +2364,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <span style={{ fontSize: '0.78rem', color: '#cbd5e1' }}>Color:</span>
-                            {['#ef4444', '#eab308', '#3b82f6', '#22c55e', '#a855f7', '#ffffff'].map(c => (
+                            {['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#ffffff'].map(c => (
                                 <button
                                     key={c}
                                     onClick={() => setPencilColor(c)}
@@ -2102,7 +2383,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             {[
                                 { label: 'Fino', val: 2 },
                                 { label: 'Medio', val: 4 },
-                                { label: 'Grueso', val: 8 }
+                                { label: 'Grueso', val: 7 },
+                                { label: 'Resaltador', val: 14 }
                             ].map(w => (
                                 <button
                                     key={w.val}
@@ -2542,6 +2824,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         d={pointsToSvgPath(pts)}
                                         stroke={isSelected ? '#eab308' : color}
                                         strokeWidth={strokeW + (isSelected ? 2 : 0)}
+                                        strokeOpacity={strokeW >= 12 ? 0.55 : 1}
                                         fill="none"
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
@@ -2577,15 +2860,15 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         })}
 
                         {/* Live Active Drawing / Shape being drawn */}
-                        {isDrawing && toolMode === 'pencil' && currentPoints.length >= 2 && (
+                        {isDrawing && toolMode === 'pencil' && currentPoints.length >= 1 && (
                             <>
-                                {pencilShape === 'line' ? (
+                                {pencilShape === 'line' && currentPoints.length >= 2 ? (
                                     <line
                                         x1={currentPoints[0].x} y1={currentPoints[0].y}
                                         x2={currentPoints[currentPoints.length - 1].x} y2={currentPoints[currentPoints.length - 1].y}
                                         stroke={pencilColor} strokeWidth={pencilWidth} strokeLinecap="round"
                                     />
-                                ) : pencilShape === 'arrow' ? (
+                                ) : pencilShape === 'arrow' && currentPoints.length >= 2 ? (
                                     (() => {
                                         const x1 = currentPoints[0].x;
                                         const y1 = currentPoints[0].y;
@@ -2604,7 +2887,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                             </g>
                                         );
                                     })()
-                                ) : pencilShape === 'rectangle' ? (
+                                ) : pencilShape === 'rectangle' && currentPoints.length >= 2 ? (
                                     <rect
                                         x={Math.min(currentPoints[0].x, currentPoints[currentPoints.length - 1].x)}
                                         y={Math.min(currentPoints[0].y, currentPoints[currentPoints.length - 1].y)}
@@ -2612,7 +2895,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         height={Math.abs(currentPoints[currentPoints.length - 1].y - currentPoints[0].y)}
                                         stroke={pencilColor} strokeWidth={pencilWidth} fill="none" rx="4"
                                     />
-                                ) : pencilShape === 'circle' ? (
+                                ) : pencilShape === 'circle' && currentPoints.length >= 2 ? (
                                     <ellipse
                                         cx={(currentPoints[0].x + currentPoints[currentPoints.length - 1].x) / 2}
                                         cy={(currentPoints[0].y + currentPoints[currentPoints.length - 1].y) / 2}
@@ -2623,7 +2906,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 ) : (
                                     <path
                                         d={pointsToSvgPath(currentPoints)}
-                                        stroke={pencilColor} strokeWidth={pencilWidth} fill="none" strokeLinecap="round" strokeLinejoin="round"
+                                        stroke={pencilColor}
+                                        strokeWidth={pencilWidth}
+                                        strokeOpacity={pencilWidth >= 12 ? 0.55 : 1}
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
                                     />
                                 )}
                             </>
