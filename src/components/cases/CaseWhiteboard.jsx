@@ -1364,13 +1364,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             }
         } else {
             setActiveTimelineNodeId(null);
-            setTimelineItems([
-                { id: 'ev_1', date: '03/09', time: '14:15', text: 'Agentes Bradford y Whittaker acuden a la casa tras aviso.' },
-                { id: 'ev_2', date: '03/09', time: '14:22', text: 'Encuentran a la víctima inconsciente con marcas en el cuello.' },
-                { id: 'ev_3', date: '03/09', time: '14:25', text: 'Llega el facultativo Ryan Cross para atender a la víctima.' },
-                { id: 'ev_4', date: '03/09', time: '14:30', text: 'Estabilización y traslado al centro médico más cercano.' },
-                { id: 'ev_5', date: '04/09', time: 'Post', text: 'Notificación oficial al departamento de investigación criminal.' }
-            ]);
+            setTimelineItems([]);
         }
 
         setEditingTimelineItemIndex(null);
@@ -4054,7 +4048,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                             <input
                                                 type="text"
                                                 className="form-input"
-                                                placeholder="ej. Agentes Bradford y Whittaker acuden a la casa tras aviso."
+                                                placeholder={language === 'es' ? 'ej. Agentes acuden a la escena tras el aviso...' : 'e.g. Officers arrive at scene after dispatch...'}
                                                 value={timelineTextInput}
                                                 onChange={e => setTimelineTextInput(e.target.value)}
                                                 style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%' }}
