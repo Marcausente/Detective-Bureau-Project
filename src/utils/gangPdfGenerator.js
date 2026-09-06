@@ -66,6 +66,8 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
         authorName = 'Agente Investigador'
     } = extraData;
 
+    const gangCleanName = cleanPDFText(gang?.name || 'ORGANIZACIÓN SIN NOMBRE');
+
     // Theme color palettes
     const primaryColor = isLSSD ? [6, 78, 59] : [30, 58, 138];       // #064e3b (LSSD) or #1e3a8a (LSPD)
     const accentGold = [212, 175, 55];                             // Gold #d4af37
@@ -133,7 +135,7 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-    doc.text(cleanPDFText(gang.name || 'ORGANIZACIÓN SIN NOMBRE').toUpperCase(), pageWidth / 2, y, { align: 'center' });
+    doc.text(gangCleanName.toUpperCase(), pageWidth / 2, y, { align: 'center' });
 
     y += 5;
     doc.setFontSize(8.5);
