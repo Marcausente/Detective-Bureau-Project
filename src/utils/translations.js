@@ -554,6 +554,9 @@ export const translations = {
         reopenCaseBtn: "Reopen Case",
         closeCaseBtn: "Close Case",
         archiveCaseBtn: "Archive Case",
+        gangCasesLabel: "Cases",
+        linkedCasesToGang: "Linked Cases",
+        noLinkedCasesGang: "No criminal cases linked",
     },
     es: {
         // Layout / Sidebar
@@ -1110,5 +1113,8 @@ export const translations = {
         reopenCaseBtn: "Reabrir Caso",
         closeCaseBtn: "Cerrar Caso",
         archiveCaseBtn: "Archivar Caso",
+        gangCasesLabel: "Casos",
+        linkedCasesToGang: "Casos Ligados",
+        noLinkedCasesGang: "Sin casos criminales vinculados",
     }
 };

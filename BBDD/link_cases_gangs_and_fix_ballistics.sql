@@ -371,10 +371,101 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- ============================================================
+-- 8. RPC: get_gangs_data (Updated to include cases and case_count)
+-- ============================================================
+DROP FUNCTION IF EXISTS get_gangs_data();
+
+CREATE OR REPLACE FUNCTION get_gangs_data()
+RETURNS TABLE (
+    gang_id UUID,
+    name TEXT,
+    color TEXT,
+    zones_image TEXT,
+    is_archived BOOLEAN,
+    vehicles JSONB,
+    homes JSONB,
+    members JSONB,
+    info JSONB,
+    incident_count BIGINT,
+    outing_count BIGINT,
+    case_count BIGINT,
+    cases JSONB,
+    graffiti JSONB
+) AS $$
+BEGIN
+    IF NOT auth_is_gang_authorized() THEN 
+        RETURN; -- Validate return empty if not authorized
+    END IF;
+
+    RETURN QUERY
+    SELECT 
+        g.id AS gang_id,
+        g.name,
+        g.color,
+        g.zones_image,
+        g.is_archived,
+        -- Vehicles
+        COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('id', v.id, 'model', v.model, 'plate', v.plate, 'owner', v.owner_name, 'notes', v.notes, 'images', v.images))
+            FROM public.gang_vehicles v WHERE v.gang_id = g.id
+        ), '[]'::jsonb),
+        -- Homes
+        COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('id', h.id, 'owner', h.owner_name, 'notes', h.address_notes, 'images', h.images))
+            FROM public.gang_homes h WHERE h.gang_id = g.id
+        ), '[]'::jsonb),
+        -- Members
+        COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('id', m.id, 'name', m.name, 'role', m.role, 'photo', m.photo, 'notes', m.notes, 'status', m.status))
+            FROM public.gang_members m WHERE m.gang_id = g.id
+        ), '[]'::jsonb),
+        -- Info
+        COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('id', i.id, 'type', i.type, 'content', i.content, 'images', i.images, 'author', (SELECT nombre||' '||apellido FROM public.users WHERE id=i.author_id)))
+            FROM public.gang_info i WHERE i.gang_id = g.id
+        ), '[]'::jsonb),
+        -- Counts
+        (SELECT COUNT(*) FROM public.incident_gangs ig WHERE ig.gang_id = g.id),
+        (SELECT COUNT(*) FROM public.outing_gangs og WHERE og.gang_id = g.id),
+        (SELECT COUNT(*) FROM public.case_gangs cg WHERE cg.gang_id = g.id),
+        -- Linked Cases
+        COALESCE((
+            SELECT jsonb_agg(jsonb_build_object(
+                'id', c.id,
+                'case_number', c.case_number,
+                'title', c.title,
+                'status', c.status,
+                'location', c.location,
+                'occurred_at', c.occurred_at,
+                'created_at', c.created_at
+            ) ORDER BY c.created_at DESC)
+            FROM public.case_gangs cg
+            JOIN public.cases c ON cg.case_id = c.id
+            WHERE cg.gang_id = g.id
+        ), '[]'::jsonb),
+        -- Graffiti Collection
+        COALESCE((
+            SELECT jsonb_agg(jsonb_build_object(
+                'id', gr.id, 
+                'graffiti_image', gr.graffiti_image, 
+                'gps_image', gr.gps_image, 
+                'notes', gr.notes, 
+                'created_at', gr.created_at
+            ))
+            FROM public.gang_graffitis gr WHERE gr.gang_id = g.id
+        ), '[]'::jsonb)
+        
+    FROM public.gangs g
+    ORDER BY g.created_at ASC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Grants
 GRANT EXECUTE ON FUNCTION get_available_gangs_to_link(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION link_gang_to_case(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION unlink_gang_from_case(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_gang_cases(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_gangs_data() TO authenticated;
 GRANT EXECUTE ON FUNCTION get_available_ballistics_to_link(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_case_details(UUID) TO authenticated;

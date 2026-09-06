@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { uploadImageToStorage } from '../utils/imageStorage';
 import IncidentCard from '../components/IncidentCard';
@@ -11,6 +12,7 @@ import { generateGangSummaryPDF } from '../utils/gangPdfGenerator';
 import '../index.css';
 
 function Gangs() {
+    const navigate = useNavigate();
     const [gangs, setGangs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [accessDenied, setAccessDenied] = useState(false);
@@ -640,7 +642,11 @@ function Gangs() {
         setActivityLog([]);
 
         try {
-            const rpcName = type === 'incidents' ? 'get_gang_incidents' : 'get_gang_outings';
+            const rpcName = type === 'incidents' 
+                ? 'get_gang_incidents' 
+                : type === 'cases' 
+                    ? 'get_gang_cases' 
+                    : 'get_gang_outings';
             const { data, error } = await supabase.rpc(rpcName, { p_gang_id: gangId });
             if (error) throw error;
             setActivityLog(data || []);
@@ -666,17 +672,23 @@ function Gangs() {
                 }
             }
 
-            // Fetch related incidents and patrol logs for this gang
-            const [incidentsRes, patrolLogsRes] = await Promise.all([
+            // Fetch related incidents, cases, outings and patrol logs for this gang
+            const [incidentsRes, outingsRes, casesRes, patrolLogsRes] = await Promise.all([
                 supabase.rpc('get_gang_incidents', { p_gang_id: gang.gang_id }),
+                supabase.rpc('get_gang_outings', { p_gang_id: gang.gang_id }),
+                supabase.rpc('get_gang_cases', { p_gang_id: gang.gang_id }),
                 supabase.rpc('get_patrol_logs', { p_gang_id: gang.gang_id })
             ]);
 
             const incidents = incidentsRes.data || [];
+            const outings = outingsRes.data || [];
+            const cases = casesRes.data || gang.cases || [];
             const patrolLogs = patrolLogsRes.data || [];
 
             await generateGangSummaryPDF(gang, {
                 incidents,
+                outings,
+                cases,
                 patrolLogs,
                 isLSSD,
                 authorName
@@ -1709,29 +1721,66 @@ function Gangs() {
                 <div className="cropper-modal-overlay" onClick={closeModal}>
                     <div className="cropper-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
                         <h3 className="section-title" style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
-                            {activityType === 'incidents' ? '📁 Related Incidents' : '🚓 Related Patrols & Outings'}
+                            {activityType === 'incidents' ? '📁 Related Incidents' : activityType === 'cases' ? '📂 Expedientes / Casos Ligados' : '🚓 Related Patrols & Outings'}
                         </h3>
 
                         {loadingActivity ? (
                             <div style={{ textAlign: 'center', padding: '2rem' }}>Loading records...</div>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 {activityLog.length === 0 ? (
                                     <div style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic', opacity: 0.7 }}>No records found for this syndicate.</div>
                                 ) : (
                                     activityLog.map(item => (
                                         activityType === 'incidents' ? (
                                             <IncidentCard
-                                                key={item.record_id}
+                                                key={item.record_id || item.id}
                                                 data={item}
                                                 onExpand={setExpandedImage}
-                                                // Disable edit/delete from this view to prevent complexity, or implement if needed
                                                 onDelete={null}
                                                 onEdit={null}
                                             />
+                                        ) : activityType === 'cases' ? (
+                                            <div
+                                                key={item.id}
+                                                onClick={() => { closeModal(); navigate(`/cases/${item.id}`); }}
+                                                style={{
+                                                    padding: '0.85rem 1rem',
+                                                    background: 'rgba(30, 41, 59, 0.7)',
+                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                    borderLeft: `4px solid ${(!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? '#10b981' : '#ef4444'}`,
+                                                    borderRadius: '8px',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.borderColor = '#60a5fa'}
+                                                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
+                                            >
+                                                <div>
+                                                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.2rem' }}>
+                                                        {item.case_number ? `CASO #${item.case_number}: ` : ''}{item.title}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                                                        {item.location ? `📍 ${item.location}` : ''} {item.occurred_at ? `• 🕒 ${new Date(item.occurred_at).toLocaleDateString()}` : ''}
+                                                    </div>
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 800,
+                                                    color: (!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? '#10b981' : '#ef4444',
+                                                    background: (!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                                                    padding: '0.3rem 0.6rem',
+                                                    borderRadius: '6px'
+                                                }}>
+                                                    {(!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? 'ABIERTO' : item.status.toUpperCase()}
+                                                </div>
+                                            </div>
                                         ) : (
                                             <OutingCard
-                                                key={item.record_id}
+                                                key={item.record_id || item.id}
                                                 data={item}
                                                 onExpand={setExpandedImage}
                                                 onDelete={null}
@@ -1896,6 +1945,7 @@ function Gangs() {
 function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName, onViewGangBoard, onExportPDF }) {
     const { t } = useLanguage();
     const { isLSSD } = useTheme();
+    const navigate = useNavigate();
     // Helper for buttons
     const ActionButtons = ({ type, item }) => (
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px', zIndex: 10, position: 'relative' }}>
@@ -2035,9 +2085,99 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
             </div>
 
             {/* Stats Grid */}
-            <div className="gang-stat-grid">
+            <div className="gang-stat-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
                 <StatBox label={t('gangIncidentsLabel')} count={gang.incident_count} onClick={() => onViewActivity('incidents', gang.gang_id)} />
                 <StatBox label={t('gangOutingsLabel')} count={gang.outing_count} onClick={() => onViewActivity('outings', gang.gang_id)} />
+                <StatBox label={t('gangCasesLabel') || 'Casos'} count={gang.case_count || (gang.cases ? gang.cases.length : 0)} onClick={() => onViewActivity('cases', gang.gang_id)} />
+            </div>
+
+            {/* Linked Cases Section */}
+            <div className="gang-section-card">
+                <div className="gang-section-header">
+                    <span className="gang-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <span>{t('linkedCasesToGang') || 'Casos Ligados'} ({(gang.cases || []).length})</span>
+                    </span>
+                    {(gang.cases || []).length > 0 && (
+                        <button 
+                            className="mac-btn mac-btn-secondary" 
+                            style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px' }}
+                            onClick={() => onViewActivity('cases', gang.gang_id)}
+                        >
+                            {t('viewMatrixBtn') || 'Ver Todo'}
+                        </button>
+                    )}
+                </div>
+                <div className="gang-list-content">
+                    {(gang.cases || []).map(c => {
+                        const isCaseMatch = searchQuery && searchQuery.trim() !== '' && (
+                            c.case_number?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+                            c.title?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+                            (c.location && c.location.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+                        );
+                        const statusColors = {
+                            open: { bg: 'rgba(239, 68, 68, 0.15)', text: '#f87171', border: '#ef4444' },
+                            closed: { bg: 'rgba(16, 185, 129, 0.15)', text: '#34d399', border: '#10b981' },
+                            archived: { bg: 'rgba(148, 163, 184, 0.15)', text: '#94a3b8', border: '#64748b' }
+                        };
+                        const sc = statusColors[c.status] || statusColors.open;
+                        return (
+                            <div 
+                                key={c.id} 
+                                onClick={() => navigate(`/cases/${c.id}`)}
+                                className={`gang-list-item ${isCaseMatch ? 'search-highlight-item' : ''}`}
+                                style={{ 
+                                    flexDirection: 'column', 
+                                    alignItems: 'flex-start', 
+                                    borderLeft: `3px solid ${sc.border}`, 
+                                    paddingLeft: '0.8rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    background: 'rgba(255, 255, 255, 0.02)',
+                                    marginBottom: '0.4rem',
+                                    borderRadius: '0 6px 6px 0',
+                                    padding: '0.5rem 0.8rem'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)'; }}
+                                title="Abrir expediente del caso"
+                            >
+                                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--accent-gold, #f59e0b)', fontFamily: 'monospace', fontWeight: '700', fontSize: '0.8rem' }}>
+                                        #{c.case_number}
+                                    </span>
+                                    <span style={{ 
+                                        fontSize: '0.65rem', 
+                                        padding: '1px 6px', 
+                                        borderRadius: '4px', 
+                                        backgroundColor: sc.bg, 
+                                        color: sc.text, 
+                                        fontWeight: '600', 
+                                        textTransform: 'uppercase' 
+                                    }}>
+                                        {c.status === 'open' ? (t('statusOpen') || 'Abierto') : c.status === 'closed' ? (t('closed') || 'Cerrado') : (t('archived') || 'Archivado')}
+                                    </span>
+                                </div>
+                                <div style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '0.82rem', marginTop: '3px' }}>
+                                    {c.title}
+                                </div>
+                                {(c.location || c.incident_date) && (
+                                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                        {c.incident_date && <span>📅 {new Date(c.incident_date).toLocaleDateString()}</span>}
+                                        {c.location && <span>📍 {c.location}</span>}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                    {(!gang.cases || gang.cases.length === 0) && (
+                        <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>
+                            {t('noLinkedCasesGang') || 'Sin casos criminales vinculados'}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Intel Section */}

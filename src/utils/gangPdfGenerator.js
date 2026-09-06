@@ -60,6 +60,7 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
     const {
         incidents = [],
         outings = [],
+        cases = [],
         patrolLogs = [],
         isLSSD = false,
         authorName = 'Agente Investigador'
@@ -100,43 +101,47 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
     if (dojLogoDataUrl) doc.addImage(dojLogoDataUrl, 'PNG', 14, 17, 24, 24);
     if (saLogoDataUrl) doc.addImage(saLogoDataUrl, 'PNG', pageWidth - 38, 17, 24, 24);
 
-    // Title Text - Bureau Dynamic Name
+    // Organization & Document Title
     const bureauName = isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU" : "DETECTIVE BUREAU";
     const bureauSubtitle = "DIVISIÓN DE INTELIGENCIA CRIMINAL Y ANÁLISIS DE BANDAS";
-
+    let y = 20;
+    doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
     doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.text(bureauName, pageWidth / 2, 22, { align: 'center' });
+    doc.text(bureauName, pageWidth / 2, y, { align: 'center' });
 
-    doc.setFontSize(9);
+    y += 5.5;
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
     doc.setTextColor(accentGold[0], accentGold[1], accentGold[2]);
-    doc.text(bureauSubtitle, pageWidth / 2, 27, { align: 'center' });
+    doc.text(bureauSubtitle, pageWidth / 2, y, { align: 'center' });
 
+    y += 4.5;
     doc.setFontSize(7.5);
-    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
     doc.setFont('helvetica', 'normal');
-    doc.text("DEPARTMENT OF JUSTICE • ESTADO DE SAN ANDREAS • DOSSIER CONFIDENCIAL", pageWidth / 2, 32, { align: 'center' });
+    doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+    doc.text("DIVISIÓN DE INVESTIGACIÓN CRIMINAL • DEPARTAMENTO DE INTELIGENCIA ESTRATÉGICA", pageWidth / 2, y, { align: 'center' });
 
-    // Decorative Line Divider
-    doc.setLineWidth(0.4);
-    doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    doc.line(14, 43, pageWidth - 14, 43);
+    // Header Divider Line
+    y += 4;
+    doc.setLineWidth(0.3);
+    doc.setDrawColor(accentGold[0], accentGold[1], accentGold[2]);
+    doc.line(14, y, pageWidth - 14, y);
 
-    // --- DOCUMENT MAIN TITLE ---
-    let y = 52;
+    // Gang Header Card Title
+    y += 7;
+    doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(15);
-    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+    doc.text(cleanPDFText(gang.name || 'ORGANIZACIÓN SIN NOMBRE').toUpperCase(), pageWidth / 2, y, { align: 'center' });
+
+    y += 5;
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(accentGold[0], accentGold[1], accentGold[2]);
     doc.text("RESUMEN GENERAL DE ORGANIZACIÓN CRIMINAL", pageWidth / 2, y, { align: 'center' });
 
-    y += 7;
-    doc.setFontSize(12);
-    doc.setTextColor(accentGold[0], accentGold[1], accentGold[2]);
-    const gangCleanName = cleanPDFText(gang.name || 'ORGANIZACIÓN SIN NOMBRE').toUpperCase();
-    doc.text(`[ ${gangCleanName} ]`, pageWidth / 2, y, { align: 'center' });
-
-    // --- METADATA BOX CARD ---
+    // --- METADATA PANEL ---
     y += 7;
     const boxX = 14;
     const boxWidth = pageWidth - 28;
@@ -202,6 +207,8 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
 
     // --- DASHBOARD / STATS SUMMARY BOXES ---
     const membersCount = (gang.members || []).length;
+    const relatedCases = cases.length > 0 ? cases : (gang.cases || []);
+    const casesCount = relatedCases.length || (gang.case_count || 0);
     const incidentCount = incidents.length || (gang.incident_count || 0);
     const patrolCount = patrolLogs.length || 0;
     const vehicleCount = (gang.vehicles || []).length;
@@ -209,6 +216,7 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
 
     const stats = [
         { label: 'MIEMBROS', val: membersCount },
+        { label: 'CASOS', val: casesCount },
         { label: 'INCIDENTES', val: incidentCount },
         { label: 'PATRULLAS', val: patrolCount },
         { label: 'VEHÍCULOS', val: vehicleCount },
@@ -322,8 +330,66 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
         y += 8;
     }
 
-    // --- SECTION 2: RELATED INCIDENTS ---
-    addSectionTitle(`2. INFORMES DE INCIDENCIA VINCULADOS (${incidents.length})`);
+    // --- SECTION 2: RELATED CRIMINAL CASES ---
+    addSectionTitle(`2. EXPEDIENTES Y CASOS PENALES VINCULADOS (${relatedCases.length})`);
+
+    if (relatedCases.length > 0) {
+        const casesHead = [['Nº Caso / Folio', 'Título del Expediente Penal', 'Estado', 'Fecha / Hora', 'Ubicación']];
+        const casesBody = relatedCases.map(c => {
+            const isOpen = !c.status || c.status.toLowerCase() === 'open' || c.status.toLowerCase() === 'abierto';
+            const statusText = isOpen ? 'ABIERTO' : (c.status === 'Closed' || c.status === 'Cerrado') ? 'CERRADO' : cleanPDFText(c.status || 'ABIERTO').toUpperCase();
+            return [
+                cleanPDFText(c.case_number ? `CASO #${c.case_number}` : (c.id ? c.id.slice(0, 8).toUpperCase() : 'CASO')),
+                cleanPDFText(c.title || 'Expediente sin título'),
+                statusText,
+                c.occurred_at ? new Date(c.occurred_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-',
+                cleanPDFText(c.location || 'No especificada')
+            ];
+        });
+
+        autoTable(doc, {
+            startY: y,
+            head: casesHead,
+            body: casesBody,
+            theme: 'grid',
+            styles: {
+                font: 'helvetica',
+                fontSize: 8,
+                cellPadding: 2.5,
+                textColor: textDark,
+                lineColor: [226, 232, 240],
+                lineWidth: 0.2
+            },
+            headStyles: {
+                fillColor: primaryColor,
+                textColor: [255, 255, 255],
+                fontStyle: 'bold',
+                alignment: 'left'
+            },
+            columnStyles: {
+                0: { fontStyle: 'bold', cellWidth: 28 },
+                1: { fontStyle: 'bold', cellWidth: 60 },
+                2: { fontStyle: 'bold', cellWidth: 24 },
+                3: { cellWidth: 32 },
+                4: { cellWidth: 'auto' }
+            },
+            alternateRowStyles: {
+                fillColor: [248, 250, 252]
+            },
+            margin: { left: 14, right: 14 }
+        });
+
+        y = doc.lastAutoTable.finalY + 8;
+    } else {
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+        doc.text("No se registran expedientes penales vinculados directamente a esta organización.", 14, y);
+        y += 8;
+    }
+
+    // --- SECTION 3: RELATED INCIDENTS ---
+    addSectionTitle(`3. INFORMES DE INCIDENCIA VINCULADOS (${incidents.length})`);
 
     if (incidents.length > 0) {
         const incidentsHead = [['Nº / Folio', 'Título de la Incidencia', 'Fecha / Hora', 'Ubicación', 'Redactor']];
@@ -376,9 +442,9 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
         y += 8;
     }
 
-    // --- SECTION 3: PATROL LOGS CONTROL ---
+    // --- SECTION 4: PATROL LOGS CONTROL ---
     if (patrolLogs.length > 0) {
-        addSectionTitle(`3. REGISTRO DE CONTROL DE PATRULLAS EN ZONA (${patrolLogs.length})`);
+        addSectionTitle(`4. REGISTRO DE CONTROL DE PATRULLAS EN ZONA (${patrolLogs.length})`);
 
         const patrolHead = [['Fecha y Hora Patrulla', 'Sujetos Visibles', 'Agente Registrador', 'Observaciones de Zona']];
         const patrolBody = patrolLogs.map(pl => [
@@ -422,12 +488,12 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
         y = doc.lastAutoTable.finalY + 8;
     }
 
-    // --- SECTION 4: FLEET & PROPERTIES ---
+    // --- SECTION 5: FLEET & PROPERTIES ---
     const vehicles = gang.vehicles || [];
     const homes = gang.homes || [];
 
     if (vehicles.length > 0 || homes.length > 0) {
-        addSectionTitle(`4. VEHÍCULOS E INMUEBLES IDENTIFICADOS`);
+        addSectionTitle(`5. VEHÍCULOS E INMUEBLES IDENTIFICADOS`);
 
         if (vehicles.length > 0) {
             doc.setFontSize(8.5);
