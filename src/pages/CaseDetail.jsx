@@ -36,6 +36,7 @@ function CaseDetail() {
     const [availableIncidents, setAvailableIncidents] = useState([]);
     const [availableOutings, setAvailableOutings] = useState([]);
     const [availableComplaints, setAvailableComplaints] = useState([]);
+    const [availableGangs, setAvailableGangs] = useState([]);
 
     // Modals Visibility
     const [showAssignModal, setShowAssignModal] = useState(false);
@@ -43,6 +44,7 @@ function CaseDetail() {
     const [showLinkIncidentModal, setShowLinkIncidentModal] = useState(false);
     const [showLinkOutingModal, setShowLinkOutingModal] = useState(false);
     const [showLinkComplaintModal, setShowLinkComplaintModal] = useState(false);
+    const [showLinkGangModal, setShowLinkGangModal] = useState(false);
     const [showLinkBallisticsModal, setShowLinkBallisticsModal] = useState(false);
 
     // Temp Selection State
@@ -51,6 +53,8 @@ function CaseDetail() {
     const [selectedIncident, setSelectedIncident] = useState('');
     const [selectedOuting, setSelectedOuting] = useState('');
     const [selectedComplaint, setSelectedComplaint] = useState('');
+    const [selectedGang, setSelectedGang] = useState('');
+    const [submittingGang, setSubmittingGang] = useState(false);
     const [ballisticsModalTab, setBallisticsModalTab] = useState('coincidences');
     const [availableBallistics, setAvailableBallistics] = useState({ coincidences: [], weapons: [], bullets: [] });
     const [selectedBallisticItem, setSelectedBallisticItem] = useState('');
@@ -204,6 +208,23 @@ function CaseDetail() {
         }
         setSelectedComplaint('');
         setShowLinkComplaintModal(true);
+    };
+
+    const openLinkGangModal = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_available_gangs_to_link', { p_case_id: id });
+            if (!error && data) {
+                setAvailableGangs(data);
+            } else {
+                const { data: gangData } = await supabase.from('gangs').select('id, name, color, zones_image, is_archived').order('name');
+                setAvailableGangs(gangData || []);
+            }
+        } catch (err) {
+            console.error(err);
+            setAvailableGangs([]);
+        }
+        setSelectedGang('');
+        setShowLinkGangModal(true);
     };
 
     const handleUpdateRole = async (userId, newRole) => {
@@ -378,6 +399,45 @@ function CaseDetail() {
             loadCaseDetails();
         } catch (err) {
             alert('Error unlinking complaint: ' + err.message);
+        }
+    };
+
+    const handleLinkGang = async () => {
+        if (!selectedGang) return;
+        setSubmittingGang(true);
+        try {
+            const { error } = await supabase.rpc('link_gang_to_case', {
+                p_gang_id: selectedGang,
+                p_case_id: id
+            });
+            if (error) {
+                const { error: insErr } = await supabase.from('case_gangs').insert({ case_id: id, gang_id: selectedGang });
+                if (insErr) throw insErr;
+            }
+            setShowLinkGangModal(false);
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error al vincular grupo criminal: ' + err.message);
+        } finally {
+            setSubmittingGang(false);
+        }
+    };
+
+    const handleUnlinkGang = async (e, gangId) => {
+        e.stopPropagation();
+        if (!window.confirm(language === 'es' ? '¿Deseas desvincular este grupo criminal del caso?' : 'Do you want to unlink this criminal group from the case?')) return;
+        try {
+            const { error } = await supabase.rpc('unlink_gang_from_case', {
+                p_gang_id: gangId,
+                p_case_id: id
+            });
+            if (error) {
+                const { error: delErr } = await supabase.from('case_gangs').delete().eq('case_id', id).eq('gang_id', gangId);
+                if (delErr) throw delErr;
+            }
+            loadCaseDetails();
+        } catch (err) {
+            alert('Error al desvincular grupo criminal: ' + err.message);
         }
     };
 
@@ -750,6 +810,7 @@ function CaseDetail() {
         incidents: linkedIncidents = [], 
         outings: linkedOutings = [], 
         complaints: linkedComplaints = [],
+        gangs: linkedGangs = [],
         ballistics_coincidences: linkedMatches = [],
         ballistics_weapons: linkedWeapons = [],
         ballistics_bullets: linkedBullets = []
@@ -1505,7 +1566,67 @@ function CaseDetail() {
                             </div>
                         </div>
 
-                        {/* 6. Linked Ballistics (Coincidencias, Armas, Balas) */}
+                        {/* 6. Linked Criminal Groups (Grupos Criminales) */}
+                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                        <circle cx="9" cy="7" r="4" />
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                    </svg>
+                                    <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                        {t('linkedGangs') || 'GRUPOS CRIMINALES VINCULADOS'}
+                                    </h4>
+                                </div>
+                                {isCaseOpen && (
+                                    <button onClick={openLinkGangModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                        Vincular
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                {linkedGangs.length === 0 ? (
+                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                                        {t('noLinkedGangs') || 'Sin grupos criminales vinculados'}
+                                    </span>
+                                ) : (
+                                    linkedGangs.map(g => (
+                                        <div 
+                                            key={g.id} 
+                                            onClick={() => navigate(`/gangs?id=${g.id}`)} 
+                                            style={{ 
+                                                padding: '0.45rem 0.55rem', 
+                                                background: 'rgba(0,0,0,0.3)', 
+                                                borderRadius: '6px', 
+                                                cursor: 'pointer', 
+                                                borderLeft: `3px solid ${g.color || '#ec4899'}`, 
+                                                position: 'relative' 
+                                            }}
+                                        >
+                                            <div style={{ paddingRight: '18px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                {g.zones_image && (
+                                                    <img src={g.zones_image} alt="" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover' }} />
+                                                )}
+                                                <div>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
+                                                        {g.name} {g.is_archived ? <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>[Archivado]</span> : ''}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {isCaseOpen && (
+                                                <button onClick={(e) => handleUnlinkGang(e, g.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                    ✕
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 7. Linked Ballistics (Coincidencias, Armas, Balas) */}
                         <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -1535,27 +1656,32 @@ function CaseDetail() {
                                             🎯 {t('coincidences') || 'Coincidencias'} ({linkedMatches.length})
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                            {linkedMatches.map(m => (
-                                                <div
-                                                    key={m.weapon_id}
-                                                    onClick={() => navigate(`/ballistics?tab=coincidences&search=${encodeURIComponent(m.numero_serie)}`)}
-                                                    style={{ padding: '0.45rem 0.55rem', background: 'rgba(251, 191, 36, 0.08)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #fbbf24', position: 'relative' }}
-                                                >
-                                                    <div style={{ paddingRight: '18px' }}>
-                                                        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
-                                                            {m.modelo} <span style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.72rem' }}>({m.numero_serie})</span>
+                                            {linkedMatches.map(m => {
+                                                const serial = m.numero_serie || m.serial_number || '';
+                                                const model = m.modelo || m.weapon_model || (serial ? 'Coincidencia' : 'Arma');
+                                                const bulletsCount = m.bullets_count ?? (Array.isArray(m.bullets) ? m.bullets.length : 0);
+                                                return (
+                                                    <div
+                                                        key={m.weapon_id || m.id}
+                                                        onClick={() => navigate(`/ballistics?tab=coincidences&search=${encodeURIComponent(serial)}`)}
+                                                        style={{ padding: '0.45rem 0.55rem', background: 'rgba(251, 191, 36, 0.08)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #fbbf24', position: 'relative' }}
+                                                    >
+                                                        <div style={{ paddingRight: '18px' }}>
+                                                            <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
+                                                                {model} {serial ? <span style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.72rem' }}>({serial})</span> : ''}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                                                {bulletsCount} casquillo(s) vinculados
+                                                            </div>
                                                         </div>
-                                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                                                            {m.bullets_count} casquillo(s) vinculados
-                                                        </div>
+                                                        {isCaseOpen && (
+                                                            <button onClick={(e) => handleUnlinkBallisticsMatch(e, m.weapon_id || m.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                                ✕
+                                                            </button>
+                                                        )}
                                                     </div>
-                                                    {isCaseOpen && (
-                                                        <button onClick={(e) => handleUnlinkBallisticsMatch(e, m.weapon_id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
-                                                            ✕
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
@@ -1900,7 +2026,74 @@ function CaseDetail() {
                 </div>
             )}
 
-            {/* 6. Link Ballistics Modal */}
+            {/* 6. Link Criminal Group (Gang) Modal */}
+            {showLinkGangModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '460px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowLinkGangModal(false)}></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">{t('linkGangModalTitle') || 'Vincular Grupo Criminal al Caso'}</span>
+                            <div style={{ width: 52 }} />
+                        </div>
+                        <div className="mac-modal-body">
+                            <div style={{ maxHeight: '250px', overflowY: 'auto', marginBottom: '0.85rem' }}>
+                                {availableGangs.length === 0 ? (
+                                    <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', padding: '1rem' }}>
+                                        No hay grupos criminales disponibles para vincular.
+                                    </div>
+                                ) : (
+                                    availableGangs.map(g => (
+                                        <div
+                                            key={g.id}
+                                            onClick={() => setSelectedGang(g.id)}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '0.6rem 0.75rem',
+                                                marginBottom: '0.35rem',
+                                                background: selectedGang === g.id ? 'rgba(236, 72, 153, 0.2)' : 'rgba(255,255,255,0.03)',
+                                                border: selectedGang === g.id ? '1px solid #ec4899' : '1px solid rgba(255,255,255,0.08)',
+                                                borderLeft: `4px solid ${g.color || '#ec4899'}`,
+                                                borderRadius: '6px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                {g.zones_image && (
+                                                    <img src={g.zones_image} alt="" style={{ width: '24px', height: '24px', borderRadius: '4px', objectFit: 'cover' }} />
+                                                )}
+                                                <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#ffffff' }}>
+                                                    {g.name} {g.is_archived ? <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>[Archivado]</span> : ''}
+                                                </span>
+                                            </div>
+                                            <input
+                                                type="radio"
+                                                name="selectedGang"
+                                                checked={selectedGang === g.id}
+                                                onChange={() => setSelectedGang(g.id)}
+                                                style={{ accentColor: '#ec4899' }}
+                                            />
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            <div className="mac-modal-actions">
+                                <button className="mac-btn mac-btn-secondary" onClick={() => setShowLinkGangModal(false)}>Cancelar</button>
+                                <button className="mac-btn mac-btn-primary" onClick={handleLinkGang} disabled={!selectedGang || submittingGang}>
+                                    {submittingGang ? 'Vinculando...' : 'Vincular al Caso'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 7. Link Ballistics Modal */}
             {showLinkBallisticsModal && (
                 <div className="mac-modal-overlay">
                     <div className="mac-modal-card" style={{ maxWidth: '500px' }}>
@@ -1978,11 +2171,16 @@ function CaseDetail() {
                                         style={{ width: '100%' }}
                                     >
                                         <option value="">-- Seleccionar Coincidencia --</option>
-                                        {availableBallistics.coincidences.map(m => (
-                                            <option key={m.weapon_id} value={m.weapon_id}>
-                                                {m.modelo} (N/S: {m.numero_serie}) - {m.bullets_count} casquillos - [{m.status}]
-                                            </option>
-                                        ))}
+                                        {availableBallistics.coincidences.map(m => {
+                                            const serial = m.numero_serie || m.serial_number || '';
+                                            const model = m.modelo || m.weapon_model || 'Coincidencia';
+                                            const count = m.bullets_count ?? (Array.isArray(m.bullets) ? m.bullets.length : 0);
+                                            return (
+                                                <option key={m.weapon_id || m.id} value={m.weapon_id || m.id}>
+                                                    {model} (N/S: {serial}) - {count} casquillos - [{m.status || 'Abierta'}]
+                                                </option>
+                                            );
+                                        })}
                                     </select>
                                 )}
 
