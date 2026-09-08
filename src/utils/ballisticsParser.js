@@ -22,6 +22,7 @@ export function parseSingleBallisticReport(text) {
     let num_serie = '';
     let calibre = '';
     let incidente = '';
+    let descripcion_incidente = '';
     let propietario = '';
 
     for (const rawLine of lines) {
@@ -68,10 +69,17 @@ export function parseSingleBallisticReport(text) {
             continue;
         }
 
+        // Description / Collection location (if present)
+        const descMatch = line.match(/^(?:Descripci[oó]n(?:\s+del\s+incidente|\s+de\s+recogida)?|Lugar(?:\s+de\s+recogida)?|Recogida|Recogido\s+en|Description|Location|Notes?|Notas?)\s*[:=]\s*(.+)$/i);
+        if (descMatch) {
+            descripcion_incidente = cleanFieldValue(descMatch[1]);
+            continue;
+        }
+
         // Ignore date/time or other non-essential tags
     }
 
-    if (!num_serie && !modelo_arma && !calibre && !propietario) {
+    if (!num_serie && !modelo_arma && !calibre && !propietario && !descripcion_incidente) {
         return null;
     }
 
@@ -80,6 +88,7 @@ export function parseSingleBallisticReport(text) {
         num_serie,
         calibre,
         incidente,
+        descripcion_incidente,
         propietario
     };
 }
@@ -96,10 +105,11 @@ export function parseMultipleBallisticReports(rawText) {
         num_serie: '',
         calibre: '',
         incidente: '',
+        descripcion_incidente: '',
         propietario: ''
     };
 
-    const hasAnyField = (obj) => Boolean(obj.num_serie || obj.modelo_arma || obj.calibre || obj.propietario);
+    const hasAnyField = (obj) => Boolean(obj.num_serie || obj.modelo_arma || obj.calibre || obj.propietario || obj.descripcion_incidente);
 
     const pushCurrent = () => {
         if (hasAnyField(current)) {
@@ -109,6 +119,7 @@ export function parseMultipleBallisticReports(rawText) {
                 num_serie: '',
                 calibre: '',
                 incidente: '',
+                descripcion_incidente: '',
                 propietario: ''
             };
         }
@@ -177,6 +188,13 @@ export function parseMultipleBallisticReports(rawText) {
         const incMatch = line.match(/^(?:Incidente|Caso|Incident|Case|Suceso)\s*[:=]\s*(.+)$/i);
         if (incMatch) {
             current.incidente = cleanFieldValue(incMatch[1]);
+            continue;
+        }
+
+        // Description / Collection location
+        const descMatch = line.match(/^(?:Descripci[oó]n(?:\s+del\s+incidente|\s+de\s+recogida)?|Lugar(?:\s+de\s+recogida)?|Recogida|Recogido\s+en|Description|Location|Notes?|Notas?)\s*[:=]\s*(.+)$/i);
+        if (descMatch) {
+            current.descripcion_incidente = cleanFieldValue(descMatch[1]);
             continue;
         }
     }

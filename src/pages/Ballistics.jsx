@@ -40,6 +40,7 @@ function Ballistics() {
 
     // Batch Bullet Form State
     const [bulletBatchIncident, setBulletBatchIncident] = useState('');
+    const [bulletBatchDescription, setBulletBatchDescription] = useState('');
     const [bulletRows, setBulletRows] = useState([
         { id: 1, num_serie: '', calibre: '', modelo_arma: '' }
     ]);
@@ -58,7 +59,8 @@ function Ballistics() {
         incidente: '',
         num_serie: '',
         calibre: '',
-        modelo_arma: ''
+        modelo_arma: '',
+        descripcion_incidente: ''
     });
     const [editBulletPasteText, setEditBulletPasteText] = useState('');
     const [showEditBulletPasteBox, setShowEditBulletPasteBox] = useState(false);
@@ -237,6 +239,7 @@ function Ballistics() {
     // Open Modals
     const handleOpenAddBullets = () => {
         setBulletBatchIncident('');
+        setBulletBatchDescription('');
         setBulletRows([{ id: Date.now(), num_serie: '', calibre: '', modelo_arma: '' }]);
         setBulletPasteText('');
         setShowBulletPasteBox(false);
@@ -256,7 +259,8 @@ function Ballistics() {
             incidente: bullet.incidente_relacionado || '',
             num_serie: bullet.numero_serie || '',
             calibre: (bullet.calibre && bullet.calibre !== 'N/A') ? bullet.calibre : '',
-            modelo_arma: (bullet.modelo_arma && bullet.modelo_arma !== 'N/A') ? bullet.modelo_arma : ''
+            modelo_arma: (bullet.modelo_arma && bullet.modelo_arma !== 'N/A') ? bullet.modelo_arma : '',
+            descripcion_incidente: bullet.descripcion_incidente || ''
         });
         setEditBulletPasteText('');
         setShowEditBulletPasteBox(false);
@@ -273,7 +277,7 @@ function Ballistics() {
     };
 
     // Merge helpers to append newly parsed reports to current list without replacing existing rows
-    const mergeParsedBulletsIntoRows = (parsedList, currentRows, currentIncident) => {
+    const mergeParsedBulletsIntoRows = (parsedList, currentRows, currentIncident, currentDescription) => {
         const isSingleEmpty = currentRows.length === 1 && (!currentRows[0].num_serie || !currentRows[0].num_serie.trim());
         const baseRows = isSingleEmpty ? [] : [...currentRows];
 
@@ -314,11 +318,18 @@ function Ballistics() {
             updatedIncident = firstWithInc.incidente;
         }
 
+        const firstWithDesc = parsedList.find(p => p.descripcion_incidente);
+        let updatedDescription = currentDescription;
+        if (firstWithDesc && !currentDescription?.trim()) {
+            updatedDescription = firstWithDesc.descripcion_incidente;
+        }
+
         return {
             newRows,
             addedCount,
             skippedCount,
-            updatedIncident
+            updatedIncident,
+            updatedDescription
         };
     };
 
@@ -354,9 +365,12 @@ function Ballistics() {
             return;
         }
 
-        const { newRows, addedCount, skippedCount, updatedIncident } = mergeParsedBulletsIntoRows(parsedList, bulletRows, bulletBatchIncident);
+        const { newRows, addedCount, skippedCount, updatedIncident, updatedDescription } = mergeParsedBulletsIntoRows(parsedList, bulletRows, bulletBatchIncident, bulletBatchDescription);
         setBulletRows(newRows);
         setBulletBatchIncident(updatedIncident);
+        if (updatedDescription !== undefined) {
+            setBulletBatchDescription(updatedDescription);
+        }
         setBulletPasteText('');
         setShowBulletPasteBox(false);
 
@@ -386,7 +400,8 @@ function Ballistics() {
             incidente: parsed.incidente ? parsed.incidente : prev.incidente,
             num_serie: parsed.num_serie ? parsed.num_serie : prev.num_serie,
             calibre: parsed.calibre ? parsed.calibre : prev.calibre,
-            modelo_arma: parsed.modelo_arma ? parsed.modelo_arma : prev.modelo_arma
+            modelo_arma: parsed.modelo_arma ? parsed.modelo_arma : prev.modelo_arma,
+            descripcion_incidente: parsed.descripcion_incidente ? parsed.descripcion_incidente : prev.descripcion_incidente
         }));
         setEditBulletPasteText('');
         setShowEditBulletPasteBox(false);
@@ -493,7 +508,8 @@ function Ballistics() {
 
             const { error: batchError } = await supabase.rpc('create_ballistics_bullets_batch', {
                 p_incidente: bulletBatchIncident.trim(),
-                p_bullets: batchPayload
+                p_bullets: batchPayload,
+                p_descripcion_incidente: bulletBatchDescription.trim() || null
             });
 
             if (batchError) {
@@ -503,7 +519,8 @@ function Ballistics() {
                         p_incidente: bulletBatchIncident.trim(),
                         p_calibre: b.calibre?.trim() || 'N/A',
                         p_num_serie: b.num_serie.trim(),
-                        p_modelo_arma: b.modelo_arma?.trim() || 'N/A'
+                        p_modelo_arma: b.modelo_arma?.trim() || 'N/A',
+                        p_descripcion_incidente: bulletBatchDescription.trim() || null
                     });
                     if (error) throw error;
                 }
@@ -688,7 +705,8 @@ function Ballistics() {
                 p_incidente: editBulletForm.incidente,
                 p_calibre: editBulletForm.calibre?.trim() || 'N/A',
                 p_num_serie: editBulletForm.num_serie,
-                p_modelo_arma: editBulletForm.modelo_arma?.trim() || 'N/A'
+                p_modelo_arma: editBulletForm.modelo_arma?.trim() || 'N/A',
+                p_descripcion_incidente: editBulletForm.descripcion_incidente?.trim() || null
             });
             if (error) throw error;
 
@@ -1010,6 +1028,7 @@ function Ballistics() {
         return bullets.filter(b =>
             (b.numero_serie && b.numero_serie.toLowerCase().includes(term)) ||
             (b.incidente_relacionado && b.incidente_relacionado.toLowerCase().includes(term)) ||
+            (b.descripcion_incidente && b.descripcion_incidente.toLowerCase().includes(term)) ||
             (b.calibre && b.calibre.toLowerCase().includes(term)) ||
             (b.modelo_arma && b.modelo_arma.toLowerCase().includes(term)) ||
             (b.case_title && b.case_title.toLowerCase().includes(term))
@@ -1063,6 +1082,7 @@ function Ballistics() {
                 const matchesCase = caseTitle && caseTitle.toLowerCase().includes(term);
                 const matchesBullets = matchingBullets.some(b =>
                     (b.incidente_relacionado && b.incidente_relacionado.toLowerCase().includes(term)) ||
+                    (b.descripcion_incidente && b.descripcion_incidente.toLowerCase().includes(term)) ||
                     (b.calibre && b.calibre.toLowerCase().includes(term))
                 );
                 if (!matchesSn && !matchesModel && !matchesOwner && !matchesCase && !matchesBullets) return null;
@@ -1777,6 +1797,11 @@ function Ballistics() {
                                                                                     </button>
                                                                                 )}
                                                                             </div>
+                                                                            {bullet.descripcion_incidente && bullet.descripcion_incidente.trim() !== '' && (
+                                                                                <div style={{ color: '#93c5fd', marginTop: '3px', fontSize: '0.73rem', background: 'rgba(59, 130, 246, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                                                    📍 <strong>Recogida:</strong> {bullet.descripcion_incidente}
+                                                                                </div>
+                                                                            )}
                                                                             {((bullet.calibre && bullet.calibre !== 'N/A') || (bullet.modelo_arma && bullet.modelo_arma !== 'N/A')) && (
                                                                                 <div style={{ color: '#cbd5e1', marginTop: '2px' }}>
                                                                                     {bullet.calibre && bullet.calibre !== 'N/A' && <><strong>Calibre:</strong> {bullet.calibre} </>}
@@ -2131,6 +2156,16 @@ function Ballistics() {
                                                 <div style={{ background: 'rgba(0,0,0,0.25)', padding: '0.6rem 0.75rem', borderRadius: '8px', marginBottom: '0.65rem' }}>
                                                     <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>{t('relatedIncident') || 'Incidente'}</span>
                                                     <strong style={{ color: '#f8fafc', fontSize: '0.88rem' }}>{item.incidente_relacionado}</strong>
+                                                    {item.descripcion_incidente && item.descripcion_incidente.trim() !== '' && (
+                                                        <div style={{ marginTop: '0.45rem', paddingTop: '0.45rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                                            <span style={{ color: '#93c5fd', fontSize: '0.7rem', display: 'block', marginBottom: '1px', fontWeight: 700 }}>
+                                                                📍 {t('incidentDescription') || 'Descripción / Lugar de Recogida'}:
+                                                            </span>
+                                                            <span style={{ color: '#cbd5e1', fontSize: '0.78rem', whiteSpace: 'pre-wrap', lineHeight: '1.35', display: 'block' }}>
+                                                                {item.descripcion_incidente}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {((item.calibre && item.calibre !== 'N/A') || (item.modelo_arma && item.modelo_arma !== 'N/A')) && (
@@ -2572,6 +2607,45 @@ function Ballistics() {
                                 />
                             </div>
 
+                            {/* Optional Incident / Collection Description */}
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#93c5fd', fontWeight: 700, margin: 0 }}>
+                                        {t('incidentDescription') || 'Descripción del Incidente / Recogida'}
+                                    </label>
+                                    <span style={{
+                                        fontSize: '0.68rem',
+                                        color: '#38bdf8',
+                                        background: 'rgba(56, 189, 248, 0.12)',
+                                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                                        padding: '1px 8px',
+                                        borderRadius: '6px',
+                                        fontWeight: 800,
+                                        letterSpacing: '0.05em'
+                                    }}>
+                                        {t('optionalField') || 'OPCIONAL'}
+                                    </span>
+                                </div>
+                                <textarea
+                                    rows={2}
+                                    className="form-input"
+                                    value={bulletBatchDescription}
+                                    onChange={e => setBulletBatchDescription(e.target.value)}
+                                    placeholder="OPCIONAL: Descripción del lugar exacto donde se recogió la bala, contexto del incidente, etc."
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '10px',
+                                        color: '#ffffff',
+                                        fontSize: '0.85rem',
+                                        padding: '0.6rem 0.9rem',
+                                        resize: 'vertical',
+                                        width: '100%',
+                                        boxSizing: 'border-box'
+                                    }}
+                                />
+                            </div>
+
                             {/* Bullets List Header */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.4rem' }}>
                                 <span style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -2855,6 +2929,45 @@ function Ballistics() {
                                         color: '#ffffff',
                                         fontSize: '0.88rem',
                                         padding: '0.65rem 0.9rem'
+                                    }}
+                                />
+                            </div>
+
+                            {/* Optional Incident / Collection Description */}
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#93c5fd', fontWeight: 700, margin: 0 }}>
+                                        {t('incidentDescription') || 'Descripción del Incidente / Recogida'}
+                                    </label>
+                                    <span style={{
+                                        fontSize: '0.68rem',
+                                        color: '#38bdf8',
+                                        background: 'rgba(56, 189, 248, 0.12)',
+                                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                                        padding: '1px 8px',
+                                        borderRadius: '6px',
+                                        fontWeight: 800,
+                                        letterSpacing: '0.05em'
+                                    }}>
+                                        {t('optionalField') || 'OPCIONAL'}
+                                    </span>
+                                </div>
+                                <textarea
+                                    rows={2}
+                                    className="form-input"
+                                    value={editBulletForm.descripcion_incidente}
+                                    onChange={e => setEditBulletForm({ ...editBulletForm, descripcion_incidente: e.target.value })}
+                                    placeholder="OPCIONAL: Descripción del lugar exacto donde se recogió la bala, contexto, etc."
+                                    style={{
+                                        background: 'rgba(15, 23, 42, 0.75)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '10px',
+                                        color: '#ffffff',
+                                        fontSize: '0.85rem',
+                                        padding: '0.6rem 0.9rem',
+                                        resize: 'vertical',
+                                        width: '100%',
+                                        boxSizing: 'border-box'
                                     }}
                                 />
                             </div>

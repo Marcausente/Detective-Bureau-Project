@@ -1733,6 +1733,11 @@ function CaseDetail() {
                                                         <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
                                                             {b.incidente_relacionado} <span style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.72rem' }}>({b.numero_serie})</span>
                                                         </div>
+                                                        {b.descripcion_incidente && (
+                                                            <div style={{ fontSize: '0.7rem', color: '#93c5fd', fontStyle: 'italic', marginTop: '2px' }}>
+                                                                📍 {b.descripcion_incidente}
+                                                            </div>
+                                                        )}
                                                         {b.calibre && <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Calibre: {b.calibre}</div>}
                                                     </div>
                                                     {isCaseOpen && (
