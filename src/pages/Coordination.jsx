@@ -3,13 +3,12 @@ import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import CoordinationTodoList from '../components/CoordinationTodoList';
 import CoordinationSanctions from '../components/CoordinationSanctions';
-import CoordinationInternalRanks from '../components/CoordinationInternalRanks';
-import CoordinationSubdivisions from '../components/CoordinationSubdivisions';
+import CoordinationRolesConfig from '../components/CoordinationRolesConfig';
 import '../index.css';
 
 function Coordination() {
     const { t } = useLanguage();
-    const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'sanctions' | 'internal_ranks' | 'subdivisions'
+    const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'sanctions' | 'roles_config'
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -244,7 +243,7 @@ function Coordination() {
                 </button>
 
                 <button
-                    onClick={() => setActiveTab('internal_ranks')}
+                    onClick={() => setActiveTab('roles_config')}
                     style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -253,42 +252,18 @@ function Coordination() {
                         borderRadius: '12px',
                         fontSize: '0.88rem',
                         fontWeight: 700,
-                        border: activeTab === 'internal_ranks' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid transparent',
-                        background: activeTab === 'internal_ranks' ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15))' : 'transparent',
-                        color: activeTab === 'internal_ranks' ? '#ffffff' : '#94a3b8',
+                        border: activeTab === 'roles_config' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid transparent',
+                        background: activeTab === 'roles_config' ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))' : 'transparent',
+                        color: activeTab === 'roles_config' ? '#ffffff' : '#94a3b8',
                         cursor: 'pointer',
                         transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                        boxShadow: activeTab === 'internal_ranks' ? '0 4px 14px rgba(245, 158, 11, 0.25)' : 'none'
+                        boxShadow: activeTab === 'roles_config' ? '0 4px 14px rgba(59, 130, 246, 0.25)' : 'none'
                     }}
                 >
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={activeTab === 'internal_ranks' ? '#fbbf24' : '#94a3b8'} strokeWidth="2">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={activeTab === 'roles_config' ? '#60a5fa' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                     </svg>
-                    <span>Rangos Internos</span>
-                </button>
-
-                <button
-                    onClick={() => setActiveTab('subdivisions')}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.6rem',
-                        padding: '0.65rem 1.4rem',
-                        borderRadius: '12px',
-                        fontSize: '0.88rem',
-                        fontWeight: 700,
-                        border: activeTab === 'subdivisions' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid transparent',
-                        background: activeTab === 'subdivisions' ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))' : 'transparent',
-                        color: activeTab === 'subdivisions' ? '#ffffff' : '#94a3b8',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                        boxShadow: activeTab === 'subdivisions' ? '0 4px 14px rgba(59, 130, 246, 0.25)' : 'none'
-                    }}
-                >
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={activeTab === 'subdivisions' ? '#60a5fa' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                    </svg>
-                    <span>Subdivisiones</span>
+                    <span>Configuración Roles</span>
                 </button>
             </div>
 
@@ -296,8 +271,7 @@ function Coordination() {
             <div>
                 {activeTab === 'todos' && <CoordinationTodoList />}
                 {activeTab === 'sanctions' && <CoordinationSanctions />}
-                {activeTab === 'internal_ranks' && <CoordinationInternalRanks />}
-                {activeTab === 'subdivisions' && <CoordinationSubdivisions />}
+                {activeTab === 'roles_config' && <CoordinationRolesConfig />}
             </div>
         </div>
     );

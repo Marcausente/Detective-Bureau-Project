@@ -7,11 +7,10 @@ export const DEFAULT_SUBDIVISIONS = [
     { id: 'default-dtp', name: 'Detective Training Program', abbrev: 'DTP', is_default: true }
 ];
 
-const STORAGE_KEY = 'coordination_subdivisions_list';
+const STORAGE_KEY = 'coordination_subdivisions_list_v2';
 
 /**
  * Get list of all department subdivisions.
- * Guarantees default ones are always included.
  */
 export async function getSubdivisions() {
     try {
@@ -20,15 +19,20 @@ export async function getSubdivisions() {
             .select('*')
             .order('created_at', { ascending: true });
 
-        if (!error && data && data.length > 0) {
-            // Ensure defaults are present
-            let result = [...data];
-            DEFAULT_SUBDIVISIONS.forEach(def => {
-                if (!result.some(s => s.name.toLowerCase().trim() === def.name.toLowerCase().trim())) {
-                    result.push(def);
+        if (!error && data) {
+            if (data.length > 0) {
+                return data;
+            } else {
+                // If table is empty, seed defaults
+                for (const def of DEFAULT_SUBDIVISIONS) {
+                    await supabase.from('coordination_subdivisions').insert([def]);
                 }
-            });
-            return result;
+                const { data: seeded } = await supabase
+                    .from('coordination_subdivisions')
+                    .select('*')
+                    .order('created_at', { ascending: true });
+                return seeded || DEFAULT_SUBDIVISIONS;
+            }
         }
     } catch (err) {
         console.warn('Fallback to localStorage for subdivisions:', err);
@@ -39,14 +43,8 @@ export async function getSubdivisions() {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                let result = [...parsed];
-                DEFAULT_SUBDIVISIONS.forEach(def => {
-                    if (!result.some(s => s.name.toLowerCase().trim() === def.name.toLowerCase().trim())) {
-                        result.push(def);
-                    }
-                });
-                return result;
+            if (Array.isArray(parsed)) {
+                return parsed;
             }
         }
     } catch (e) {
@@ -93,21 +91,61 @@ export async function createSubdivision(name, abbrev) {
 }
 
 /**
- * Delete a custom subdivision. Default subdivisions cannot be deleted.
+ * Update an existing subdivision (name & abbreviation).
  */
-export async function deleteSubdivision(id, name) {
-    const isDefault = DEFAULT_SUBDIVISIONS.some(d => d.name.toLowerCase().trim() === name.toLowerCase().trim());
-    if (isDefault) {
-        throw new Error(`No se puede eliminar la subdivisión predeterminada '${name}'.`);
-    }
+export async function updateSubdivision(id, oldName, newName, newAbbrev) {
+    const cleanName = (newName || oldName).trim();
+    const cleanAbbrev = (newAbbrev || cleanName.substring(0, 3)).trim().toUpperCase();
+
+    if (!cleanName) throw new Error('El nombre de la subdivisión no puede estar vacío.');
 
     // 1. Try Supabase
     try {
-        const { error } = await supabase
-            .from('coordination_subdivisions')
-            .delete()
-            .eq('id', id);
+        let query = supabase.from('coordination_subdivisions').update({
+            name: cleanName,
+            abbrev: cleanAbbrev
+        });
 
+        if (id && !String(id).startsWith('default-') && !String(id).startsWith('sub-')) {
+            query = query.eq('id', id);
+        } else {
+            query = query.eq('name', oldName);
+        }
+
+        const { data, error } = await query.select();
+        if (!error && data) {
+            return data[0] || { id, name: cleanName, abbrev: cleanAbbrev };
+        }
+    } catch (err) {
+        console.warn('Supabase update failed for subdivision, using localStorage:', err);
+    }
+
+    // 2. LocalStorage Fallback
+    const current = await getSubdivisions();
+    const updated = current.map(s => {
+        if (s.id === id || s.name === oldName) {
+            return { ...s, name: cleanName, abbrev: cleanAbbrev };
+        }
+        return s;
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    return { id, name: cleanName, abbrev: cleanAbbrev };
+}
+
+/**
+ * Delete a subdivision (including default subdivisions).
+ */
+export async function deleteSubdivision(id, name) {
+    // 1. Try Supabase
+    try {
+        let query = supabase.from('coordination_subdivisions').delete();
+        if (id && !String(id).startsWith('default-') && !String(id).startsWith('sub-')) {
+            query = query.eq('id', id);
+        } else {
+            query = query.eq('name', name);
+        }
+
+        const { error } = await query;
         if (!error) return true;
     } catch (err) {
         console.warn('Supabase delete failed for subdivision, using localStorage:', err);
@@ -134,7 +172,6 @@ export const getSubdivisionAbbrev = (subName, customList = []) => {
         case 'General Crimes': return 'GC';
         case 'Detective Training Program': return 'DTP';
         default:
-            // Auto generate acronym
             return subName.split(' ').map(w => w[0]).join('').toUpperCase().substring(0, 4);
     }
 };
