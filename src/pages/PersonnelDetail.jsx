@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { getProfileImage } from '../utils/imageStorage';
 import { getUserInternalRank } from '../utils/internalRanks';
+import { getSubdivisions, getSubdivisionAbbrev, getSubdivisionClass } from '../utils/subdivisions';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
@@ -46,34 +47,6 @@ const getRankLevel = (rank) => {
     }
 };
 
-const SUBDIVISIONS = [
-    'Gang Unit',
-    'Undercover Division',
-    'General Crimes',
-    'Detective Training Program'
-];
-
-const getSubdivisionAbbrev = (sub) => {
-    switch (sub) {
-        case 'Gang Unit': return 'GU';
-        case 'Undercover Division': return 'UD';
-        case 'General Crimes': return 'GC';
-        case 'Detective Training Program': return 'DTP';
-        default: return sub;
-    }
-};
-
-const getSubdivisionClass = (sub) => {
-    switch (sub) {
-        case 'Gang Unit': return 'gu';
-        case 'Undercover Division': return 'ud';
-        case 'General Crimes': return 'gc';
-        case 'Detective Training Program': return 'dtp';
-        default: return '';
-    }
-};
-
-
 function PersonnelDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -82,6 +55,7 @@ function PersonnelDetail() {
     const [viewer, setViewer] = useState(null); // The Current Logged-in User
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [availableSubdivisions, setAvailableSubdivisions] = useState([]);
 
     // User Stats State
     const [userStats, setUserStats] = useState({ incidents: 0, matrix: 0, outings: 0 });
@@ -211,6 +185,14 @@ function PersonnelDetail() {
             if (targetError) throw targetError;
             if (!targetData) throw new Error("Target User Profile not found");
             setUser(targetData);
+
+            // Fetch dynamic subdivisions list
+            try {
+                const subs = await getSubdivisions();
+                setAvailableSubdivisions(subs || []);
+            } catch (err) {
+                console.warn('Error loading dynamic subdivisions:', err);
+            }
 
             // 3. Check Permissions & Fetch Evaluations
             if (viewerData && targetData) {
@@ -476,9 +458,11 @@ function PersonnelDetail() {
                                 </span>
                                 {viewer && ['Detective', 'Coordinador', 'Administrador', 'Comisionado'].includes(viewer.rol) ? (
                                     <div className="subdivision-editor" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
-                                        {SUBDIVISIONS.map(sub => {
+                                        {availableSubdivisions.map(subItem => {
+                                            const sub = subItem.name;
                                             const isActive = user.subdivisions?.includes(sub);
                                             const isSpecialty = user.specialty_subdivision === sub;
+                                            const abbrev = subItem.abbrev || getSubdivisionAbbrev(sub, availableSubdivisions);
                                             return (
                                                 <div
                                                     key={sub}
@@ -488,7 +472,7 @@ function PersonnelDetail() {
                                                         onClick={() => handleToggleSubdivision(sub)}
                                                         className={`subdivision-tag editable ${isActive ? 'active subdivision-' + getSubdivisionClass(sub) : 'inactive'} ${isSpecialty ? 'specialty' : ''}`}
                                                     >
-                                                        {sub} ({getSubdivisionAbbrev(sub)})
+                                                        {sub} ({abbrev})
                                                     </span>
                                                     {isActive && (
                                                         <button
@@ -526,6 +510,7 @@ function PersonnelDetail() {
                                         {user.subdivisions && user.subdivisions.length > 0 ? (
                                             user.subdivisions.map(sub => {
                                                 const isSpecialty = user.specialty_subdivision === sub;
+                                                const abbrev = getSubdivisionAbbrev(sub, availableSubdivisions);
                                                 return (
                                                     <span 
                                                         key={sub} 
@@ -533,7 +518,7 @@ function PersonnelDetail() {
                                                         style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
                                                     >
                                                         {isSpecialty && <svg width="12" height="12" viewBox="0 0 24 24" fill="#eab308" stroke="#eab308" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>}
-                                                        {sub} ({getSubdivisionAbbrev(sub)})
+                                                        {sub} ({abbrev})
                                                     </span>
                                                 );
                                             })

@@ -5,30 +5,11 @@ import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
 import { uploadImageToStorage, getProfileImage } from '../utils/imageStorage';
 import { getInternalRanks, getUserInternalRank, setUserInternalRank } from '../utils/internalRanks';
+import { getSubdivisions, getSubdivisionAbbrev } from '../utils/subdivisions';
 import { usePresence } from '../contexts/PresenceContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
-
-const getSubdivisionAbbrev = (sub) => {
-    switch (sub) {
-        case 'Gang Unit': return 'GU';
-        case 'Undercover Division': return 'UD';
-        case 'General Crimes': return 'GC';
-        case 'Detective Training Program': return 'DTP';
-        default: return sub;
-    }
-};
-
-const getSubdivisionClass = (sub) => {
-    switch (sub) {
-        case 'Gang Unit': return 'gu';
-        case 'Undercover Division': return 'ud';
-        case 'General Crimes': return 'gc';
-        case 'Detective Training Program': return 'dtp';
-        default: return '';
-    }
-};
 
 function Personnel() {
     const navigate = useNavigate();
@@ -36,6 +17,7 @@ function Personnel() {
     const { t } = useLanguage();
     const [users, setUsers] = useState([]);
     const [availableInternalRanks, setAvailableInternalRanks] = useState([]);
+    const [availableSubdivisions, setAvailableSubdivisions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -95,8 +77,14 @@ function Personnel() {
     }, []);
 
     const loadInternalRanksList = async () => {
-        const ranks = await getInternalRanks();
-        setAvailableInternalRanks(ranks || []);
+        try {
+            const ranks = await getInternalRanks();
+            setAvailableInternalRanks(ranks || []);
+            const subs = await getSubdivisions();
+            setAvailableSubdivisions(subs || []);
+        } catch (e) {
+            console.warn('Error loading ranks or subdivisions:', e);
+        }
     };
 
     const fetchData = async () => {
@@ -573,7 +561,7 @@ function Personnel() {
                                         }}
                                         title={isSpecialty ? `${sub} (Especialidad)` : sub}
                                     >
-                                        {isSpecialty && '★ '}{getSubdivisionAbbrev(sub)}
+                                        {isSpecialty && '★ '}{getSubdivisionAbbrev(sub, availableSubdivisions)}
                                     </span>
                                 );
                             })

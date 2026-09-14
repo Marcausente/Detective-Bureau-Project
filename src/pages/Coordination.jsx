@@ -4,11 +4,12 @@ import { useLanguage } from '../contexts/LanguageContext';
 import CoordinationTodoList from '../components/CoordinationTodoList';
 import CoordinationSanctions from '../components/CoordinationSanctions';
 import CoordinationInternalRanks from '../components/CoordinationInternalRanks';
+import CoordinationSubdivisions from '../components/CoordinationSubdivisions';
 import '../index.css';
 
 function Coordination() {
     const { t } = useLanguage();
-    const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'sanctions' | 'internal_ranks'
+    const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'sanctions' | 'internal_ranks' | 'subdivisions'
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -265,6 +266,30 @@ function Coordination() {
                     </svg>
                     <span>Rangos Internos</span>
                 </button>
+
+                <button
+                    onClick={() => setActiveTab('subdivisions')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        padding: '0.65rem 1.4rem',
+                        borderRadius: '12px',
+                        fontSize: '0.88rem',
+                        fontWeight: 700,
+                        border: activeTab === 'subdivisions' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid transparent',
+                        background: activeTab === 'subdivisions' ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.15))' : 'transparent',
+                        color: activeTab === 'subdivisions' ? '#ffffff' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        boxShadow: activeTab === 'subdivisions' ? '0 4px 14px rgba(59, 130, 246, 0.25)' : 'none'
+                    }}
+                >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={activeTab === 'subdivisions' ? '#60a5fa' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    <span>Subdivisiones</span>
+                </button>
             </div>
 
             {/* Active Tab Component */}
@@ -272,6 +297,7 @@ function Coordination() {
                 {activeTab === 'todos' && <CoordinationTodoList />}
                 {activeTab === 'sanctions' && <CoordinationSanctions />}
                 {activeTab === 'internal_ranks' && <CoordinationInternalRanks />}
+                {activeTab === 'subdivisions' && <CoordinationSubdivisions />}
             </div>
         </div>
     );
