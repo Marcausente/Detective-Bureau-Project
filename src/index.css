@@ -3024,115 +3024,9 @@ body.theme-azul .int-search-pill {
   background-clip: content-box;
 }
 
-/* Missing class for list items */
-.gang-list-item {
-  display: flex !important;
-  flex-direction: column;
-  width: 100%;
-  margin-bottom: 0.8rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  min-height: 60px; /* Ensure clickable area */
-}
 
-.gang-list-item:last-child {
-  border-bottom: none;
-}
 
-/* --- Full Calendar Modal --- */
-.calendar-modal {
-    max-width: 900px !important;
-    width: 90vw !important;
-    max-height: 90vh;
-    overflow-y: auto;
-}
 
-.calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
-    background: var(--glass-border);
-    border: 1px solid var(--glass-border);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.calendar-day-header {
-    background: rgba(var(--secondary-rgb), 0.9);
-    color: var(--accent-gold);
-    text-align: center;
-    padding: 0.5rem;
-    font-weight: 600;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-}
-
-.calendar-day {
-    background: rgba(0, 0, 0, 0.4);
-    min-height: 100px;
-    padding: 0.5rem;
-    display: flex;
-    flex-direction: column;
-    transition: background 0.2s;
-}
-
-.calendar-day.empty {
-    background: transparent;
-}
-
-.calendar-day:hover:not(.empty) {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.calendar-day.today {
-    background: rgba(207, 181, 59, 0.1);
-    border: 1px solid rgba(207, 181, 59, 0.4);
-}
-
-.calendar-day.has-events {
-    border-bottom: 2px solid var(--accent-gold);
-}
-
-.day-number {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.3rem;
-    font-weight: 600;
-}
-
-.calendar-day.today .day-number {
-    color: var(--accent-gold);
-}
-
-.day-events {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    overflow-y: auto;
-    max-height: 70px;
-}
-
-.day-events::-webkit-scrollbar {
-    width: 3px;
-}
-.day-events::-webkit-scrollbar-thumb {
-    background: var(--glass-border);
-    border-radius: 2px;
-}
-
-.day-event-chip {
-    background: rgba(207, 181, 59, 0.2);
-    border: 1px solid rgba(207, 181, 59, 0.4);
-    color: var(--text-primary);
-    font-size: 0.7rem;
-    padding: 2px 4px;
-    border-radius: 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: pointer;
-  padding-bottom: 2rem !important;
-}
 
 #gangs-page .gang-image-container {
   width: 100% !important;
@@ -3213,115 +3107,9 @@ body.theme-azul .int-search-pill {
   background-clip: content-box;
 }
 
-/* Missing class for list items */
-.gang-list-item {
-  display: flex !important;
-  flex-direction: column;
-  width: 100%;
-  margin-bottom: 0.8rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  min-height: 60px; /* Ensure clickable area */
-}
 
-.gang-list-item:last-child {
-  border-bottom: none;
-}
 
-/* --- Full Calendar Modal --- */
-.calendar-modal {
-    max-width: 900px !important;
-    width: 90vw !important;
-    max-height: 90vh;
-    overflow-y: auto;
-}
 
-.calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
-    background: var(--glass-border);
-    border: 1px solid var(--glass-border);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.calendar-day-header {
-    background: rgba(var(--secondary-rgb), 0.9);
-    color: var(--accent-gold);
-    text-align: center;
-    padding: 0.5rem;
-    font-weight: 600;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-}
-
-.calendar-day {
-    background: rgba(0, 0, 0, 0.4);
-    min-height: 100px;
-    padding: 0.5rem;
-    display: flex;
-    flex-direction: column;
-    transition: background 0.2s;
-}
-
-.calendar-day.empty {
-    background: transparent;
-}
-
-.calendar-day:hover:not(.empty) {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.calendar-day.today {
-    background: rgba(207, 181, 59, 0.1);
-    border: 1px solid rgba(207, 181, 59, 0.4);
-}
-
-.calendar-day.has-events {
-    border-bottom: 2px solid var(--accent-gold);
-}
-
-.day-number {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.3rem;
-    font-weight: 600;
-}
-
-.calendar-day.today .day-number {
-    color: var(--accent-gold);
-}
-
-.day-events {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    overflow-y: auto;
-    max-height: 70px;
-}
-
-.day-events::-webkit-scrollbar {
-    width: 3px;
-}
-.day-events::-webkit-scrollbar-thumb {
-    background: var(--glass-border);
-    border-radius: 2px;
-}
-
-.day-event-chip {
-    background: rgba(207, 181, 59, 0.2);
-    border: 1px solid rgba(207, 181, 59, 0.4);
-    color: var(--text-primary);
-    font-size: 0.7rem;
-    padding: 2px 4px;
-    border-radius: 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: pointer;
-    transition: all 0.2s;
-}
 
 .day-event-chip:hover {
     background: rgba(207, 181, 59, 0.4);
@@ -6866,3 +6654,137 @@ body.theme-verde .inc-tag-select option { background-color: #08120c; }
   box-shadow: 0 0 12px rgba(52, 199, 89, 0.8);
 }
 
+/* Missing class for list items */
+.gang-list-item {
+  display: flex !important;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 60px;
+}
+
+.gang-list-item:last-child {
+  border-bottom: none;
+}
+
+/* --- Full Calendar Modal --- */
+.calendar-modal {
+    max-width: 950px !important;
+    width: 92vw !important;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 4px;
+    background: var(--glass-border);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    overflow: hidden;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.calendar-day-header {
+    background: rgba(var(--secondary-rgb), 0.9);
+    color: var(--accent-gold);
+    text-align: center;
+    padding: 0.5rem 0.25rem;
+    font-weight: 600;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.calendar-day {
+    background: rgba(0, 0, 0, 0.4);
+    min-height: 90px;
+    max-height: 120px;
+    padding: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+    transition: background 0.2s;
+}
+
+.calendar-day.empty {
+    background: transparent;
+}
+
+.calendar-day:hover:not(.empty) {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.calendar-day.today {
+    background: rgba(207, 181, 59, 0.1);
+    border: 1px solid rgba(207, 181, 59, 0.4);
+}
+
+.calendar-day.has-events {
+    border-bottom: 2px solid var(--accent-gold);
+}
+
+.day-number {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.calendar-day.today .day-number {
+    color: var(--accent-gold);
+}
+
+.day-events {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    padding-right: 2px;
+}
+
+.day-events::-webkit-scrollbar {
+    width: 3px;
+}
+.day-events::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 2px;
+}
+
+.day-event-chip {
+    background: rgba(207, 181, 59, 0.2);
+    border: 1px solid rgba(207, 181, 59, 0.4);
+    color: var(--text-primary);
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 3px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    display: block;
+    line-height: 1.2;
+    transition: all 0.2s;
+}
+
+.day-event-chip:hover {
+    background: rgba(207, 181, 59, 0.45);
+    border-color: rgba(207, 181, 59, 0.8);
+    transform: translateY(-1px);
+}
