@@ -130,6 +130,21 @@ export default function PublicGangMap() {
 
             poly.addTo(layerGroupRef.current);
             polygonsMapRef.current[zone.id] = poly;
+
+            // Semi-transparent center emoji marker on public map
+            const emojiToDisplay = zone.emoji || '⚠️';
+            const center = poly.getBounds().getCenter();
+            const emojiIcon = L.divIcon({
+                className: 'tactical-map-center-emoji',
+                html: `<span class="tactical-map-emoji-inner" title="${zone.name || 'Zona de Riesgo'}">${emojiToDisplay}</span>`,
+                iconSize: [0, 0]
+            });
+            const emojiMarker = L.marker(center, { icon: emojiIcon });
+            emojiMarker.on('click', () => {
+                poly.openPopup();
+                setSelectedZoneId(zone.id);
+            });
+            emojiMarker.addTo(layerGroupRef.current);
         });
     }, [zones]);
 

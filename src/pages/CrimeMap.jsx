@@ -19,7 +19,10 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const EMOJI_PRESETS = ['🔫', '💊', '🚗', '🏠', '⚠️', '🕵️', '💀', '⚔️', '💰', '👑', '🎯', '🛡️', '📍', '🚨'];
+const EMOJI_PRESETS = [
+    '🔫', '💊', '🚗', '🏠', '⚠️', '🕵️', '💀', '⚔️', '💰', '👑', '🎯', '🛡️', '📍', '🚨',
+    '🩸', '🔥', '🔪', '🧨', '🚁', '📦', '🏢', '🏴', '🛑', '👀', '⚖️', '🎲', '🏍️', '💉'
+];
 const COLOR_PRESETS = [
     { name: 'Rojo Peligro', hex: '#ef4444' },
     { name: 'Naranja Alerta', hex: '#f97316' },
@@ -282,6 +285,22 @@ export default function CrimeMap() {
 
             poly.addTo(layerGroupRef.current);
             polygonsMapRef.current[zone.id] = poly;
+
+            // Semi-transparent center emoji marker on map
+            if (zone.emoji) {
+                const center = poly.getBounds().getCenter();
+                const emojiIcon = L.divIcon({
+                    className: 'tactical-map-center-emoji',
+                    html: `<span class="tactical-map-emoji-inner" title="${zone.name || 'Zona'}">${zone.emoji}</span>`,
+                    iconSize: [0, 0]
+                });
+                const emojiMarker = L.marker(center, { icon: emojiIcon });
+                emojiMarker.on('click', () => {
+                    poly.openPopup();
+                    setSelectedZoneId(zone.id);
+                });
+                emojiMarker.addTo(layerGroupRef.current);
+            }
         });
     }, [zones, authorized]);
 
@@ -837,7 +856,12 @@ export default function CrimeMap() {
 
                             {/* Color Selector */}
                             <div className="mac-form-group">
-                                <label className="mac-form-label">Color Táctico</label>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                    <label className="mac-form-label" style={{ margin: 0 }}>Color Táctico</label>
+                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'monospace' }}>
+                                        {tempZoneData.color || '#ef4444'}
+                                    </span>
+                                </div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                     {COLOR_PRESETS.map(c => (
                                         <button
@@ -852,8 +876,8 @@ export default function CrimeMap() {
                                                 borderRadius: '6px',
                                                 fontSize: '0.75rem',
                                                 cursor: 'pointer',
-                                                background: tempZoneData.color === c.hex ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.4)',
-                                                border: tempZoneData.color === c.hex ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.1)',
+                                                background: tempZoneData.color?.toLowerCase() === c.hex.toLowerCase() ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.4)',
+                                                border: tempZoneData.color?.toLowerCase() === c.hex.toLowerCase() ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.1)',
                                                 color: '#f1f5f9'
                                             }}
                                         >
@@ -861,6 +885,40 @@ export default function CrimeMap() {
                                             <span>{c.name}</span>
                                         </button>
                                     ))}
+
+                                    {/* Custom Color Picker Button */}
+                                    <label
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '0.75rem',
+                                            cursor: 'pointer',
+                                            background: !COLOR_PRESETS.some(c => c.hex.toLowerCase() === tempZoneData.color?.toLowerCase()) ? 'rgba(56, 189, 248, 0.2)' : 'rgba(0, 0, 0, 0.4)',
+                                            border: !COLOR_PRESETS.some(c => c.hex.toLowerCase() === tempZoneData.color?.toLowerCase()) ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.1)',
+                                            color: '#f1f5f9',
+                                            userSelect: 'none'
+                                        }}
+                                        title="Elegir cualquier color personalizado"
+                                    >
+                                        <input
+                                            type="color"
+                                            value={tempZoneData.color || '#ef4444'}
+                                            onChange={(e) => setTempZoneData({ ...tempZoneData, color: e.target.value })}
+                                            style={{
+                                                width: '16px',
+                                                height: '16px',
+                                                padding: 0,
+                                                border: 'none',
+                                                borderRadius: '50%',
+                                                cursor: 'pointer',
+                                                background: 'transparent'
+                                            }}
+                                        />
+                                        <span>🎨 Personalizado</span>
+                                    </label>
                                 </div>
                             </div>
 
