@@ -447,12 +447,15 @@ function Gangs() {
                     p_member_id: editingItemId, p_name: finalName, p_role: memRole, p_photo: uploadedPhoto, p_notes: memNotes
                 });
                 if (error) throw error;
-                if (uploadedPhoto) {
-                    await supabase.from('case_board_nodes')
-                        .update({ image_url: uploadedPhoto })
-                        .eq('gang_id', activeGangId)
-                        .ilike('title', `${memName.trim()}%`);
-                }
+                await supabase.from('case_board_nodes')
+                    .update({
+                        title: `${finalName} (${memRole})`,
+                        content: `Rol: ${memRole}`,
+                        color: memRole === 'Lider' ? 'red' : memRole === 'Sublider' ? 'yellow' : 'blue',
+                        ...(uploadedPhoto ? { image_url: uploadedPhoto } : {})
+                    })
+                    .eq('gang_id', activeGangId)
+                    .ilike('title', `${memName.trim()}%`);
             } else {
                 const { error } = await supabase.rpc('add_gang_member', {
                     p_gang_id: activeGangId, p_name: finalName, p_role: memRole, p_photo: uploadedPhoto, p_notes: memNotes
@@ -462,8 +465,8 @@ function Gangs() {
                 createWhiteboardCardForGang(
                     activeGangId,
                     finalName + ' (' + memRole + ')',
-                    'Rol: ' + memRole + (memNotes ? '\n' + memNotes : ''),
-                    memRole === 'Lider' || memRole === 'Sublider' ? 'suspect' : 'suspect',
+                    'Rol: ' + memRole,
+                    'suspect',
                     memRole === 'Lider' ? 'red' : memRole === 'Sublider' ? 'yellow' : 'blue',
                     uploadedPhoto || null
                 );
@@ -508,12 +511,16 @@ function Gangs() {
                     p_info_id: editingItemId, p_type: infoType, p_content: content, p_images: uploadedImages
                 });
                 if (error) throw error;
-                if (uploadedImages && uploadedImages.length > 0) {
-                    await supabase.from('case_board_nodes')
-                        .update({ image_url: uploadedImages[0] })
-                        .eq('gang_id', activeGangId)
-                        .ilike('title', `Inteligencia%`);
-                }
+                await supabase.from('case_board_nodes')
+                    .update({
+                        title: 'Inteligencia (' + (infoType === 'characteristic' ? 'Característica' : 'Info') + ')',
+                        content: content,
+                        color: infoType === 'characteristic' ? 'yellow' : 'dark',
+                        category: infoType === 'characteristic' ? 'evidence' : 'note',
+                        ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
+                    })
+                    .eq('gang_id', activeGangId)
+                    .ilike('title', `Inteligencia%`);
             } else {
                 const { error } = await supabase.rpc('add_gang_info', {
                     p_gang_id: activeGangId, p_type: infoType, p_content: content, p_images: uploadedImages
@@ -575,12 +582,14 @@ function Gangs() {
                 });
                 if (error) throw error;
                 const newImg = uploadedGraffiti || uploadedGps;
-                if (newImg) {
-                    await supabase.from('case_board_nodes')
-                        .update({ image_url: newImg })
-                        .eq('gang_id', activeGangId)
-                        .ilike('title', `Grafiti / GPS%`);
-                }
+                await supabase.from('case_board_nodes')
+                    .update({
+                        title: 'Grafiti / GPS',
+                        content: graffitiNotes.trim() || 'Evidencia de grafiti registrado',
+                        ...(newImg ? { image_url: newImg } : {})
+                    })
+                    .eq('gang_id', activeGangId)
+                    .ilike('title', `Grafiti / GPS%`);
             } else {
                 const { error } = await supabase.rpc('add_gang_graffiti', {
                     p_gang_id: activeGangId,
@@ -635,6 +644,14 @@ function Gangs() {
                     p_status: finalStatus
                 });
                 if (error) throw error;
+                await supabase.from('case_board_nodes')
+                    .update({
+                        title: 'Conflicto: ' + (finalTargetName || 'Banda Rival'),
+                        content: 'Motivo: ' + finalReason + (finalStatus === 'resolved' ? ' (Finalizado)' : ' (Activo)'),
+                        color: finalStatus === 'resolved' ? 'green' : 'red'
+                    })
+                    .eq('gang_id', activeGangId)
+                    .ilike('title', `%${finalTargetName || 'Conflicto'}%`);
             } else {
                 const { error } = await supabase.rpc('add_gang_conflict', {
                     p_gang_id: activeGangId,
@@ -648,7 +665,7 @@ function Gangs() {
                 createWhiteboardCardForGang(
                     activeGangId,
                     'Conflicto: ' + (finalTargetName || 'Banda Rival'),
-                    'Motivo: ' + finalReason + (finalStatus === 'resolved' ? ' (Finalizado)' : ''),
+                    'Motivo: ' + finalReason + (finalStatus === 'resolved' ? ' (Finalizado)' : ' (Activo)'),
                     'threat',
                     finalStatus === 'resolved' ? 'green' : 'red',
                     null
@@ -674,8 +691,23 @@ function Gangs() {
         if (!confirm(confirmMsg)) return;
 
         try {
-            const { error } = await supabase.rpc('toggle_gang_conflict_status', { p_conflict_id: conflictId });
+            const { data: newStatus, error } = await supabase.rpc('toggle_gang_conflict_status', { p_conflict_id: conflictId });
             if (error) throw error;
+            const updatedStatus = newStatus || (isResolved ? 'active' : 'resolved');
+
+            // Also sync whiteboard node if present
+            const currentGang = gangs.find(g => (g.conflicts || []).some(cf => cf.id === conflictId));
+            const conflictObj = currentGang?.conflicts?.find(cf => cf.id === conflictId);
+            if (currentGang && conflictObj) {
+                await supabase.from('case_board_nodes')
+                    .update({
+                        color: updatedStatus === 'resolved' ? 'green' : 'red',
+                        content: 'Motivo: ' + (conflictObj.reason || 'Desconocido') + (updatedStatus === 'resolved' ? ' (Finalizado)' : ' (Activo)')
+                    })
+                    .eq('gang_id', currentGang.gang_id)
+                    .ilike('title', `%${conflictObj.target_gang_name || 'Conflicto'}%`);
+            }
+
             loadGangs();
             setFeedbackNotice(isResolved ? "⚔️ Conflicto reabierto (Activo)" : "✅ Conflicto marcado como Finalizado");
             setTimeout(() => setFeedbackNotice(null), 5000);
@@ -1455,7 +1487,7 @@ function Gangs() {
                         <CaseWhiteboard
                             gangId={activeBoardGang.gang_id}
                             isGang={true}
-                            caseData={activeBoardGang}
+                            caseData={gangs.find(g => g.gang_id === activeBoardGang.gang_id) || activeBoardGang}
                         />
                     </div>
                 </div>

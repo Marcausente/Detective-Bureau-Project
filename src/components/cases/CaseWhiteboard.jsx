@@ -1754,8 +1754,25 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     };
 
     // Import Evidence & Updates from caseData or Gang Data
-    const handleImportCaseEvidence = async () => {
-        if (!caseData) return alert("Data not available.");
+    const handleImportCaseEvidence = async (isSilent = false) => {
+        if (!caseData && !isGang) return alert("Data not available.");
+
+        let currentGangData = caseData;
+        if (isGang) {
+            try {
+                const { data: gangsData } = await supabase.rpc('get_gangs_data');
+                if (gangsData && gangsData.length > 0) {
+                    const foundGang = gangsData.find(g => g.gang_id === (gangId || targetId));
+                    if (foundGang) {
+                        currentGangData = foundGang;
+                    }
+                }
+            } catch (err) {
+                console.warn("Could not fetch fresh gang data, using current prop:", err);
+            }
+        }
+
+        if (!currentGangData && !caseData) return alert("Data not available.");
 
         let existingNodes = [...nodes];
         try {
@@ -1769,6 +1786,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         }
 
         const itemsToInsert = [];
+        const itemsToUpdate = [];
+        const matchedNodeIds = new Set();
         const { data: { user } } = await supabase.auth.getUser();
 
         let posX = 100;
@@ -1776,31 +1795,51 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         const clean = (str) => (str ? String(str).toLowerCase().trim() : '');
 
         if (isGang) {
-            if (caseData.members && caseData.members.length > 0) {
-                caseData.members.forEach(m => {
-                    const mNameClean = clean(m.name);
-                    const mIdClean = clean(m.id_card);
-                    const mPhoto = m.photo_url || m.photo || null;
-                    const titleStr = `${m.name} (${m.role || 'Miembro'})`;
+            const effectiveData = currentGangData || caseData;
 
-                    const alreadyExists = existingNodes.some(n => {
+            // 1. Members (Name, ID, Role, Photo only - No description/notes)
+            if (effectiveData.members && effectiveData.members.length > 0) {
+                effectiveData.members.forEach(m => {
+                    const mName = (m.name || '').trim();
+                    const mNameClean = clean(mName);
+                    const rawName = mName.replace(/\[[^\]]+\]/g, '').trim();
+                    const rawNameClean = clean(rawName);
+                    const mRole = m.role || 'Miembro';
+                    const mPhoto = m.photo_url || m.photo || null;
+                    const isInactive = mRole === 'Inactivo';
+                    const titleStr = `${mName} (${mRole})`;
+                    const contentStr = `Rol: ${mRole}${m.id_card ? '\nID: ' + m.id_card : ''}`;
+                    const nodeColor = isInactive ? 'dark' : mRole === 'Lider' ? 'red' : mRole === 'Sublider' ? 'yellow' : 'blue';
+
+                    const matchedNode = existingNodes.find(n => {
+                        if (matchedNodeIds.has(n.id)) return false;
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
                         if (nTitle === clean(titleStr)) return true;
                         if (mNameClean && (nTitle.includes(mNameClean) || nContent.includes(mNameClean))) return true;
-                        if (mIdClean && (nTitle.includes(mIdClean) || nContent.includes(mIdClean))) return true;
+                        if (rawNameClean && rawNameClean.length > 2 && (nTitle.includes(rawNameClean) || nContent.includes(rawNameClean))) return true;
                         if (mPhoto && n.image_url === mPhoto) return true;
                         return false;
                     });
 
-                    if (!alreadyExists) {
-                        const isInactive = m.role === 'Inactivo';
-                        itemsToInsert.push({
-                            gang_id: gangId,
+                    if (matchedNode) {
+                        matchedNodeIds.add(matchedNode.id);
+                        itemsToUpdate.push({
+                            id: matchedNode.id,
                             title: titleStr,
-                            content: `Rol: ${m.role || 'Miembro'}${m.id_card ? '\nID: ' + m.id_card : ''}\n${m.notes || ''}`,
+                            content: contentStr,
+                            color: nodeColor,
                             category: 'suspect',
-                            color: isInactive ? 'dark' : m.role === 'Lider' ? 'red' : m.role === 'Sublider' ? 'yellow' : 'blue',
+                            image_url: mPhoto || matchedNode.image_url,
+                            is_inactive: isInactive
+                        });
+                    } else {
+                        itemsToInsert.push({
+                            gang_id: gangId || targetId,
+                            title: titleStr,
+                            content: contentStr,
+                            category: 'suspect',
+                            color: nodeColor,
                             image_url: mPhoto,
                             is_inactive: isInactive,
                             pos_x: posX,
@@ -1813,15 +1852,18 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            if (caseData.vehicles && caseData.vehicles.length > 0) {
-                caseData.vehicles.forEach(v => {
+            // 2. Vehicles
+            if (effectiveData.vehicles && effectiveData.vehicles.length > 0) {
+                effectiveData.vehicles.forEach(v => {
                     const plateClean = clean(v.plate);
                     const modelClean = clean(v.model);
                     const ownerClean = clean(v.owner);
                     const img = (v.images && v.images.length > 0) ? v.images[0] : null;
                     const titleStr = `${v.model || 'Vehículo'} [${v.plate || 'SIN PLACA'}]`;
+                    const contentStr = `Propietario: ${v.owner || 'Desconocido'}${v.notes ? '\n' + v.notes : ''}`;
 
-                    const alreadyExists = existingNodes.some(n => {
+                    const matchedNode = existingNodes.find(n => {
+                        if (matchedNodeIds.has(n.id)) return false;
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
                         if (nTitle === clean(titleStr)) return true;
@@ -1831,11 +1873,21 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         return false;
                     });
 
-                    if (!alreadyExists) {
-                        itemsToInsert.push({
-                            gang_id: gangId,
+                    if (matchedNode) {
+                        matchedNodeIds.add(matchedNode.id);
+                        itemsToUpdate.push({
+                            id: matchedNode.id,
                             title: titleStr,
-                            content: `Propietario: ${v.owner || 'Desconocido'}\n${v.notes || ''}`,
+                            content: contentStr,
+                            image_url: img || matchedNode.image_url,
+                            category: 'vehicle',
+                            color: 'purple'
+                        });
+                    } else {
+                        itemsToInsert.push({
+                            gang_id: gangId || targetId,
+                            title: titleStr,
+                            content: contentStr,
                             category: 'vehicle',
                             color: 'purple',
                             image_url: img,
@@ -1849,28 +1901,39 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            if (caseData.homes && caseData.homes.length > 0) {
-                caseData.homes.forEach(h => {
+            // 3. Properties / Homes
+            if (effectiveData.homes && effectiveData.homes.length > 0) {
+                effectiveData.homes.forEach(h => {
                     const ownerClean = clean(h.owner);
-                    const notesClean = clean(h.notes);
                     const img = (h.images && h.images.length > 0) ? h.images[0] : null;
                     const titleStr = `Propiedad: ${h.owner || 'Ubicación Banda'}`;
+                    const contentStr = `Notas: ${h.notes || 'Sin notas'}`;
 
-                    const alreadyExists = existingNodes.some(n => {
+                    const matchedNode = existingNodes.find(n => {
+                        if (matchedNodeIds.has(n.id)) return false;
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
                         if (nTitle === clean(titleStr)) return true;
                         if (ownerClean && ownerClean !== 'ubicación banda' && (nTitle.includes(ownerClean) || nContent.includes(ownerClean))) return true;
-                        if (notesClean && notesClean.length > 5 && nContent.includes(notesClean.slice(0, 30))) return true;
                         if (img && n.image_url === img) return true;
                         return false;
                     });
 
-                    if (!alreadyExists) {
-                        itemsToInsert.push({
-                            gang_id: gangId,
+                    if (matchedNode) {
+                        matchedNodeIds.add(matchedNode.id);
+                        itemsToUpdate.push({
+                            id: matchedNode.id,
                             title: titleStr,
-                            content: `Notas: ${h.notes || 'Sin notas'}`,
+                            content: contentStr,
+                            image_url: img || matchedNode.image_url,
+                            category: 'location',
+                            color: 'green'
+                        });
+                    } else {
+                        itemsToInsert.push({
+                            gang_id: gangId || targetId,
+                            title: titleStr,
+                            content: contentStr,
                             category: 'location',
                             color: 'green',
                             image_url: img,
@@ -1884,13 +1947,18 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            if (caseData.info && caseData.info.length > 0) {
-                caseData.info.forEach((i) => {
+            // 4. Intel / Info
+            if (effectiveData.info && effectiveData.info.length > 0) {
+                effectiveData.info.forEach((i) => {
                     const contentClean = clean(i.content);
                     const img = (i.images && i.images.length > 0) ? i.images[0] : null;
                     const titleStr = `Inteligencia (${i.type === 'characteristic' ? 'Característica' : 'Info'})`;
+                    const contentStr = i.content || '';
+                    const nodeCat = i.type === 'characteristic' ? 'evidence' : 'note';
+                    const nodeCol = i.type === 'characteristic' ? 'yellow' : 'dark';
 
-                    const alreadyExists = existingNodes.some(n => {
+                    const matchedNode = existingNodes.find(n => {
+                        if (matchedNodeIds.has(n.id)) return false;
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
                         if (nTitle.includes('inteligencia') && contentClean && nContent.includes(contentClean.slice(0, 30))) return true;
@@ -1899,13 +1967,23 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         return false;
                     });
 
-                    if (!alreadyExists) {
-                        itemsToInsert.push({
-                            gang_id: gangId,
+                    if (matchedNode) {
+                        matchedNodeIds.add(matchedNode.id);
+                        itemsToUpdate.push({
+                            id: matchedNode.id,
                             title: titleStr,
-                            content: i.content || '',
-                            category: i.type === 'characteristic' ? 'evidence' : 'note',
-                            color: i.type === 'characteristic' ? 'yellow' : 'dark',
+                            content: contentStr,
+                            category: nodeCat,
+                            color: nodeCol,
+                            image_url: img || matchedNode.image_url
+                        });
+                    } else {
+                        itemsToInsert.push({
+                            gang_id: gangId || targetId,
+                            title: titleStr,
+                            content: contentStr,
+                            category: nodeCat,
+                            color: nodeCol,
                             image_url: img,
                             pos_x: posX,
                             pos_y: posY,
@@ -1917,13 +1995,16 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            if (caseData.graffiti && caseData.graffiti.length > 0) {
-                caseData.graffiti.forEach((g) => {
+            // 5. Graffiti / GPS
+            if (effectiveData.graffiti && effectiveData.graffiti.length > 0) {
+                effectiveData.graffiti.forEach((g) => {
                     const notesClean = clean(g.notes);
                     const img = g.graffiti_image || g.gps_image || null;
                     const titleStr = `Grafiti / GPS`;
+                    const contentStr = g.notes || 'Evidencia de grafiti registrado';
 
-                    const alreadyExists = existingNodes.some(n => {
+                    const matchedNode = existingNodes.find(n => {
+                        if (matchedNodeIds.has(n.id)) return false;
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
                         if (nTitle.includes('grafiti') && notesClean && nContent.includes(notesClean.slice(0, 30))) return true;
@@ -1932,11 +2013,21 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         return false;
                     });
 
-                    if (!alreadyExists) {
-                        itemsToInsert.push({
-                            gang_id: gangId,
+                    if (matchedNode) {
+                        matchedNodeIds.add(matchedNode.id);
+                        itemsToUpdate.push({
+                            id: matchedNode.id,
                             title: titleStr,
-                            content: g.notes || 'Sin detalles de grafiti',
+                            content: contentStr,
+                            category: 'evidence',
+                            color: 'purple',
+                            image_url: img || matchedNode.image_url
+                        });
+                    } else {
+                        itemsToInsert.push({
+                            gang_id: gangId || targetId,
+                            title: titleStr,
+                            content: contentStr,
                             category: 'evidence',
                             color: 'purple',
                             image_url: img,
@@ -1950,10 +2041,52 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            if (itemsToInsert.length === 0) {
-                return alert(language === 'es' ? "No hay nuevos elementos de la banda para importar." : "No new gang items to import.");
+            // 6. Conflicts (Active & Resolved)
+            if (effectiveData.conflicts && effectiveData.conflicts.length > 0) {
+                effectiveData.conflicts.forEach((c) => {
+                    const targetName = c.target_gang_name || 'Banda Rival';
+                    const targetClean = clean(targetName);
+                    const isResolved = c.status === 'resolved';
+                    const titleStr = `Conflicto: ${targetName}`;
+                    const contentStr = `Motivo: ${c.reason || 'Desconocido'}${isResolved ? ' (Finalizado)' : ' (Activo)'}`;
+                    const nodeColor = isResolved ? 'green' : 'red';
+
+                    const matchedNode = existingNodes.find(n => {
+                        if (matchedNodeIds.has(n.id)) return false;
+                        const nTitle = clean(n.title);
+                        const nContent = clean(n.content);
+                        if (nTitle.includes('conflicto') && targetClean && (nTitle.includes(targetClean) || nContent.includes(targetClean))) return true;
+                        if (n.category === 'threat' && targetClean && (nTitle.includes(targetClean) || nContent.includes(targetClean))) return true;
+                        return false;
+                    });
+
+                    if (matchedNode) {
+                        matchedNodeIds.add(matchedNode.id);
+                        itemsToUpdate.push({
+                            id: matchedNode.id,
+                            title: titleStr,
+                            content: contentStr,
+                            category: 'threat',
+                            color: nodeColor
+                        });
+                    } else {
+                        itemsToInsert.push({
+                            gang_id: gangId || targetId,
+                            title: titleStr,
+                            content: contentStr,
+                            category: 'threat',
+                            color: nodeColor,
+                            pos_x: posX,
+                            pos_y: posY,
+                            created_by: user ? user.id : null
+                        });
+                        posX += 280;
+                        if (posX > 900) { posX = 100; posY += 280; }
+                    }
+                });
             }
         } else {
+            // Case Evidence (Non-gang case)
             if (caseData.info?.initial_image_url) {
                 const initialImg = caseData.info.initial_image_url;
                 const alreadyExists = existingNodes.some(n => {
@@ -2042,19 +2175,50 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     }
                 });
             }
-
-            if (itemsToInsert.length === 0) {
-                return alert(language === 'es' ? "No hay nuevas evidencias disponibles para importar." : "No new evidence items available to import.");
-            }
         }
+
+        let hasChanges = false;
+        let updatedCount = 0;
+        let insertedCount = 0;
 
         try {
             setLoading(true);
-            const { error } = await supabase.from('case_board_nodes').insert(itemsToInsert);
-            if (error) throw error;
-            loadBoardData();
+
+            // Execute Updates
+            if (itemsToUpdate.length > 0) {
+                for (const item of itemsToUpdate) {
+                    const { id, ...updatePayload } = item;
+                    const { error: updErr } = await supabase.from('case_board_nodes').update(updatePayload).eq('id', id);
+                    if (!updErr) updatedCount++;
+                }
+                if (updatedCount > 0) hasChanges = true;
+            }
+
+            // Execute Inserts
+            if (itemsToInsert.length > 0) {
+                const { error: insErr } = await supabase.from('case_board_nodes').insert(itemsToInsert);
+                if (insErr) throw insErr;
+                insertedCount = itemsToInsert.length;
+                hasChanges = true;
+            }
+
+            if (hasChanges) {
+                await loadBoardData();
+            }
+
+            if (!isSilent) {
+                if (!hasChanges) {
+                    alert(language === 'es' ? "La pizarra ya está completamente sincronizada con los datos actuales." : "Whiteboard is already up to date with the latest data.");
+                } else {
+                    const msgEs = `✅ Sincronización completada:\n• ${insertedCount} nueva(s) tarjeta(s) importada(s)\n• ${updatedCount} tarjeta(s) existente(s) actualizada(s)`;
+                    const msgEn = `✅ Sync completed:\n• ${insertedCount} new card(s) imported\n• ${updatedCount} existing card(s) updated`;
+                    alert(language === 'es' ? msgEs : msgEn);
+                }
+            }
         } catch (err) {
-            alert("Error importing evidence: " + err.message);
+            console.error("Error importing evidence:", err);
+            if (!isSilent) alert("Error importing evidence: " + err.message);
+        } finally {
             setLoading(false);
         }
     };
@@ -2062,7 +2226,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
     // Auto Import on First Load for Gang Whiteboard if empty
     useEffect(() => {
         if (isGang && !loading && nodes.length === 0 && caseData) {
-            handleImportCaseEvidence();
+            handleImportCaseEvidence(true);
         }
     }, [isGang, loading, nodes.length]);
 
