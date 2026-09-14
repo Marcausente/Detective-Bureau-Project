@@ -835,39 +835,56 @@ function Gangs() {
         const rawName = (m.name || '').trim();
         if (!rawName) return '';
 
+        let formattedLine = rawName;
+
         // Check if name contains brackets like "Zyra Brown [H2137OG9]"
         const bracketMatch = rawName.match(/^(.*?)\s*\[(.*?)\]$/);
         if (bracketMatch) {
             const namePart = bracketMatch[1].trim();
             const idPart = bracketMatch[2].trim();
-            return idPart ? `${namePart} - ${idPart}` : namePart;
+            formattedLine = idPart ? `${namePart} - ${idPart}` : namePart;
+        } else {
+            // Check if name contains parenthesis like "Zyra Brown (H2137OG9)"
+            const parenMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
+            if (parenMatch) {
+                const namePart = parenMatch[1].trim();
+                const idPart = parenMatch[2].trim();
+                formattedLine = idPart ? `${namePart} - ${idPart}` : namePart;
+            } else if (rawName.includes(' - ')) {
+                formattedLine = rawName;
+            } else {
+                const extraId = m.member_id || m.dni || m.citizen_id || m.code;
+                if (extraId && typeof extraId === 'string' && extraId.trim()) {
+                    formattedLine = `${rawName} - ${extraId.trim()}`;
+                }
+            }
         }
 
-        // Check if name contains parenthesis like "Zyra Brown (H2137OG9)"
-        const parenMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
-        if (parenMatch) {
-            const namePart = parenMatch[1].trim();
-            const idPart = parenMatch[2].trim();
-            return idPart ? `${namePart} - ${idPart}` : namePart;
+        const isInactive = 
+            (m.role && m.role.toLowerCase() === 'inactivo') ||
+            (m.status && (m.status.toLowerCase() === 'inactivo' || m.status.toLowerCase() === 'inactive')) ||
+            m.is_inactive === true ||
+            m.is_active === false;
+
+        if (isInactive) {
+            return `~~${formattedLine}~~`;
         }
 
-        // If already has hyphen format "Zyra Brown - H2137OG9"
-        if (rawName.includes(' - ')) {
-            return rawName;
-        }
-
-        const extraId = m.member_id || m.dni || m.citizen_id || m.code;
-        if (extraId && typeof extraId === 'string' && extraId.trim()) {
-            return `${rawName} - ${extraId.trim()}`;
-        }
-
-        return rawName;
+        return formattedLine;
     };
 
     const formatGangMembersText = (gang) => {
         if (!gang) return '';
         const title = `# ${gang.name.trim().toUpperCase()}`;
-        const memberLines = (gang.members || [])
+        const sortedMembers = [...(gang.members || [])].sort((a, b) => {
+            const aInactive = (a.role && a.role.toLowerCase() === 'inactivo') || (a.status && a.status.toLowerCase() === 'inactivo');
+            const bInactive = (b.role && b.role.toLowerCase() === 'inactivo') || (b.status && b.status.toLowerCase() === 'inactivo');
+            if (aInactive && !bInactive) return 1;
+            if (!aInactive && bInactive) return -1;
+            return 0;
+        });
+
+        const memberLines = sortedMembers
             .map(m => formatMemberLine(m))
             .filter(line => line && line.trim() !== '');
 
