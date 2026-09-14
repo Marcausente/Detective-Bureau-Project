@@ -560,6 +560,41 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
 
             y = doc.lastAutoTable.finalY + 8;
         }
+
+        const conflicts = gang.conflicts || [];
+        if (conflicts.length > 0) {
+            if (y > pageHeight - 35) {
+                doc.addPage();
+                drawPageBorder();
+                y = 20;
+            }
+
+            doc.setFontSize(8.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
+            doc.text("CONFLICTOS / RIVALIDADES ACTIVAS:", 14, y);
+            y += 4;
+
+            const conflictHead = [['Grupo / Banda Rival', 'Motivo del Conflicto']];
+            const conflictBody = conflicts.map(cf => [
+                cleanPDFText(cf.target_gang_name || 'Grupo Rival'),
+                cleanPDFText(cf.reason || 'Desconocido')
+            ]);
+
+            autoTable(doc, {
+                startY: y,
+                head: conflictHead,
+                body: conflictBody,
+                theme: 'grid',
+                styles: { font: 'helvetica', fontSize: 8, cellPadding: 2, textColor: textDark, lineColor: [226, 232, 240], lineWidth: 0.2 },
+                headStyles: { fillColor: [185, 28, 28], textColor: [255, 255, 255], fontStyle: 'bold' },
+                columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 }, 1: { cellWidth: 'auto' } },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                margin: { left: 14, right: 14 }
+            });
+
+            y = doc.lastAutoTable.finalY + 8;
+        }
     }
 
     // --- FOOTER AND SIGNATURE AT END OF DOCUMENT ---

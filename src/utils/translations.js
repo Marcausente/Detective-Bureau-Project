@@ -559,6 +559,14 @@ export const translations = {
         gangCasesLabel: "Cases",
         linkedCasesToGang: "Linked Cases",
         noLinkedCasesGang: "No criminal cases linked",
+        conflictsLabel: "Conflicts",
+        noKnownConflicts: "No active conflicts registered",
+        addConflictTitle: "Log Group Conflict",
+        editConflictTitle: "Edit Group Conflict",
+        rivalGroupLabel: "Rival Group / Gang",
+        conflictReasonLabel: "Motive / Reason of Conflict",
+        selectRivalGang: "-- Select Registered Gang or Specify Below --",
+        customGroupName: "Or write custom group / faction name",
     },
     es: {
         // Layout / Sidebar
@@ -1120,5 +1128,13 @@ export const translations = {
         gangCasesLabel: "Casos",
         linkedCasesToGang: "Casos Ligados",
         noLinkedCasesGang: "Sin casos criminales vinculados",
+        conflictsLabel: "Conflictos",
+        noKnownConflicts: "Sin conflictos registrados",
+        addConflictTitle: "Registrar Conflicto con Grupo",
+        editConflictTitle: "Editar Conflicto",
+        rivalGroupLabel: "Grupo / Banda Rival",
+        conflictReasonLabel: "Motivo del Conflicto",
+        selectRivalGang: "-- Seleccionar Banda Registrada o Escribir Abajo --",
+        customGroupName: "O escribir nombre de grupo / facción",
     }
 };

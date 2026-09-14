@@ -83,6 +83,11 @@ function Gangs() {
     const [patrolLogs, setPatrolLogs] = useState([]);
     const [selectedLog, setSelectedLog] = useState(null); // For detail view
 
+    // Conflict
+    const [conflictTargetGangId, setConflictTargetGangId] = useState('');
+    const [conflictTargetName, setConflictTargetName] = useState('');
+    const [conflictReason, setConflictReason] = useState('Desconocido');
+
     // --- IMAGE VIEWER STATE ---
     const [expandedImage, setExpandedImage] = useState(null);
 
@@ -265,6 +270,10 @@ function Gangs() {
             setGraffitiImage(item.graffiti_image || null);
             setGpsImage(item.gps_image || null);
             setGraffitiNotes(item.notes || '');
+        } else if (type === 'conflict') {
+            setConflictTargetGangId(item.target_gang_id || '');
+            setConflictTargetName(item.target_gang_name || '');
+            setConflictReason(item.reason || 'Desconocido');
         }
     };
 
@@ -602,6 +611,56 @@ function Gangs() {
         }
     };
 
+    const handleAddConflict = async (e) => {
+        e.preventDefault();
+        const finalTargetName = conflictTargetName.trim();
+        if (!finalTargetName && !conflictTargetGangId) {
+            alert("Por favor indica el grupo o selecciona una banda.");
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const finalReason = conflictReason.trim() || 'Desconocido';
+
+            if (editingItemId) {
+                const { error } = await supabase.rpc('update_gang_conflict', {
+                    p_conflict_id: editingItemId,
+                    p_target_gang_id: conflictTargetGangId || null,
+                    p_target_gang_name: finalTargetName || null,
+                    p_reason: finalReason
+                });
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.rpc('add_gang_conflict', {
+                    p_gang_id: activeGangId,
+                    p_target_gang_id: conflictTargetGangId || null,
+                    p_target_gang_name: finalTargetName || null,
+                    p_reason: finalReason
+                });
+                if (error) throw error;
+
+                createWhiteboardCardForGang(
+                    activeGangId,
+                    'Conflicto: ' + (finalTargetName || 'Banda Rival'),
+                    'Motivo: ' + finalReason,
+                    'threat',
+                    'red',
+                    null
+                );
+            }
+
+            closeModal();
+            loadGangs();
+            setFeedbackNotice("✅ Conflicto registrado con éxito ⚔️");
+            setTimeout(() => setFeedbackNotice(null), 5000);
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const handleUpdateZone = async (e) => {
         e.preventDefault();
         if (!zonesImage) { alert("Please upload a map image."); return; }
@@ -917,6 +976,7 @@ function Gangs() {
         setMemName(''); setMemId(''); setMemRole('Sospechoso'); setMemNotes(''); setMemPhoto(null);
         setInfoType('info'); setInfoContent(''); setInfoImages([]);
         setGraffitiImage(null); setGpsImage(null); setGraffitiNotes('');
+        setConflictTargetGangId(''); setConflictTargetName(''); setConflictReason('Desconocido');
         setShowActivity(false);
         setActivityLog([]);
     };
@@ -1073,6 +1133,22 @@ function Gangs() {
                     });
                 }
             });
+
+            (gang.conflicts || []).forEach(c => {
+                const targetMatch = c.target_gang_name?.toLowerCase().includes(q);
+                const reasonMatch = c.reason?.toLowerCase().includes(q);
+                if (targetMatch || reasonMatch) {
+                    results.push({
+                        type: 'conflict',
+                        item: c,
+                        title: `Conflicto: ${c.target_gang_name}`,
+                        subtitle: `Motivo: ${c.reason || 'Desconocido'}${gang.is_archived ? ' [Archivado]' : ''}`,
+                        gangId: gang.gang_id,
+                        gangName: gang.name,
+                        gangColor: gang.color
+                    });
+                }
+            });
         });
 
         return results;
@@ -1117,7 +1193,8 @@ function Gangs() {
             gang.vehicles?.some(v => v.model?.toLowerCase().includes(query) || v.plate?.toLowerCase().includes(query) || v.owner?.toLowerCase().includes(query) || (v.notes && v.notes.toLowerCase().includes(query))) ||
             gang.homes?.some(h => h.owner?.toLowerCase().includes(query) || (h.notes && h.notes.toLowerCase().includes(query))) ||
             gang.info?.some(i => i.content?.toLowerCase().includes(query)) ||
-            gang.graffiti?.some(g => g.notes?.toLowerCase().includes(query))
+            gang.graffiti?.some(g => g.notes?.toLowerCase().includes(query)) ||
+            gang.conflicts?.some(c => c.target_gang_name?.toLowerCase().includes(query) || c.reason?.toLowerCase().includes(query))
         );
     };
 
@@ -1534,6 +1611,78 @@ function Gangs() {
                     <ImageUpload label={t('graffitiImageLabel')} image={graffitiImage} onUpload={e => handleImageUpload(e, setGraffitiImage, true)} single />
                     <ImageUpload label={t('gpsImageLabel')} image={gpsImage} onUpload={e => handleImageUpload(e, setGpsImage, true)} single />
                     <TextArea label={t('notesLabel') + ' (Opcional)'} value={graffitiNotes} onChange={e => setGraffitiNotes(e.target.value)} />
+                </Modal>
+            )}
+
+            {/* Add/Edit Conflict */}
+            {activeModal === 'conflict' && (
+                <Modal 
+                    title={editingItemId ? (t('editConflictTitle') || 'Editar Conflicto') : (t('addConflictTitle') || 'Registrar Conflicto con Grupo')} 
+                    onClose={closeModal} 
+                    onSubmit={handleAddConflict} 
+                    submitting={submitting}
+                >
+                    <div className="form-group">
+                        <label>{t('rivalGroupLabel') || 'Grupo / Banda Rival'}</label>
+                        <select
+                            className="form-input"
+                            value={conflictTargetGangId}
+                            onChange={(e) => {
+                                const selectedId = e.target.value;
+                                setConflictTargetGangId(selectedId);
+                                if (selectedId) {
+                                    const targetG = gangs.find(g => g.gang_id === selectedId);
+                                    if (targetG) {
+                                        setConflictTargetName(targetG.name);
+                                    }
+                                }
+                            }}
+                        >
+                            <option value="">{t('selectRivalGang') || '-- Seleccionar Banda Registrada o Escribir Abajo --'}</option>
+                            {gangs
+                                .filter(g => g.gang_id !== activeGangId)
+                                .map(g => (
+                                    <option key={g.gang_id} value={g.gang_id}>
+                                        {g.name}
+                                    </option>
+                                ))}
+                        </select>
+                    </div>
+
+                    <div className="form-group">
+                        <label>{t('customGroupName') || 'O escribir nombre de grupo / facción'}</label>
+                        <input
+                            type="text"
+                            className="form-input"
+                            value={conflictTargetName}
+                            onChange={(e) => {
+                                setConflictTargetName(e.target.value);
+                                if (conflictTargetGangId) {
+                                    const targetG = gangs.find(g => g.gang_id === conflictTargetGangId);
+                                    if (!targetG || targetG.name !== e.target.value) {
+                                        setConflictTargetGangId('');
+                                    }
+                                }
+                            }}
+                            placeholder="Ej. Marabunta Grande, Vagos, Familia Mafia..."
+                            required={!conflictTargetName.trim() && !conflictTargetGangId}
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label>{t('conflictReasonLabel') || 'Motivo del Conflicto'}</label>
+                        <textarea
+                            className="eval-textarea"
+                            rows="3"
+                            value={conflictReason}
+                            onChange={(e) => setConflictReason(e.target.value)}
+                            placeholder="Motivo o causa del conflicto..."
+                            required
+                        />
+                        <small style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                            * Por defecto se establecerá como "Desconocido" si no se especifica otra causa.
+                        </small>
+                    </div>
                 </Modal>
             )}
 
@@ -2259,6 +2408,69 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                             <span>{t('viewMatrixBtn')}</span>
                         </button>
                     </div>
+                </div>
+            </div>
+
+            {/* Conflicts Section */}
+            <div className="gang-section-card">
+                <div className="gang-section-header">
+                    <span className="gang-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+                        </svg>
+                        <span>{t('conflictsLabel') || 'Conflictos'} ({(gang.conflicts || []).length})</span>
+                    </span>
+                    <button className="gang-add-btn" onClick={() => onAdd('conflict', gang.gang_id)}>+</button>
+                </div>
+                <div className="gang-list-content">
+                    {(gang.conflicts || []).map(c => {
+                        const isConflictMatch = searchQuery && searchQuery.trim() !== '' && (
+                            c.target_gang_name?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+                            c.reason?.toLowerCase().includes(searchQuery.trim().toLowerCase())
+                        );
+                        return (
+                            <div 
+                                key={c.id} 
+                                className={`gang-list-item ${isConflictMatch ? 'search-highlight-item' : ''}`} 
+                                style={{ 
+                                    flexDirection: 'column', 
+                                    alignItems: 'flex-start', 
+                                    borderLeft: `3px solid ${c.target_gang_color || '#ef4444'}`, 
+                                    paddingLeft: '0.8rem', 
+                                    padding: isConflictMatch ? '0.5rem 0.8rem' : '0.4rem 0.8rem',
+                                    background: 'rgba(255, 255, 255, 0.02)',
+                                    borderRadius: '0 6px 6px 0',
+                                    marginBottom: '0.4rem'
+                                }}
+                            >
+                                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ 
+                                        backgroundColor: c.target_gang_color ? `${c.target_gang_color}22` : 'rgba(239, 68, 68, 0.15)', 
+                                        border: `1px solid ${c.target_gang_color ? `${c.target_gang_color}88` : 'rgba(239, 68, 68, 0.4)'}`, 
+                                        color: c.target_gang_color || '#f87171', 
+                                        fontWeight: '700', 
+                                        fontSize: '0.78rem', 
+                                        padding: '2px 8px', 
+                                        borderRadius: '4px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}>
+                                        ⚡ {c.target_gang_name}
+                                    </span>
+                                    <ActionButtons type="conflict" item={c} />
+                                </div>
+                                <div style={{ fontSize: '0.76rem', color: '#cbd5e1', marginTop: '5px', lineHeight: '1.4' }}>
+                                    <span style={{ color: '#94a3b8', fontWeight: '600' }}>Motivo:</span> {c.reason || 'Desconocido'}
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {(!gang.conflicts || gang.conflicts.length === 0) && (
+                        <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>
+                            {t('noKnownConflicts') || 'Sin conflictos registrados'}
+                        </div>
+                    )}
                 </div>
             </div>
 
