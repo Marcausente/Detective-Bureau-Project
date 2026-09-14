@@ -87,6 +87,7 @@ function Gangs() {
     const [conflictTargetGangId, setConflictTargetGangId] = useState('');
     const [conflictTargetName, setConflictTargetName] = useState('');
     const [conflictReason, setConflictReason] = useState('Desconocido');
+    const [conflictStatus, setConflictStatus] = useState('active');
 
     // --- IMAGE VIEWER STATE ---
     const [expandedImage, setExpandedImage] = useState(null);
@@ -274,6 +275,7 @@ function Gangs() {
             setConflictTargetGangId(item.target_gang_id || '');
             setConflictTargetName(item.target_gang_name || '');
             setConflictReason(item.reason || 'Desconocido');
+            setConflictStatus(item.status || 'active');
         }
     };
 
@@ -622,13 +624,15 @@ function Gangs() {
         setSubmitting(true);
         try {
             const finalReason = conflictReason.trim() || 'Desconocido';
+            const finalStatus = conflictStatus || 'active';
 
             if (editingItemId) {
                 const { error } = await supabase.rpc('update_gang_conflict', {
                     p_conflict_id: editingItemId,
                     p_target_gang_id: conflictTargetGangId || null,
                     p_target_gang_name: finalTargetName || null,
-                    p_reason: finalReason
+                    p_reason: finalReason,
+                    p_status: finalStatus
                 });
                 if (error) throw error;
             } else {
@@ -636,28 +640,47 @@ function Gangs() {
                     p_gang_id: activeGangId,
                     p_target_gang_id: conflictTargetGangId || null,
                     p_target_gang_name: finalTargetName || null,
-                    p_reason: finalReason
+                    p_reason: finalReason,
+                    p_status: finalStatus
                 });
                 if (error) throw error;
 
                 createWhiteboardCardForGang(
                     activeGangId,
                     'Conflicto: ' + (finalTargetName || 'Banda Rival'),
-                    'Motivo: ' + finalReason,
+                    'Motivo: ' + finalReason + (finalStatus === 'resolved' ? ' (Finalizado)' : ''),
                     'threat',
-                    'red',
+                    finalStatus === 'resolved' ? 'green' : 'red',
                     null
                 );
             }
 
             closeModal();
             loadGangs();
-            setFeedbackNotice("✅ Conflicto registrado con éxito ⚔️");
+            setFeedbackNotice(editingItemId ? "✅ Conflicto actualizado con éxito ⚔️" : "✅ Conflicto registrado con éxito ⚔️");
             setTimeout(() => setFeedbackNotice(null), 5000);
         } catch (err) {
             alert(err.message);
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleToggleConflictStatus = async (conflictId, currentStatus) => {
+        const isResolved = currentStatus === 'resolved';
+        const confirmMsg = isResolved 
+            ? "¿Deseas reabrir este conflicto y marcarlo como ACTIVO?" 
+            : "¿Deseas dar por FINALIZADO este conflicto?";
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            const { error } = await supabase.rpc('toggle_gang_conflict_status', { p_conflict_id: conflictId });
+            if (error) throw error;
+            loadGangs();
+            setFeedbackNotice(isResolved ? "⚔️ Conflicto reabierto (Activo)" : "✅ Conflicto marcado como Finalizado");
+            setTimeout(() => setFeedbackNotice(null), 5000);
+        } catch (err) {
+            alert(err.message);
         }
     };
 
@@ -976,7 +999,7 @@ function Gangs() {
         setMemName(''); setMemId(''); setMemRole('Sospechoso'); setMemNotes(''); setMemPhoto(null);
         setInfoType('info'); setInfoContent(''); setInfoImages([]);
         setGraffitiImage(null); setGpsImage(null); setGraffitiNotes('');
-        setConflictTargetGangId(''); setConflictTargetName(''); setConflictReason('Desconocido');
+        setConflictTargetGangId(''); setConflictTargetName(''); setConflictReason('Desconocido'); setConflictStatus('active');
         setShowActivity(false);
         setActivityLog([]);
     };
@@ -1474,6 +1497,7 @@ function Gangs() {
                                 onEditGangName={handleEditGangName}
                                 onViewGangBoard={(g) => setActiveBoardGang(g)}
                                 onExportPDF={handleExportGangPDF}
+                                onToggleConflictStatus={handleToggleConflictStatus}
                             />
                         ))
                     )}
@@ -1664,7 +1688,7 @@ function Gangs() {
                                     }
                                 }
                             }}
-                            placeholder="Ej. Marabunta Grande, Vagos, Familia Mafia..."
+                            placeholder="Ej. Marabunta Grande, Vagos..."
                             required={!conflictTargetName.trim() && !conflictTargetGangId}
                         />
                     </div>
@@ -1682,6 +1706,18 @@ function Gangs() {
                         <small style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
                             * Por defecto se establecerá como "Desconocido" si no se especifica otra causa.
                         </small>
+                    </div>
+
+                    <div className="form-group">
+                        <label>{t('conflictStatusLabel') || 'Estado del Conflicto'}</label>
+                        <select
+                            className="form-input"
+                            value={conflictStatus}
+                            onChange={(e) => setConflictStatus(e.target.value)}
+                        >
+                            <option value="active">⚔️ {t('conflictStatusActive') || 'Activo (En Conflicto)'}</option>
+                            <option value="resolved">✅ {t('conflictStatusResolved') || 'Finalizado (Tregua / Resuelto)'}</option>
+                        </select>
                     </div>
                 </Modal>
             )}
@@ -2091,7 +2127,7 @@ function Gangs() {
 
 // --- SUB-COMPONENTS ---
 
-function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName, onViewGangBoard, onExportPDF }) {
+function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName, onViewGangBoard, onExportPDF, onToggleConflictStatus }) {
     const { t } = useLanguage();
     const { isLSSD } = useTheme();
     const navigate = useNavigate();
@@ -2424,6 +2460,7 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                 </div>
                 <div className="gang-list-content">
                     {(gang.conflicts || []).map(c => {
+                        const isResolved = c.status === 'resolved';
                         const isConflictMatch = searchQuery && searchQuery.trim() !== '' && (
                             c.target_gang_name?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
                             c.reason?.toLowerCase().includes(searchQuery.trim().toLowerCase())
@@ -2435,30 +2472,71 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                 style={{ 
                                     flexDirection: 'column', 
                                     alignItems: 'flex-start', 
-                                    borderLeft: `3px solid ${c.target_gang_color || '#ef4444'}`, 
+                                    borderLeft: `3px solid ${isResolved ? '#10b981' : (c.target_gang_color || '#ef4444')}`, 
                                     paddingLeft: '0.8rem', 
                                     padding: isConflictMatch ? '0.5rem 0.8rem' : '0.4rem 0.8rem',
-                                    background: 'rgba(255, 255, 255, 0.02)',
+                                    background: isResolved ? 'rgba(16, 185, 129, 0.03)' : 'rgba(255, 255, 255, 0.02)',
                                     borderRadius: '0 6px 6px 0',
-                                    marginBottom: '0.4rem'
+                                    marginBottom: '0.4rem',
+                                    opacity: isResolved ? 0.85 : 1
                                 }}
                             >
-                                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ 
-                                        backgroundColor: c.target_gang_color ? `${c.target_gang_color}22` : 'rgba(239, 68, 68, 0.15)', 
-                                        border: `1px solid ${c.target_gang_color ? `${c.target_gang_color}88` : 'rgba(239, 68, 68, 0.4)'}`, 
-                                        color: c.target_gang_color || '#f87171', 
-                                        fontWeight: '700', 
-                                        fontSize: '0.78rem', 
-                                        padding: '2px 8px', 
-                                        borderRadius: '4px',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                    }}>
-                                        ⚡ {c.target_gang_name}
-                                    </span>
-                                    <ActionButtons type="conflict" item={c} />
+                                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                                    {isResolved ? (
+                                        <span style={{ 
+                                            backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+                                            border: '1px solid rgba(16, 185, 129, 0.4)', 
+                                            color: '#34d399', 
+                                            fontWeight: '700', 
+                                            fontSize: '0.78rem', 
+                                            padding: '2px 8px', 
+                                            borderRadius: '4px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}>
+                                            ✓ {c.target_gang_name} <span style={{ fontSize: '0.68rem', opacity: 0.85, fontWeight: 'normal' }}>({t('conflictStatusResolved') ? 'Finalizado' : 'Finalizado'})</span>
+                                        </span>
+                                    ) : (
+                                        <span style={{ 
+                                            backgroundColor: c.target_gang_color ? `${c.target_gang_color}22` : 'rgba(239, 68, 68, 0.15)', 
+                                            border: `1px solid ${c.target_gang_color ? `${c.target_gang_color}88` : 'rgba(239, 68, 68, 0.4)'}`, 
+                                            color: c.target_gang_color || '#f87171', 
+                                            fontWeight: '700', 
+                                            fontSize: '0.78rem', 
+                                            padding: '2px 8px', 
+                                            borderRadius: '4px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}>
+                                            ⚡ {c.target_gang_name} <span style={{ fontSize: '0.68rem', opacity: 0.85, fontWeight: 'normal' }}>({t('conflictStatusActive') ? 'Activo' : 'Activo'})</span>
+                                        </span>
+                                    )}
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto' }}>
+                                        <button
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onClick={(e) => { e.stopPropagation(); onToggleConflictStatus && onToggleConflictStatus(c.id, c.status); }}
+                                            style={{
+                                                background: isResolved ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                                border: `1px solid ${isResolved ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                padding: '2px 6px',
+                                                color: isResolved ? '#34d399' : '#fca5a5',
+                                                fontSize: '0.7rem',
+                                                fontWeight: '600',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '3px'
+                                            }}
+                                            title={isResolved ? (t('reopenConflictBtn') || 'Reabrir Conflicto') : (t('finishConflictBtn') || 'Dar por Finalizado')}
+                                        >
+                                            {isResolved ? `🔄 ${t('reopenConflictBtn') || 'Reabrir'}` : `✓ ${t('finishConflictBtn') || 'Finalizar'}`}
+                                        </button>
+                                        <ActionButtons type="conflict" item={c} />
+                                    </div>
                                 </div>
                                 <div style={{ fontSize: '0.76rem', color: '#cbd5e1', marginTop: '5px', lineHeight: '1.4' }}>
                                     <span style={{ color: '#94a3b8', fontWeight: '600' }}>Motivo:</span> {c.reason || 'Desconocido'}

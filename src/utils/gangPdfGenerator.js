@@ -572,12 +572,13 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
             doc.setFontSize(8.5);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-            doc.text("CONFLICTOS / RIVALIDADES ACTIVAS:", 14, y);
+            doc.text("CONFLICTOS / RIVALIDADES REGISTRADAS:", 14, y);
             y += 4;
 
-            const conflictHead = [['Grupo / Banda Rival', 'Motivo del Conflicto']];
+            const conflictHead = [['Grupo / Banda Rival', 'Estado', 'Motivo del Conflicto']];
             const conflictBody = conflicts.map(cf => [
                 cleanPDFText(cf.target_gang_name || 'Grupo Rival'),
+                cf.status === 'resolved' ? 'FINALIZADO' : 'ACTIVO',
                 cleanPDFText(cf.reason || 'Desconocido')
             ]);
 
@@ -588,7 +589,7 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
                 theme: 'grid',
                 styles: { font: 'helvetica', fontSize: 8, cellPadding: 2, textColor: textDark, lineColor: [226, 232, 240], lineWidth: 0.2 },
                 headStyles: { fillColor: [185, 28, 28], textColor: [255, 255, 255], fontStyle: 'bold' },
-                columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 }, 1: { cellWidth: 'auto' } },
+                columnStyles: { 0: { fontStyle: 'bold', cellWidth: 45 }, 1: { fontStyle: 'bold', cellWidth: 25 }, 2: { cellWidth: 'auto' } },
                 alternateRowStyles: { fillColor: [248, 250, 252] },
                 margin: { left: 14, right: 14 }
             });

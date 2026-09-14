@@ -6,9 +6,13 @@ CREATE TABLE IF NOT EXISTS public.gang_conflicts (
     target_gang_id UUID REFERENCES public.gangs(id) ON DELETE SET NULL,
     target_gang_name TEXT NOT NULL,
     reason TEXT NOT NULL DEFAULT 'Desconocido',
+    status TEXT NOT NULL DEFAULT 'active', -- 'active' | 'resolved'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Ensure status column exists if table already existed
+ALTER TABLE public.gang_conflicts ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
 
 -- 2. Enable RLS and Policies
 ALTER TABLE public.gang_conflicts ENABLE ROW LEVEL SECURITY;
@@ -21,16 +25,21 @@ USING (auth.role() = 'authenticated')
 WITH CHECK (auth.role() = 'authenticated');
 
 -- 3. RPC: add_gang_conflict
+DROP FUNCTION IF EXISTS add_gang_conflict(UUID, UUID, TEXT, TEXT);
+DROP FUNCTION IF EXISTS add_gang_conflict(UUID, UUID, TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION add_gang_conflict(
     p_gang_id UUID,
     p_target_gang_id UUID DEFAULT NULL,
     p_target_gang_name TEXT DEFAULT NULL,
-    p_reason TEXT DEFAULT 'Desconocido'
+    p_reason TEXT DEFAULT 'Desconocido',
+    p_status TEXT DEFAULT 'active'
 ) RETURNS UUID AS $$
 DECLARE
     v_target_name TEXT;
     v_conflict_id UUID;
     v_reason TEXT;
+    v_status TEXT;
 BEGIN
     IF NOT auth_is_gang_authorized() THEN RAISE EXCEPTION 'Access Denied'; END IF;
     
@@ -47,8 +56,10 @@ BEGIN
         v_reason := 'Desconocido';
     END IF;
 
-    INSERT INTO public.gang_conflicts (gang_id, target_gang_id, target_gang_name, reason)
-    VALUES (p_gang_id, p_target_gang_id, v_target_name, v_reason)
+    v_status := COALESCE(NULLIF(TRIM(p_status), ''), 'active');
+
+    INSERT INTO public.gang_conflicts (gang_id, target_gang_id, target_gang_name, reason, status)
+    VALUES (p_gang_id, p_target_gang_id, v_target_name, v_reason, v_status)
     RETURNING id INTO v_conflict_id;
 
     RETURN v_conflict_id;
@@ -56,15 +67,20 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 4. RPC: update_gang_conflict
+DROP FUNCTION IF EXISTS update_gang_conflict(UUID, UUID, TEXT, TEXT);
+DROP FUNCTION IF EXISTS update_gang_conflict(UUID, UUID, TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION update_gang_conflict(
     p_conflict_id UUID,
     p_target_gang_id UUID DEFAULT NULL,
     p_target_gang_name TEXT DEFAULT NULL,
-    p_reason TEXT DEFAULT 'Desconocido'
+    p_reason TEXT DEFAULT 'Desconocido',
+    p_status TEXT DEFAULT 'active'
 ) RETURNS VOID AS $$
 DECLARE
     v_target_name TEXT;
     v_reason TEXT;
+    v_status TEXT;
 BEGIN
     IF NOT auth_is_gang_authorized() THEN RAISE EXCEPTION 'Access Denied'; END IF;
 
@@ -81,16 +97,44 @@ BEGIN
         v_reason := 'Desconocido';
     END IF;
 
+    v_status := COALESCE(NULLIF(TRIM(p_status), ''), 'active');
+
     UPDATE public.gang_conflicts
     SET target_gang_id = p_target_gang_id,
         target_gang_name = v_target_name,
         reason = v_reason,
+        status = v_status,
         updated_at = NOW()
     WHERE id = p_conflict_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 5. Update delete_gang_item RPC to handle conflicts
+-- 5. RPC: toggle_gang_conflict_status (Finalizar / Reabrir conflicto)
+CREATE OR REPLACE FUNCTION toggle_gang_conflict_status(p_conflict_id UUID) 
+RETURNS TEXT AS $$
+DECLARE
+    v_curr_status TEXT;
+    v_new_status TEXT;
+BEGIN
+    IF NOT auth_is_gang_authorized() THEN RAISE EXCEPTION 'Access Denied'; END IF;
+    
+    SELECT status INTO v_curr_status FROM public.gang_conflicts WHERE id = p_conflict_id;
+    IF v_curr_status = 'resolved' THEN
+        v_new_status := 'active';
+    ELSE
+        v_new_status := 'resolved';
+    END IF;
+    
+    UPDATE public.gang_conflicts
+    SET status = v_new_status,
+        updated_at = NOW()
+    WHERE id = p_conflict_id;
+    
+    RETURN v_new_status;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 6. Update delete_gang_item RPC to handle conflicts
 CREATE OR REPLACE FUNCTION delete_gang_item(p_table TEXT, p_id UUID) RETURNS VOID AS $$
 BEGIN
     IF NOT auth_is_gang_authorized() THEN RAISE EXCEPTION 'Access Denied'; END IF;
@@ -104,7 +148,7 @@ BEGIN
     END IF;
 END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 6. Redefine get_gangs_data() to load conflicts
+-- 7. Redefine get_gangs_data() to load conflicts with status
 DROP FUNCTION IF EXISTS get_gangs_data();
 
 CREATE OR REPLACE FUNCTION get_gangs_data()
@@ -195,7 +239,7 @@ BEGIN
             ))
             FROM public.gang_graffitis gr WHERE gr.gang_id = g.id
         ), '[]'::jsonb),
-        -- Conflicts Collection
+        -- Conflicts Collection (Activos primero, luego finalizados)
         COALESCE((
             SELECT jsonb_agg(jsonb_build_object(
                 'id', gc.id,
@@ -203,8 +247,9 @@ BEGIN
                 'target_gang_name', COALESCE(tg.name, gc.target_gang_name),
                 'target_gang_color', tg.color,
                 'reason', COALESCE(gc.reason, 'Desconocido'),
+                'status', COALESCE(gc.status, 'active'),
                 'created_at', gc.created_at
-            ) ORDER BY gc.created_at DESC)
+            ) ORDER BY (gc.status = 'active') DESC, gc.created_at DESC)
             FROM public.gang_conflicts gc
             LEFT JOIN public.gangs tg ON gc.target_gang_id = tg.id
             WHERE gc.gang_id = g.id
@@ -218,5 +263,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Grants
 GRANT EXECUTE ON FUNCTION add_gang_conflict TO authenticated;
 GRANT EXECUTE ON FUNCTION update_gang_conflict TO authenticated;
+GRANT EXECUTE ON FUNCTION toggle_gang_conflict_status TO authenticated;
 GRANT EXECUTE ON FUNCTION delete_gang_item TO authenticated;
 GRANT EXECUTE ON FUNCTION get_gangs_data TO authenticated;

@@ -567,6 +567,11 @@ export const translations = {
         conflictReasonLabel: "Motive / Reason of Conflict",
         selectRivalGang: "-- Select Registered Gang or Specify Below --",
         customGroupName: "Or write custom group / faction name",
+        conflictStatusLabel: "Conflict Status",
+        conflictStatusActive: "Active (Ongoing Conflict)",
+        conflictStatusResolved: "Resolved (Finished / Truce)",
+        finishConflictBtn: "End Conflict",
+        reopenConflictBtn: "Reopen Conflict",
     },
     es: {
         // Layout / Sidebar
@@ -1136,5 +1141,10 @@ export const translations = {
         conflictReasonLabel: "Motivo del Conflicto",
         selectRivalGang: "-- Seleccionar Banda Registrada o Escribir Abajo --",
         customGroupName: "O escribir nombre de grupo / facción",
+        conflictStatusLabel: "Estado del Conflicto",
+        conflictStatusActive: "Activo (En Conflicto)",
+        conflictStatusResolved: "Finalizado (Tregua / Resuelto)",
+        finishConflictBtn: "Dar por Finalizado",
+        reopenConflictBtn: "Reabrir Conflicto",
     }
 };
