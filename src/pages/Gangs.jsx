@@ -120,6 +120,18 @@ function Gangs() {
 
 
     useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                if (activeBoardGang) {
+                    setActiveBoardGang(null);
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [activeBoardGang]);
+
+    useEffect(() => {
         loadGangs();
         fetchUserRole();
         fetchUsers();
@@ -1260,8 +1272,7 @@ function Gangs() {
     return (
         <div id="gangs-page" style={{ width: '100%', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', padding: '1rem 1.5rem 0px 1.5rem', boxSizing: 'border-box', overflow: 'hidden' }}>
             {/* Inner Header Navbar */}
-            {!activeBoardGang && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', padding: '0.3rem 0.8rem', gap: '1rem', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box', flexShrink: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', padding: '0.3rem 0.8rem', gap: '1rem', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box', flexShrink: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
                         <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.015em' }}>{isLSSD ? t('gndTitle') : t('giuTitle')}</h2>
 
@@ -1444,8 +1455,6 @@ function Gangs() {
                         )}
                     </div>
                 </div>
-            )}
-
 
             {feedbackNotice && (
                 <div style={{
@@ -1463,35 +1472,7 @@ function Gangs() {
                 </div>
             )}
 
-            {activeBoardGang ? (
-                <div style={{ flex: 1, height: 'calc(100vh - 100px)', padding: '0.75rem 1.5rem', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <div style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(10px)',
-                        padding: '0.6rem 1.2rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)',
-                        marginBottom: '0.6rem', flexShrink: 0
-                    }}>
-                        <button
-                            className="login-button btn-secondary"
-                            onClick={() => setActiveBoardGang(null)}
-                            style={{ width: 'auto', padding: '0.4rem 1rem', fontSize: '0.85rem' }}
-                        >
-                            ← Volver a Pandillas
-                        </button>
-                        <h3 style={{ margin: 0, color: activeBoardGang.color || 'var(--accent-gold)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><line x1="12" y1="17" x2="12" y2="22" /><path d="M5 17h14v-2l-2-2V5h1V3H6v2h1v8l-2 2v2z" /></svg>
-                            <span>Pizarra de Investigación: <span style={{ color: 'white' }}>{activeBoardGang.name}</span></span>
-                        </h3>
-                    </div>
-                    <div style={{ flex: 1, minHeight: 0, width: '100%', position: 'relative' }}>
-                        <CaseWhiteboard
-                            gangId={activeBoardGang.gang_id}
-                            isGang={true}
-                            caseData={gangs.find(g => g.gang_id === activeBoardGang.gang_id) || activeBoardGang}
-                        />
-                    </div>
-                </div>
-            ) : viewMode === 'todo' ? (
+            {viewMode === 'todo' ? (
                 <div style={{ flex: 1, padding: '2rem 3rem', overflowY: 'auto' }}>
                     <GangTodoList />
                 </div>
@@ -2149,6 +2130,76 @@ function Gangs() {
                                 {submitting ? 'Saving...' : '💾 Save Notes'}
                             </button>
                         </div>
+                    </div>
+                </div>
+            {/* FULL SCREEN APPLE MAC OS WHITEBOARD MODAL */}
+            {activeBoardGang && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    zIndex: 9999,
+                    background: 'rgba(8, 9, 13, 0.96)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    animation: 'zoomIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}>
+                    {/* Apple macOS Traffic Light Window Header */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.75rem 1.25rem',
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+                        userSelect: 'none'
+                    }}>
+                        {/* Traffic light buttons with macOS hover animation */}
+                        <div className="mac-window-dots">
+                            <div
+                                className="mac-window-dot close"
+                                onClick={() => setActiveBoardGang(null)}
+                                title="Cerrar Pizarra (Esc)"
+                            />
+                            <div
+                                className="mac-window-dot min"
+                                onClick={() => setActiveBoardGang(null)}
+                                title="Minimizar (Esc)"
+                            />
+                            <div
+                                className="mac-window-dot max"
+                                title="Pantalla Completa"
+                            />
+                        </div>
+
+                        {/* Title */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={activeBoardGang.color || 'var(--accent-gold)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                <line x1="12" y1="17" x2="12" y2="22" />
+                                <path d="M5 17h14v-2l-2-2V5h1V3H6v2h1v8l-2 2v2z" />
+                            </svg>
+                            <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.01em' }}>
+                                Pizarra de Investigación: <span style={{ color: activeBoardGang.color || 'var(--accent-gold)' }}>{activeBoardGang.name}</span>
+                            </span>
+                        </div>
+
+                        {/* Spacer for symmetry */}
+                        <div style={{ width: '60px' }} />
+                    </div>
+
+                    {/* Canvas Container */}
+                    <div style={{ flex: 1, width: '100%', height: 'calc(100vh - 48px)', position: 'relative', overflow: 'hidden' }}>
+                        <CaseWhiteboard
+                            gangId={activeBoardGang.gang_id}
+                            isGang={true}
+                            caseData={gangs.find(g => g.gang_id === activeBoardGang.gang_id) || activeBoardGang}
+                        />
                     </div>
                 </div>
             )}
