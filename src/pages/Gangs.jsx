@@ -829,6 +829,94 @@ function Gangs() {
         }
     };
 
+    // --- CLIPBOARD COPY FORMATTERS ---
+    const formatMemberLine = (m) => {
+        if (!m) return '';
+        const rawName = (m.name || '').trim();
+        if (!rawName) return '';
+
+        // Check if name contains brackets like "Zyra Brown [H2137OG9]"
+        const bracketMatch = rawName.match(/^(.*?)\s*\[(.*?)\]$/);
+        if (bracketMatch) {
+            const namePart = bracketMatch[1].trim();
+            const idPart = bracketMatch[2].trim();
+            return idPart ? `${namePart} - ${idPart}` : namePart;
+        }
+
+        // Check if name contains parenthesis like "Zyra Brown (H2137OG9)"
+        const parenMatch = rawName.match(/^(.*?)\s*\((.*?)\)$/);
+        if (parenMatch) {
+            const namePart = parenMatch[1].trim();
+            const idPart = parenMatch[2].trim();
+            return idPart ? `${namePart} - ${idPart}` : namePart;
+        }
+
+        // If already has hyphen format "Zyra Brown - H2137OG9"
+        if (rawName.includes(' - ')) {
+            return rawName;
+        }
+
+        const extraId = m.member_id || m.dni || m.citizen_id || m.code;
+        if (extraId && typeof extraId === 'string' && extraId.trim()) {
+            return `${rawName} - ${extraId.trim()}`;
+        }
+
+        return rawName;
+    };
+
+    const formatGangMembersText = (gang) => {
+        if (!gang) return '';
+        const title = `# ${gang.name.trim().toUpperCase()}`;
+        const memberLines = (gang.members || [])
+            .map(m => formatMemberLine(m))
+            .filter(line => line && line.trim() !== '');
+
+        if (memberLines.length === 0) {
+            return `${title}\n`;
+        }
+        return `${title}\n${memberLines.join('\n')}`;
+    };
+
+    const copyTextToClipboard = async (text, successMsg) => {
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-999999px";
+                textArea.style.top = "-999999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                textArea.remove();
+            }
+            setFeedbackNotice(successMsg || "✅ Copiado al portapapeles 📋");
+            setTimeout(() => setFeedbackNotice(null), 4000);
+        } catch (err) {
+            console.error("Clipboard copy error:", err);
+            alert("Error al copiar al portapapeles: " + err.message);
+        }
+    };
+
+    const handleCopyAllGangs = () => {
+        const targetGangs = gangs.filter(g => viewMode === 'active' ? !g.is_archived : g.is_archived);
+        const gangsToCopy = targetGangs.length > 0 ? targetGangs : gangs;
+
+        const formatted = gangsToCopy
+            .map(g => formatGangMembersText(g))
+            .join('\n\n');
+
+        copyTextToClipboard(formatted, `✅ Información de todos los grupos (${gangsToCopy.length}) copiada al portapapeles 📋`);
+    };
+
+    const handleCopySingleGang = (gang) => {
+        const formatted = formatGangMembersText(gang);
+        copyTextToClipboard(formatted, `✅ Información de ${gang.name} copiada al portapapeles 📋`);
+    };
+
     // --- PATROL LOG HANDLERS ---
     const roundToQuarterHour = (date) => {
         const minutes = date.getMinutes();
@@ -1440,6 +1528,18 @@ function Gangs() {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <button
+                            className="mac-btn mac-btn-secondary"
+                            style={{ padding: '0.45rem 1rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.45rem', border: '1px solid rgba(255,255,255,0.18)' }}
+                            onClick={handleCopyAllGangs}
+                            title="Copiar información formateada de todos los grupos al portapapeles"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                            <span>Copiar Información Grupos</span>
+                        </button>
                         {viewMode === 'active' && (
                             <button
                                 className="mac-btn mac-btn-primary"
@@ -1511,6 +1611,7 @@ function Gangs() {
                                 onViewGangBoard={(g) => setActiveBoardGang(g)}
                                 onExportPDF={handleExportGangPDF}
                                 onToggleConflictStatus={handleToggleConflictStatus}
+                                onCopyGangInfo={handleCopySingleGang}
                             />
                         ))
                     )}
@@ -2212,7 +2313,7 @@ function Gangs() {
 
 // --- SUB-COMPONENTS ---
 
-function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName, onViewGangBoard, onExportPDF, onToggleConflictStatus }) {
+function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName, onViewGangBoard, onExportPDF, onToggleConflictStatus, onCopyGangInfo }) {
     const { t } = useLanguage();
     const { isLSSD } = useTheme();
     const navigate = useNavigate();
@@ -2251,6 +2352,17 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                 <div className="gang-header-top">
                     <h3 className="gang-title" style={{ color: gang.color }}>{gang.name}</h3>
                     <div className="gang-actions">
+                        <button
+                            className="gang-icon-btn"
+                            onClick={() => onCopyGangInfo && onCopyGangInfo(gang)}
+                            title="Copiar información de este grupo al portapapeles"
+                            style={{ color: '#38bdf8' }}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                        </button>
                         <button
                             className="gang-board-btn"
                             onClick={() => onViewGangBoard(gang)}
@@ -2800,7 +2912,21 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                         </svg>
                         <span>{t('knownAffiliatesLabel')} ({gang.members.length})</span>
                     </span>
-                    <button className="gang-add-btn" onClick={() => onAdd('member', gang.gang_id)}>+</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <button 
+                            className="mac-btn mac-btn-secondary" 
+                            style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}
+                            onClick={() => onCopyGangInfo && onCopyGangInfo(gang)}
+                            title="Copiar lista de miembros de este grupo"
+                        >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                            <span>Copiar</span>
+                        </button>
+                        <button className="gang-add-btn" onClick={() => onAdd('member', gang.gang_id)}>+</button>
+                    </div>
                 </div>
                 <div className="gang-member-grid">
                     {[...gang.members]
