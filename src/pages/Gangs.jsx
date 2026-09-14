@@ -2132,6 +2132,8 @@ function Gangs() {
                         </div>
                     </div>
                 </div>
+            )}
+
             {/* FULL SCREEN APPLE MAC OS WHITEBOARD MODAL */}
             {activeBoardGang && (
                 <div style={{
