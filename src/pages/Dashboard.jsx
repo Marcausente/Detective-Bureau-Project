@@ -159,7 +159,15 @@ function Dashboard() {
         if (error) {
             console.error('Error fetching events:', error);
         } else {
-            setEvents(data || []);
+            const now = new Date();
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const maxDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14, 23, 59, 59, 999);
+
+            const filtered = (data || []).filter(ev => {
+                const evDate = new Date(ev.event_date);
+                return evDate >= startOfToday && evDate <= maxDate;
+            });
+            setEvents(filtered);
         }
     };
 
