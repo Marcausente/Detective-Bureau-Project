@@ -2067,7 +2067,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             title: titleStr,
                             content: contentStr,
                             category: 'threat',
-                            color: nodeColor
+                            color: nodeColor,
+                            is_inactive: isResolved
                         });
                     } else {
                         itemsToInsert.push({
@@ -2076,6 +2077,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             content: contentStr,
                             category: 'threat',
                             color: nodeColor,
+                            is_inactive: isResolved,
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
@@ -3743,7 +3745,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             );
                         }
 
-                        // 4. Standard Investigation Cards
+                        const isConflictCard = node.category === 'threat' || (node.title && node.title.toLowerCase().includes('conflicto'));
+                        const inactiveBadgeText = isConflictCard ? 'FINALIZADO' : (t('inactiveBadge') || 'INACTIVO');
+
                         return (
                             <div
                                 key={node.id}
@@ -3783,7 +3787,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                             display: 'flex', alignItems: 'center', gap: '4px'
                                         }}>
                                             <BoardIcon name="close" size={12} color="#ffffff" />
-                                            <span>{t('inactiveBadge') || 'INACTIVO'}</span>
+                                            <span>{inactiveBadgeText}</span>
                                         </div>
                                     </div>
                                 )}
@@ -3807,7 +3811,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         {node.is_inactive && (
                                             <span style={{ fontSize: '0.65rem', background: '#ef4444', color: 'white', padding: '1px 5px', borderRadius: '3px', marginLeft: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                                                 <BoardIcon name="close" size={10} color="#ffffff" />
-                                                <span>INACTIVO</span>
+                                                <span>{inactiveBadgeText}</span>
                                             </span>
                                         )}
                                     </span>

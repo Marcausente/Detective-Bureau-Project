@@ -2525,9 +2525,10 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                             borderRadius: '4px',
                                             display: 'inline-flex',
                                             alignItems: 'center',
-                                            gap: '4px'
+                                            gap: '4px',
+                                            textDecoration: 'line-through'
                                         }}>
-                                            ✓ {c.target_gang_name} <span style={{ fontSize: '0.68rem', opacity: 0.85, fontWeight: 'normal' }}>({t('conflictStatusResolved') ? 'Finalizado' : 'Finalizado'})</span>
+                                            ✓ {c.target_gang_name} <span style={{ fontSize: '0.68rem', opacity: 0.85, fontWeight: 'normal', textDecoration: 'none' }}>({t('conflictStatusResolved') ? 'Finalizado' : 'Finalizado'})</span>
                                         </span>
                                     ) : (
                                         <span style={{ 
@@ -2570,7 +2571,7 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                         <ActionButtons type="conflict" item={c} />
                                     </div>
                                 </div>
-                                <div style={{ fontSize: '0.76rem', color: '#cbd5e1', marginTop: '5px', lineHeight: '1.4' }}>
+                                <div style={{ fontSize: '0.76rem', color: isResolved ? '#94a3b8' : '#cbd5e1', marginTop: '5px', lineHeight: '1.4', textDecoration: isResolved ? 'line-through' : 'none' }}>
                                     <span style={{ color: '#94a3b8', fontWeight: '600' }}>Motivo:</span> {c.reason || 'Desconocido'}
                                 </div>
                             </div>
