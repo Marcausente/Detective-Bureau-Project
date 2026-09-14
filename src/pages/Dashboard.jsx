@@ -171,13 +171,13 @@ function Dashboard() {
         }
     };
 
-    const fetchAllMonthEvents = async () => {
+    const fetchAllMonthEvents = async (targetDate = currentMonth) => {
         try {
-            const year = currentMonth.getFullYear();
-            const month = currentMonth.getMonth() + 1;
+            const year = targetDate.getFullYear();
+            const month = targetDate.getMonth() + 1;
 
             const { data, error } = await supabase.rpc('get_all_month_events', {
-                p_user_id: user?.id,
+                p_user_id: user?.id || null,
                 p_year: year,
                 p_month: month
             });
@@ -189,8 +189,14 @@ function Dashboard() {
         }
     };
 
+    useEffect(() => {
+        if (showCalendarModal) {
+            fetchAllMonthEvents(currentMonth);
+        }
+    }, [showCalendarModal, currentMonth, user?.id]);
+
     const handleOpenCalendar = () => {
-        fetchAllMonthEvents();
+        fetchAllMonthEvents(currentMonth);
         setShowCalendarModal(true);
     };
 
@@ -199,11 +205,15 @@ function Dashboard() {
     };
 
     const nextMonth = () => {
-        setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+        const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+        setCurrentMonth(next);
+        fetchAllMonthEvents(next);
     };
 
     const prevMonth = () => {
-        setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+        const prev = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+        setCurrentMonth(prev);
+        fetchAllMonthEvents(prev);
     };
 
     const handleSaveAnnouncement = async (e) => {
