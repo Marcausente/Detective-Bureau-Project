@@ -1950,21 +1950,19 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             if (effectiveData.homes && effectiveData.homes.length > 0) {
                 effectiveData.homes.forEach(h => {
                     const ownerClean = clean(h.owner);
-                    const notesClean = clean(h.notes);
                     const img = (h.images && h.images.length > 0) ? h.images[0] : null;
                     const titleStr = `Propiedad: ${h.owner || 'Ubicación Banda'}`;
                     const contentStr = `Notas: ${h.notes || 'Sin notas'}`;
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
-                        if (n.category !== 'location' && n.category !== 'note' && n.category !== 'evidence') return false;
+                        // ONLY match location cards
+                        if (n.category !== 'location') return false;
 
                         const nTitle = clean(n.title);
-                        const nContent = clean(n.content);
                         if (img && n.image_url && n.image_url === img) return true;
                         if (nTitle === clean(titleStr)) return true;
                         if (ownerClean && ownerClean.length >= 3 && nTitle.includes(ownerClean)) return true;
-                        if (notesClean && notesClean.length >= 8 && nContent.includes(notesClean.slice(0, 30))) return true;
 
                         return false;
                     });
@@ -2006,27 +2004,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
-                        // Match existing cards whether categorized as evidence or legacy note
-                        if (n.category !== 'evidence' && n.category !== 'note') return false;
+                        // ONLY match evidence cards created for intel, NEVER user notes
+                        if (n.category !== 'evidence') return false;
 
                         const nContent = clean(n.content);
-                        const nTitle = clean(n.title);
-
                         if (img && n.image_url && n.image_url === img) return true;
                         if (contentClean && nContent === contentClean) return true;
-
-                        // Content substring / snippet match (first 30 characters)
-                        if (contentClean && contentClean.length >= 6) {
-                            const sub = contentClean.slice(0, 35);
-                            if (nContent.includes(sub) || (nContent.length > 10 && sub.includes(nContent.slice(0, 25)))) return true;
-                        }
-
-                        // Specific topic matching (e.g. "territorio", "informacion del territorio", "vestimenta", etc.)
-                        if (contentClean && (contentClean.includes('territorio') || contentClean.includes('vestimenta') || contentClean.includes('armamento'))) {
-                            if (nContent.includes('territorio') && contentClean.includes('territorio')) return true;
-                            if (nContent.includes('vestimenta') && contentClean.includes('vestimenta')) return true;
-                            if (nContent.includes('armamento') && contentClean.includes('armamento')) return true;
-                        }
 
                         return false;
                     });
@@ -2067,12 +2050,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
-                        if (n.category !== 'evidence' && n.category !== 'note') return false;
+                        // ONLY match evidence cards
+                        if (n.category !== 'evidence') return false;
 
-                        const nContent = clean(n.content);
                         if (g.graffiti_image && n.image_url === g.graffiti_image) return true;
                         if (g.gps_image && n.image_url === g.gps_image) return true;
-                        if (notesClean && notesClean.length >= 6 && nContent.includes(notesClean.slice(0, 30))) return true;
+                        if (notesClean && notesClean.length >= 6 && clean(n.content) === notesClean) return true;
 
                         return false;
                     });
@@ -2115,7 +2098,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
-                        if (n.category !== 'threat' && n.category !== 'note') return false;
+                        // ONLY match threat cards
+                        if (n.category !== 'threat') return false;
 
                         const nTitle = clean(n.title);
                         if (nTitle === clean(titleStr)) return true;
