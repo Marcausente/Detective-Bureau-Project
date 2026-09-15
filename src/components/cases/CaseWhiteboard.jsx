@@ -701,6 +701,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     shape: pencilShape,
                     strokeWidth: pencilWidth,
                     points: points.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })),
+                    originX: minX,
+                    originY: minY,
                     height: Math.max(10, maxY - minY),
                     zIndex: maxZ + 1,
                     isLocked: false
@@ -817,11 +819,13 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
         const extra = parseNodeExtra(node);
         if (!extra.isLocked) {
+            const currentPosX = typeof node.pos_x === 'number' ? node.pos_x : (extra.originX ?? (extra.points?.[0]?.x || 0));
+            const currentPosY = typeof node.pos_y === 'number' ? node.pos_y : (extra.originY ?? (extra.points?.[0]?.y || 0));
             setDraggingNodeId(nodeId);
-            dragStartPosRef.current = { pos_x: node.pos_x, pos_y: node.pos_y };
+            dragStartPosRef.current = { pos_x: currentPosX, pos_y: currentPosY };
             dragOffsetRef.current = {
-                x: e.clientX / zoom - node.pos_x,
-                y: e.clientY / zoom - node.pos_y
+                x: e.clientX / zoom - currentPosX,
+                y: e.clientY / zoom - currentPosY
             };
         }
     };
@@ -3069,16 +3073,33 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                         if (!pts || pts.length === 0) return null;
 
+                        const originX = typeof extra.originX === 'number' ? extra.originX : Math.min(...pts.map(p => p.x));
+                        const originY = typeof extra.originY === 'number' ? extra.originY : Math.min(...pts.map(p => p.y));
+                        const currentPosX = typeof drawNode.pos_x === 'number' ? drawNode.pos_x : originX;
+                        const currentPosY = typeof drawNode.pos_y === 'number' ? drawNode.pos_y : originY;
+                        const dx = currentPosX - originX;
+                        const dy = currentPosY - originY;
+
                         let shapeSvg = null;
                         if (shape === 'line' && pts.length >= 2) {
                             shapeSvg = (
-                                <line
-                                    x1={pts[0].x} y1={pts[0].y}
-                                    x2={pts[pts.length - 1].x} y2={pts[pts.length - 1].y}
-                                    stroke={isSelected ? '#eab308' : color}
-                                    strokeWidth={strokeW + (isSelected ? 2 : 0)}
-                                    strokeLinecap="round"
-                                />
+                                <>
+                                    {/* Invisible thick hit area */}
+                                    <line
+                                        x1={pts[0].x} y1={pts[0].y}
+                                        x2={pts[pts.length - 1].x} y2={pts[pts.length - 1].y}
+                                        stroke="transparent"
+                                        strokeWidth={Math.max(strokeW + 16, 20)}
+                                        strokeLinecap="round"
+                                    />
+                                    <line
+                                        x1={pts[0].x} y1={pts[0].y}
+                                        x2={pts[pts.length - 1].x} y2={pts[pts.length - 1].y}
+                                        stroke={isSelected ? '#eab308' : color}
+                                        strokeWidth={strokeW + (isSelected ? 2 : 0)}
+                                        strokeLinecap="round"
+                                    />
+                                </>
                             );
                         } else if (shape === 'arrow' && pts.length >= 2) {
                             const x1 = pts[0].x;
@@ -3094,6 +3115,13 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                             shapeSvg = (
                                 <g>
+                                    {/* Invisible thick hit area */}
+                                    <line
+                                        x1={x1} y1={y1} x2={x2} y2={y2}
+                                        stroke="transparent"
+                                        strokeWidth={Math.max(strokeW + 16, 20)}
+                                        strokeLinecap="round"
+                                    />
                                     <line
                                         x1={x1} y1={y1} x2={x2} y2={y2}
                                         stroke={isSelected ? '#eab308' : color}
@@ -3119,7 +3147,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     x={minX} y={minY} width={w} height={h}
                                     stroke={isSelected ? '#eab308' : color}
                                     strokeWidth={strokeW + (isSelected ? 2 : 0)}
-                                    fill="none"
+                                    fill="rgba(0, 0, 0, 0.001)"
                                     rx="4"
                                 />
                             );
@@ -3133,20 +3161,31 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     cx={cx} cy={cy} rx={rx} ry={ry}
                                     stroke={isSelected ? '#eab308' : color}
                                     strokeWidth={strokeW + (isSelected ? 2 : 0)}
-                                    fill="none"
+                                    fill="rgba(0, 0, 0, 0.001)"
                                 />
                             );
                         } else {
                             shapeSvg = (
-                                <path
-                                    d={pointsToSvgPath(pts)}
-                                    stroke={isSelected ? '#eab308' : color}
-                                    strokeWidth={strokeW + (isSelected ? 2 : 0)}
-                                    strokeOpacity={strokeW >= 12 ? 0.55 : 1}
-                                    fill="none"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
+                                <>
+                                    {/* Invisible thick hit area */}
+                                    <path
+                                        d={pointsToSvgPath(pts)}
+                                        stroke="transparent"
+                                        strokeWidth={Math.max(strokeW + 16, 20)}
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    />
+                                    <path
+                                        d={pointsToSvgPath(pts)}
+                                        stroke={isSelected ? '#eab308' : color}
+                                        strokeWidth={strokeW + (isSelected ? 2 : 0)}
+                                        strokeOpacity={strokeW >= 12 ? 0.55 : 1}
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    />
+                                </>
                             );
                         }
 
@@ -3166,6 +3205,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 viewBox="-5000 -5000 10000 10000"
                             >
                                 <g
+                                    transform={`translate(${dx}, ${dy})`}
+                                    onMouseDown={(e) => handleNodeMouseDown(e, drawNode.id)}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (toolMode === 'eraser') {
@@ -3181,7 +3222,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     }}
                                     style={{
                                         pointerEvents: 'auto',
-                                        cursor: toolMode === 'eraser' ? 'cell' : toolMode === 'pencil' ? 'crosshair' : 'pointer',
+                                        cursor: toolMode === 'eraser' ? 'cell' : toolMode === 'pencil' ? 'crosshair' : isDragging ? 'grabbing' : 'grab',
                                         filter: isSelected ? 'drop-shadow(0 0 6px #eab308)' : 'none'
                                     }}
                                 >
@@ -3326,13 +3367,13 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         border: isSource
                                             ? '2.5px solid #ef4444'
                                             : isSelected
-                                            ? '2px dashed #eab308'
-                                            : 'none',
+                                                ? '2px dashed #eab308'
+                                                : 'none',
                                         boxShadow: isSelected
                                             ? '0 0 20px rgba(234, 179, 8, 0.45)'
                                             : isSource
-                                            ? '0 0 16px rgba(239, 68, 68, 0.8)'
-                                            : '0 6px 18px rgba(0,0,0,0.55)',
+                                                ? '0 0 16px rgba(239, 68, 68, 0.8)'
+                                                : '0 6px 18px rgba(0,0,0,0.55)',
                                         borderRadius: '8px',
                                         background: 'transparent',
                                         padding: 0,
@@ -4522,7 +4563,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                         {/* Events List & Form Area */}
                         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '6px', marginBottom: '1rem' }}>
-                            
+
                             {/* Sequence of Events */}
                             <div>
                                 <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f1f5f9', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
