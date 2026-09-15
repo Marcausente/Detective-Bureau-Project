@@ -637,6 +637,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 const { data: { user } } = await supabase.auth.getUser();
                                 const posX = Math.max(60, Math.round((400 - pan.x) / zoom));
                                 const posY = Math.max(60, Math.round((300 - pan.y) / zoom));
+                                const maxZ = nodes.reduce((max, n) => Math.max(max, parseNodeExtra(n).zIndex || 2), 2);
 
                                 const payload = {
                                     [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
@@ -645,7 +646,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     image_url: publicUrl,
                                     color: 'dark',
                                     width: dims.width,
-                                    content: JSON.stringify({ height: dims.height, isLocked: false }),
+                                    content: JSON.stringify({ height: dims.height, isLocked: false, zIndex: maxZ + 1 }),
                                     pos_x: posX,
                                     pos_y: posY,
                                     created_by: user ? user.id : null
@@ -675,7 +676,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
         window.addEventListener('paste', handleGlobalPaste);
         return () => window.removeEventListener('paste', handleGlobalPaste);
-    }, [pan, zoom, isGang, isIA, targetId]);
+    }, [pan, zoom, isGang, isIA, targetId, nodes]);
 
     // Save Finish Drawing to Database
     const handleFinishDrawing = async (points) => {
@@ -688,6 +689,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             const minY = Math.round(Math.min(...ys));
             const maxX = Math.round(Math.max(...xs));
             const maxY = Math.round(Math.max(...ys));
+            const maxZ = nodes.reduce((max, n) => Math.max(max, parseNodeExtra(n).zIndex || 2), 2);
 
             const payload = {
                 [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
@@ -700,6 +702,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     strokeWidth: pencilWidth,
                     points: points.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })),
                     height: Math.max(10, maxY - minY),
+                    zIndex: maxZ + 1,
                     isLocked: false
                 }),
                 pos_x: minX,
@@ -737,6 +740,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 const { data: { user } } = await supabase.auth.getUser();
                 const posX = Math.max(60, Math.round((400 - pan.x) / zoom));
                 const posY = Math.max(60, Math.round((300 - pan.y) / zoom));
+                const maxZ = nodes.reduce((max, n) => Math.max(max, parseNodeExtra(n).zIndex || 2), 2);
 
                 const payload = {
                     [isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id']: targetId,
@@ -745,7 +749,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     image_url: publicUrl,
                     color: 'dark',
                     width: dims.width,
-                    content: JSON.stringify({ height: dims.height, isLocked: false }),
+                    content: JSON.stringify({ height: dims.height, isLocked: false, zIndex: maxZ + 1 }),
                     pos_x: posX,
                     pos_y: posY,
                     created_by: user ? user.id : null
@@ -1179,32 +1183,46 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         }
     };
 
-    // Bring Node to Front
-    const bringToFront = (nodeId) => {
-        const maxZ = nodes.reduce((max, n) => Math.max(max, parseNodeExtra(n).zIndex || 2), 2);
+    // Bring Node to Front (Upper Layer)
+    const bringToFront = async (nodeId) => {
         const targetNode = nodes.find(n => n.id === nodeId);
         if (!targetNode) return;
+        const maxZ = nodes.reduce((max, n) => Math.max(max, parseNodeExtra(n).zIndex || 2), 2);
+        const newZ = maxZ + 1;
         const extra = parseNodeExtra(targetNode);
-        extra.zIndex = maxZ + 1;
+        extra.zIndex = newZ;
         const updatedContent = (targetNode.category === 'image' || targetNode.category === 'drawing' || targetNode.category === 'todo')
             ? JSON.stringify(extra)
             : (targetNode.content || '');
-        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, content: updatedContent } : n));
-        saveNodeDimensions(nodeId, targetNode.width || 320, extra.height || 260);
+        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, content: updatedContent, _zIndex: newZ } : n));
+        try {
+            if (targetNode.category === 'image' || targetNode.category === 'drawing' || targetNode.category === 'todo') {
+                await supabase.from('case_board_nodes').update({ content: updatedContent }).eq('id', nodeId);
+            }
+        } catch (err) {
+            console.error('Error saving zIndex to database:', err);
+        }
     };
 
-    // Send Node to Back
-    const sendToBack = (nodeId) => {
-        const minZ = nodes.reduce((min, n) => Math.min(min, parseNodeExtra(n).zIndex || 2), 2);
+    // Send Node to Back (Lower Layer)
+    const sendToBack = async (nodeId) => {
         const targetNode = nodes.find(n => n.id === nodeId);
         if (!targetNode) return;
+        const minZ = nodes.reduce((min, n) => Math.min(min, parseNodeExtra(n).zIndex || 2), 2);
+        const newZ = Math.max(1, minZ - 1);
         const extra = parseNodeExtra(targetNode);
-        extra.zIndex = Math.max(1, minZ - 1);
+        extra.zIndex = newZ;
         const updatedContent = (targetNode.category === 'image' || targetNode.category === 'drawing' || targetNode.category === 'todo')
             ? JSON.stringify(extra)
             : (targetNode.content || '');
-        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, content: updatedContent } : n));
-        saveNodeDimensions(nodeId, targetNode.width || 320, extra.height || 260);
+        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, content: updatedContent, _zIndex: newZ } : n));
+        try {
+            if (targetNode.category === 'image' || targetNode.category === 'drawing' || targetNode.category === 'todo') {
+                await supabase.from('case_board_nodes').update({ content: updatedContent }).eq('id', nodeId);
+            }
+        } catch (err) {
+            console.error('Error saving zIndex to database:', err);
+        }
     };
 
     // Clear All Freehand Drawings
@@ -2771,7 +2789,38 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     </div>
 
                     {/* Quick Action Buttons */}
-                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* Layer Controls */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255, 255, 255, 0.06)', padding: '2px 5px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
+                            <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginRight: '2px' }}>Capa:</span>
+                            <button
+                                onClick={() => bringToFront(selectedElement.id)}
+                                style={{
+                                    background: 'rgba(234, 179, 8, 0.2)', border: '1px solid #eab308',
+                                    color: '#fef08a', padding: '0.25rem 0.5rem', borderRadius: '4px',
+                                    fontSize: '0.73rem', fontWeight: 600, cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '4px'
+                                }}
+                                title="Traer al frente (Capa superior, por delante de imágenes/tarjetas)"
+                            >
+                                <BoardIcon name="chevronUp" size={12} color="#fef08a" />
+                                <span>Al frente</span>
+                            </button>
+                            <button
+                                onClick={() => sendToBack(selectedElement.id)}
+                                style={{
+                                    background: 'rgba(148, 163, 184, 0.15)', border: '1px solid #64748b',
+                                    color: '#cbd5e1', padding: '0.25rem 0.5rem', borderRadius: '4px',
+                                    fontSize: '0.73rem', fontWeight: 600, cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '4px'
+                                }}
+                                title="Enviar al fondo (Capa inferior, por detrás de imágenes/tarjetas)"
+                            >
+                                <BoardIcon name="chevronDown" size={12} color="#cbd5e1" />
+                                <span>Al fondo</span>
+                            </button>
+                        </div>
+
                         <button
                             onClick={() => handleToggleLockNode(selectedElement.id)}
                             style={{
@@ -2857,7 +2906,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     transformOrigin: '0 0', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0
                 }}>
 
-                    {/* SVG Connector Strings & Drawings Layer */}
+                    {/* SVG Connector Strings Layer */}
                     <svg
                         style={{
                             position: 'absolute',
@@ -2866,7 +2915,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             width: '10000px',
                             height: '10000px',
                             pointerEvents: 'none',
-                            zIndex: 1,
+                            zIndex: 2,
                             overflow: 'visible'
                         }}
                         viewBox="-5000 -5000 10000 10000"
@@ -3005,102 +3054,118 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 </g>
                             );
                         })}
+                    </svg>
 
-                        {/* Render Saved Drawings & Shapes */}
-                        {nodes.filter(n => n.category === 'drawing').map(drawNode => {
-                            const extra = parseNodeExtra(drawNode);
-                            const shape = extra.shape || 'free';
-                            const pts = extra.points || [];
-                            const color = drawNode.color || '#ef4444';
-                            const strokeW = extra.strokeWidth || 3;
-                            const isSelected = selectedNodeId === drawNode.id;
+                    {/* Render Saved Drawings & Shapes (Individual SVGs with their own dynamic zIndex) */}
+                    {nodes.filter(n => n.category === 'drawing').map(drawNode => {
+                        const extra = parseNodeExtra(drawNode);
+                        const shape = extra.shape || 'free';
+                        const pts = extra.points || [];
+                        const color = drawNode.color || '#ef4444';
+                        const strokeW = extra.strokeWidth || 3;
+                        const isSelected = selectedNodeId === drawNode.id;
+                        const isDragging = draggingNodeId === drawNode.id;
+                        const drawZIndex = isSelected ? 30 : isDragging ? 25 : (extra.zIndex || drawNode._zIndex || 2);
 
-                            if (!pts || pts.length === 0) return null;
+                        if (!pts || pts.length === 0) return null;
 
-                            let shapeSvg = null;
-                            if (shape === 'line' && pts.length >= 2) {
-                                shapeSvg = (
+                        let shapeSvg = null;
+                        if (shape === 'line' && pts.length >= 2) {
+                            shapeSvg = (
+                                <line
+                                    x1={pts[0].x} y1={pts[0].y}
+                                    x2={pts[pts.length - 1].x} y2={pts[pts.length - 1].y}
+                                    stroke={isSelected ? '#eab308' : color}
+                                    strokeWidth={strokeW + (isSelected ? 2 : 0)}
+                                    strokeLinecap="round"
+                                />
+                            );
+                        } else if (shape === 'arrow' && pts.length >= 2) {
+                            const x1 = pts[0].x;
+                            const y1 = pts[0].y;
+                            const x2 = pts[pts.length - 1].x;
+                            const y2 = pts[pts.length - 1].y;
+                            const angle = Math.atan2(y2 - y1, x2 - x1);
+                            const headLen = Math.max(14, strokeW * 3.5);
+                            const ax1 = x2 - headLen * Math.cos(angle - Math.PI / 6);
+                            const ay1 = y2 - headLen * Math.sin(angle - Math.PI / 6);
+                            const ax2 = x2 - headLen * Math.cos(angle + Math.PI / 6);
+                            const ay2 = y2 - headLen * Math.sin(angle + Math.PI / 6);
+
+                            shapeSvg = (
+                                <g>
                                     <line
-                                        x1={pts[0].x} y1={pts[0].y}
-                                        x2={pts[pts.length - 1].x} y2={pts[pts.length - 1].y}
+                                        x1={x1} y1={y1} x2={x2} y2={y2}
                                         stroke={isSelected ? '#eab308' : color}
                                         strokeWidth={strokeW + (isSelected ? 2 : 0)}
                                         strokeLinecap="round"
                                     />
-                                );
-                            } else if (shape === 'arrow' && pts.length >= 2) {
-                                const x1 = pts[0].x;
-                                const y1 = pts[0].y;
-                                const x2 = pts[pts.length - 1].x;
-                                const y2 = pts[pts.length - 1].y;
-                                const angle = Math.atan2(y2 - y1, x2 - x1);
-                                const headLen = Math.max(14, strokeW * 3.5);
-                                const ax1 = x2 - headLen * Math.cos(angle - Math.PI / 6);
-                                const ay1 = y2 - headLen * Math.sin(angle - Math.PI / 6);
-                                const ax2 = x2 - headLen * Math.cos(angle + Math.PI / 6);
-                                const ay2 = y2 - headLen * Math.sin(angle + Math.PI / 6);
-
-                                shapeSvg = (
-                                    <g>
-                                        <line
-                                            x1={x1} y1={y1} x2={x2} y2={y2}
-                                            stroke={isSelected ? '#eab308' : color}
-                                            strokeWidth={strokeW + (isSelected ? 2 : 0)}
-                                            strokeLinecap="round"
-                                        />
-                                        <polygon
-                                            points={`${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`}
-                                            fill={isSelected ? '#eab308' : color}
-                                            stroke={isSelected ? '#eab308' : color}
-                                            strokeWidth="1"
-                                            strokeLinejoin="round"
-                                        />
-                                    </g>
-                                );
-                            } else if (shape === 'rectangle' && pts.length >= 2) {
-                                const minX = Math.min(pts[0].x, pts[pts.length - 1].x);
-                                const minY = Math.min(pts[0].y, pts[pts.length - 1].y);
-                                const w = Math.abs(pts[pts.length - 1].x - pts[0].x);
-                                const h = Math.abs(pts[pts.length - 1].y - pts[0].y);
-                                shapeSvg = (
-                                    <rect
-                                        x={minX} y={minY} width={w} height={h}
+                                    <polygon
+                                        points={`${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`}
+                                        fill={isSelected ? '#eab308' : color}
                                         stroke={isSelected ? '#eab308' : color}
-                                        strokeWidth={strokeW + (isSelected ? 2 : 0)}
-                                        fill="none"
-                                        rx="4"
-                                    />
-                                );
-                            } else if (shape === 'circle' && pts.length >= 2) {
-                                const cx = (pts[0].x + pts[pts.length - 1].x) / 2;
-                                const cy = (pts[0].y + pts[pts.length - 1].y) / 2;
-                                const rx = Math.abs(pts[pts.length - 1].x - pts[0].x) / 2;
-                                const ry = Math.abs(pts[pts.length - 1].y - pts[0].y) / 2;
-                                shapeSvg = (
-                                    <ellipse
-                                        cx={cx} cy={cy} rx={rx} ry={ry}
-                                        stroke={isSelected ? '#eab308' : color}
-                                        strokeWidth={strokeW + (isSelected ? 2 : 0)}
-                                        fill="none"
-                                    />
-                                );
-                            } else {
-                                shapeSvg = (
-                                    <path
-                                        d={pointsToSvgPath(pts)}
-                                        stroke={isSelected ? '#eab308' : color}
-                                        strokeWidth={strokeW + (isSelected ? 2 : 0)}
-                                        strokeOpacity={strokeW >= 12 ? 0.55 : 1}
-                                        fill="none"
-                                        strokeLinecap="round"
+                                        strokeWidth="1"
                                         strokeLinejoin="round"
                                     />
-                                );
-                            }
+                                </g>
+                            );
+                        } else if (shape === 'rectangle' && pts.length >= 2) {
+                            const minX = Math.min(pts[0].x, pts[pts.length - 1].x);
+                            const minY = Math.min(pts[0].y, pts[pts.length - 1].y);
+                            const w = Math.abs(pts[pts.length - 1].x - pts[0].x);
+                            const h = Math.abs(pts[pts.length - 1].y - pts[0].y);
+                            shapeSvg = (
+                                <rect
+                                    x={minX} y={minY} width={w} height={h}
+                                    stroke={isSelected ? '#eab308' : color}
+                                    strokeWidth={strokeW + (isSelected ? 2 : 0)}
+                                    fill="none"
+                                    rx="4"
+                                />
+                            );
+                        } else if (shape === 'circle' && pts.length >= 2) {
+                            const cx = (pts[0].x + pts[pts.length - 1].x) / 2;
+                            const cy = (pts[0].y + pts[pts.length - 1].y) / 2;
+                            const rx = Math.abs(pts[pts.length - 1].x - pts[0].x) / 2;
+                            const ry = Math.abs(pts[pts.length - 1].y - pts[0].y) / 2;
+                            shapeSvg = (
+                                <ellipse
+                                    cx={cx} cy={cy} rx={rx} ry={ry}
+                                    stroke={isSelected ? '#eab308' : color}
+                                    strokeWidth={strokeW + (isSelected ? 2 : 0)}
+                                    fill="none"
+                                />
+                            );
+                        } else {
+                            shapeSvg = (
+                                <path
+                                    d={pointsToSvgPath(pts)}
+                                    stroke={isSelected ? '#eab308' : color}
+                                    strokeWidth={strokeW + (isSelected ? 2 : 0)}
+                                    strokeOpacity={strokeW >= 12 ? 0.55 : 1}
+                                    fill="none"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                            );
+                        }
 
-                            return (
+                        return (
+                            <svg
+                                key={drawNode.id}
+                                style={{
+                                    position: 'absolute',
+                                    top: '-5000px',
+                                    left: '-5000px',
+                                    width: '10000px',
+                                    height: '10000px',
+                                    pointerEvents: 'none',
+                                    zIndex: drawZIndex,
+                                    overflow: 'visible'
+                                }}
+                                viewBox="-5000 -5000 10000 10000"
+                            >
                                 <g
-                                    key={drawNode.id}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (toolMode === 'eraser') {
@@ -3122,67 +3187,79 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                 >
                                     {shapeSvg}
                                 </g>
-                            );
-                        })}
+                            </svg>
+                        );
+                    })}
 
-                        {/* Live Active Drawing / Shape being drawn */}
-                        {isDrawing && toolMode === 'pencil' && currentPoints.length >= 1 && (
-                            <>
-                                {pencilShape === 'line' && currentPoints.length >= 2 ? (
-                                    <line
-                                        x1={currentPoints[0].x} y1={currentPoints[0].y}
-                                        x2={currentPoints[currentPoints.length - 1].x} y2={currentPoints[currentPoints.length - 1].y}
-                                        stroke={pencilColor} strokeWidth={pencilWidth} strokeLinecap="round"
-                                    />
-                                ) : pencilShape === 'arrow' && currentPoints.length >= 2 ? (
-                                    (() => {
-                                        const x1 = currentPoints[0].x;
-                                        const y1 = currentPoints[0].y;
-                                        const x2 = currentPoints[currentPoints.length - 1].x;
-                                        const y2 = currentPoints[currentPoints.length - 1].y;
-                                        const angle = Math.atan2(y2 - y1, x2 - x1);
-                                        const headLen = Math.max(14, pencilWidth * 3.5);
-                                        const ax1 = x2 - headLen * Math.cos(angle - Math.PI / 6);
-                                        const ay1 = y2 - headLen * Math.sin(angle - Math.PI / 6);
-                                        const ax2 = x2 - headLen * Math.cos(angle + Math.PI / 6);
-                                        const ay2 = y2 - headLen * Math.sin(angle + Math.PI / 6);
-                                        return (
-                                            <g>
-                                                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={pencilColor} strokeWidth={pencilWidth} strokeLinecap="round" />
-                                                <polygon points={`${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`} fill={pencilColor} stroke={pencilColor} strokeWidth="1" strokeLinejoin="round" />
-                                            </g>
-                                        );
-                                    })()
-                                ) : pencilShape === 'rectangle' && currentPoints.length >= 2 ? (
-                                    <rect
-                                        x={Math.min(currentPoints[0].x, currentPoints[currentPoints.length - 1].x)}
-                                        y={Math.min(currentPoints[0].y, currentPoints[currentPoints.length - 1].y)}
-                                        width={Math.abs(currentPoints[currentPoints.length - 1].x - currentPoints[0].x)}
-                                        height={Math.abs(currentPoints[currentPoints.length - 1].y - currentPoints[0].y)}
-                                        stroke={pencilColor} strokeWidth={pencilWidth} fill="none" rx="4"
-                                    />
-                                ) : pencilShape === 'circle' && currentPoints.length >= 2 ? (
-                                    <ellipse
-                                        cx={(currentPoints[0].x + currentPoints[currentPoints.length - 1].x) / 2}
-                                        cy={(currentPoints[0].y + currentPoints[currentPoints.length - 1].y) / 2}
-                                        rx={Math.abs(currentPoints[currentPoints.length - 1].x - currentPoints[0].x) / 2}
-                                        ry={Math.abs(currentPoints[currentPoints.length - 1].y - currentPoints[0].y) / 2}
-                                        stroke={pencilColor} strokeWidth={pencilWidth} fill="none"
-                                    />
-                                ) : (
-                                    <path
-                                        d={pointsToSvgPath(currentPoints)}
-                                        stroke={pencilColor}
-                                        strokeWidth={pencilWidth}
-                                        strokeOpacity={pencilWidth >= 12 ? 0.55 : 1}
-                                        fill="none"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    />
-                                )}
-                            </>
-                        )}
-                    </svg>
+                    {/* Live Active Drawing / Shape being drawn (Always Topmost) */}
+                    {isDrawing && toolMode === 'pencil' && currentPoints.length >= 1 && (
+                        <svg
+                            style={{
+                                position: 'absolute',
+                                top: '-5000px',
+                                left: '-5000px',
+                                width: '10000px',
+                                height: '10000px',
+                                pointerEvents: 'none',
+                                zIndex: 999,
+                                overflow: 'visible'
+                            }}
+                            viewBox="-5000 -5000 10000 10000"
+                        >
+                            {pencilShape === 'line' && currentPoints.length >= 2 ? (
+                                <line
+                                    x1={currentPoints[0].x} y1={currentPoints[0].y}
+                                    x2={currentPoints[currentPoints.length - 1].x} y2={currentPoints[currentPoints.length - 1].y}
+                                    stroke={pencilColor} strokeWidth={pencilWidth} strokeLinecap="round"
+                                />
+                            ) : pencilShape === 'arrow' && currentPoints.length >= 2 ? (
+                                (() => {
+                                    const x1 = currentPoints[0].x;
+                                    const y1 = currentPoints[0].y;
+                                    const x2 = currentPoints[currentPoints.length - 1].x;
+                                    const y2 = currentPoints[currentPoints.length - 1].y;
+                                    const angle = Math.atan2(y2 - y1, x2 - x1);
+                                    const headLen = Math.max(14, pencilWidth * 3.5);
+                                    const ax1 = x2 - headLen * Math.cos(angle - Math.PI / 6);
+                                    const ay1 = y2 - headLen * Math.sin(angle - Math.PI / 6);
+                                    const ax2 = x2 - headLen * Math.cos(angle + Math.PI / 6);
+                                    const ay2 = y2 - headLen * Math.sin(angle + Math.PI / 6);
+                                    return (
+                                        <g>
+                                            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={pencilColor} strokeWidth={pencilWidth} strokeLinecap="round" />
+                                            <polygon points={`${x2},${y2} ${ax1},${ay1} ${ax2},${ay2}`} fill={pencilColor} stroke={pencilColor} strokeWidth="1" strokeLinejoin="round" />
+                                        </g>
+                                    );
+                                })()
+                            ) : pencilShape === 'rectangle' && currentPoints.length >= 2 ? (
+                                <rect
+                                    x={Math.min(currentPoints[0].x, currentPoints[currentPoints.length - 1].x)}
+                                    y={Math.min(currentPoints[0].y, currentPoints[currentPoints.length - 1].y)}
+                                    width={Math.abs(currentPoints[currentPoints.length - 1].x - currentPoints[0].x)}
+                                    height={Math.abs(currentPoints[currentPoints.length - 1].y - currentPoints[0].y)}
+                                    stroke={pencilColor} strokeWidth={pencilWidth} fill="none" rx="4"
+                                />
+                            ) : pencilShape === 'circle' && currentPoints.length >= 2 ? (
+                                <ellipse
+                                    cx={(currentPoints[0].x + currentPoints[currentPoints.length - 1].x) / 2}
+                                    cy={(currentPoints[0].y + currentPoints[currentPoints.length - 1].y) / 2}
+                                    rx={Math.abs(currentPoints[currentPoints.length - 1].x - currentPoints[0].x) / 2}
+                                    ry={Math.abs(currentPoints[currentPoints.length - 1].y - currentPoints[0].y) / 2}
+                                    stroke={pencilColor} strokeWidth={pencilWidth} fill="none"
+                                />
+                            ) : (
+                                <path
+                                    d={pointsToSvgPath(currentPoints)}
+                                    stroke={pencilColor}
+                                    strokeWidth={pencilWidth}
+                                    strokeOpacity={pencilWidth >= 12 ? 0.55 : 1}
+                                    fill="none"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                            )}
+                        </svg>
+                    )}
 
                     {/* Empty State Banner */}
                     {nodes.length === 0 && (
@@ -3522,7 +3599,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         border: `1.5px solid ${isSource ? '#ef4444' : isSelected ? '#eab308' : 'rgba(56, 189, 248, 0.4)'}`,
                                         borderRadius: '10px',
                                         boxShadow: isSelected ? '0 0 24px rgba(234, 179, 8, 0.6)' : isSource ? '0 0 16px rgba(239, 68, 68, 0.8)' : '0 10px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(56, 189, 248, 0.12)',
-                                        zIndex: isSource ? 15 : isSelected ? 12 : draggingNodeId === node.id ? 10 : 2,
+                                        zIndex: isSource ? 35 : isSelected ? 30 : draggingNodeId === node.id ? 25 : (extra.zIndex || node._zIndex || 2),
                                         cursor: isLocked ? 'default' : connectingSourceId ? 'pointer' : toolMode === 'eraser' ? 'cell' : 'move',
                                         padding: '1.1rem 1.25rem',
                                         overflow: 'hidden'
@@ -3670,7 +3747,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         border: `1.5px solid ${isSource ? '#ef4444' : isSelected ? '#eab308' : 'rgba(56, 189, 248, 0.4)'}`,
                                         borderRadius: '10px',
                                         boxShadow: isSelected ? '0 0 24px rgba(234, 179, 8, 0.6)' : isSource ? '0 0 16px rgba(239, 68, 68, 0.8)' : '0 10px 30px rgba(0, 0, 0, 0.85), 0 0 16px rgba(56, 189, 248, 0.12)',
-                                        zIndex: isSource ? 15 : isSelected ? 12 : draggingNodeId === node.id ? 10 : 2,
+                                        zIndex: isSource ? 35 : isSelected ? 30 : draggingNodeId === node.id ? 25 : (extra.zIndex || node._zIndex || 2),
                                         cursor: isLocked ? 'default' : connectingSourceId ? 'pointer' : toolMode === 'eraser' ? 'cell' : 'move',
                                         padding: '1.1rem 1.25rem',
                                         overflow: 'hidden'
@@ -3862,7 +3939,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                     border: `2px solid ${isSource ? '#ef4444' : isSelected ? '#eab308' : node.is_inactive ? '#991b1b' : scheme.border}`,
                                     borderRadius: '8px',
                                     boxShadow: isSelected ? '0 0 20px rgba(234, 179, 8, 0.6)' : isSource ? '0 0 16px rgba(239, 68, 68, 0.8)' : '0 8px 24px rgba(0, 0, 0, 0.6)',
-                                    zIndex: isSource ? 15 : isSelected ? 12 : draggingNodeId === node.id ? 10 : 2,
+                                    zIndex: isSource ? 35 : isSelected ? 30 : draggingNodeId === node.id ? 25 : (extra.zIndex || node._zIndex || 2),
                                     transition: draggingNodeId === node.id ? 'none' : 'box-shadow 0.2s',
                                     cursor: isLocked ? 'default' : connectingSourceId ? 'pointer' : toolMode === 'eraser' ? 'cell' : 'move',
                                     opacity: node.is_inactive ? 0.88 : 1,
