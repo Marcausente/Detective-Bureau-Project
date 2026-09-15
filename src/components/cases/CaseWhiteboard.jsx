@@ -3776,19 +3776,29 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                                         pointerEvents: 'none', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         borderRadius: '8px', overflow: 'hidden'
                                     }}>
-                                        <svg style={{ position: 'absolute', width: '100%', height: '100%' }} viewBox="0 0 100 100" preserveAspectRatio="none">
-                                            <line x1="0" y1="0" x2="100" y2="100" stroke="#ef4444" strokeWidth="8" strokeLinecap="round" opacity="0.9" />
-                                            <line x1="100" y1="0" x2="0" y2="100" stroke="#ef4444" strokeWidth="8" strokeLinecap="round" opacity="0.9" />
-                                        </svg>
-                                        <div style={{
-                                            background: 'rgba(185, 28, 28, 0.95)', color: 'white', fontWeight: '900', fontSize: '0.8rem',
-                                            letterSpacing: '1.5px', padding: '4px 14px', borderRadius: '4px', border: '2px solid #ffffff',
-                                            boxShadow: '0 4px 14px rgba(0,0,0,0.85)', transform: 'rotate(-12deg)', textTransform: 'uppercase', zIndex: 11,
-                                            display: 'flex', alignItems: 'center', gap: '4px'
-                                        }}>
-                                            <BoardIcon name="close" size={12} color="#ffffff" />
-                                            <span>{inactiveBadgeText}</span>
-                                        </div>
+                                        {isConflictCard ? (
+                                            /* Overlay sutil para conflictos finalizados: sin cartel central gigante y con líneas finas para leer el texto perfectamente */
+                                            <svg style={{ position: 'absolute', width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                <line x1="0" y1="0" x2="100" y2="100" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.25" />
+                                                <line x1="100" y1="0" x2="0" y2="100" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.25" />
+                                            </svg>
+                                        ) : (
+                                            <>
+                                                <svg style={{ position: 'absolute', width: '100%', height: '100%' }} viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                    <line x1="0" y1="0" x2="100" y2="100" stroke="#ef4444" strokeWidth="5" strokeLinecap="round" opacity="0.7" />
+                                                    <line x1="100" y1="0" x2="0" y2="100" stroke="#ef4444" strokeWidth="5" strokeLinecap="round" opacity="0.7" />
+                                                </svg>
+                                                <div style={{
+                                                    background: 'rgba(185, 28, 28, 0.92)', color: 'white', fontWeight: '900', fontSize: '0.75rem',
+                                                    letterSpacing: '1.2px', padding: '3px 10px', borderRadius: '4px', border: '1.5px solid #ffffff',
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.75)', transform: 'rotate(-10deg)', textTransform: 'uppercase', zIndex: 11,
+                                                    display: 'flex', alignItems: 'center', gap: '4px'
+                                                }}>
+                                                    <BoardIcon name="close" size={11} color="#ffffff" />
+                                                    <span>{inactiveBadgeText}</span>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 )}
 

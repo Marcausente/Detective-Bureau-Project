@@ -11,6 +11,11 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { generateGangSummaryPDF } from '../utils/gangPdfGenerator';
 import '../index.css';
 
+const safeStrMatch = (str, query) => {
+    if (!str || !query) return false;
+    return String(str).toLowerCase().includes(String(query).trim().toLowerCase());
+};
+
 function Gangs() {
     const navigate = useNavigate();
     const [gangs, setGangs] = useState([]);
@@ -861,8 +866,8 @@ function Gangs() {
         }
 
         const isInactive = 
-            (m.role && m.role.toLowerCase() === 'inactivo') ||
-            (m.status && (m.status.toLowerCase() === 'inactivo' || m.status.toLowerCase() === 'inactive')) ||
+            (typeof m.role === 'string' && m.role.toLowerCase() === 'inactivo') ||
+            (typeof m.status === 'string' && (m.status.toLowerCase() === 'inactivo' || m.status.toLowerCase() === 'inactive')) ||
             m.is_inactive === true ||
             m.is_active === false;
 
@@ -877,8 +882,8 @@ function Gangs() {
         if (!gang) return '';
         const title = `# ${gang.name.trim().toUpperCase()}`;
         const sortedMembers = [...(gang.members || [])].sort((a, b) => {
-            const aInactive = (a.role && a.role.toLowerCase() === 'inactivo') || (a.status && a.status.toLowerCase() === 'inactivo');
-            const bInactive = (b.role && b.role.toLowerCase() === 'inactivo') || (b.status && b.status.toLowerCase() === 'inactivo');
+            const aInactive = (typeof a?.role === 'string' && a.role.toLowerCase() === 'inactivo') || (typeof a?.status === 'string' && a.status.toLowerCase() === 'inactivo') || a?.is_inactive === true;
+            const bInactive = (typeof b?.role === 'string' && b.role.toLowerCase() === 'inactivo') || (typeof b?.status === 'string' && b.status.toLowerCase() === 'inactivo') || b?.is_inactive === true;
             if (aInactive && !bInactive) return 1;
             if (!aInactive && bInactive) return -1;
             return 0;
@@ -1206,9 +1211,9 @@ function Gangs() {
         const results = [];
 
         gangs.forEach(gang => {
-            const gangNameMatch = gang.name?.toLowerCase().includes(q);
-            const d1Match = gang.detective_in_charge_1_name?.toLowerCase().includes(q);
-            const d2Match = gang.detective_in_charge_2_name?.toLowerCase().includes(q);
+            const gangNameMatch = safeStrMatch(gang.name, q);
+            const d1Match = safeStrMatch(gang.detective_in_charge_1_name, q);
+            const d2Match = safeStrMatch(gang.detective_in_charge_2_name, q);
 
             if (gangNameMatch || d1Match || d2Match) {
                 results.push({
@@ -1222,16 +1227,17 @@ function Gangs() {
             }
 
             (gang.members || []).forEach(m => {
-                const nameMatch = m.name?.toLowerCase().includes(q);
-                const roleMatch = m.role?.toLowerCase().includes(q);
-                const notesMatch = m.notes?.toLowerCase().includes(q);
+                const nameMatch = safeStrMatch(m?.name, q);
+                const roleMatch = safeStrMatch(m?.role, q);
+                const notesMatch = safeStrMatch(m?.notes, q);
+                const dniMatch = safeStrMatch(m?.dni || m?.citizen_id || m?.member_id, q);
 
-                if (nameMatch || roleMatch || notesMatch) {
+                if (nameMatch || roleMatch || notesMatch || dniMatch) {
                     results.push({
                         type: 'member',
                         item: m,
-                        title: m.name,
-                        subtitle: `${m.role}${m.notes ? ` • ${m.notes}` : ''}${gang.is_archived ? ' [Archivado]' : ''}`,
+                        title: m.name || 'Miembro',
+                        subtitle: `${m.role || 'Miembro'}${m.notes ? ` • ${m.notes}` : ''}${gang.is_archived ? ' [Archivado]' : ''}`,
                         gangId: gang.gang_id,
                         gangName: gang.name,
                         gangColor: gang.color,
@@ -1241,10 +1247,10 @@ function Gangs() {
             });
 
             (gang.vehicles || []).forEach(v => {
-                const modelMatch = v.model?.toLowerCase().includes(q);
-                const plateMatch = v.plate?.toLowerCase().includes(q);
-                const ownerMatch = v.owner?.toLowerCase().includes(q);
-                const notesMatch = v.notes?.toLowerCase().includes(q);
+                const modelMatch = safeStrMatch(v?.model, q);
+                const plateMatch = safeStrMatch(v?.plate, q);
+                const ownerMatch = safeStrMatch(v?.owner, q);
+                const notesMatch = safeStrMatch(v?.notes, q);
 
                 if (modelMatch || plateMatch || ownerMatch || notesMatch) {
                     results.push({
@@ -1260,15 +1266,16 @@ function Gangs() {
             });
 
             (gang.homes || []).forEach(h => {
-                const ownerMatch = h.owner?.toLowerCase().includes(q);
-                const notesMatch = h.notes?.toLowerCase().includes(q);
+                const ownerMatch = safeStrMatch(h?.owner, q);
+                const notesMatch = safeStrMatch(h?.notes, q);
+                const locMatch = safeStrMatch(h?.location, q);
 
-                if (ownerMatch || notesMatch) {
+                if (ownerMatch || notesMatch || locMatch) {
                     results.push({
                         type: 'home',
                         item: h,
                         title: h.owner ? `Propiedad de ${h.owner}` : 'Propiedad / Inmueble',
-                        subtitle: h.notes || 'Sin detalles',
+                        subtitle: h.notes || h.location || 'Sin detalles',
                         gangId: gang.gang_id,
                         gangName: gang.name,
                         gangColor: gang.color
@@ -1277,7 +1284,7 @@ function Gangs() {
             });
 
             (gang.info || []).forEach(inf => {
-                const contentMatch = inf.content?.toLowerCase().includes(q);
+                const contentMatch = safeStrMatch(inf?.content, q);
                 if (contentMatch) {
                     results.push({
                         type: 'info',
@@ -1292,13 +1299,14 @@ function Gangs() {
             });
 
             (gang.graffiti || []).forEach(g => {
-                const notesMatch = g.notes?.toLowerCase().includes(q);
-                if (notesMatch) {
+                const notesMatch = safeStrMatch(g?.notes, q);
+                const locMatch = safeStrMatch(g?.location, q);
+                if (notesMatch || locMatch) {
                     results.push({
                         type: 'graffiti',
                         item: g,
                         title: 'Grafiti',
-                        subtitle: g.notes,
+                        subtitle: g.notes || g.location,
                         gangId: gang.gang_id,
                         gangName: gang.name,
                         gangColor: gang.color
@@ -1307,8 +1315,8 @@ function Gangs() {
             });
 
             (gang.conflicts || []).forEach(c => {
-                const targetMatch = c.target_gang_name?.toLowerCase().includes(q);
-                const reasonMatch = c.reason?.toLowerCase().includes(q);
+                const targetMatch = safeStrMatch(c?.target_gang_name, q);
+                const reasonMatch = safeStrMatch(c?.reason, q);
                 if (targetMatch || reasonMatch) {
                     results.push({
                         type: 'conflict',
@@ -1358,15 +1366,15 @@ function Gangs() {
         if (!q || !q.trim()) return true;
         const query = q.trim().toLowerCase();
         return (
-            gang.name?.toLowerCase().includes(query) ||
-            gang.detective_in_charge_1_name?.toLowerCase().includes(query) ||
-            gang.detective_in_charge_2_name?.toLowerCase().includes(query) ||
-            gang.members?.some(m => m.name?.toLowerCase().includes(query) || m.role?.toLowerCase().includes(query) || (m.notes && m.notes.toLowerCase().includes(query))) ||
-            gang.vehicles?.some(v => v.model?.toLowerCase().includes(query) || v.plate?.toLowerCase().includes(query) || v.owner?.toLowerCase().includes(query) || (v.notes && v.notes.toLowerCase().includes(query))) ||
-            gang.homes?.some(h => h.owner?.toLowerCase().includes(query) || (h.notes && h.notes.toLowerCase().includes(query))) ||
-            gang.info?.some(i => i.content?.toLowerCase().includes(query)) ||
-            gang.graffiti?.some(g => g.notes?.toLowerCase().includes(query)) ||
-            gang.conflicts?.some(c => c.target_gang_name?.toLowerCase().includes(query) || c.reason?.toLowerCase().includes(query))
+            safeStrMatch(gang.name, query) ||
+            safeStrMatch(gang.detective_in_charge_1_name, query) ||
+            safeStrMatch(gang.detective_in_charge_2_name, query) ||
+            (gang.members || []).some(m => safeStrMatch(m?.name, query) || safeStrMatch(m?.role, query) || safeStrMatch(m?.notes, query) || safeStrMatch(m?.dni, query) || safeStrMatch(m?.citizen_id, query)) ||
+            (gang.vehicles || []).some(v => safeStrMatch(v?.model, query) || safeStrMatch(v?.plate, query) || safeStrMatch(v?.owner, query) || safeStrMatch(v?.notes, query)) ||
+            (gang.homes || []).some(h => safeStrMatch(h?.owner, query) || safeStrMatch(h?.notes, query) || safeStrMatch(h?.location, query)) ||
+            (gang.info || []).some(i => safeStrMatch(i?.content, query)) ||
+            (gang.graffiti || []).some(g => safeStrMatch(g?.notes, query) || safeStrMatch(g?.location, query)) ||
+            (gang.conflicts || []).some(c => safeStrMatch(c?.target_gang_name, query) || safeStrMatch(c?.reason, query))
         );
     };
 
@@ -2512,9 +2520,9 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                 <div className="gang-list-content">
                     {(gang.cases || []).map(c => {
                         const isCaseMatch = searchQuery && searchQuery.trim() !== '' && (
-                            c.case_number?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-                            c.title?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-                            (c.location && c.location.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+                            safeStrMatch(c?.case_number, searchQuery) ||
+                            safeStrMatch(c?.title, searchQuery) ||
+                            safeStrMatch(c?.location, searchQuery)
                         );
                         const statusColors = {
                             open: { bg: 'rgba(239, 68, 68, 0.15)', text: '#f87171', border: '#ef4444' },
@@ -2594,7 +2602,7 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                 <div className="gang-list-content">
                     {gang.info && gang.info.map(i => {
                         const isInfoMatch = searchQuery && searchQuery.trim() !== '' && (
-                            i.content?.toLowerCase().includes(searchQuery.trim().toLowerCase())
+                            safeStrMatch(i?.content, searchQuery)
                         );
                         return (
                             <div key={i.id} className={isInfoMatch ? 'search-highlight-item' : ''} style={{
@@ -2676,8 +2684,8 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                     {(gang.conflicts || []).map(c => {
                         const isResolved = c.status === 'resolved';
                         const isConflictMatch = searchQuery && searchQuery.trim() !== '' && (
-                            c.target_gang_name?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-                            c.reason?.toLowerCase().includes(searchQuery.trim().toLowerCase())
+                            safeStrMatch(c?.target_gang_name, searchQuery) ||
+                            safeStrMatch(c?.reason, searchQuery)
                         );
                         return (
                             <div 
@@ -2784,10 +2792,10 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                 <div className="gang-list-content">
                     {gang.vehicles.map(v => {
                         const isVehMatch = searchQuery && searchQuery.trim() !== '' && (
-                            v.model?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-                            v.plate?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-                            v.owner?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-                            (v.notes && v.notes.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+                            safeStrMatch(v?.model, searchQuery) ||
+                            safeStrMatch(v?.plate, searchQuery) ||
+                            safeStrMatch(v?.owner, searchQuery) ||
+                            safeStrMatch(v?.notes, searchQuery)
                         );
                         return (
                             <div key={v.id} className={`gang-list-item ${isVehMatch ? 'search-highlight-item' : ''}`} style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid var(--color-blue)', paddingLeft: '0.8rem', padding: isVehMatch ? '0.5rem 0.8rem' : undefined }}>
@@ -2829,8 +2837,9 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                 <div className="gang-list-content">
                     {gang.homes.map(h => {
                         const isHomeMatch = searchQuery && searchQuery.trim() !== '' && (
-                            h.owner?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-                            (h.notes && h.notes.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+                            safeStrMatch(h?.owner, searchQuery) ||
+                            safeStrMatch(h?.notes, searchQuery) ||
+                            safeStrMatch(h?.location, searchQuery)
                         );
                         return (
                             <div key={h.id} className={`gang-list-item ${isHomeMatch ? 'search-highlight-item' : ''}`} style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid #10b981', paddingLeft: '0.8rem', padding: isHomeMatch ? '0.5rem 0.8rem' : undefined }}>
@@ -2868,7 +2877,8 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                 <div className="gang-list-content">
                     {(gang.graffiti || []).map(g => {
                         const isGraffitiMatch = searchQuery && searchQuery.trim() !== '' && (
-                            g.notes && g.notes.toLowerCase().includes(searchQuery.trim().toLowerCase())
+                            safeStrMatch(g?.notes, searchQuery) ||
+                            safeStrMatch(g?.location, searchQuery)
                         );
                         return (
                             <div key={g.id} className={`gang-list-item ${isGraffitiMatch ? 'search-highlight-item' : ''}`} style={{ flexDirection: 'column', alignItems: 'flex-start', borderLeft: '3px solid #a855f7', paddingLeft: '0.8rem', padding: isGraffitiMatch ? '0.5rem 0.8rem' : undefined }}>
@@ -2956,9 +2966,10 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                         })
                         .map(m => {
                             const isMemMatch = searchQuery && searchQuery.trim() !== '' && (
-                                m.name?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-                                m.role?.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
-                                (m.notes && m.notes.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+                                safeStrMatch(m?.name, searchQuery) ||
+                                safeStrMatch(m?.role, searchQuery) ||
+                                safeStrMatch(m?.notes, searchQuery) ||
+                                safeStrMatch(m?.dni || m?.citizen_id || m?.member_id, searchQuery)
                             );
                             return (
                                 <div
