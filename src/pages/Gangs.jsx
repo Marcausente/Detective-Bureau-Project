@@ -419,10 +419,21 @@ function Gangs() {
             }
 
             if (editingItemId) {
+                const tag = 'gang_home_' + editingItemId;
                 const { error } = await supabase.rpc('update_gang_home', {
                     p_home_id: editingItemId, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
+                await supabase.from('case_board_nodes')
+                    .update({
+                        title: 'Propiedad: ' + (owner || 'Ubicación Banda'),
+                        content: notes || 'Sin notas',
+                        linked_update_ids: [tag],
+                        ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
+                    })
+                    .eq('gang_id', activeGangId)
+                    .eq('category', 'location')
+                    .or(`linked_update_ids.cs.{${tag}}`);
             } else {
                 const { data: newHomeId, error } = await supabase.rpc('add_gang_home', {
                     p_gang_id: activeGangId, p_owner: owner, p_notes: notes, p_images: uploadedImages
@@ -536,23 +547,38 @@ function Gangs() {
             }
 
             if (editingItemId) {
+                const tag = 'gang_info_' + editingItemId;
                 const { error } = await supabase.rpc('update_gang_info', {
                     p_info_id: editingItemId, p_type: infoType, p_content: content, p_images: uploadedImages
                 });
                 if (error) throw error;
+                await supabase.from('case_board_nodes')
+                    .update({
+                        title: 'Inteligencia (' + (infoType === 'characteristic' ? 'Característica' : 'Info') + ')',
+                        content: content,
+                        color: infoType === 'characteristic' ? 'yellow' : 'dark',
+                        category: 'evidence',
+                        linked_update_ids: [tag],
+                        ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
+                    })
+                    .eq('gang_id', activeGangId)
+                    .eq('category', 'evidence')
+                    .or(`linked_update_ids.cs.{${tag}}`);
             } else {
-                const { error } = await supabase.rpc('add_gang_info', {
+                const { data: newInfoId, error } = await supabase.rpc('add_gang_info', {
                     p_gang_id: activeGangId, p_type: infoType, p_content: content, p_images: uploadedImages
                 });
                 if (error) throw error;
 
+                const tag = newInfoId ? 'gang_info_' + newInfoId : null;
                 createWhiteboardCardForGang(
                     activeGangId,
                     'Inteligencia (' + (infoType === 'characteristic' ? 'Característica' : 'Info') + ')',
                     content,
                     'evidence',
                     infoType === 'characteristic' ? 'yellow' : 'dark',
-                    uploadedImages && uploadedImages.length > 0 ? uploadedImages[0] : null
+                    uploadedImages && uploadedImages.length > 0 ? uploadedImages[0] : null,
+                    tag
                 );
             }
             closeModal();
@@ -593,6 +619,7 @@ function Gangs() {
             }
 
             if (editingItemId) {
+                const tag = 'gang_graffiti_' + editingItemId;
                 const { error } = await supabase.rpc('update_gang_graffiti', {
                     p_graffiti_id: editingItemId,
                     p_graffiti_image: uploadedGraffiti,
@@ -600,8 +627,19 @@ function Gangs() {
                     p_notes: graffitiNotes.trim()
                 });
                 if (error) throw error;
+                const newImg = uploadedGraffiti || uploadedGps;
+                await supabase.from('case_board_nodes')
+                    .update({
+                        title: 'Grafiti / GPS',
+                        content: graffitiNotes.trim() || 'Evidencia de grafiti registrado',
+                        linked_update_ids: [tag],
+                        ...(newImg ? { image_url: newImg } : {})
+                    })
+                    .eq('gang_id', activeGangId)
+                    .eq('category', 'evidence')
+                    .or(`linked_update_ids.cs.{${tag}}`);
             } else {
-                const { error } = await supabase.rpc('add_gang_graffiti', {
+                const { data: newGrafId, error } = await supabase.rpc('add_gang_graffiti', {
                     p_gang_id: activeGangId,
                     p_graffiti_image: uploadedGraffiti,
                     p_gps_image: uploadedGps,
@@ -609,13 +647,15 @@ function Gangs() {
                 });
                 if (error) throw error;
 
+                const tag = newGrafId ? 'gang_graffiti_' + newGrafId : null;
                 createWhiteboardCardForGang(
                     activeGangId,
                     'Grafiti / GPS',
                     graffitiNotes.trim() || 'Evidencia de grafiti registrado',
                     'evidence',
                     'purple',
-                    uploadedGraffiti || uploadedGps || null
+                    uploadedGraffiti || uploadedGps || null,
+                    tag
                 );
             }
             closeModal();
@@ -646,6 +686,7 @@ function Gangs() {
             const finalStatus = conflictStatus || 'active';
 
             if (editingItemId) {
+                const tag = 'gang_conflict_' + editingItemId;
                 const { error } = await supabase.rpc('update_gang_conflict', {
                     p_conflict_id: editingItemId,
                     p_target_gang_id: conflictTargetGangId || null,
@@ -654,8 +695,19 @@ function Gangs() {
                     p_status: finalStatus
                 });
                 if (error) throw error;
+                await supabase.from('case_board_nodes')
+                    .update({
+                        title: 'Conflicto: ' + (finalTargetName || 'Banda Rival'),
+                        content: 'Motivo: ' + finalReason + (finalStatus === 'resolved' ? ' (Finalizado)' : ' (Activo)'),
+                        color: finalStatus === 'resolved' ? 'green' : 'red',
+                        is_inactive: finalStatus === 'resolved',
+                        linked_update_ids: [tag]
+                    })
+                    .eq('gang_id', activeGangId)
+                    .eq('category', 'threat')
+                    .or(`linked_update_ids.cs.{${tag}}`);
             } else {
-                const { error } = await supabase.rpc('add_gang_conflict', {
+                const { data: newConfId, error } = await supabase.rpc('add_gang_conflict', {
                     p_gang_id: activeGangId,
                     p_target_gang_id: conflictTargetGangId || null,
                     p_target_gang_name: finalTargetName || null,
@@ -664,13 +716,15 @@ function Gangs() {
                 });
                 if (error) throw error;
 
+                const tag = newConfId ? 'gang_conflict_' + newConfId : null;
                 createWhiteboardCardForGang(
                     activeGangId,
                     'Conflicto: ' + (finalTargetName || 'Banda Rival'),
                     'Motivo: ' + finalReason + (finalStatus === 'resolved' ? ' (Finalizado)' : ' (Activo)'),
                     'threat',
                     finalStatus === 'resolved' ? 'green' : 'red',
-                    null
+                    null,
+                    tag
                 );
             }
 

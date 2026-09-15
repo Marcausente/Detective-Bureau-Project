@@ -1944,7 +1944,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 3. Properties / Homes (Linked by home.id - Check only: if exists, do nothing; if not, insert)
+            // 3. Properties / Homes (Linked by home.id)
             if (effectiveData.homes && effectiveData.homes.length > 0) {
                 effectiveData.homes.forEach(h => {
                     const tag = 'gang_home_' + (h.id || h.home_id);
@@ -1970,8 +1970,16 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     });
 
                     if (matchedNode) {
-                        // Already exists -> DO NOT MODIFY
                         matchedNodeIds.add(matchedNode.id);
+                        itemsToUpdate.push({
+                            id: matchedNode.id,
+                            title: titleStr,
+                            content: contentStr,
+                            category: 'location',
+                            color: 'green',
+                            image_url: img || matchedNode.image_url,
+                            linked_update_ids: [tag]
+                        });
                     } else {
                         const tempId = `temp-insert-home-${Date.now()}-${Math.random()}`;
                         matchedNodeIds.add(tempId);
@@ -1996,7 +2004,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 4. Intel / Info (Linked by info.id - Check only: if exists, do nothing; if not, insert as evidence. NEVER touch user notes)
+            // 4. Intel / Info (Linked by info.id)
             if (effectiveData.info && effectiveData.info.length > 0) {
                 effectiveData.info.forEach((i) => {
                     const tag = 'gang_info_' + (i.id || i.info_id);
@@ -2011,19 +2019,30 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         // ONLY match evidence cards created for intel, NEVER user notes
                         if (n.category !== 'evidence') return false;
 
-                        // Direct ID Tag Match
+                        // Direct ID Tag Match (Strongest & 100% Deterministic)
                         if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || (i.id && n.linked_update_ids.includes(i.id)))) return true;
 
                         const nContent = clean(n.content);
                         if (img && n.image_url && n.image_url === img) return true;
-                        if (contentClean && nContent === contentClean) return true;
+                        if (contentClean && (nContent === contentClean || nContent.includes(contentClean.slice(0, 30)) || contentClean.includes(nContent.slice(0, 30)))) return true;
+                        if (contentClean.includes('vestimenta') && nContent.includes('vestimenta')) return true;
+                        if (contentClean.includes('territorio') && nContent.includes('territorio')) return true;
+                        if (contentClean.includes('armamento') && nContent.includes('armamento')) return true;
 
                         return false;
                     });
 
                     if (matchedNode) {
-                        // Already exists -> DO NOT MODIFY
                         matchedNodeIds.add(matchedNode.id);
+                        itemsToUpdate.push({
+                            id: matchedNode.id,
+                            title: titleStr,
+                            content: contentStr,
+                            category: 'evidence',
+                            color: nodeCol,
+                            image_url: img || matchedNode.image_url,
+                            linked_update_ids: [tag]
+                        });
                     } else {
                         const tempId = `temp-insert-info-${Date.now()}-${Math.random()}`;
                         matchedNodeIds.add(tempId);
@@ -2048,7 +2067,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 5. Graffiti / GPS (Linked by graffiti.id - Check only: if exists, do nothing; if not, insert)
+            // 5. Graffiti / GPS (Linked by graffiti.id)
             if (effectiveData.graffiti && effectiveData.graffiti.length > 0) {
                 effectiveData.graffiti.forEach((g) => {
                     const tag = 'gang_graffiti_' + (g.id || g.graffiti_id);
@@ -2073,8 +2092,16 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     });
 
                     if (matchedNode) {
-                        // Already exists -> DO NOT MODIFY
                         matchedNodeIds.add(matchedNode.id);
+                        itemsToUpdate.push({
+                            id: matchedNode.id,
+                            title: titleStr,
+                            content: contentStr,
+                            category: 'evidence',
+                            color: 'purple',
+                            image_url: img || matchedNode.image_url,
+                            linked_update_ids: [tag]
+                        });
                     } else {
                         const tempId = `temp-insert-graf-${Date.now()}-${Math.random()}`;
                         matchedNodeIds.add(tempId);
@@ -2099,7 +2126,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 6. Conflicts (Linked by conflict.id - Check only: if exists, do nothing; if not, insert)
+            // 6. Conflicts (Linked by conflict.id)
             if (effectiveData.conflicts && effectiveData.conflicts.length > 0) {
                 effectiveData.conflicts.forEach((c) => {
                     const tag = 'gang_conflict_' + (c.id || c.conflict_id);
@@ -2126,8 +2153,16 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     });
 
                     if (matchedNode) {
-                        // Already exists -> DO NOT MODIFY
                         matchedNodeIds.add(matchedNode.id);
+                        itemsToUpdate.push({
+                            id: matchedNode.id,
+                            title: titleStr,
+                            content: contentStr,
+                            category: 'threat',
+                            color: nodeColor,
+                            is_inactive: isResolved,
+                            linked_update_ids: [tag]
+                        });
                     } else {
                         const tempId = `temp-insert-conf-${Date.now()}-${Math.random()}`;
                         matchedNodeIds.add(tempId);
