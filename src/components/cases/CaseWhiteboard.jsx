@@ -1803,9 +1803,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         if (isGang) {
             const effectiveData = currentGangData || caseData;
 
-            // 1. Members (Name, ID, Role, Photo only)
+            // 1. Members (Name, ID, Role, Photo only - Linked by member.id)
             if (effectiveData.members && effectiveData.members.length > 0) {
                 effectiveData.members.forEach(m => {
+                    const tag = 'gang_member_' + (m.id || m.member_id);
                     const mName = (m.name || '').trim();
                     const mNameClean = clean(mName);
                     const rawName = mName.replace(/\[[^\]]+\]/g, '').trim();
@@ -1824,19 +1825,16 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         // ONLY match suspect cards, NEVER notes, vehicles, locations, etc.
                         if (n.category !== 'suspect') return false;
 
+                        // Direct ID Tag Match (Strongest & 100% Deterministic)
+                        if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || (m.id && n.linked_update_ids.includes(m.id)))) return true;
+
                         const nTitle = clean(n.title);
                         const nTitleNorm = normalizeAlphanum(n.title);
 
-                        // Match by exact photo URL
+                        // Fallback matches for older cards without tag
                         if (mPhoto && n.image_url && n.image_url === mPhoto) return true;
-                        
-                        // Match by exact bracket ID (e.g. [AL6DWG7P])
                         if (mIdNorm && mIdNorm.length >= 4 && nTitleNorm.includes(mIdNorm)) return true;
-                        
-                        // Match by exact title format
                         if (nTitle === clean(titleStr) || nTitle === mNameClean) return true;
-                        
-                        // Match only if title starts with full raw name (e.g. "Cletus Crandall")
                         if (rawNameClean && rawNameClean.length >= 4 && nTitle.startsWith(rawNameClean)) return true;
 
                         return false;
@@ -1851,7 +1849,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             color: nodeColor,
                             category: 'suspect',
                             image_url: mPhoto || matchedNode.image_url,
-                            is_inactive: isInactive
+                            is_inactive: isInactive,
+                            linked_update_ids: [tag]
                         });
                     } else {
                         const tempId = `temp-insert-mem-${Date.now()}-${Math.random()}`;
@@ -1865,6 +1864,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             color: nodeColor,
                             image_url: mPhoto,
                             is_inactive: isInactive,
+                            linked_update_ids: [tag],
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
@@ -1877,14 +1877,14 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 2. Vehicles
+            // 2. Vehicles (Linked by vehicle.id)
             if (effectiveData.vehicles && effectiveData.vehicles.length > 0) {
                 effectiveData.vehicles.forEach(v => {
+                    const tag = 'gang_vehicle_' + (v.id || v.vehicle_id);
                     const plateClean = clean(v.plate);
                     const plateNorm = normalizeAlphanum(v.plate);
                     const modelClean = clean(v.model);
                     const ownerClean = clean(v.owner);
-                    const notesClean = clean(v.notes);
                     const img = (v.images && v.images.length > 0) ? v.images[0] : null;
                     const titleStr = `${v.model || 'Vehículo'} [${v.plate || 'SIN PLACA'}]`;
                     const contentStr = `Propietario: ${v.owner || 'Desconocido'}${v.notes ? '\n' + v.notes : ''}`;
@@ -1894,21 +1894,17 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         // ONLY match vehicle cards
                         if (n.category !== 'vehicle') return false;
 
+                        // Direct ID Tag Match
+                        if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || (v.id && n.linked_update_ids.includes(v.id)))) return true;
+
                         const nTitle = clean(n.title);
                         const nTitleNorm = normalizeAlphanum(n.title);
 
+                        // Fallback matches for older cards without tag
                         if (img && n.image_url && n.image_url === img) return true;
                         if (nTitle === clean(titleStr)) return true;
-                        
-                        // Exact Plate match (if plate is a real registration)
-                        if (plateNorm && plateNorm !== 'sinplaca' && plateNorm.length >= 3) {
-                            if (nTitleNorm.includes(plateNorm)) return true;
-                        }
-
-                        // Exact model and owner match in vehicle card
-                        if (modelClean && ownerClean && ownerClean !== 'desconocido') {
-                            if (nTitle.includes(modelClean) && clean(n.content).includes(ownerClean)) return true;
-                        }
+                        if (plateNorm && plateNorm !== 'sinplaca' && plateNorm.length >= 3 && nTitleNorm.includes(plateNorm)) return true;
+                        if (modelClean && ownerClean && ownerClean !== 'desconocido' && nTitle.includes(modelClean) && clean(n.content).includes(ownerClean)) return true;
 
                         return false;
                     });
@@ -1921,7 +1917,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             content: contentStr,
                             image_url: img || matchedNode.image_url,
                             category: 'vehicle',
-                            color: 'purple'
+                            color: 'purple',
+                            linked_update_ids: [tag]
                         });
                     } else {
                         const tempId = `temp-insert-veh-${Date.now()}-${Math.random()}`;
@@ -1934,6 +1931,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             category: 'vehicle',
                             color: 'purple',
                             image_url: img,
+                            linked_update_ids: [tag],
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
@@ -1946,9 +1944,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 3. Properties / Homes (Check only: if exists, do nothing; if not, insert)
+            // 3. Properties / Homes (Linked by home.id - Check only: if exists, do nothing; if not, insert)
             if (effectiveData.homes && effectiveData.homes.length > 0) {
                 effectiveData.homes.forEach(h => {
+                    const tag = 'gang_home_' + (h.id || h.home_id);
                     const ownerClean = clean(h.owner);
                     const img = (h.images && h.images.length > 0) ? h.images[0] : null;
                     const titleStr = `Propiedad: ${h.owner || 'Ubicación Banda'}`;
@@ -1959,6 +1958,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         // ONLY match location cards
                         if (n.category !== 'location') return false;
 
+                        // Direct ID Tag Match
+                        if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || (h.id && n.linked_update_ids.includes(h.id)))) return true;
+
                         const nTitle = clean(n.title);
                         if (img && n.image_url && n.image_url === img) return true;
                         if (nTitle === clean(titleStr)) return true;
@@ -1968,7 +1970,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     });
 
                     if (matchedNode) {
-                        // Already exists -> DO NOT MODIFY, just mark as matched
+                        // Already exists -> DO NOT MODIFY
                         matchedNodeIds.add(matchedNode.id);
                     } else {
                         const tempId = `temp-insert-home-${Date.now()}-${Math.random()}`;
@@ -1981,6 +1983,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             category: 'location',
                             color: 'green',
                             image_url: img,
+                            linked_update_ids: [tag],
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
@@ -1993,9 +1996,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 4. Intel / Info (Check only: if exists, do nothing; if not, insert as evidence. NEVER touch user notes)
+            // 4. Intel / Info (Linked by info.id - Check only: if exists, do nothing; if not, insert as evidence. NEVER touch user notes)
             if (effectiveData.info && effectiveData.info.length > 0) {
                 effectiveData.info.forEach((i) => {
+                    const tag = 'gang_info_' + (i.id || i.info_id);
                     const contentClean = clean(i.content);
                     const img = (i.images && i.images.length > 0) ? i.images[0] : null;
                     const titleStr = `Inteligencia (${i.type === 'characteristic' ? 'Característica' : 'Info'})`;
@@ -2007,6 +2011,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         // ONLY match evidence cards created for intel, NEVER user notes
                         if (n.category !== 'evidence') return false;
 
+                        // Direct ID Tag Match
+                        if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || (i.id && n.linked_update_ids.includes(i.id)))) return true;
+
                         const nContent = clean(n.content);
                         if (img && n.image_url && n.image_url === img) return true;
                         if (contentClean && nContent === contentClean) return true;
@@ -2015,7 +2022,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     });
 
                     if (matchedNode) {
-                        // Already exists -> DO NOT MODIFY, just mark as matched
+                        // Already exists -> DO NOT MODIFY
                         matchedNodeIds.add(matchedNode.id);
                     } else {
                         const tempId = `temp-insert-info-${Date.now()}-${Math.random()}`;
@@ -2028,6 +2035,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             category: 'evidence',
                             color: nodeCol,
                             image_url: img,
+                            linked_update_ids: [tag],
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
@@ -2040,9 +2048,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 5. Graffiti / GPS (Check only: if exists, do nothing; if not, insert)
+            // 5. Graffiti / GPS (Linked by graffiti.id - Check only: if exists, do nothing; if not, insert)
             if (effectiveData.graffiti && effectiveData.graffiti.length > 0) {
                 effectiveData.graffiti.forEach((g) => {
+                    const tag = 'gang_graffiti_' + (g.id || g.graffiti_id);
                     const notesClean = clean(g.notes);
                     const img = g.graffiti_image || g.gps_image || null;
                     const titleStr = `Grafiti / GPS`;
@@ -2053,6 +2062,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         // ONLY match evidence cards
                         if (n.category !== 'evidence') return false;
 
+                        // Direct ID Tag Match
+                        if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || (g.id && n.linked_update_ids.includes(g.id)))) return true;
+
                         if (g.graffiti_image && n.image_url === g.graffiti_image) return true;
                         if (g.gps_image && n.image_url === g.gps_image) return true;
                         if (notesClean && notesClean.length >= 6 && clean(n.content) === notesClean) return true;
@@ -2061,7 +2073,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     });
 
                     if (matchedNode) {
-                        // Already exists -> DO NOT MODIFY, just mark as matched
+                        // Already exists -> DO NOT MODIFY
                         matchedNodeIds.add(matchedNode.id);
                     } else {
                         const tempId = `temp-insert-graf-${Date.now()}-${Math.random()}`;
@@ -2074,6 +2086,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             category: 'evidence',
                             color: 'purple',
                             image_url: img,
+                            linked_update_ids: [tag],
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
@@ -2086,9 +2099,10 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 6. Conflicts (Check only: if exists, do nothing; if not, insert)
+            // 6. Conflicts (Linked by conflict.id - Check only: if exists, do nothing; if not, insert)
             if (effectiveData.conflicts && effectiveData.conflicts.length > 0) {
                 effectiveData.conflicts.forEach((c) => {
+                    const tag = 'gang_conflict_' + (c.id || c.conflict_id);
                     const targetName = c.target_gang_name || 'Banda Rival';
                     const targetClean = clean(targetName);
                     const isResolved = c.status === 'resolved';
@@ -2101,6 +2115,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         // ONLY match threat cards
                         if (n.category !== 'threat') return false;
 
+                        // Direct ID Tag Match
+                        if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || (c.id && n.linked_update_ids.includes(c.id)))) return true;
+
                         const nTitle = clean(n.title);
                         if (nTitle === clean(titleStr)) return true;
                         if (targetClean && targetClean.length >= 3 && nTitle.includes(targetClean)) return true;
@@ -2109,7 +2126,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     });
 
                     if (matchedNode) {
-                        // Already exists -> DO NOT MODIFY, just mark as matched
+                        // Already exists -> DO NOT MODIFY
                         matchedNodeIds.add(matchedNode.id);
                     } else {
                         const tempId = `temp-insert-conf-${Date.now()}-${Math.random()}`;
@@ -2122,6 +2139,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             category: 'threat',
                             color: nodeColor,
                             is_inactive: isResolved,
+                            linked_update_ids: [tag],
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null

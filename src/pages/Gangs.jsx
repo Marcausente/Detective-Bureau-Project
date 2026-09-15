@@ -204,7 +204,7 @@ function Gangs() {
 
     // --- ACTIONS ---
 
-    const createWhiteboardCardForGang = async (gangId, title, content, category, color, imageUrl) => {
+    const createWhiteboardCardForGang = async (gangId, title, content, category, color, imageUrl, linkedTag = null) => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             await supabase.from('case_board_nodes').insert([{
@@ -214,6 +214,7 @@ function Gangs() {
                 category: category || 'note',
                 color: color || 'red',
                 image_url: imageUrl || null,
+                linked_update_ids: linkedTag ? [linkedTag] : [],
                 pos_x: Math.floor(Math.random() * 300) + 100,
                 pos_y: Math.floor(Math.random() * 300) + 100,
                 created_by: user ? user.id : null
@@ -347,34 +348,36 @@ function Gangs() {
             }
 
             if (editingItemId) {
+                const tag = 'gang_vehicle_' + editingItemId;
                 const { error } = await supabase.rpc('update_gang_vehicle', {
                     p_vehicle_id: editingItemId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
-                if (plate && plate.trim()) {
-                    await supabase.from('case_board_nodes')
-                        .update({
-                            title: (model || 'Vehículo') + ' [' + (plate || 'SIN PLACA') + ']',
-                            content: 'Propietario: ' + (owner || 'Desconocido') + (notes ? '\n' + notes : ''),
-                            ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
-                        })
-                        .eq('gang_id', activeGangId)
-                        .eq('category', 'vehicle')
-                        .ilike('title', `%[${plate.trim()}]%`);
-                }
+                await supabase.from('case_board_nodes')
+                    .update({
+                        title: (model || 'Vehículo') + ' [' + (plate || 'SIN PLACA') + ']',
+                        content: 'Propietario: ' + (owner || 'Desconocido') + (notes ? '\n' + notes : ''),
+                        linked_update_ids: [tag],
+                        ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
+                    })
+                    .eq('gang_id', activeGangId)
+                    .eq('category', 'vehicle')
+                    .or(`linked_update_ids.cs.{${tag}}${plate && plate.trim() ? `,title.ilike.%[${plate.trim()}]%` : ''}`);
             } else {
-                const { error } = await supabase.rpc('add_gang_vehicle', {
+                const { data: newVehId, error } = await supabase.rpc('add_gang_vehicle', {
                     p_gang_id: activeGangId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
 
+                const tag = newVehId ? 'gang_vehicle_' + newVehId : null;
                 createWhiteboardCardForGang(
                     activeGangId,
                     (model || 'Vehículo') + ' [' + (plate || 'SIN PLACA') + ']',
                     'Propietario: ' + (owner || 'Desconocido') + (notes ? '\n' + notes : ''),
                     'vehicle',
                     'purple',
-                    uploadedImages && uploadedImages.length > 0 ? uploadedImages[0] : null
+                    uploadedImages && uploadedImages.length > 0 ? uploadedImages[0] : null,
+                    tag
                 );
             }
             closeModal();
@@ -421,18 +424,20 @@ function Gangs() {
                 });
                 if (error) throw error;
             } else {
-                const { error } = await supabase.rpc('add_gang_home', {
+                const { data: newHomeId, error } = await supabase.rpc('add_gang_home', {
                     p_gang_id: activeGangId, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
 
+                const tag = newHomeId ? 'gang_home_' + newHomeId : null;
                 createWhiteboardCardForGang(
                     activeGangId,
                     'Propiedad: ' + (owner || 'Ubicación Banda'),
                     notes || 'Sin detalles de dirección',
                     'location',
                     'green',
-                    uploadedImages && uploadedImages.length > 0 ? uploadedImages[0] : null
+                    uploadedImages && uploadedImages.length > 0 ? uploadedImages[0] : null,
+                    tag
                 );
             }
             closeModal();
@@ -461,6 +466,7 @@ function Gangs() {
             if (editingItemId) {
                 const isInactive = memRole === 'Inactivo';
                 const nodeColor = isInactive ? 'dark' : memRole === 'Lider' ? 'red' : memRole === 'Sublider' ? 'yellow' : 'blue';
+                const tag = 'gang_member_' + editingItemId;
                 const { error } = await supabase.rpc('update_gang_member', {
                     p_member_id: editingItemId, p_name: finalName, p_role: memRole, p_photo: uploadedPhoto, p_notes: memNotes
                 });
@@ -471,24 +477,27 @@ function Gangs() {
                         content: `Rol: ${memRole}${memId.trim() ? '\nID: ' + memId.trim() : ''}`,
                         color: nodeColor,
                         is_inactive: isInactive,
+                        linked_update_ids: [tag],
                         ...(uploadedPhoto ? { image_url: uploadedPhoto } : {})
                     })
                     .eq('gang_id', activeGangId)
                     .eq('category', 'suspect')
-                    .ilike('title', `${memName.trim()}%`);
+                    .or(`linked_update_ids.cs.{${tag}},title.ilike.${memName.trim()}%`);
             } else {
-                const { error } = await supabase.rpc('add_gang_member', {
+                const { data: newMemId, error } = await supabase.rpc('add_gang_member', {
                     p_gang_id: activeGangId, p_name: finalName, p_role: memRole, p_photo: uploadedPhoto, p_notes: memNotes
                 });
                 if (error) throw error;
 
+                const tag = newMemId ? 'gang_member_' + newMemId : null;
                 createWhiteboardCardForGang(
                     activeGangId,
                     finalName + ' (' + memRole + ')',
                     'Rol: ' + memRole,
                     'suspect',
                     memRole === 'Lider' ? 'red' : memRole === 'Sublider' ? 'yellow' : 'blue',
-                    uploadedPhoto || null
+                    uploadedPhoto || null,
+                    tag
                 );
             }
             closeModal();
