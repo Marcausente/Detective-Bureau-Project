@@ -1810,7 +1810,6 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     const mNameClean = clean(mName);
                     const rawName = mName.replace(/\[[^\]]+\]/g, '').trim();
                     const rawNameClean = clean(rawName);
-                    const rawNameNorm = normalizeAlphanum(rawName);
                     const mRole = m.role || 'Miembro';
                     const mPhoto = m.photo_url || m.photo || null;
                     const isInactive = (typeof mRole === 'string' && mRole.toLowerCase() === 'inactivo') || m.is_inactive === true || m.status === 'inactivo';
@@ -1822,22 +1821,23 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
-                        // Never match vehicle, location, threat or other non-member cards
-                        if (n.category && !['suspect', 'witness', 'victim', 'note'].includes(n.category)) return false;
+                        // ONLY match suspect cards, NEVER notes, vehicles, locations, etc.
+                        if (n.category !== 'suspect') return false;
 
                         const nTitle = clean(n.title);
                         const nTitleNorm = normalizeAlphanum(n.title);
 
+                        // Match by exact photo URL
                         if (mPhoto && n.image_url && n.image_url === mPhoto) return true;
-                        if (mIdNorm && mIdNorm.length >= 3 && nTitleNorm.includes(mIdNorm)) return true;
-                        if (nTitle === clean(titleStr) || nTitle === mNameClean || nTitle === rawNameClean) return true;
-                        if (mNameClean && nTitle.includes(mNameClean)) return true;
-                        if (rawNameNorm && rawNameNorm.length >= 4 && nTitleNorm.includes(rawNameNorm)) return true;
-                        if (rawNameClean && rawNameClean.length >= 3 && nTitle.includes(rawNameClean)) return true;
                         
-                        // Check first and last name components in title
-                        const nameParts = rawNameClean.split(' ').filter(p => p.length >= 2);
-                        if (nameParts.length >= 2 && nameParts.every(part => nTitle.includes(part))) return true;
+                        // Match by exact bracket ID (e.g. [AL6DWG7P])
+                        if (mIdNorm && mIdNorm.length >= 4 && nTitleNorm.includes(mIdNorm)) return true;
+                        
+                        // Match by exact title format
+                        if (nTitle === clean(titleStr) || nTitle === mNameClean) return true;
+                        
+                        // Match only if title starts with full raw name (e.g. "Cletus Crandall")
+                        if (rawNameClean && rawNameClean.length >= 4 && nTitle.startsWith(rawNameClean)) return true;
 
                         return false;
                     });
@@ -1883,9 +1883,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                     const plateClean = clean(v.plate);
                     const plateNorm = normalizeAlphanum(v.plate);
                     const modelClean = clean(v.model);
-                    const modelNorm = normalizeAlphanum(v.model);
                     const ownerClean = clean(v.owner);
-                    const ownerNorm = normalizeAlphanum(v.owner);
                     const notesClean = clean(v.notes);
                     const img = (v.images && v.images.length > 0) ? v.images[0] : null;
                     const titleStr = `${v.model || 'Vehículo'} [${v.plate || 'SIN PLACA'}]`;
@@ -1893,40 +1891,24 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
-                        // Never match suspect, location, threat cards
-                        if (n.category && !['vehicle', 'evidence', 'note'].includes(n.category)) return false;
+                        // ONLY match vehicle cards
+                        if (n.category !== 'vehicle') return false;
 
                         const nTitle = clean(n.title);
-                        const nContent = clean(n.content);
                         const nTitleNorm = normalizeAlphanum(n.title);
-                        const nContentNorm = normalizeAlphanum(n.content);
 
                         if (img && n.image_url && n.image_url === img) return true;
                         if (nTitle === clean(titleStr)) return true;
                         
-                        // Plate match
+                        // Exact Plate match (if plate is a real registration)
                         if (plateNorm && plateNorm !== 'sinplaca' && plateNorm.length >= 3) {
-                            if (nTitleNorm.includes(plateNorm) || nContentNorm.includes(plateNorm)) return true;
+                            if (nTitleNorm.includes(plateNorm)) return true;
                         }
 
-                        // Model & Owner match
-                        if (modelNorm && ownerNorm && ownerNorm !== 'desconocido') {
-                            if ((nTitleNorm.includes(modelNorm) || nContentNorm.includes(modelNorm)) &&
-                                (nTitleNorm.includes(ownerNorm) || nContentNorm.includes(ownerNorm))) return true;
+                        // Exact model and owner match in vehicle card
+                        if (modelClean && ownerClean && ownerClean !== 'desconocido') {
+                            if (nTitle.includes(modelClean) && clean(n.content).includes(ownerClean)) return true;
                         }
-
-                        // Vehicle category with same model and owner/plate/notes match
-                        if (n.category === 'vehicle' || nTitle.includes('vehículo') || nTitle.includes('vehiculo') || nTitle.includes('[')) {
-                            if (modelClean && nTitle.includes(modelClean)) {
-                                if (plateClean && nTitle.includes(plateClean)) return true;
-                                if (ownerClean && ownerClean !== 'desconocido' && nContent.includes(ownerClean)) return true;
-                                if (notesClean && notesClean.length >= 5 && nContent.includes(notesClean.slice(0, 20))) return true;
-                                if ((!plateClean || plateNorm === 'sinplaca') && (!ownerClean || ownerClean === 'desconocido')) return true;
-                            }
-                        }
-
-                        // Notes match
-                        if (notesClean && notesClean.length >= 6 && nContent.includes(notesClean.slice(0, 30))) return true;
 
                         return false;
                     });
@@ -1964,54 +1946,30 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 3. Properties / Homes
+            // 3. Properties / Homes (Check only: if exists, do nothing; if not, insert)
             if (effectiveData.homes && effectiveData.homes.length > 0) {
                 effectiveData.homes.forEach(h => {
                     const ownerClean = clean(h.owner);
-                    const ownerNorm = normalizeAlphanum(h.owner);
-                    const notesClean = clean(h.notes);
-                    const locClean = clean(h.location);
                     const img = (h.images && h.images.length > 0) ? h.images[0] : null;
                     const titleStr = `Propiedad: ${h.owner || 'Ubicación Banda'}`;
                     const contentStr = `Notas: ${h.notes || 'Sin notas'}`;
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
-                        if (n.category && !['location', 'note', 'evidence'].includes(n.category)) return false;
+                        // ONLY match location cards
+                        if (n.category !== 'location') return false;
 
                         const nTitle = clean(n.title);
-                        const nContent = clean(n.content);
-                        const nTitleNorm = normalizeAlphanum(n.title);
-                        const nContentNorm = normalizeAlphanum(n.content);
-
                         if (img && n.image_url && n.image_url === img) return true;
                         if (nTitle === clean(titleStr)) return true;
-
-                        if (ownerNorm && ownerNorm !== 'ubicacionbanda' && ownerNorm.length >= 3) {
-                            if (nTitleNorm.includes(ownerNorm) || nContentNorm.includes(ownerNorm)) return true;
-                        }
-
-                        if (locClean && locClean.length >= 3 && (nTitle.includes(locClean) || nContent.includes(locClean))) return true;
-                        if (notesClean && notesClean.length >= 5 && (nContent.includes(notesClean.slice(0, 30)) || nTitle.includes(notesClean.slice(0, 30)))) return true;
-
-                        if (n.category === 'location' && (nTitle.includes('propiedad') || nTitle.includes('inmueble') || nTitle.includes('casa') || nTitle.includes('sede'))) {
-                            if (ownerClean && (nTitle.includes(ownerClean) || nContent.includes(ownerClean))) return true;
-                            if (notesClean && nContent.includes(notesClean.slice(0, 15))) return true;
-                        }
+                        if (ownerClean && ownerClean.length >= 3 && nTitle.includes(ownerClean)) return true;
 
                         return false;
                     });
 
                     if (matchedNode) {
+                        // Already exists -> DO NOT MODIFY, just mark as matched
                         matchedNodeIds.add(matchedNode.id);
-                        itemsToUpdate.push({
-                            id: matchedNode.id,
-                            title: titleStr,
-                            content: contentStr,
-                            image_url: img || matchedNode.image_url,
-                            category: 'location',
-                            color: 'green'
-                        });
                     } else {
                         const tempId = `temp-insert-home-${Date.now()}-${Math.random()}`;
                         matchedNodeIds.add(tempId);
@@ -2035,42 +1993,30 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 4. Intel / Info
+            // 4. Intel / Info (Check only: if exists, do nothing; if not, insert as evidence. NEVER touch user notes)
             if (effectiveData.info && effectiveData.info.length > 0) {
                 effectiveData.info.forEach((i) => {
                     const contentClean = clean(i.content);
                     const img = (i.images && i.images.length > 0) ? i.images[0] : null;
                     const titleStr = `Inteligencia (${i.type === 'characteristic' ? 'Característica' : 'Info'})`;
                     const contentStr = i.content || '';
-                    const nodeCat = i.type === 'characteristic' ? 'evidence' : 'note';
                     const nodeCol = i.type === 'characteristic' ? 'yellow' : 'dark';
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
-                        if (n.category && !['evidence', 'note'].includes(n.category)) return false;
+                        // ONLY match evidence cards created for intel, NEVER user notes
+                        if (n.category !== 'evidence') return false;
 
-                        const nTitle = clean(n.title);
                         const nContent = clean(n.content);
-
                         if (img && n.image_url && n.image_url === img) return true;
-                        if (contentClean && (nContent === contentClean || nContent.includes(contentClean) || (contentClean.length > 15 && contentClean.includes(nContent)))) return true;
-                        if (contentClean && contentClean.length >= 6 && nContent.includes(contentClean.slice(0, 25))) return true;
-                        if ((n.category === 'evidence' || n.category === 'note') && (nTitle.includes('inteligencia') || nTitle.includes('característica') || nTitle.includes('info'))) {
-                            if (contentClean && nContent.includes(contentClean.slice(0, 15))) return true;
-                        }
+                        if (contentClean && nContent === contentClean) return true;
+
                         return false;
                     });
 
                     if (matchedNode) {
+                        // Already exists -> DO NOT MODIFY, just mark as matched
                         matchedNodeIds.add(matchedNode.id);
-                        itemsToUpdate.push({
-                            id: matchedNode.id,
-                            title: titleStr,
-                            content: contentStr,
-                            category: nodeCat,
-                            color: nodeCol,
-                            image_url: img || matchedNode.image_url
-                        });
                     } else {
                         const tempId = `temp-insert-info-${Date.now()}-${Math.random()}`;
                         matchedNodeIds.add(tempId);
@@ -2079,7 +2025,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             gang_id: gangId || targetId || effectiveData.gang_id,
                             title: titleStr,
                             content: contentStr,
-                            category: nodeCat,
+                            category: 'evidence',
                             color: nodeCol,
                             image_url: img,
                             pos_x: posX,
@@ -2094,42 +2040,29 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 5. Graffiti / GPS
+            // 5. Graffiti / GPS (Check only: if exists, do nothing; if not, insert)
             if (effectiveData.graffiti && effectiveData.graffiti.length > 0) {
                 effectiveData.graffiti.forEach((g) => {
                     const notesClean = clean(g.notes);
-                    const locClean = clean(g.location);
                     const img = g.graffiti_image || g.gps_image || null;
                     const titleStr = `Grafiti / GPS`;
                     const contentStr = g.notes || 'Evidencia de grafiti registrado';
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
-                        if (n.category && !['evidence', 'note'].includes(n.category)) return false;
+                        // ONLY match evidence cards
+                        if (n.category !== 'evidence') return false;
 
-                        const nTitle = clean(n.title);
-                        const nContent = clean(n.content);
+                        if (g.graffiti_image && n.image_url === g.graffiti_image) return true;
+                        if (g.gps_image && n.image_url === g.gps_image) return true;
+                        if (notesClean && notesClean.length >= 6 && clean(n.content) === notesClean) return true;
 
-                        if (g.graffiti_image && (n.image_url === g.graffiti_image || (n.content && n.content.includes(g.graffiti_image)))) return true;
-                        if (g.gps_image && (n.image_url === g.gps_image || (n.content && n.content.includes(g.gps_image)))) return true;
-                        if (notesClean && notesClean.length >= 4 && (nContent.includes(notesClean.slice(0, 30)) || nTitle.includes(notesClean.slice(0, 30)))) return true;
-                        if (locClean && locClean.length >= 3 && (nContent.includes(locClean) || nTitle.includes(locClean))) return true;
-                        if (n.category === 'evidence' && (nTitle.includes('grafiti') || nTitle.includes('graffiti') || nTitle.includes('gps'))) {
-                            if (notesClean && nContent.includes(notesClean.slice(0, 15))) return true;
-                        }
                         return false;
                     });
 
                     if (matchedNode) {
+                        // Already exists -> DO NOT MODIFY, just mark as matched
                         matchedNodeIds.add(matchedNode.id);
-                        itemsToUpdate.push({
-                            id: matchedNode.id,
-                            title: titleStr,
-                            content: contentStr,
-                            category: 'evidence',
-                            color: 'purple',
-                            image_url: img || matchedNode.image_url
-                        });
                     } else {
                         const tempId = `temp-insert-graf-${Date.now()}-${Math.random()}`;
                         matchedNodeIds.add(tempId);
@@ -2153,12 +2086,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 });
             }
 
-            // 6. Conflicts (Active & Resolved)
+            // 6. Conflicts (Check only: if exists, do nothing; if not, insert)
             if (effectiveData.conflicts && effectiveData.conflicts.length > 0) {
                 effectiveData.conflicts.forEach((c) => {
                     const targetName = c.target_gang_name || 'Banda Rival';
                     const targetClean = clean(targetName);
-                    const targetNorm = normalizeAlphanum(targetName);
                     const isResolved = c.status === 'resolved';
                     const titleStr = `Conflicto: ${targetName}`;
                     const contentStr = `Motivo: ${c.reason || 'Desconocido'}${isResolved ? ' (Finalizado)' : ' (Activo)'}`;
@@ -2166,33 +2098,19 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
-                        if (n.category && !['threat', 'note'].includes(n.category)) return false;
+                        // ONLY match threat cards
+                        if (n.category !== 'threat') return false;
 
                         const nTitle = clean(n.title);
-                        const nContent = clean(n.content);
-                        const nTitleNorm = normalizeAlphanum(n.title);
-                        const nContentNorm = normalizeAlphanum(n.content);
+                        if (nTitle === clean(titleStr)) return true;
+                        if (targetClean && targetClean.length >= 3 && nTitle.includes(targetClean)) return true;
 
-                        if (targetClean && (nTitle.includes(targetClean) || nContent.includes(targetClean))) return true;
-                        if (targetNorm && targetNorm.length >= 3 && (nTitleNorm.includes(targetNorm) || nContentNorm.includes(targetNorm))) return true;
-                        if (n.category === 'threat' || nTitle.includes('conflicto') || nTitle.includes('rival') || nTitle.includes('guerra')) {
-                            if (targetClean && (nTitle.includes(targetClean) || nContent.includes(targetClean))) return true;
-                            const gangWords = targetClean.split(' ').filter(w => w.length >= 3);
-                            if (gangWords.length > 0 && gangWords.some(w => nTitle.includes(w) || nContent.includes(w))) return true;
-                        }
                         return false;
                     });
 
                     if (matchedNode) {
+                        // Already exists -> DO NOT MODIFY, just mark as matched
                         matchedNodeIds.add(matchedNode.id);
-                        itemsToUpdate.push({
-                            id: matchedNode.id,
-                            title: titleStr,
-                            content: contentStr,
-                            category: 'threat',
-                            color: nodeColor,
-                            is_inactive: isResolved
-                        });
                     } else {
                         const tempId = `temp-insert-conf-${Date.now()}-${Math.random()}`;
                         matchedNodeIds.add(tempId);
