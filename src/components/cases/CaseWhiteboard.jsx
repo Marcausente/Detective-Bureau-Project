@@ -1822,19 +1822,20 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
+                        // Never match vehicle, location, threat or other non-member cards
+                        if (n.category && !['suspect', 'witness', 'victim', 'note'].includes(n.category)) return false;
+
                         const nTitle = clean(n.title);
-                        const nContent = clean(n.content);
                         const nTitleNorm = normalizeAlphanum(n.title);
-                        const nContentNorm = normalizeAlphanum(n.content);
 
                         if (mPhoto && n.image_url && n.image_url === mPhoto) return true;
-                        if (mIdNorm && mIdNorm.length >= 3 && (nTitleNorm.includes(mIdNorm) || nContentNorm.includes(mIdNorm))) return true;
+                        if (mIdNorm && mIdNorm.length >= 3 && nTitleNorm.includes(mIdNorm)) return true;
                         if (nTitle === clean(titleStr) || nTitle === mNameClean || nTitle === rawNameClean) return true;
-                        if (mNameClean && (nTitle.includes(mNameClean) || nContent.includes(mNameClean))) return true;
-                        if (rawNameNorm && rawNameNorm.length >= 4 && (nTitleNorm.includes(rawNameNorm) || nContentNorm.includes(rawNameNorm))) return true;
-                        if (rawNameClean && rawNameClean.length >= 3 && (nTitle.includes(rawNameClean) || nContent.includes(rawNameClean))) return true;
+                        if (mNameClean && nTitle.includes(mNameClean)) return true;
+                        if (rawNameNorm && rawNameNorm.length >= 4 && nTitleNorm.includes(rawNameNorm)) return true;
+                        if (rawNameClean && rawNameClean.length >= 3 && nTitle.includes(rawNameClean)) return true;
                         
-                        // Check first and last name components
+                        // Check first and last name components in title
                         const nameParts = rawNameClean.split(' ').filter(p => p.length >= 2);
                         if (nameParts.length >= 2 && nameParts.every(part => nTitle.includes(part))) return true;
 
@@ -1892,6 +1893,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
+                        // Never match suspect, location, threat cards
+                        if (n.category && !['vehicle', 'evidence', 'note'].includes(n.category)) return false;
+
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
                         const nTitleNorm = normalizeAlphanum(n.title);
@@ -1973,6 +1977,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
+                        if (n.category && !['location', 'note', 'evidence'].includes(n.category)) return false;
+
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
                         const nTitleNorm = normalizeAlphanum(n.title);
@@ -2041,6 +2047,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
+                        if (n.category && !['evidence', 'note'].includes(n.category)) return false;
+
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
 
@@ -2097,6 +2105,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
+                        if (n.category && !['evidence', 'note'].includes(n.category)) return false;
+
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
 
@@ -2156,6 +2166,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
                     const matchedNode = existingNodes.find(n => {
                         if (matchedNodeIds.has(n.id)) return false;
+                        if (n.category && !['threat', 'note'].includes(n.category)) return false;
+
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
                         const nTitleNorm = normalizeAlphanum(n.title);
