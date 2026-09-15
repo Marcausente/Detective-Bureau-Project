@@ -351,12 +351,14 @@ function Gangs() {
                     p_vehicle_id: editingItemId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
-                if (uploadedImages && uploadedImages.length > 0) {
-                    await supabase.from('case_board_nodes')
-                        .update({ image_url: uploadedImages[0] })
-                        .eq('gang_id', activeGangId)
-                        .ilike('title', `%${model || plate}%`);
-                }
+                await supabase.from('case_board_nodes')
+                    .update({
+                        title: (model || 'Vehículo') + ' [' + (plate || 'SIN PLACA') + ']',
+                        content: 'Propietario: ' + (owner || 'Desconocido') + (notes ? '\n' + notes : ''),
+                        ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
+                    })
+                    .eq('gang_id', activeGangId)
+                    .ilike('title', `%${plate || model || 'Vehículo'}%`);
             } else {
                 const { error } = await supabase.rpc('add_gang_vehicle', {
                     p_gang_id: activeGangId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: uploadedImages
@@ -415,12 +417,14 @@ function Gangs() {
                     p_home_id: editingItemId, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
-                if (uploadedImages && uploadedImages.length > 0) {
-                    await supabase.from('case_board_nodes')
-                        .update({ image_url: uploadedImages[0] })
-                        .eq('gang_id', activeGangId)
-                        .ilike('title', `%${owner}%`);
-                }
+                await supabase.from('case_board_nodes')
+                    .update({
+                        title: 'Propiedad: ' + (owner || 'Ubicación Banda'),
+                        content: notes || 'Sin notas',
+                        ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
+                    })
+                    .eq('gang_id', activeGangId)
+                    .ilike('title', `%${owner || 'Propiedad'}%`);
             } else {
                 const { error } = await supabase.rpc('add_gang_home', {
                     p_gang_id: activeGangId, p_owner: owner, p_notes: notes, p_images: uploadedImages
@@ -460,6 +464,8 @@ function Gangs() {
             }
 
             if (editingItemId) {
+                const isInactive = memRole === 'Inactivo';
+                const nodeColor = isInactive ? 'dark' : memRole === 'Lider' ? 'red' : memRole === 'Sublider' ? 'yellow' : 'blue';
                 const { error } = await supabase.rpc('update_gang_member', {
                     p_member_id: editingItemId, p_name: finalName, p_role: memRole, p_photo: uploadedPhoto, p_notes: memNotes
                 });
@@ -467,8 +473,9 @@ function Gangs() {
                 await supabase.from('case_board_nodes')
                     .update({
                         title: `${finalName} (${memRole})`,
-                        content: `Rol: ${memRole}`,
-                        color: memRole === 'Lider' ? 'red' : memRole === 'Sublider' ? 'yellow' : 'blue',
+                        content: `Rol: ${memRole}${memId.trim() ? '\nID: ' + memId.trim() : ''}`,
+                        color: nodeColor,
+                        is_inactive: isInactive,
                         ...(uploadedPhoto ? { image_url: uploadedPhoto } : {})
                     })
                     .eq('gang_id', activeGangId)

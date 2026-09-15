@@ -1777,9 +1777,14 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
         let existingNodes = [...nodes];
         try {
             const column = isGang ? 'gang_id' : isIA ? 'ia_case_id' : 'case_id';
-            const { data: dbNodes } = await supabase.from('case_board_nodes').select('*').eq(column, targetId);
+            const queryId = targetId || (isGang ? (gangId || currentGangData?.gang_id) : caseId);
+            const { data: dbNodes } = await supabase.from('case_board_nodes').select('*').eq(column, queryId);
             if (dbNodes && dbNodes.length > 0) {
-                existingNodes = dbNodes;
+                // Combine DB nodes with current in-memory nodes to ensure no stale state creates duplicates
+                const combinedMap = new Map();
+                dbNodes.forEach(n => combinedMap.set(n.id, n));
+                nodes.forEach(n => combinedMap.set(n.id, { ...(combinedMap.get(n.id) || {}), ...n }));
+                existingNodes = Array.from(combinedMap.values());
             }
         } catch (err) {
             console.error("Error fetching latest board nodes for duplicate check:", err);
@@ -1792,21 +1797,25 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
         let posX = 100;
         let posY = 100;
-        const clean = (str) => (str ? String(str).toLowerCase().trim() : '');
+        const clean = (str) => (str ? String(str).toLowerCase().replace(/[\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim() : '');
+        const normalizeAlphanum = (str) => (str ? String(str).toLowerCase().replace(/[^a-z0-9]/g, '') : '');
 
         if (isGang) {
             const effectiveData = currentGangData || caseData;
 
-            // 1. Members (Name, ID, Role, Photo only - No description/notes)
+            // 1. Members (Name, ID, Role, Photo only)
             if (effectiveData.members && effectiveData.members.length > 0) {
                 effectiveData.members.forEach(m => {
                     const mName = (m.name || '').trim();
                     const mNameClean = clean(mName);
                     const rawName = mName.replace(/\[[^\]]+\]/g, '').trim();
                     const rawNameClean = clean(rawName);
+                    const rawNameNorm = normalizeAlphanum(rawName);
                     const mRole = m.role || 'Miembro';
                     const mPhoto = m.photo_url || m.photo || null;
-                    const isInactive = mRole === 'Inactivo';
+                    const isInactive = (typeof mRole === 'string' && mRole.toLowerCase() === 'inactivo') || m.is_inactive === true || m.status === 'inactivo';
+                    const mId = m.dni || m.citizen_id || m.member_id || m.id_card || m.code || (mName.match(/\[([A-Za-z0-9_-]+)\]/) || [])[1];
+                    const mIdNorm = normalizeAlphanum(mId);
                     const titleStr = `${mName} (${mRole})`;
                     const contentStr = `Rol: ${mRole}${m.id_card ? '\nID: ' + m.id_card : ''}`;
                     const nodeColor = isInactive ? 'dark' : mRole === 'Lider' ? 'red' : mRole === 'Sublider' ? 'yellow' : 'blue';
@@ -1815,10 +1824,20 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         if (matchedNodeIds.has(n.id)) return false;
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
-                        if (nTitle === clean(titleStr)) return true;
+                        const nTitleNorm = normalizeAlphanum(n.title);
+                        const nContentNorm = normalizeAlphanum(n.content);
+
+                        if (mPhoto && n.image_url && n.image_url === mPhoto) return true;
+                        if (mIdNorm && mIdNorm.length >= 3 && (nTitleNorm.includes(mIdNorm) || nContentNorm.includes(mIdNorm))) return true;
+                        if (nTitle === clean(titleStr) || nTitle === mNameClean || nTitle === rawNameClean) return true;
                         if (mNameClean && (nTitle.includes(mNameClean) || nContent.includes(mNameClean))) return true;
-                        if (rawNameClean && rawNameClean.length > 2 && (nTitle.includes(rawNameClean) || nContent.includes(rawNameClean))) return true;
-                        if (mPhoto && n.image_url === mPhoto) return true;
+                        if (rawNameNorm && rawNameNorm.length >= 4 && (nTitleNorm.includes(rawNameNorm) || nContentNorm.includes(rawNameNorm))) return true;
+                        if (rawNameClean && rawNameClean.length >= 3 && (nTitle.includes(rawNameClean) || nContent.includes(rawNameClean))) return true;
+                        
+                        // Check first and last name components
+                        const nameParts = rawNameClean.split(' ').filter(p => p.length >= 2);
+                        if (nameParts.length >= 2 && nameParts.every(part => nTitle.includes(part))) return true;
+
                         return false;
                     });
 
@@ -1834,8 +1853,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             is_inactive: isInactive
                         });
                     } else {
-                        itemsToInsert.push({
-                            gang_id: gangId || targetId,
+                        const tempId = `temp-insert-mem-${Date.now()}-${Math.random()}`;
+                        matchedNodeIds.add(tempId);
+                        const newNode = {
+                            id: tempId,
+                            gang_id: gangId || targetId || effectiveData.gang_id,
                             title: titleStr,
                             content: contentStr,
                             category: 'suspect',
@@ -1845,7 +1867,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
-                        });
+                        };
+                        itemsToInsert.push(newNode);
+                        existingNodes.push(newNode);
                         posX += 280;
                         if (posX > 900) { posX = 100; posY += 280; }
                     }
@@ -1856,8 +1880,12 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             if (effectiveData.vehicles && effectiveData.vehicles.length > 0) {
                 effectiveData.vehicles.forEach(v => {
                     const plateClean = clean(v.plate);
+                    const plateNorm = normalizeAlphanum(v.plate);
                     const modelClean = clean(v.model);
+                    const modelNorm = normalizeAlphanum(v.model);
                     const ownerClean = clean(v.owner);
+                    const ownerNorm = normalizeAlphanum(v.owner);
+                    const notesClean = clean(v.notes);
                     const img = (v.images && v.images.length > 0) ? v.images[0] : null;
                     const titleStr = `${v.model || 'Vehículo'} [${v.plate || 'SIN PLACA'}]`;
                     const contentStr = `Propietario: ${v.owner || 'Desconocido'}${v.notes ? '\n' + v.notes : ''}`;
@@ -1866,10 +1894,36 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         if (matchedNodeIds.has(n.id)) return false;
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
+                        const nTitleNorm = normalizeAlphanum(n.title);
+                        const nContentNorm = normalizeAlphanum(n.content);
+
+                        if (img && n.image_url && n.image_url === img) return true;
                         if (nTitle === clean(titleStr)) return true;
-                        if (plateClean && plateClean !== 'sin placa' && (nTitle.includes(plateClean) || nContent.includes(plateClean))) return true;
-                        if (modelClean && ownerClean && nTitle.includes(modelClean) && nContent.includes(ownerClean)) return true;
-                        if (img && n.image_url === img) return true;
+                        
+                        // Plate match
+                        if (plateNorm && plateNorm !== 'sinplaca' && plateNorm.length >= 3) {
+                            if (nTitleNorm.includes(plateNorm) || nContentNorm.includes(plateNorm)) return true;
+                        }
+
+                        // Model & Owner match
+                        if (modelNorm && ownerNorm && ownerNorm !== 'desconocido') {
+                            if ((nTitleNorm.includes(modelNorm) || nContentNorm.includes(modelNorm)) &&
+                                (nTitleNorm.includes(ownerNorm) || nContentNorm.includes(ownerNorm))) return true;
+                        }
+
+                        // Vehicle category with same model and owner/plate/notes match
+                        if (n.category === 'vehicle' || nTitle.includes('vehículo') || nTitle.includes('vehiculo') || nTitle.includes('[')) {
+                            if (modelClean && nTitle.includes(modelClean)) {
+                                if (plateClean && nTitle.includes(plateClean)) return true;
+                                if (ownerClean && ownerClean !== 'desconocido' && nContent.includes(ownerClean)) return true;
+                                if (notesClean && notesClean.length >= 5 && nContent.includes(notesClean.slice(0, 20))) return true;
+                                if ((!plateClean || plateNorm === 'sinplaca') && (!ownerClean || ownerClean === 'desconocido')) return true;
+                            }
+                        }
+
+                        // Notes match
+                        if (notesClean && notesClean.length >= 6 && nContent.includes(notesClean.slice(0, 30))) return true;
+
                         return false;
                     });
 
@@ -1884,8 +1938,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             color: 'purple'
                         });
                     } else {
-                        itemsToInsert.push({
-                            gang_id: gangId || targetId,
+                        const tempId = `temp-insert-veh-${Date.now()}-${Math.random()}`;
+                        matchedNodeIds.add(tempId);
+                        const newNode = {
+                            id: tempId,
+                            gang_id: gangId || targetId || effectiveData.gang_id,
                             title: titleStr,
                             content: contentStr,
                             category: 'vehicle',
@@ -1894,7 +1951,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
-                        });
+                        };
+                        itemsToInsert.push(newNode);
+                        existingNodes.push(newNode);
                         posX += 280;
                         if (posX > 900) { posX = 100; posY += 280; }
                     }
@@ -1905,6 +1964,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             if (effectiveData.homes && effectiveData.homes.length > 0) {
                 effectiveData.homes.forEach(h => {
                     const ownerClean = clean(h.owner);
+                    const ownerNorm = normalizeAlphanum(h.owner);
+                    const notesClean = clean(h.notes);
+                    const locClean = clean(h.location);
                     const img = (h.images && h.images.length > 0) ? h.images[0] : null;
                     const titleStr = `Propiedad: ${h.owner || 'Ubicación Banda'}`;
                     const contentStr = `Notas: ${h.notes || 'Sin notas'}`;
@@ -1913,9 +1975,24 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         if (matchedNodeIds.has(n.id)) return false;
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
+                        const nTitleNorm = normalizeAlphanum(n.title);
+                        const nContentNorm = normalizeAlphanum(n.content);
+
+                        if (img && n.image_url && n.image_url === img) return true;
                         if (nTitle === clean(titleStr)) return true;
-                        if (ownerClean && ownerClean !== 'ubicación banda' && (nTitle.includes(ownerClean) || nContent.includes(ownerClean))) return true;
-                        if (img && n.image_url === img) return true;
+
+                        if (ownerNorm && ownerNorm !== 'ubicacionbanda' && ownerNorm.length >= 3) {
+                            if (nTitleNorm.includes(ownerNorm) || nContentNorm.includes(ownerNorm)) return true;
+                        }
+
+                        if (locClean && locClean.length >= 3 && (nTitle.includes(locClean) || nContent.includes(locClean))) return true;
+                        if (notesClean && notesClean.length >= 5 && (nContent.includes(notesClean.slice(0, 30)) || nTitle.includes(notesClean.slice(0, 30)))) return true;
+
+                        if (n.category === 'location' && (nTitle.includes('propiedad') || nTitle.includes('inmueble') || nTitle.includes('casa') || nTitle.includes('sede'))) {
+                            if (ownerClean && (nTitle.includes(ownerClean) || nContent.includes(ownerClean))) return true;
+                            if (notesClean && nContent.includes(notesClean.slice(0, 15))) return true;
+                        }
+
                         return false;
                     });
 
@@ -1930,8 +2007,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             color: 'green'
                         });
                     } else {
-                        itemsToInsert.push({
-                            gang_id: gangId || targetId,
+                        const tempId = `temp-insert-home-${Date.now()}-${Math.random()}`;
+                        matchedNodeIds.add(tempId);
+                        const newNode = {
+                            id: tempId,
+                            gang_id: gangId || targetId || effectiveData.gang_id,
                             title: titleStr,
                             content: contentStr,
                             category: 'location',
@@ -1940,7 +2020,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
-                        });
+                        };
+                        itemsToInsert.push(newNode);
+                        existingNodes.push(newNode);
                         posX += 280;
                         if (posX > 900) { posX = 100; posY += 280; }
                     }
@@ -1961,9 +2043,13 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         if (matchedNodeIds.has(n.id)) return false;
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
-                        if (nTitle.includes('inteligencia') && contentClean && nContent.includes(contentClean.slice(0, 30))) return true;
-                        if (contentClean && contentClean.length > 5 && nContent === contentClean) return true;
-                        if (img && n.image_url === img) return true;
+
+                        if (img && n.image_url && n.image_url === img) return true;
+                        if (contentClean && (nContent === contentClean || nContent.includes(contentClean) || (contentClean.length > 15 && contentClean.includes(nContent)))) return true;
+                        if (contentClean && contentClean.length >= 6 && nContent.includes(contentClean.slice(0, 25))) return true;
+                        if ((n.category === 'evidence' || n.category === 'note') && (nTitle.includes('inteligencia') || nTitle.includes('característica') || nTitle.includes('info'))) {
+                            if (contentClean && nContent.includes(contentClean.slice(0, 15))) return true;
+                        }
                         return false;
                     });
 
@@ -1978,8 +2064,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             image_url: img || matchedNode.image_url
                         });
                     } else {
-                        itemsToInsert.push({
-                            gang_id: gangId || targetId,
+                        const tempId = `temp-insert-info-${Date.now()}-${Math.random()}`;
+                        matchedNodeIds.add(tempId);
+                        const newNode = {
+                            id: tempId,
+                            gang_id: gangId || targetId || effectiveData.gang_id,
                             title: titleStr,
                             content: contentStr,
                             category: nodeCat,
@@ -1988,7 +2077,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
-                        });
+                        };
+                        itemsToInsert.push(newNode);
+                        existingNodes.push(newNode);
                         posX += 280;
                         if (posX > 900) { posX = 100; posY += 280; }
                     }
@@ -1999,6 +2090,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
             if (effectiveData.graffiti && effectiveData.graffiti.length > 0) {
                 effectiveData.graffiti.forEach((g) => {
                     const notesClean = clean(g.notes);
+                    const locClean = clean(g.location);
                     const img = g.graffiti_image || g.gps_image || null;
                     const titleStr = `Grafiti / GPS`;
                     const contentStr = g.notes || 'Evidencia de grafiti registrado';
@@ -2007,9 +2099,14 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         if (matchedNodeIds.has(n.id)) return false;
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
-                        if (nTitle.includes('grafiti') && notesClean && nContent.includes(notesClean.slice(0, 30))) return true;
-                        if (g.graffiti_image && n.image_url === g.graffiti_image) return true;
-                        if (g.gps_image && n.image_url === g.gps_image) return true;
+
+                        if (g.graffiti_image && (n.image_url === g.graffiti_image || (n.content && n.content.includes(g.graffiti_image)))) return true;
+                        if (g.gps_image && (n.image_url === g.gps_image || (n.content && n.content.includes(g.gps_image)))) return true;
+                        if (notesClean && notesClean.length >= 4 && (nContent.includes(notesClean.slice(0, 30)) || nTitle.includes(notesClean.slice(0, 30)))) return true;
+                        if (locClean && locClean.length >= 3 && (nContent.includes(locClean) || nTitle.includes(locClean))) return true;
+                        if (n.category === 'evidence' && (nTitle.includes('grafiti') || nTitle.includes('graffiti') || nTitle.includes('gps'))) {
+                            if (notesClean && nContent.includes(notesClean.slice(0, 15))) return true;
+                        }
                         return false;
                     });
 
@@ -2024,8 +2121,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             image_url: img || matchedNode.image_url
                         });
                     } else {
-                        itemsToInsert.push({
-                            gang_id: gangId || targetId,
+                        const tempId = `temp-insert-graf-${Date.now()}-${Math.random()}`;
+                        matchedNodeIds.add(tempId);
+                        const newNode = {
+                            id: tempId,
+                            gang_id: gangId || targetId || effectiveData.gang_id,
                             title: titleStr,
                             content: contentStr,
                             category: 'evidence',
@@ -2034,7 +2134,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
-                        });
+                        };
+                        itemsToInsert.push(newNode);
+                        existingNodes.push(newNode);
                         posX += 280;
                         if (posX > 900) { posX = 100; posY += 280; }
                     }
@@ -2046,6 +2148,7 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                 effectiveData.conflicts.forEach((c) => {
                     const targetName = c.target_gang_name || 'Banda Rival';
                     const targetClean = clean(targetName);
+                    const targetNorm = normalizeAlphanum(targetName);
                     const isResolved = c.status === 'resolved';
                     const titleStr = `Conflicto: ${targetName}`;
                     const contentStr = `Motivo: ${c.reason || 'Desconocido'}${isResolved ? ' (Finalizado)' : ' (Activo)'}`;
@@ -2055,8 +2158,16 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         if (matchedNodeIds.has(n.id)) return false;
                         const nTitle = clean(n.title);
                         const nContent = clean(n.content);
-                        if (nTitle.includes('conflicto') && targetClean && (nTitle.includes(targetClean) || nContent.includes(targetClean))) return true;
-                        if (n.category === 'threat' && targetClean && (nTitle.includes(targetClean) || nContent.includes(targetClean))) return true;
+                        const nTitleNorm = normalizeAlphanum(n.title);
+                        const nContentNorm = normalizeAlphanum(n.content);
+
+                        if (targetClean && (nTitle.includes(targetClean) || nContent.includes(targetClean))) return true;
+                        if (targetNorm && targetNorm.length >= 3 && (nTitleNorm.includes(targetNorm) || nContentNorm.includes(targetNorm))) return true;
+                        if (n.category === 'threat' || nTitle.includes('conflicto') || nTitle.includes('rival') || nTitle.includes('guerra')) {
+                            if (targetClean && (nTitle.includes(targetClean) || nContent.includes(targetClean))) return true;
+                            const gangWords = targetClean.split(' ').filter(w => w.length >= 3);
+                            if (gangWords.length > 0 && gangWords.some(w => nTitle.includes(w) || nContent.includes(w))) return true;
+                        }
                         return false;
                     });
 
@@ -2071,8 +2182,11 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             is_inactive: isResolved
                         });
                     } else {
-                        itemsToInsert.push({
-                            gang_id: gangId || targetId,
+                        const tempId = `temp-insert-conf-${Date.now()}-${Math.random()}`;
+                        matchedNodeIds.add(tempId);
+                        const newNode = {
+                            id: tempId,
+                            gang_id: gangId || targetId || effectiveData.gang_id,
                             title: titleStr,
                             content: contentStr,
                             category: 'threat',
@@ -2081,7 +2195,9 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                             pos_x: posX,
                             pos_y: posY,
                             created_by: user ? user.id : null
-                        });
+                        };
+                        itemsToInsert.push(newNode);
+                        existingNodes.push(newNode);
                         posX += 280;
                         if (posX > 900) { posX = 100; posY += 280; }
                     }
@@ -2198,7 +2314,8 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
 
             // Execute Inserts
             if (itemsToInsert.length > 0) {
-                const { error: insErr } = await supabase.from('case_board_nodes').insert(itemsToInsert);
+                const insertPayload = itemsToInsert.map(({ id, ...rest }) => (id && typeof id === 'string' && id.startsWith('temp-') ? rest : { id, ...rest }));
+                const { error: insErr } = await supabase.from('case_board_nodes').insert(insertPayload);
                 if (insErr) throw insErr;
                 insertedCount = itemsToInsert.length;
                 hasChanges = true;
