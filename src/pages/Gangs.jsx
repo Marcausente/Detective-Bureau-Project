@@ -353,16 +353,36 @@ function Gangs() {
                     p_vehicle_id: editingItemId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
-                await supabase.from('case_board_nodes')
-                    .update({
-                        title: (model || 'Vehículo') + ' [' + (plate || 'SIN PLACA') + ']',
-                        content: 'Propietario: ' + (owner || 'Desconocido') + (notes ? '\n' + notes : ''),
-                        linked_update_ids: [tag],
-                        ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
-                    })
-                    .eq('gang_id', activeGangId)
-                    .eq('category', 'vehicle')
-                    .or(`linked_update_ids.cs.{${tag}}${plate && plate.trim() ? `,title.ilike.%[${plate.trim()}]%` : ''}`);
+
+                try {
+                    const { data: bNodes } = await supabase
+                        .from('case_board_nodes')
+                        .select('id, title, linked_update_ids')
+                        .eq('gang_id', activeGangId)
+                        .eq('category', 'vehicle');
+
+                    if (bNodes && bNodes.length > 0) {
+                        const targetNode = bNodes.find(n => {
+                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(tag)) return true;
+                            if (plate && plate.trim() && (n.title || '').includes(plate.trim())) return true;
+                            if (model && model.trim() && (n.title || '').toLowerCase().includes(model.trim().toLowerCase())) return true;
+                            return false;
+                        });
+
+                        if (targetNode) {
+                            await supabase.from('case_board_nodes')
+                                .update({
+                                    title: (model || 'Vehículo') + ' [' + (plate || 'SIN PLACA') + ']',
+                                    content: 'Propietario: ' + (owner || 'Desconocido') + (notes ? '\n' + notes : ''),
+                                    linked_update_ids: [tag],
+                                    ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
+                                })
+                                .eq('id', targetNode.id);
+                        }
+                    }
+                } catch (nodeErr) {
+                    console.warn('Could not sync vehicle card to whiteboard:', nodeErr);
+                }
             } else {
                 const { data: newVehId, error } = await supabase.rpc('add_gang_vehicle', {
                     p_gang_id: activeGangId, p_model: model, p_plate: plate, p_owner: owner, p_notes: notes, p_images: uploadedImages
@@ -424,16 +444,35 @@ function Gangs() {
                     p_home_id: editingItemId, p_owner: owner, p_notes: notes, p_images: uploadedImages
                 });
                 if (error) throw error;
-                await supabase.from('case_board_nodes')
-                    .update({
-                        title: 'Propiedad: ' + (owner || 'Ubicación Banda'),
-                        content: notes || 'Sin notas',
-                        linked_update_ids: [tag],
-                        ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
-                    })
-                    .eq('gang_id', activeGangId)
-                    .eq('category', 'location')
-                    .or(`linked_update_ids.cs.{${tag}}`);
+
+                try {
+                    const { data: bNodes } = await supabase
+                        .from('case_board_nodes')
+                        .select('id, title, linked_update_ids')
+                        .eq('gang_id', activeGangId)
+                        .eq('category', 'location');
+
+                    if (bNodes && bNodes.length > 0) {
+                        const targetNode = bNodes.find(n => {
+                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(tag)) return true;
+                            if (owner && owner.trim() && (n.title || '').toLowerCase().includes(owner.trim().toLowerCase())) return true;
+                            return false;
+                        });
+
+                        if (targetNode) {
+                            await supabase.from('case_board_nodes')
+                                .update({
+                                    title: 'Propiedad: ' + (owner || 'Ubicación Banda'),
+                                    content: notes || 'Sin notas',
+                                    linked_update_ids: [tag],
+                                    ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
+                                })
+                                .eq('id', targetNode.id);
+                        }
+                    }
+                } catch (nodeErr) {
+                    console.warn('Could not sync home card to whiteboard:', nodeErr);
+                }
             } else {
                 const { data: newHomeId, error } = await supabase.rpc('add_gang_home', {
                     p_gang_id: activeGangId, p_owner: owner, p_notes: notes, p_images: uploadedImages
@@ -482,18 +521,38 @@ function Gangs() {
                     p_member_id: editingItemId, p_name: finalName, p_role: memRole, p_photo: uploadedPhoto, p_notes: memNotes
                 });
                 if (error) throw error;
-                await supabase.from('case_board_nodes')
-                    .update({
-                        title: `${finalName} (${memRole})`,
-                        content: `Rol: ${memRole}${memId.trim() ? '\nID: ' + memId.trim() : ''}`,
-                        color: nodeColor,
-                        is_inactive: isInactive,
-                        linked_update_ids: [tag],
-                        ...(uploadedPhoto ? { image_url: uploadedPhoto } : {})
-                    })
-                    .eq('gang_id', activeGangId)
-                    .eq('category', 'suspect')
-                    .or(`linked_update_ids.cs.{${tag}},title.ilike.${memName.trim()}%`);
+
+                try {
+                    const { data: bNodes } = await supabase
+                        .from('case_board_nodes')
+                        .select('id, title, linked_update_ids')
+                        .eq('gang_id', activeGangId)
+                        .eq('category', 'suspect');
+
+                    if (bNodes && bNodes.length > 0) {
+                        const targetNode = bNodes.find(n => {
+                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(tag)) return true;
+                            if (memId && memId.trim() && (n.title || '').includes(memId.trim())) return true;
+                            if (memName.trim() && (n.title || '').toLowerCase().startsWith(memName.trim().toLowerCase())) return true;
+                            return false;
+                        });
+
+                        if (targetNode) {
+                            await supabase.from('case_board_nodes')
+                                .update({
+                                    title: `${finalName} (${memRole})`,
+                                    content: `Rol: ${memRole}${memId.trim() ? '\nID: ' + memId.trim() : ''}`,
+                                    color: nodeColor,
+                                    is_inactive: isInactive,
+                                    linked_update_ids: [tag],
+                                    ...(uploadedPhoto ? { image_url: uploadedPhoto } : {})
+                                })
+                                .eq('id', targetNode.id);
+                        }
+                    }
+                } catch (nodeErr) {
+                    console.warn('Could not sync member card to whiteboard:', nodeErr);
+                }
             } else {
                 const { data: newMemId, error } = await supabase.rpc('add_gang_member', {
                     p_gang_id: activeGangId, p_name: finalName, p_role: memRole, p_photo: uploadedPhoto, p_notes: memNotes
@@ -552,18 +611,43 @@ function Gangs() {
                     p_info_id: editingItemId, p_type: infoType, p_content: content, p_images: uploadedImages
                 });
                 if (error) throw error;
-                await supabase.from('case_board_nodes')
-                    .update({
-                        title: 'Inteligencia (' + (infoType === 'characteristic' ? 'Característica' : 'Info') + ')',
-                        content: content,
-                        color: infoType === 'characteristic' ? 'yellow' : 'dark',
-                        category: 'evidence',
-                        linked_update_ids: [tag],
-                        ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
-                    })
-                    .eq('gang_id', activeGangId)
-                    .eq('category', 'evidence')
-                    .or(`linked_update_ids.cs.{${tag}}`);
+
+                try {
+                    const { data: bNodes } = await supabase
+                        .from('case_board_nodes')
+                        .select('id, title, content, linked_update_ids')
+                        .eq('gang_id', activeGangId)
+                        .in('category', ['evidence', 'note']);
+
+                    if (bNodes && bNodes.length > 0) {
+                        const contentLow = content.toLowerCase();
+                        const targetNode = bNodes.find(n => {
+                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(tag)) return true;
+                            const cLow = (n.content || '').toLowerCase();
+                            const tLow = (n.title || '').toLowerCase();
+                            if (contentLow.includes('vestimenta') && (cLow.includes('vestimenta') || tLow.includes('vestimenta'))) return true;
+                            if (contentLow.includes('territorio') && (cLow.includes('territorio') || tLow.includes('territorio'))) return true;
+                            if (contentLow.includes('armamento') && (cLow.includes('armamento') || tLow.includes('armamento'))) return true;
+                            if (cLow.slice(0, 30) && contentLow.includes(cLow.slice(0, 30))) return true;
+                            return false;
+                        });
+
+                        if (targetNode) {
+                            await supabase.from('case_board_nodes')
+                                .update({
+                                    title: 'Inteligencia (' + (infoType === 'characteristic' ? 'Característica' : 'Info') + ')',
+                                    content: content,
+                                    color: infoType === 'characteristic' ? 'yellow' : 'dark',
+                                    category: 'evidence',
+                                    linked_update_ids: [tag],
+                                    ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
+                                })
+                                .eq('id', targetNode.id);
+                        }
+                    }
+                } catch (nodeErr) {
+                    console.warn('Could not sync info card to whiteboard:', nodeErr);
+                }
             } else {
                 const { data: newInfoId, error } = await supabase.rpc('add_gang_info', {
                     p_gang_id: activeGangId, p_type: infoType, p_content: content, p_images: uploadedImages
@@ -628,16 +712,35 @@ function Gangs() {
                 });
                 if (error) throw error;
                 const newImg = uploadedGraffiti || uploadedGps;
-                await supabase.from('case_board_nodes')
-                    .update({
-                        title: 'Grafiti / GPS',
-                        content: graffitiNotes.trim() || 'Evidencia de grafiti registrado',
-                        linked_update_ids: [tag],
-                        ...(newImg ? { image_url: newImg } : {})
-                    })
-                    .eq('gang_id', activeGangId)
-                    .eq('category', 'evidence')
-                    .or(`linked_update_ids.cs.{${tag}}`);
+
+                try {
+                    const { data: bNodes } = await supabase
+                        .from('case_board_nodes')
+                        .select('id, title, content, linked_update_ids')
+                        .eq('gang_id', activeGangId)
+                        .eq('category', 'evidence');
+
+                    if (bNodes && bNodes.length > 0) {
+                        const targetNode = bNodes.find(n => {
+                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(tag)) return true;
+                            if ((n.title || '').toLowerCase().includes('grafiti')) return true;
+                            return false;
+                        });
+
+                        if (targetNode) {
+                            await supabase.from('case_board_nodes')
+                                .update({
+                                    title: 'Grafiti / GPS',
+                                    content: graffitiNotes.trim() || 'Evidencia de grafiti registrado',
+                                    linked_update_ids: [tag],
+                                    ...(newImg ? { image_url: newImg } : {})
+                                })
+                                .eq('id', targetNode.id);
+                        }
+                    }
+                } catch (nodeErr) {
+                    console.warn('Could not sync graffiti card to whiteboard:', nodeErr);
+                }
             } else {
                 const { data: newGrafId, error } = await supabase.rpc('add_gang_graffiti', {
                     p_gang_id: activeGangId,
@@ -695,17 +798,36 @@ function Gangs() {
                     p_status: finalStatus
                 });
                 if (error) throw error;
-                await supabase.from('case_board_nodes')
-                    .update({
-                        title: 'Conflicto: ' + (finalTargetName || 'Banda Rival'),
-                        content: 'Motivo: ' + finalReason + (finalStatus === 'resolved' ? ' (Finalizado)' : ' (Activo)'),
-                        color: finalStatus === 'resolved' ? 'green' : 'red',
-                        is_inactive: finalStatus === 'resolved',
-                        linked_update_ids: [tag]
-                    })
-                    .eq('gang_id', activeGangId)
-                    .eq('category', 'threat')
-                    .or(`linked_update_ids.cs.{${tag}}`);
+
+                try {
+                    const { data: bNodes } = await supabase
+                        .from('case_board_nodes')
+                        .select('id, title, linked_update_ids')
+                        .eq('gang_id', activeGangId)
+                        .eq('category', 'threat');
+
+                    if (bNodes && bNodes.length > 0) {
+                        const targetNode = bNodes.find(n => {
+                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(tag)) return true;
+                            if (finalTargetName && (n.title || '').toLowerCase().includes(finalTargetName.toLowerCase())) return true;
+                            return false;
+                        });
+
+                        if (targetNode) {
+                            await supabase.from('case_board_nodes')
+                                .update({
+                                    title: 'Conflicto: ' + (finalTargetName || 'Banda Rival'),
+                                    content: 'Motivo: ' + finalReason + (finalStatus === 'resolved' ? ' (Finalizado)' : ' (Activo)'),
+                                    color: finalStatus === 'resolved' ? 'green' : 'red',
+                                    is_inactive: finalStatus === 'resolved',
+                                    linked_update_ids: [tag]
+                                })
+                                .eq('id', targetNode.id);
+                        }
+                    }
+                } catch (nodeErr) {
+                    console.warn('Could not sync conflict card to whiteboard:', nodeErr);
+                }
             } else {
                 const { data: newConfId, error } = await supabase.rpc('add_gang_conflict', {
                     p_gang_id: activeGangId,
