@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { getProfileImage } from '../utils/imageStorage';
 import { getUserInternalRank } from '../utils/internalRanks';
 import { getSubdivisions, getSubdivisionAbbrev, getSubdivisionClass } from '../utils/subdivisions';
+import { getLicenses, getLicenseDetails, getUserLicenses, updateUserLicenses } from '../utils/licenses';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
 
@@ -56,6 +57,7 @@ function PersonnelDetail() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [availableSubdivisions, setAvailableSubdivisions] = useState([]);
+    const [availableLicenses, setAvailableLicenses] = useState([]);
 
     // User Stats State
     const [userStats, setUserStats] = useState({ incidents: 0, matrix: 0, outings: 0 });
@@ -81,6 +83,7 @@ function PersonnelDetail() {
 
     // Subdivisions State & Handler
     const [subdivisionSaving, setSubdivisionSaving] = useState(false);
+    const [licenseSaving, setLicenseSaving] = useState(false);
 
     const handleToggleSubdivision = async (sub) => {
         if (!viewer) return;
@@ -149,6 +152,35 @@ function PersonnelDetail() {
         }
     };
 
+    const handleToggleLicense = async (licName) => {
+        if (!viewer) return;
+        const permittedRoles = ['Detective', 'Coordinador', 'Administrador', 'Comisionado'];
+        if (!permittedRoles.includes(viewer.rol)) return;
+
+        try {
+            setLicenseSaving(true);
+            const currentLicenses = getUserLicenses(user) || user.licenses || [];
+            let newLicenses;
+            if (currentLicenses.includes(licName)) {
+                newLicenses = currentLicenses.filter(l => l !== licName);
+            } else {
+                newLicenses = [...currentLicenses, licName];
+            }
+
+            await updateUserLicenses(user.id, newLicenses);
+
+            setUser({
+                ...user,
+                licenses: newLicenses
+            });
+        } catch (err) {
+            console.error('Error updating licenses:', err);
+            alert('Error al actualizar licencias: ' + err.message);
+        } finally {
+            setLicenseSaving(false);
+        }
+    };
+
 
     useEffect(() => {
         loadData();
@@ -184,14 +216,19 @@ function PersonnelDetail() {
 
             if (targetError) throw targetError;
             if (!targetData) throw new Error("Target User Profile not found");
-            setUser(targetData);
+            setUser({
+                ...targetData,
+                licenses: getUserLicenses(targetData) || targetData.licenses || []
+            });
 
-            // Fetch dynamic subdivisions list
+            // Fetch dynamic subdivisions and licenses list
             try {
                 const subs = await getSubdivisions();
                 setAvailableSubdivisions(subs || []);
+                const lics = await getLicenses();
+                setAvailableLicenses(lics || []);
             } catch (err) {
-                console.warn('Error loading dynamic subdivisions:', err);
+                console.warn('Error loading dynamic subdivisions or licenses:', err);
             }
 
             // 3. Check Permissions & Fetch Evaluations
@@ -524,6 +561,100 @@ function PersonnelDetail() {
                                             })
                                         ) : (
                                             <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'italic' }}>Ninguna</span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* LICENCIAS / HABILITACIONES SECTION */}
+                            <div className="detail-item" style={{ gridColumn: '1 / -1', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                <span className="detail-label" style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', marginBottom: '0.65rem', color: '#6ee7b7', gap: '8px' }}>
+                                    <span style={{ fontSize: '1.05rem' }}>🪪</span>
+                                    <span>Licencias y Habilitaciones Especiales</span>
+                                    {licenseSaving && (
+                                        <span className="subdivision-saving-indicator" style={{ color: '#34d399', borderColor: '#34d399' }}>Guardando...</span>
+                                    )}
+                                </span>
+
+                                {viewer && ['Detective', 'Coordinador', 'Administrador', 'Comisionado'].includes(viewer.rol) ? (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+                                        {availableLicenses.length === 0 ? (
+                                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontStyle: 'italic' }}>No hay licencias configuradas en Coordinación.</span>
+                                        ) : (
+                                            availableLicenses.map(lic => {
+                                                const isActive = (user.licenses || []).includes(lic.name);
+                                                const licColor = lic.color || '#10b981';
+                                                return (
+                                                    <button
+                                                        key={lic.name}
+                                                        type="button"
+                                                        onClick={() => handleToggleLicense(lic.name)}
+                                                        disabled={licenseSaving}
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '6px',
+                                                            padding: '6px 12px',
+                                                            borderRadius: '10px',
+                                                            background: isActive ? `${licColor}33` : 'rgba(255, 255, 255, 0.03)',
+                                                            border: isActive ? `1.5px solid ${licColor}` : '1px solid rgba(255, 255, 255, 0.1)',
+                                                            color: isActive ? '#ffffff' : '#94a3b8',
+                                                            fontSize: '0.82rem',
+                                                            fontWeight: isActive ? 700 : 500,
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.15s',
+                                                            boxShadow: isActive ? `0 0 12px ${licColor}44` : 'none'
+                                                        }}
+                                                        title={lic.description ? `${lic.name} (${lic.code}): ${lic.description}` : lic.name}
+                                                    >
+                                                        <span style={{ fontSize: '1rem' }}>{lic.icon || '🪪'}</span>
+                                                        <span>{lic.name} ({lic.code || 'LIC'})</span>
+                                                        {isActive && <span style={{ color: licColor, fontWeight: 800, marginLeft: '2px' }}>✓</span>}
+                                                    </button>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginTop: '0.2rem' }}>
+                                        {user.licenses && user.licenses.length > 0 ? (
+                                            user.licenses.map(licName => {
+                                                const lic = getLicenseDetails(licName, availableLicenses);
+                                                const licColor = lic?.color || '#10b981';
+                                                return (
+                                                    <div
+                                                        key={licName}
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '6px',
+                                                            padding: '6px 12px',
+                                                            borderRadius: '10px',
+                                                            background: `${licColor}22`,
+                                                            color: '#f8fafc',
+                                                            border: `1px solid ${licColor}66`,
+                                                            fontSize: '0.8rem',
+                                                            fontWeight: 600
+                                                        }}
+                                                        title={lic?.description}
+                                                    >
+                                                        <span>{lic?.icon || '🪪'}</span>
+                                                        <span>{lic?.name || licName}</span>
+                                                        <span style={{
+                                                            fontSize: '0.68rem',
+                                                            fontWeight: 800,
+                                                            padding: '1px 5px',
+                                                            borderRadius: '5px',
+                                                            background: `${licColor}44`,
+                                                            color: licColor
+                                                        }}>
+                                                            {lic?.code}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })
+                                        ) : (
+                                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'italic' }}>Sin licencias habilitadas</span>
                                         )}
                                     </div>
                                 )}

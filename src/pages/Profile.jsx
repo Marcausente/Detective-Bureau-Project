@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import AvatarEditor from 'react-avatar-editor';
 import { supabase } from '../supabaseClient';
 import { uploadImageToStorage, getProfileImage } from '../utils/imageStorage';
+import { getLicenses, getLicenseDetails, getUserLicenses } from '../utils/licenses';
+import { getUserInternalRank } from '../utils/internalRanks';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import '../index.css';
@@ -15,6 +17,8 @@ function Profile() {
     const [message, setMessage] = useState(null);
     const fileInputRef = useRef(null);
     const editorRef = useRef(null);
+    const [rawUser, setRawUser] = useState(null);
+    const [availableLicenses, setAvailableLicenses] = useState([]);
 
     // User Stats State
     const [userStats, setUserStats] = useState({ incidents: 0, matrix: 0, outings: 0 });
@@ -62,6 +66,7 @@ function Profile() {
             if (error) throw error;
 
             if (data) {
+                setRawUser(data);
                 setFormData({
                     nombre: data.nombre || '',
                     apellido: data.apellido || '',
@@ -76,6 +81,13 @@ function Profile() {
                 }
 
                 fetchUserStats(user.id);
+
+                try {
+                    const lics = await getLicenses();
+                    setAvailableLicenses(lics || []);
+                } catch (e) {
+                    console.warn('Licenses load warning in profile:', e);
+                }
             }
         } catch (error) {
             console.error('Error fetching profile:', error.message);
@@ -318,6 +330,41 @@ function Profile() {
                         <span className="mac-badge-number">#{formData.no_placa || '---'}</span>
                         <span className="mac-badge-label">NÚMERO DE PLACA OFICIAL</span>
                     </div>
+
+                    {/* Active Licenses Section */}
+                    {rawUser && getUserLicenses(rawUser).length > 0 && (
+                        <div style={{ marginTop: '1.25rem', width: '100%', borderTop: '1px solid var(--mac-border, rgba(255,255,255,0.08))', paddingTop: '1rem', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary, #94a3b8)', marginBottom: '0.6rem' }}>
+                                📜 Licencias Habilitadas
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center' }}>
+                                {getUserLicenses(rawUser).map((licName) => {
+                                    const details = getLicenseDetails(licName, availableLicenses);
+                                    return (
+                                        <span
+                                            key={licName}
+                                            title={details.description || details.name}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '0.35rem',
+                                                padding: '0.3rem 0.65rem',
+                                                borderRadius: '9999px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 600,
+                                                backgroundColor: `${details.color}20`,
+                                                color: details.color,
+                                                border: `1px solid ${details.color}50`
+                                            }}
+                                        >
+                                            <span>{details.icon || '📜'}</span>
+                                            <span>{details.name}</span>
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Right Column: Settings Form Panel */}

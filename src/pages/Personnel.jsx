@@ -6,6 +6,7 @@ import { supabase } from '../supabaseClient';
 import { uploadImageToStorage, getProfileImage } from '../utils/imageStorage';
 import { getInternalRanks, getUserInternalRank, setUserInternalRank } from '../utils/internalRanks';
 import { getSubdivisions, getSubdivisionAbbrev } from '../utils/subdivisions';
+import { getLicenses, getLicenseDetails, getUserLicenses, updateUserLicenses } from '../utils/licenses';
 import { usePresence } from '../contexts/PresenceContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -18,6 +19,7 @@ function Personnel() {
     const [users, setUsers] = useState([]);
     const [availableInternalRanks, setAvailableInternalRanks] = useState([]);
     const [availableSubdivisions, setAvailableSubdivisions] = useState([]);
+    const [availableLicenses, setAvailableLicenses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -66,7 +68,8 @@ function Personnel() {
         rango_interno: 'Auxiliar de Investigación',
         fecha_ingreso: '',
         profile_image: '',
-        divisions: ['Detective Bureau']
+        divisions: ['Detective Bureau'],
+        licenses: []
     });
 
     const fileInputRef = useRef(null);
@@ -82,8 +85,10 @@ function Personnel() {
             setAvailableInternalRanks(ranks || []);
             const subs = await getSubdivisions();
             setAvailableSubdivisions(subs || []);
+            const lics = await getLicenses();
+            setAvailableLicenses(lics || []);
         } catch (e) {
-            console.warn('Error loading ranks or subdivisions:', e);
+            console.warn('Error loading ranks, subdivisions or licenses:', e);
         }
     };
 
@@ -110,7 +115,8 @@ function Personnel() {
             if (error) throw error;
             const mappedUsers = (data || []).map(u => ({
                 ...u,
-                rango_interno: getUserInternalRank(u)
+                rango_interno: getUserInternalRank(u),
+                licenses: getUserLicenses(u)
             }));
             setUsers(mappedUsers);
         } catch (err) {
@@ -252,9 +258,11 @@ function Personnel() {
             (u.nombre && u.nombre.toLowerCase().includes(term)) ||
             (u.apellido && u.apellido.toLowerCase().includes(term)) ||
             (u.rango && u.rango.toLowerCase().includes(term)) ||
-            (u.no_placa && u.no_placa.toLowerCase().includes(term))
+            (u.no_placa && u.no_placa.toLowerCase().includes(term)) ||
+            (u.licenses && u.licenses.some(l => l.toLowerCase().includes(term))) ||
+            (availableLicenses.some(al => u.licenses?.includes(al.name) && (al.code?.toLowerCase().includes(term) || al.name.toLowerCase().includes(term))))
         );
-    }, [users, searchTerm]);
+    }, [users, searchTerm, availableLicenses]);
 
     const detectives = useMemo(() => filteredUsers.filter(u => ['Detective I', 'Detective II', 'Detective III'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
     const helpers = useMemo(() => filteredUsers.filter(u => ['Deputy Sheriff', 'Oficial I', 'Deputy Sheriff Bonus I', 'Oficial II', 'Deputy Sheriff Bonus II', 'Oficial III', 'Oficial III+'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
@@ -297,7 +305,8 @@ function Personnel() {
         setFormData({
             email: '', password: '', nombre: '', apellido: '', no_placa: '',
             rango: 'Oficial II', rol: 'Ayudante', rango_interno: 'Auxiliar de Investigación', fecha_ingreso: '', profile_image: '',
-            divisions: ['Detective Bureau']
+            divisions: ['Detective Bureau'],
+            licenses: []
         });
         setMessage(null);
         setShowModal(true);
@@ -318,7 +327,8 @@ function Personnel() {
             rango_interno: currentRank,
             fecha_ingreso: user.fecha_ingreso ? user.fecha_ingreso.split('T')[0] : '',
             profile_image: user.profile_image || '',
-            divisions: user.divisions || ['Detective Bureau']
+            divisions: user.divisions || ['Detective Bureau'],
+            licenses: getUserLicenses(user) || []
         });
         setMessage(null);
         setShowModal(true);
@@ -350,6 +360,7 @@ function Personnel() {
             }
 
             const selectedRank = formData.rango_interno || 'Auxiliar de Investigación';
+            const selectedLicenses = formData.licenses || [];
 
             if (modalMode === 'create') {
                 const { error } = await supabase.rpc('create_new_personnel', {
@@ -364,11 +375,28 @@ function Personnel() {
                     p_fecha_ultimo_ascenso: null,
                     p_profile_image: imageUrl || null,
                     p_divisions: formData.divisions,
-                    p_rango_interno: selectedRank
+                    p_rango_interno: selectedRank,
+                    p_licenses: selectedLicenses
                 });
-                if (error) throw error;
+                if (error) {
+                    const { error: fallbackErr } = await supabase.rpc('create_new_personnel', {
+                        p_email: formData.email,
+                        p_password: formData.password,
+                        p_nombre: formData.nombre,
+                        p_apellido: formData.apellido,
+                        p_no_placa: formData.no_placa,
+                        p_rango: formData.rango,
+                        p_rol: formData.rol,
+                        p_fecha_ingreso: formData.fecha_ingreso || null,
+                        p_fecha_ultimo_ascenso: null,
+                        p_profile_image: imageUrl || null,
+                        p_divisions: formData.divisions,
+                        p_rango_interno: selectedRank
+                    });
+                    if (fallbackErr) throw fallbackErr;
+                }
 
-                // Sync rango_interno
+                // Sync rango_interno & licenses
                 const { data: newUser } = await supabase
                     .from('users')
                     .select('id')
@@ -376,6 +404,7 @@ function Personnel() {
                     .single();
                 if (newUser) {
                     await setUserInternalRank(newUser.id, selectedRank);
+                    await updateUserLicenses(newUser.id, selectedLicenses);
                 }
 
                 setMessage({ type: 'success', text: '¡Personal añadido correctamente!' });
@@ -393,15 +422,34 @@ function Personnel() {
                     p_fecha_ultimo_ascenso: null,
                     p_profile_image: imageUrl || null,
                     p_divisions: formData.divisions,
-                    p_rango_interno: selectedRank
+                    p_rango_interno: selectedRank,
+                    p_licenses: selectedLicenses
                 });
-                if (error) throw error;
+                if (error) {
+                    const { error: fallbackErr } = await supabase.rpc('update_personnel_admin', {
+                        p_user_id: editingUserId,
+                        p_email: formData.email,
+                        p_password: formData.password || null,
+                        p_nombre: formData.nombre,
+                        p_apellido: formData.apellido,
+                        p_no_placa: formData.no_placa,
+                        p_rango: formData.rango,
+                        p_rol: formData.rol,
+                        p_fecha_ingreso: formData.fecha_ingreso || null,
+                        p_fecha_ultimo_ascenso: null,
+                        p_profile_image: imageUrl || null,
+                        p_divisions: formData.divisions,
+                        p_rango_interno: selectedRank
+                    });
+                    if (fallbackErr) throw fallbackErr;
+                }
 
-                // Sync rango_interno via helper
+                // Sync rango_interno & licenses via helpers
                 await setUserInternalRank(editingUserId, selectedRank);
+                await updateUserLicenses(editingUserId, selectedLicenses);
 
                 // Update local state immediately
-                setUsers(prev => prev.map(u => u.id === editingUserId ? { ...u, rango_interno: selectedRank } : u));
+                setUsers(prev => prev.map(u => u.id === editingUserId ? { ...u, rango_interno: selectedRank, licenses: selectedLicenses } : u));
 
                 setMessage({ type: 'success', text: '¡Personal actualizado correctamente!' });
             }
@@ -424,6 +472,7 @@ function Personnel() {
     const UserCard = ({ user }) => {
         const isOnline = onlineUsers.includes(user.id);
         const internalRank = getUserInternalRank(user);
+        const userLicenses = getUserLicenses(user);
 
         return (
             <div
@@ -567,6 +616,37 @@ function Personnel() {
                             })
                         )}
                     </div>
+
+                    {/* Agent Licenses Badges */}
+                    {userLicenses && userLicenses.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginTop: '3px' }}>
+                            {userLicenses.map(licName => {
+                                const lic = getLicenseDetails(licName, availableLicenses);
+                                const licColor = lic?.color || '#10b981';
+                                return (
+                                    <span
+                                        key={licName}
+                                        style={{
+                                            fontSize: '0.66rem',
+                                            fontWeight: 700,
+                                            padding: '1px 6px',
+                                            borderRadius: '6px',
+                                            background: `${licColor}22`,
+                                            color: licColor,
+                                            border: `1px solid ${licColor}55`,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '3px'
+                                        }}
+                                        title={lic?.description ? `${lic.name}: ${lic.description}` : lic?.name || licName}
+                                    >
+                                        <span>{lic?.icon || '🪪'}</span>
+                                        <span>{lic?.code || licName}</span>
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -1151,6 +1231,54 @@ function Personnel() {
                                             {divName}
                                         </label>
                                     ))}
+                                </div>
+                            </div>
+
+                            <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#6ee7b7', fontWeight: 700, marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <span>🪪</span>
+                                    <span>Licencias y Habilitaciones ({formData.licenses?.length || 0})</span>
+                                </label>
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                                    {availableLicenses.length === 0 ? (
+                                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>No hay licencias registradas en Coordinación.</span>
+                                    ) : (
+                                        availableLicenses.map(lic => {
+                                            const isChecked = formData.licenses?.includes(lic.name);
+                                            const licColor = lic.color || '#10b981';
+                                            return (
+                                                <button
+                                                    key={lic.name}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const newLics = isChecked
+                                                            ? formData.licenses.filter(l => l !== lic.name)
+                                                            : [...(formData.licenses || []), lic.name];
+                                                        setFormData({ ...formData, licenses: newLics });
+                                                    }}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        padding: '5px 10px',
+                                                        borderRadius: '8px',
+                                                        background: isChecked ? `${licColor}33` : 'rgba(255, 255, 255, 0.04)',
+                                                        border: isChecked ? `1px solid ${licColor}` : '1px solid rgba(255, 255, 255, 0.1)',
+                                                        color: isChecked ? '#ffffff' : '#94a3b8',
+                                                        fontSize: '0.8rem',
+                                                        fontWeight: isChecked ? 700 : 500,
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.15s'
+                                                    }}
+                                                    title={lic.description || lic.name}
+                                                >
+                                                    <span>{lic.icon || '🪪'}</span>
+                                                    <span>{lic.code ? `${lic.code} - ` : ''}{lic.name}</span>
+                                                    {isChecked && <span style={{ color: licColor, marginLeft: '2px', fontWeight: 800 }}>✓</span>}
+                                                </button>
+                                            );
+                                        })
+                                    )}
                                 </div>
                             </div>
 
