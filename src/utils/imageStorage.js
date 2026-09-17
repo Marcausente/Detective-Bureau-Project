@@ -220,3 +220,66 @@ export function stripBase64FromHtml(html) {
     if (!html || typeof html !== 'string') return html;
     return html.replace(/<img[^>]*src=["']data:image\/[^"']+["'][^>]*>/gi, '');
 }
+
+/**
+ * Uploads a document (PDF, DOC, DOCX, TXT, etc.) to Supabase Storage in the 'uploads' bucket.
+ * @param {File | Blob | Object} documentInput - File object or existing document object
+ * @param {string} folder - Destination folder (default 'documents')
+ * @returns {Promise<{name: string, url: string, size: number, type: string}>}
+ */
+export async function uploadDocumentToStorage(documentInput, folder = 'documents') {
+    if (!documentInput) return null;
+
+    // If already has an active URL, keep it
+    if (documentInput.url && typeof documentInput.url === 'string' && (documentInput.url.startsWith('http://') || documentInput.url.startsWith('https://') || documentInput.url.startsWith('/'))) {
+        return {
+            name: documentInput.name || 'documento.pdf',
+            url: documentInput.url,
+            size: documentInput.size || 0,
+            type: documentInput.type || 'application/pdf'
+        };
+    }
+
+    const fileToUpload = documentInput.file || documentInput;
+    if (!(fileToUpload instanceof Blob || fileToUpload instanceof File)) {
+        if (typeof documentInput === 'string' && (documentInput.startsWith('http') || documentInput.startsWith('/'))) {
+            return {
+                name: 'documento.pdf',
+                url: documentInput,
+                size: 0,
+                type: 'application/pdf'
+            };
+        }
+        return null;
+    }
+
+    const originalName = fileToUpload.name || documentInput.name || 'documento.pdf';
+    const cleanFileName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 7);
+    const storagePath = `${folder}/${timestamp}_${randomSuffix}_${cleanFileName}`;
+
+    const { data, error } = await supabase.storage
+        .from('uploads')
+        .upload(storagePath, fileToUpload, {
+            contentType: fileToUpload.type || 'application/pdf',
+            cacheControl: '31536000',
+            upsert: true
+        });
+
+    if (error) {
+        console.error('Supabase document upload failed:', error);
+        throw new Error(`Error al subir documento: ${error.message}. Asegúrate de que el bucket "uploads" esté configurado.`);
+    }
+
+    const { data: publicUrlData } = supabase.storage
+        .from('uploads')
+        .getPublicUrl(storagePath);
+
+    return {
+        name: originalName,
+        url: publicUrlData.publicUrl,
+        size: fileToUpload.size || 0,
+        type: fileToUpload.type || 'application/pdf'
+    };
+}

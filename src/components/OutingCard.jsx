@@ -203,6 +203,71 @@ function OutingCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
                 </div>
             )}
 
+            {data.documents && data.documents.length > 0 && (
+                <div style={{ marginTop: '0.65rem', marginBottom: '0.35rem' }}>
+                    <strong style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '0.35rem' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                        Documentos Adjuntos ({data.documents.length}):
+                    </strong>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                        {data.documents.map((doc, idx) => {
+                            const isPdf = (doc.name && doc.name.toLowerCase().endsWith('.pdf')) || (doc.type && doc.type.includes('pdf'));
+                            const sizeText = doc.size ? (doc.size < 1024 * 1024 ? `${(doc.size / 1024).toFixed(0)} KB` : `${(doc.size / (1024 * 1024)).toFixed(1)} MB`) : '';
+                            return (
+                                <a
+                                    key={idx}
+                                    href={doc.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={`Abrir ${doc.name || 'Documento'}`}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '4px 10px',
+                                        borderRadius: '8px',
+                                        background: isPdf ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.07)',
+                                        border: isPdf ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(255, 255, 255, 0.15)',
+                                        color: isPdf ? '#fca5a5' : '#e2e8f0',
+                                        textDecoration: 'none',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 600,
+                                        transition: 'all 0.2s ease',
+                                        maxWidth: '100%'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = isPdf ? 'rgba(239, 68, 68, 0.22)' : 'rgba(255, 255, 255, 0.14)';
+                                        e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = isPdf ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.07)';
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                >
+                                    <span style={{ fontSize: '0.9rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                    <span style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {doc.name || `Documento ${idx + 1}`}
+                                    </span>
+                                    {sizeText && (
+                                        <span style={{ fontSize: '0.68rem', opacity: 0.75, fontWeight: 'normal' }}>
+                                            ({sizeText})
+                                        </span>
+                                    )}
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
+                                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                        <polyline points="15 3 21 3 21 9" />
+                                        <line x1="10" y1="14" x2="21" y2="3" />
+                                    </svg>
+                                </a>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {data.images && data.images.length > 0 && (
                 <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginTop: '0.5rem' }}>
                     {data.images.map((src, i) => (
@@ -217,4 +282,5 @@ function OutingCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
 }
 
 export default OutingCard;
+
 

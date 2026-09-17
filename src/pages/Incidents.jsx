@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { uploadImageToStorage, processHtmlImages, getProfileImage, filterBucketImages, stripBase64FromHtml } from '../utils/imageStorage';
+import { uploadImageToStorage, uploadDocumentToStorage, processHtmlImages, getProfileImage, filterBucketImages, stripBase64FromHtml } from '../utils/imageStorage';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -55,6 +55,7 @@ function Incidents() {
     const [outInterrogationIds, setOutInterrogationIds] = useState([]); // Array of linked interrogation IDs
     const [outTag, setOutTag] = useState('');
     const [outImages, setOutImages] = useState([]);
+    const [outDocuments, setOutDocuments] = useState([]);
     // --- PAGINATION / LIMITS (20 ITEMS PER SECTION) ---
     const [visibleGeneralCount, setVisibleGeneralCount] = useState(20);
     const [visibleLinkedCount, setVisibleLinkedCount] = useState(20);
@@ -191,6 +192,7 @@ function Incidents() {
         const sanitizedOutings = (outData || []).map(out => ({
             ...out,
             images: filterBucketImages(out.images),
+            documents: Array.isArray(out.documents) ? out.documents : [],
             author_avatar: getProfileImage(out.author_avatar, '/logowebp/anon.webp'),
             info_obtained: stripBase64FromHtml(out.info_obtained),
             detectives: (out.detectives && Array.isArray(out.detectives))
@@ -258,6 +260,21 @@ function Incidents() {
                 };
             };
         });
+    };
+
+    const handleDocumentUpload = (e, setState) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        const newDocs = files.map(file => ({
+            file: file,
+            name: file.name,
+            size: file.size,
+            type: file.type || 'application/pdf',
+            isNew: true
+        }));
+        setState(prev => [...prev, ...newDocs]);
+        e.target.value = '';
     };
 
     // --- SUBMIT HANDLERS ---
@@ -340,6 +357,19 @@ function Incidents() {
                 );
             }
 
+            let uploadedDocuments = [];
+            if (outDocuments && outDocuments.length > 0) {
+                uploadedDocuments = await Promise.all(
+                    outDocuments.map(async (doc) => {
+                        if (doc.isNew && doc.file) {
+                            return await uploadDocumentToStorage(doc.file, 'documents');
+                        }
+                        return doc;
+                    })
+                );
+                uploadedDocuments = uploadedDocuments.filter(d => d && d.url);
+            }
+
             const finalInfo = await processHtmlImages(outInfo, 'incidents');
 
             const { data: newId, error } = await supabase.rpc('create_outing', {
@@ -349,7 +379,8 @@ function Incidents() {
                 p_info_obtained: finalInfo,
                 p_images: uploadedImages,
                 p_detective_ids: outDetectives,
-                p_tag: outTag || null
+                p_tag: outTag || null,
+                p_documents: uploadedDocuments
             });
             if (error) throw error;
 
@@ -552,6 +583,7 @@ function Incidents() {
             setOutReason(outing.reason || '');
             setOutInfo(outing.info_obtained || '');
             setOutImages(filterBucketImages(outing.images || []));
+            setOutDocuments(Array.isArray(outing.documents) ? outing.documents : []);
             setOutTag(outing.tag || '');
 
             // Setup detectives
@@ -598,6 +630,19 @@ function Incidents() {
                 );
             }
 
+            let uploadedDocuments = [];
+            if (outDocuments && outDocuments.length > 0) {
+                uploadedDocuments = await Promise.all(
+                    outDocuments.map(async (doc) => {
+                        if (doc.isNew && doc.file) {
+                            return await uploadDocumentToStorage(doc.file, 'documents');
+                        }
+                        return doc;
+                    })
+                );
+                uploadedDocuments = uploadedDocuments.filter(d => d && d.url);
+            }
+
             const finalInfo = await processHtmlImages(outInfo, 'incidents');
 
             const { error: updateError } = await supabase.rpc('update_outing', {
@@ -607,7 +652,8 @@ function Incidents() {
                 p_reason: outReason,
                 p_info_obtained: finalInfo,
                 p_images: uploadedImages,
-                p_tag: outTag || null
+                p_tag: outTag || null,
+                p_documents: uploadedDocuments
             });
             if (updateError) throw updateError;
 
@@ -681,7 +727,7 @@ function Incidents() {
         setIncTitle(''); setIncLocation(''); setIncDate(''); setIncTablet(''); setIncDesc(''); setIncGangIds([]); setIncInterrogationIds([]); setIncImages([]);
     };
     const resetOutingForm = () => {
-        setOutTitle(''); setOutDate(''); setOutDetectives([]); setOutReason(''); setOutInfo(''); setOutGangIds([]); setOutInterrogationIds([]); setOutImages([]); setOutTag('');
+        setOutTitle(''); setOutDate(''); setOutDetectives([]); setOutReason(''); setOutInfo(''); setOutGangIds([]); setOutInterrogationIds([]); setOutImages([]); setOutDocuments([]); setOutTag('');
     };
 
     const toggleGangIncident = (gangId) => {
@@ -1363,6 +1409,98 @@ function Incidents() {
                                     </div>
                                 </div>
 
+                                {/* Documents / PDFs Section */}
+                                <div className="form-group" style={{ marginTop: '0.75rem', padding: '0.85rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 600 }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span>📄</span> {t('documentsLabel') || 'Documentos / Archivos PDF (Opcional)'}
+                                        </span>
+                                        {outDocuments.length > 0 && (
+                                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{outDocuments.length} adjunto(s)</span>
+                                        )}
+                                    </label>
+
+                                    <label htmlFor="out-doc-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', textAlign: 'center', padding: '0.4rem 0.85rem', fontSize: '0.82rem' }}>
+                                        <span>📎</span> {t('uploadDocumentsBtn') || '+ Adjuntar PDF / Documento'}
+                                    </label>
+                                    <input
+                                        id="out-doc-upload"
+                                        type="file"
+                                        multiple
+                                        accept=".pdf,application/pdf,.doc,.docx,.txt"
+                                        onChange={(e) => handleDocumentUpload(e, setOutDocuments)}
+                                        style={{ display: 'none' }}
+                                    />
+
+                                    {outDocuments.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
+                                            {outDocuments.map((doc, i) => {
+                                                const isPdf = (doc.name && doc.name.toLowerCase().endsWith('.pdf')) || (doc.type && doc.type.includes('pdf'));
+                                                const sizeText = doc.size ? (doc.size < 1024 * 1024 ? `${(doc.size / 1024).toFixed(0)} KB` : `${(doc.size / (1024 * 1024)).toFixed(1)} MB`) : '';
+                                                return (
+                                                    <div
+                                                        key={i}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            padding: '6px 10px',
+                                                            background: 'rgba(0,0,0,0.35)',
+                                                            borderRadius: '6px',
+                                                            border: isPdf ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.1)',
+                                                            fontSize: '0.82rem'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, marginRight: '10px' }}>
+                                                            <span style={{ fontSize: '1rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                                            <span style={{ color: '#e2e8f0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.name}>
+                                                                {doc.name || `Documento ${i + 1}`}
+                                                            </span>
+                                                            {sizeText && (
+                                                                <span style={{ fontSize: '0.72rem', color: '#94a3b8', flexShrink: 0 }}>
+                                                                    ({sizeText})
+                                                                </span>
+                                                            )}
+                                                            {doc.url && (
+                                                                <a
+                                                                    href={doc.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    style={{ fontSize: '0.72rem', color: '#38bdf8', marginLeft: '4px', textDecoration: 'underline' }}
+                                                                    title="Abrir en nueva pestaña"
+                                                                >
+                                                                    Ver ↗
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setOutDocuments(prev => prev.filter((_, idx) => idx !== i))}
+                                                            style={{
+                                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                                color: '#f87171',
+                                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                                borderRadius: '4px',
+                                                                width: '22px',
+                                                                height: '22px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '12px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                flexShrink: 0
+                                                            }}
+                                                            title="Eliminar archivo"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
                                     <button type="button" className="login-button btn-secondary" onClick={() => setShowOutingModal(false)} style={{ width: 'auto' }}>{t('cancelBtn')}</button>
                                     <button type="submit" className="login-button" style={{ width: 'auto' }} disabled={submitting}>{submitting ? '...' : t('createBtn')}</button>
@@ -1467,6 +1605,98 @@ function Incidents() {
                                             </div>
                                         ))}
                                     </div>
+                                </div>
+
+                                {/* Documents / PDFs Section (Edit) */}
+                                <div className="form-group" style={{ marginTop: '0.75rem', padding: '0.85rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', fontWeight: 600 }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span>📄</span> {t('documentsLabel') || 'Documentos / Archivos PDF (Opcional)'}
+                                        </span>
+                                        {outDocuments.length > 0 && (
+                                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{outDocuments.length} adjunto(s)</span>
+                                        )}
+                                    </label>
+
+                                    <label htmlFor="out-edit-doc-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', textAlign: 'center', padding: '0.4rem 0.85rem', fontSize: '0.82rem' }}>
+                                        <span>📎</span> {t('uploadDocumentsBtn') || '+ Adjuntar PDF / Documento'}
+                                    </label>
+                                    <input
+                                        id="out-edit-doc-upload"
+                                        type="file"
+                                        multiple
+                                        accept=".pdf,application/pdf,.doc,.docx,.txt"
+                                        onChange={(e) => handleDocumentUpload(e, setOutDocuments)}
+                                        style={{ display: 'none' }}
+                                    />
+
+                                    {outDocuments.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
+                                            {outDocuments.map((doc, i) => {
+                                                const isPdf = (doc.name && doc.name.toLowerCase().endsWith('.pdf')) || (doc.type && doc.type.includes('pdf'));
+                                                const sizeText = doc.size ? (doc.size < 1024 * 1024 ? `${(doc.size / 1024).toFixed(0)} KB` : `${(doc.size / (1024 * 1024)).toFixed(1)} MB`) : '';
+                                                return (
+                                                    <div
+                                                        key={i}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            padding: '6px 10px',
+                                                            background: 'rgba(0,0,0,0.35)',
+                                                            borderRadius: '6px',
+                                                            border: isPdf ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.1)',
+                                                            fontSize: '0.82rem'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, marginRight: '10px' }}>
+                                                            <span style={{ fontSize: '1rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                                            <span style={{ color: '#e2e8f0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.name}>
+                                                                {doc.name || `Documento ${i + 1}`}
+                                                            </span>
+                                                            {sizeText && (
+                                                                <span style={{ fontSize: '0.72rem', color: '#94a3b8', flexShrink: 0 }}>
+                                                                    ({sizeText})
+                                                                </span>
+                                                            )}
+                                                            {doc.url && (
+                                                                <a
+                                                                    href={doc.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    style={{ fontSize: '0.72rem', color: '#38bdf8', marginLeft: '4px', textDecoration: 'underline' }}
+                                                                    title="Abrir en nueva pestaña"
+                                                                >
+                                                                    Ver ↗
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setOutDocuments(prev => prev.filter((_, idx) => idx !== i))}
+                                                            style={{
+                                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                                color: '#f87171',
+                                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                                borderRadius: '4px',
+                                                                width: '22px',
+                                                                height: '22px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '12px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                flexShrink: 0
+                                                            }}
+                                                            title="Eliminar archivo"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="cropper-actions" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>

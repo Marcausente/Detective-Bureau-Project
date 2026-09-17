@@ -399,6 +399,13 @@ export const translations = {
         tagFoxtrot: "FOXTROT",
         tagMike: "MIKE",
         tagFueraDeServicio: "FUERA DE SERVICIO",
+        documentsLabel: "Documents / PDF Files (Optional)",
+        uploadDocumentsBtn: "📄 Attach Documents (PDF)",
+        attachedDocuments: "Attached Documents",
+        noDocuments: "No attached documents",
+        openDocument: "Open Document",
+        downloadDocument: "Download",
+        removeDocument: "Remove Document",
 
         // Interrogations
         interrogationsLogTitle: "Interrogations Log",
@@ -973,6 +980,13 @@ export const translations = {
         tagFoxtrot: "FOXTROT",
         tagMike: "MIKE",
         tagFueraDeServicio: "FUERA DE SERVICIO",
+        documentsLabel: "Documentos / Archivos PDF (Opcional)",
+        uploadDocumentsBtn: "📄 Adjuntar Documentos (PDF)",
+        attachedDocuments: "Documentos Adjuntos",
+        noDocuments: "No hay documentos adjuntos",
+        openDocument: "Abrir Documento",
+        downloadDocument: "Descargar",
+        removeDocument: "Eliminar Documento",
 
         // Interrogations
         interrogationsLogTitle: "Registro de Interrogatorios",
