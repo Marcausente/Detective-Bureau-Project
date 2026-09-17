@@ -467,6 +467,7 @@ export default function CrimeMap() {
                     p_description: tempZoneData.description,
                     p_color: tempZoneData.color,
                     p_coordinates: drawingPoints,
+                    p_type: 'polygon',
                     p_is_gang_zone: tempZoneData.is_gang_zone,
                     p_emoji: tempZoneData.emoji,
                     p_is_surveillance: tempZoneData.is_surveillance,

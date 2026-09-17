@@ -1,13 +1,22 @@
--- Add is_surveillance column to map_zones
+-- Script para corregir la función create_map_zone y update_map_zone en Supabase
+-- Ejecuta este script en el SQL Editor de Supabase
+
+-- 1. Asegurar columnas en map_zones
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='map_zones' AND column_name='is_surveillance') THEN
         ALTER TABLE public.map_zones ADD COLUMN is_surveillance BOOLEAN DEFAULT false;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='map_zones' AND column_name='emoji') THEN
+        ALTER TABLE public.map_zones ADD COLUMN emoji TEXT DEFAULT NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='map_zones' AND column_name='is_gang_zone') THEN
+        ALTER TABLE public.map_zones ADD COLUMN is_gang_zone BOOLEAN DEFAULT false;
+    END IF;
 END
 $$;
 
--- Create helper function to check if user belongs to Gang Unit
+-- 2. Función auxiliar para membresía en Gang Unit
 CREATE OR REPLACE FUNCTION public.auth_is_gang_unit_member() RETURNS BOOLEAN AS $$
 DECLARE
     v_has_gu BOOLEAN;
@@ -19,19 +28,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Re-grant execute permission
 GRANT EXECUTE ON FUNCTION public.auth_is_gang_unit_member TO authenticated;
 
--- Recreate policies on map_zones
-DROP POLICY IF EXISTS "Auth can view zones" ON public.map_zones;
-CREATE POLICY "Auth can view zones" ON public.map_zones
-    FOR SELECT TO authenticated 
-    USING (
-        is_surveillance = false 
-        OR auth_is_gang_unit_member()
-    );
-
--- Drop old functions to avoid signature conflicts
+-- 3. Limpiar todas las firmas obsoletas de create_map_zone y update_map_zone
 DROP FUNCTION IF EXISTS public.create_map_zone(text, text, jsonb, text);
 DROP FUNCTION IF EXISTS public.create_map_zone(text, text, jsonb, text, uuid, uuid, text);
 DROP FUNCTION IF EXISTS public.create_map_zone(text, text, jsonb, text, uuid, uuid, uuid, text);
@@ -45,10 +44,11 @@ DROP FUNCTION IF EXISTS public.update_map_zone(uuid, text, text, uuid, uuid, uui
 DROP FUNCTION IF EXISTS public.update_map_zone(uuid, text, text, uuid, uuid, uuid, text, boolean);
 DROP FUNCTION IF EXISTS public.update_map_zone(uuid, text, text, uuid, uuid, uuid, text, boolean, text);
 DROP FUNCTION IF EXISTS public.update_map_zone(uuid, text, text, uuid, uuid, uuid, text, boolean, text, boolean);
+
 DROP FUNCTION IF EXISTS public.get_map_zones();
 DROP FUNCTION IF EXISTS public.get_public_gang_zones();
 
--- Re-create create_map_zone (add p_is_surveillance with default p_type)
+-- 4. Recrear create_map_zone con valores por defecto
 CREATE OR REPLACE FUNCTION public.create_map_zone(
     p_name TEXT,
     p_description TEXT,
@@ -67,7 +67,7 @@ DECLARE
 BEGIN
     IF NOT auth_is_gang_authorized() THEN RAISE EXCEPTION 'Access Denied'; END IF;
     
-    -- Check if trying to create a surveillance zone and has no GU division
+    -- Verificar si es zona de vigilancia y tiene división Gang Unit
     IF p_is_surveillance AND NOT auth_is_gang_unit_member() THEN
         RAISE EXCEPTION 'Access Denied: Gang Unit division required to create surveillance zones';
     END IF;
@@ -80,7 +80,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Re-create update_map_zone (add p_is_surveillance)
+-- 5. Recrear update_map_zone con valores por defecto
 CREATE OR REPLACE FUNCTION public.update_map_zone(
     p_id UUID,
     p_name TEXT,
@@ -96,7 +96,7 @@ CREATE OR REPLACE FUNCTION public.update_map_zone(
 BEGIN
     IF NOT auth_is_gang_authorized() THEN RAISE EXCEPTION 'Access Denied'; END IF;
 
-    -- Check if it's already a surveillance zone or is being updated to one
+    -- Verificar si ya es o pasará a ser zona de vigilancia
     IF (COALESCE(p_is_surveillance, false) OR EXISTS (SELECT 1 FROM public.map_zones WHERE id = p_id AND is_surveillance = true)) 
        AND NOT auth_is_gang_unit_member() THEN
         RAISE EXCEPTION 'Access Denied: Gang Unit division required for surveillance zones';
@@ -117,7 +117,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Re-create get_map_zones (include is_surveillance and filtering)
+-- 6. Recrear get_map_zones
 CREATE OR REPLACE FUNCTION public.get_map_zones()
 RETURNS TABLE (
     id UUID,
@@ -165,7 +165,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Re-create get_public_gang_zones
+-- 7. Recrear get_public_gang_zones
 CREATE OR REPLACE FUNCTION public.get_public_gang_zones()
 RETURNS TABLE (
     name TEXT,
@@ -189,7 +189,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Re-grant execute permissions
+-- 8. Asignar permisos de ejecución
 GRANT EXECUTE ON FUNCTION public.create_map_zone TO authenticated;
 GRANT EXECUTE ON FUNCTION public.update_map_zone TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_map_zones TO authenticated;
