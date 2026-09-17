@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { uploadImageToStorage } from '../utils/imageStorage';
@@ -8,6 +8,18 @@ import '../index.css';
 function PublicIADenuncia() {
     const navigate = useNavigate();
     const { isLSSD } = useTheme();
+
+    // Ensure body allows scroll when this page is open
+    useEffect(() => {
+        const prevOverflowY = document.body.style.overflowY;
+        const prevHeight = document.body.style.height;
+        document.body.style.overflowY = 'auto';
+        document.body.style.height = 'auto';
+        return () => {
+            document.body.style.overflowY = prevOverflowY;
+            document.body.style.height = prevHeight;
+        };
+    }, []);
 
     // Form fields
     const [nombreDenunciante, setNombreDenunciante] = useState('');
@@ -144,6 +156,8 @@ function PublicIADenuncia() {
             if (error) throw error;
 
             setSubmitted(true);
+            const container = document.getElementById('public-denuncia-scroll-container');
+            if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (err) {
             console.error("Error al enviar denuncia:", err);
@@ -165,6 +179,8 @@ function PublicIADenuncia() {
         setImagenBase64('');
         setSubmitted(false);
         setErrorMsg('');
+        const container = document.getElementById('public-denuncia-scroll-container');
+        if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -175,13 +191,25 @@ function PublicIADenuncia() {
     const brandBadgeBorder = isLSSD ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)';
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            width: '100%',
-            backgroundColor: '#0b0f17',
-            color: '#f1f5f9',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
-        }}>
+        <div 
+            id="public-denuncia-scroll-container"
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: '100vw',
+                height: '100vh',
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                WebkitOverflowScrolling: 'touch',
+                backgroundColor: '#0b0f17',
+                color: '#f1f5f9',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                zIndex: 10
+            }}
+        >
             {/* Top Navigation Bar */}
             <header style={{
                 position: 'sticky',
