@@ -25,12 +25,56 @@ function PublicIADenuncia() {
     const [errorMsg, setErrorMsg] = useState('');
 
     const MOTIVOS_PREDEFINIDOS = [
-        { id: 'Abuso de autoridad', label: 'Abuso de Autoridad', icon: '🚫', desc: 'Uso indebido del poder policial' },
-        { id: 'Uso excesivo de fuerza', label: 'Uso Excesivo de Fuerza', icon: '⚡', desc: 'Fuerza desmedida o injustificada' },
-        { id: 'Corrupción / Soborno', label: 'Corrupción / Soborno', icon: '💵', desc: 'Cohecho, dádivas o extorsión' },
-        { id: 'Falta de ética / Profesionalismo', label: 'Falta de Ética', icon: '📋', desc: 'Conducta inapropiada en servicio' },
-        { id: 'Otro', label: 'Otro Motivo', icon: '✏️', desc: 'Especificar circunstancias particulares' }
+        { id: 'Abuso de autoridad', label: 'Abuso de Autoridad', desc: 'Uso indebido del poder policial o intimidación', iconType: 'authority' },
+        { id: 'Uso excesivo de fuerza', label: 'Uso Excesivo de Fuerza', desc: 'Fuerza física desmedida o injustificada', iconType: 'force' },
+        { id: 'Corrupción / Soborno', label: 'Corrupción / Soborno', desc: 'Cohecho, dádivas, extorsión o favores ilícitos', iconType: 'corruption' },
+        { id: 'Falta de ética / Profesionalismo', label: 'Falta de Ética', desc: 'Conducta indebida, trato despectivo o negligencia', iconType: 'ethics' },
+        { id: 'Otro', label: 'Otro Motivo', desc: 'Especificar circunstancias particulares del incidente', iconType: 'other' }
     ];
+
+    const renderMotivoIcon = (type, color = 'currentColor', size = 18) => {
+        switch (type) {
+            case 'authority':
+                return (
+                    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                );
+            case 'force':
+                return (
+                    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                    </svg>
+                );
+            case 'corruption':
+                return (
+                    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="1" x2="12" y2="23" />
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>
+                );
+            case 'ethics':
+                return (
+                    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                    </svg>
+                );
+            case 'other':
+            default:
+                return (
+                    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                );
+        }
+    };
 
     const handleImageUpload = (e) => {
         const file = e.target.files[0];
@@ -78,7 +122,6 @@ function PublicIADenuncia() {
                 uploadedImageUrl = imagenBase64;
             }
 
-            // Combine video link and uploaded image URL into a unified pruebas text
             let finalPruebas = '';
             if (enlacePrueba && uploadedImageUrl) {
                 finalPruebas = `Enlace: ${enlacePrueba}\nImagen adjunta: ${uploadedImageUrl}`;
@@ -89,21 +132,22 @@ function PublicIADenuncia() {
             }
 
             const { error } = await supabase.from('ia_complaints').insert({
-                denunciante_nombre: nombreDenunciante,
-                denunciante_telefono: telefonoDenunciante,
-                denunciado_nombre_placa: denunciadoNombrePlaca,
+                denunciante_nombre: nombreDenunciante.trim(),
+                denunciante_telefono: telefonoDenunciante.trim(),
+                denunciado_nombre_placa: denunciadoNombrePlaca.trim(),
                 fecha_hechos: fechaHechos,
                 motivo: finalMotivo,
-                declaracion: declaracion,
+                declaracion: declaracion.trim(),
                 pruebas: finalPruebas || null
             });
 
             if (error) throw error;
 
             setSubmitted(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (err) {
             console.error("Error al enviar denuncia:", err);
-            setErrorMsg(err.message || "Ocurrió un error inesperado al enviar el formulario.");
+            setErrorMsg(err.message || "Ocurrió un error al enviar el formulario.");
         } finally {
             setSubmitting(false);
         }
@@ -121,121 +165,81 @@ function PublicIADenuncia() {
         setImagenBase64('');
         setSubmitted(false);
         setErrorMsg('');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Theme Color Tokens
-    const primaryAccent = isLSSD ? '#34d399' : '#f43f5e';
-    const primaryAccentGlow = isLSSD ? 'rgba(52, 211, 153, 0.35)' : 'rgba(244, 63, 94, 0.35)';
-    const primaryAccentBg = isLSSD ? 'rgba(52, 211, 153, 0.12)' : 'rgba(244, 63, 94, 0.12)';
-    const primaryAccentBorder = isLSSD ? 'rgba(52, 211, 153, 0.3)' : 'rgba(244, 63, 94, 0.3)';
+    // Color tokens
+    const brandColor = isLSSD ? '#10b981' : '#3b82f6';
+    const brandColorDark = isLSSD ? '#059669' : '#2563eb';
+    const brandBadgeBg = isLSSD ? 'rgba(16, 185, 129, 0.12)' : 'rgba(59, 130, 246, 0.12)';
+    const brandBadgeBorder = isLSSD ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)';
 
     return (
-        <div 
-            style={{ 
-                minHeight: '100vh',
-                width: '100vw',
-                overflowX: 'hidden',
-                overflowY: 'auto',
+        <div style={{
+            minHeight: '100vh',
+            width: '100%',
+            backgroundColor: '#0b0f17',
+            color: '#f1f5f9',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+        }}>
+            {/* Top Navigation Bar */}
+            <header style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 50,
+                backgroundColor: '#101622',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                padding: '0.85rem 1.5rem',
                 display: 'flex',
-                flexDirection: 'column',
-                background: isLSSD 
-                    ? 'radial-gradient(ellipse at 50% 10%, rgba(16, 185, 129, 0.15) 0%, rgba(10, 15, 13, 0.98) 70%), #070d0a' 
-                    : 'radial-gradient(ellipse at 50% 10%, rgba(225, 29, 72, 0.15) 0%, rgba(15, 23, 42, 0.98) 70%), #090d16',
-                color: '#f8fafc',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif'
-            }}
-        >
-            {/* Ambient Background Decorative Grid */}
-            <div 
-                style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)',
-                    backgroundSize: '40px 40px',
-                    pointerEvents: 'none',
-                    zIndex: 0
-                }}
-            />
-
-            {/* Apple macOS Top Bar Navigation */}
-            <header 
-                style={{
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 50,
-                    backdropFilter: 'blur(25px)',
-                    WebkitBackdropFilter: 'blur(25px)',
-                    backgroundColor: isLSSD ? 'rgba(10, 20, 14, 0.75)' : 'rgba(15, 23, 42, 0.75)',
-                    borderBottom: `1px solid ${primaryAccentBorder}`,
-                    padding: '0.85rem 2rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    boxShadow: '0 4px 30px rgba(0, 0, 0, 0.4)'
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <img 
-                        src={isLSSD ? "/logowebp/IALSSD.webp" : "/logowebp/ialogo.webp"} 
-                        alt="IA Logo" 
-                        style={{
-                            width: '42px',
-                            height: '42px',
-                            objectFit: 'contain',
-                            filter: `drop-shadow(0 0 12px ${primaryAccentGlow})`
-                        }} 
+                alignItems: 'center',
+                justifyContent: 'space-between'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                    <img
+                        src={isLSSD ? "/logowebp/IALSSD.webp" : "/logowebp/ialogo.webp"}
+                        alt="Logo"
+                        style={{ width: '38px', height: '38px', objectFit: 'contain' }}
                     />
                     <div>
-                        <div style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '0.05em', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {isLSSD ? "LOS SANTOS COUNTY SHERIFF" : "ASUNTOS INTERNOS"}
-                            <span style={{ 
-                                fontSize: '0.68rem', 
-                                padding: '2px 8px', 
-                                borderRadius: '12px', 
-                                background: primaryAccentBg, 
-                                color: primaryAccent, 
-                                border: `1px solid ${primaryAccentBorder}`,
+                            <span style={{
+                                fontSize: '0.65rem',
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                background: brandBadgeBg,
+                                color: brandColor,
+                                border: `1px solid ${brandBadgeBorder}`,
                                 fontWeight: 700,
                                 letterSpacing: '0.04em'
                             }}>
                                 OFICIAL
                             </span>
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#94a3b8', letterSpacing: '0.06em', fontWeight: 500 }}>
-                            PORTAL DE DENUNCIAS Y RECLAMACIONES CIUDADANAS
+                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', letterSpacing: '0.03em' }}>
+                            Buzón Ciudadano de Quejas y Denuncias
                         </div>
                     </div>
                 </div>
 
-                {/* Return button */}
                 <button
                     onClick={() => navigate('/')}
                     style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
-                        padding: '0.45rem 1rem',
-                        borderRadius: '9999px',
-                        background: 'rgba(255, 255, 255, 0.06)',
-                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                        color: '#e2e8f0',
+                        padding: '0.45rem 0.9rem',
+                        borderRadius: '8px',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: '#cbd5e1',
                         fontSize: '0.82rem',
-                        fontWeight: 600,
+                        fontWeight: 500,
                         cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        backdropFilter: 'blur(10px)'
+                        transition: 'background 0.15s ease'
                     }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
-                        e.currentTarget.style.transform = 'translateY(-1px)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
                 >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M19 12H5M12 19l-7-7 7-7" />
@@ -244,108 +248,92 @@ function PublicIADenuncia() {
                 </button>
             </header>
 
-            {/* Main Content Area */}
-            <main style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2.5rem 1.25rem 4rem 1.25rem' }}>
+            {/* Content Area */}
+            <div style={{
+                maxWidth: '780px',
+                margin: '0 auto',
+                padding: '2.5rem 1.25rem 6rem 1.25rem'
+            }}>
                 {submitted ? (
-                    /* SUCCESS SCREEN (APPLE CONFIRMATION CARD) */
-                    <div 
-                        style={{
-                            maxWidth: '620px',
-                            width: '100%',
-                            background: 'rgba(15, 23, 42, 0.85)',
-                            backdropFilter: 'blur(30px)',
-                            WebkitBackdropFilter: 'blur(30px)',
-                            border: `1px solid ${isLSSD ? 'rgba(52, 211, 153, 0.4)' : 'rgba(52, 211, 153, 0.4)'}`,
-                            borderRadius: '24px',
-                            padding: '3rem 2.5rem',
-                            textAlign: 'center',
-                            boxShadow: '0 30px 70px rgba(0, 0, 0, 0.6), 0 0 40px rgba(52, 211, 153, 0.15)',
-                            animation: 'fadeIn 0.4s ease-out'
-                        }}
-                    >
-                        {/* macOS Window Dots */}
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '2rem' }}>
-                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f56' }} />
-                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ffbd2e' }} />
-                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#27c93f' }} />
+                    /* SUCCESS CONFIRMATION PANEL */
+                    <div style={{
+                        background: '#131926',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '16px',
+                        padding: '3rem 2rem',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '50%',
+                            background: 'rgba(16, 185, 129, 0.12)',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto 1.5rem auto',
+                            color: '#10b981'
+                        }}>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
                         </div>
 
-                        {/* Animated Glowing Icon */}
-                        <div 
-                            style={{
-                                width: '80px',
-                                height: '80px',
-                                borderRadius: '50%',
-                                background: 'radial-gradient(circle, rgba(52, 211, 153, 0.25) 0%, rgba(52, 211, 153, 0.05) 70%)',
-                                border: '2px solid #34d399',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                margin: '0 auto 1.5rem auto',
-                                color: '#34d399',
-                                fontSize: '2.5rem',
-                                boxShadow: '0 0 30px rgba(52, 211, 153, 0.35)'
-                            }}
-                        >
-                            ✓
-                        </div>
-
-                        <h2 style={{ fontSize: '1.85rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: '0.75rem' }}>
+                        <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.75rem' }}>
                             Denuncia Registrada con Éxito
                         </h2>
 
-                        <p style={{ color: '#94a3b8', fontSize: '0.98rem', lineHeight: '1.65', marginBottom: '1.75rem' }}>
-                            Su reporte ha sido transferido de forma segura al buzón directo de la división de <strong style={{ color: '#ffffff' }}>Asuntos Internos</strong>. Todos los datos, declaraciones y evidencias aportadas quedan bajo el protocolo de máxima confidencialidad.
+                        <p style={{ color: '#94a3b8', fontSize: '0.92rem', lineHeight: '1.6', maxWidth: '540px', margin: '0 auto 1.75rem auto' }}>
+                            Su reporte ha sido recibido de forma confidencial por la división de Asuntos Internos. Un oficial instructor analizará los hechos y pruebas aportadas.
                         </p>
 
-                        <div 
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '0.6rem 1.2rem',
-                                borderRadius: '12px',
-                                background: 'rgba(52, 211, 153, 0.08)',
-                                border: '1px solid rgba(52, 211, 153, 0.25)',
-                                color: '#a7f3d0',
-                                fontSize: '0.85rem',
-                                fontWeight: 600,
-                                marginBottom: '2.25rem'
-                            }}
-                        >
-                            <span>🔒</span> Transmisión Cifrada AES-256 de Extremo a Extremo
+                        <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '8px',
+                            background: 'rgba(255, 255, 255, 0.03)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            color: '#cbd5e1',
+                            fontSize: '0.8rem',
+                            marginBottom: '2rem'
+                        }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
+                            <span>Protocolo de Confidencialidad y Protección Activo</span>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                            <button 
-                                onClick={handleReset} 
+                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <button
+                                onClick={handleReset}
                                 style={{
-                                    padding: '0.75rem 1.5rem',
-                                    borderRadius: '12px',
-                                    background: isLSSD ? '#10b981' : '#f43f5e',
+                                    padding: '0.65rem 1.25rem',
+                                    borderRadius: '8px',
+                                    background: brandColor,
                                     color: '#ffffff',
                                     border: 'none',
-                                    fontSize: '0.92rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    boxShadow: `0 8px 20px ${primaryAccentGlow}`
+                                    fontSize: '0.88rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
                                 }}
                             >
-                                + Enviar Otra Denuncia
+                                Enviar Otra Denuncia
                             </button>
-                            <button 
-                                onClick={() => navigate('/')} 
+                            <button
+                                onClick={() => navigate('/')}
                                 style={{
-                                    padding: '0.75rem 1.5rem',
-                                    borderRadius: '12px',
-                                    background: 'rgba(255, 255, 255, 0.08)',
-                                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                                    color: '#e2e8f0',
-                                    fontSize: '0.92rem',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
+                                    padding: '0.65rem 1.25rem',
+                                    borderRadius: '8px',
+                                    background: 'rgba(255, 255, 255, 0.06)',
+                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                    color: '#cbd5e1',
+                                    fontSize: '0.88rem',
+                                    fontWeight: 500,
+                                    cursor: 'pointer'
                                 }}
                             >
                                 Volver al Menú Principal
@@ -353,112 +341,71 @@ function PublicIADenuncia() {
                         </div>
                     </div>
                 ) : (
-                    /* MAIN APPLE-STYLED COMPLAINT FORM */
-                    <div 
-                        style={{ 
-                            maxWidth: '820px', 
-                            width: '100%', 
-                            background: 'rgba(15, 23, 42, 0.82)',
-                            backdropFilter: 'blur(30px)',
-                            WebkitBackdropFilter: 'blur(30px)',
-                            border: `1px solid ${isLSSD ? 'rgba(52, 211, 153, 0.25)' : 'rgba(255, 255, 255, 0.12)'}`,
-                            borderRadius: '24px',
-                            padding: '2.5rem',
-                            boxShadow: '0 30px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255,255,255,0.05)'
-                        }}
-                    >
-                        {/* macOS Window Header */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '1.25rem', marginBottom: '2rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }} />
-                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }} />
-                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }} />
+                    /* MAIN FORM */
+                    <div style={{
+                        background: '#131926',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '16px',
+                        padding: '2rem'
+                    }}>
+                        {/* Header description */}
+                        <div style={{ marginBottom: '2rem', borderBottom: '1px solid rgba(255, 255, 255, 0.06)', paddingBottom: '1.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: brandColor, fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                </svg>
+                                <span>Formulario de Denuncia Disciplinaria</span>
                             </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600 }}>
-                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: primaryAccent, boxShadow: `0 0 8px ${primaryAccent}` }} />
-                                Canal de Recepción Seguro
-                            </div>
-                        </div>
-
-                        {/* Form Title & Subtitle */}
-                        <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-                            <div style={{
-                                width: '56px',
-                                height: '56px',
-                                borderRadius: '16px',
-                                background: primaryAccentBg,
-                                border: `1px solid ${primaryAccentBorder}`,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '1.75rem',
-                                margin: '0 auto 1rem auto',
-                                boxShadow: `0 8px 25px ${primaryAccentGlow}`
-                            }}>
-                                ⚖️
-                            </div>
-                            <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', margin: '0 0 0.5rem 0' }}>
-                                Formulario Oficial de Denuncias
-                            </h2>
-                            <p style={{ color: '#94a3b8', fontSize: '0.92rem', margin: '0 auto', maxWidth: '600px', lineHeight: '1.55' }}>
-                                Complete los siguientes campos para formular una queja o denuncia disciplinaria contra cualquier funcionario u oficial del departamento.
+                            <h1 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#ffffff', margin: '0 0 0.5rem 0' }}>
+                                Registro de Denuncia Ciudadana
+                            </h1>
+                            <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: 0, lineHeight: '1.5' }}>
+                                Rellene los campos con los datos precisos sobre los hechos ocurridos. Todos los envíos son procesados de forma reservada.
                             </p>
                         </div>
 
-                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
                             
-                            {/* SECTION 1: DATOS DEL DENUNCIANTE */}
+                            {/* SECCIÓN 1: DATOS DEL DENUNCIANTE */}
                             <div style={{
-                                background: 'rgba(255, 255, 255, 0.025)',
-                                border: '1px solid rgba(255, 255, 255, 0.06)',
-                                borderRadius: '16px',
-                                padding: '1.5rem'
+                                background: '#0e1420',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                borderRadius: '12px',
+                                padding: '1.25rem'
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: primaryAccent, background: primaryAccentBg, padding: '2px 8px', borderRadius: '6px', border: `1px solid ${primaryAccentBorder}` }}>01</span>
-                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#ffffff' }}>Información del Denunciante</h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: brandColor, background: brandBadgeBg, padding: '2px 6px', borderRadius: '4px', border: `1px solid ${brandBadgeBorder}` }}>1</span>
+                                    <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#ffffff' }}>Datos del Denunciante</h2>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#cbd5e1', marginBottom: '0.35rem' }}>
                                             Nombre Completo *
                                         </label>
-                                        <div style={{ position: 'relative' }}>
-                                            <input
-                                                type="text"
-                                                required
-                                                placeholder="Ej: Johnathan Doe"
-                                                value={nombreDenunciante}
-                                                onChange={(e) => setNombreDenunciante(e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    boxSizing: 'border-box',
-                                                    padding: '0.75rem 0.9rem',
-                                                    background: 'rgba(0, 0, 0, 0.4)',
-                                                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                                                    borderRadius: '10px',
-                                                    color: '#ffffff',
-                                                    fontSize: '0.9rem',
-                                                    outline: 'none',
-                                                    transition: 'all 0.2s ease'
-                                                }}
-                                                onFocus={(e) => {
-                                                    e.target.style.borderColor = primaryAccent;
-                                                    e.target.style.boxShadow = `0 0 0 3px ${primaryAccentGlow}`;
-                                                }}
-                                                onBlur={(e) => {
-                                                    e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                                                    e.target.style.boxShadow = 'none';
-                                                }}
-                                            />
-                                        </div>
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="Ej: John Doe"
+                                            value={nombreDenunciante}
+                                            onChange={(e) => setNombreDenunciante(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                boxSizing: 'border-box',
+                                                padding: '0.65rem 0.8rem',
+                                                background: '#141c2c',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '8px',
+                                                color: '#ffffff',
+                                                fontSize: '0.88rem',
+                                                outline: 'none'
+                                            }}
+                                        />
                                     </div>
 
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
-                                            Nº Teléfono de Contacto *
+                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                                            Teléfono de Contacto *
                                         </label>
                                         <input
                                             type="text"
@@ -469,44 +416,35 @@ function PublicIADenuncia() {
                                             style={{
                                                 width: '100%',
                                                 boxSizing: 'border-box',
-                                                padding: '0.75rem 0.9rem',
-                                                background: 'rgba(0, 0, 0, 0.4)',
-                                                border: '1px solid rgba(255, 255, 255, 0.12)',
-                                                borderRadius: '10px',
+                                                padding: '0.65rem 0.8rem',
+                                                background: '#141c2c',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '8px',
                                                 color: '#ffffff',
-                                                fontSize: '0.9rem',
-                                                outline: 'none',
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                            onFocus={(e) => {
-                                                e.target.style.borderColor = primaryAccent;
-                                                e.target.style.boxShadow = `0 0 0 3px ${primaryAccentGlow}`;
-                                            }}
-                                            onBlur={(e) => {
-                                                e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                                                e.target.style.boxShadow = 'none';
+                                                fontSize: '0.88rem',
+                                                outline: 'none'
                                             }}
                                         />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* SECTION 2: DATOS DEL OFICIAL DENUNCIADO */}
+                            {/* SECCIÓN 2: DATOS DEL OFICIAL DENUNCIADO */}
                             <div style={{
-                                background: 'rgba(255, 255, 255, 0.025)',
-                                border: '1px solid rgba(255, 255, 255, 0.06)',
-                                borderRadius: '16px',
-                                padding: '1.5rem'
+                                background: '#0e1420',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                borderRadius: '12px',
+                                padding: '1.25rem'
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: primaryAccent, background: primaryAccentBg, padding: '2px 8px', borderRadius: '6px', border: `1px solid ${primaryAccentBorder}` }}>02</span>
-                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#ffffff' }}>Oficial o Personal Involucrado</h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: brandColor, background: brandBadgeBg, padding: '2px 6px', borderRadius: '4px', border: `1px solid ${brandBadgeBorder}` }}>2</span>
+                                    <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#ffffff' }}>Oficial o Agente Involucrado</h2>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
-                                            Nombre / Nº Placa del Denunciado *
+                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                                            Nombre y/o Placa del Denunciado *
                                         </label>
                                         <input
                                             type="text"
@@ -517,29 +455,20 @@ function PublicIADenuncia() {
                                             style={{
                                                 width: '100%',
                                                 boxSizing: 'border-box',
-                                                padding: '0.75rem 0.9rem',
-                                                background: 'rgba(0, 0, 0, 0.4)',
-                                                border: '1px solid rgba(255, 255, 255, 0.12)',
-                                                borderRadius: '10px',
+                                                padding: '0.65rem 0.8rem',
+                                                background: '#141c2c',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '8px',
                                                 color: '#ffffff',
-                                                fontSize: '0.9rem',
-                                                outline: 'none',
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                            onFocus={(e) => {
-                                                e.target.style.borderColor = primaryAccent;
-                                                e.target.style.boxShadow = `0 0 0 3px ${primaryAccentGlow}`;
-                                            }}
-                                            onBlur={(e) => {
-                                                e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                                                e.target.style.boxShadow = 'none';
+                                                fontSize: '0.88rem',
+                                                outline: 'none'
                                             }}
                                         />
                                     </div>
 
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
-                                            Fecha y Hora Aproximada de los Hechos *
+                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                                            Fecha del Incidente *
                                         </label>
                                         <input
                                             type="date"
@@ -549,42 +478,33 @@ function PublicIADenuncia() {
                                             style={{
                                                 width: '100%',
                                                 boxSizing: 'border-box',
-                                                padding: '0.75rem 0.9rem',
-                                                background: 'rgba(0, 0, 0, 0.4)',
-                                                border: '1px solid rgba(255, 255, 255, 0.12)',
-                                                borderRadius: '10px',
+                                                padding: '0.65rem 0.8rem',
+                                                background: '#141c2c',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '8px',
                                                 color: '#ffffff',
-                                                fontSize: '0.9rem',
+                                                fontSize: '0.88rem',
                                                 outline: 'none',
-                                                transition: 'all 0.2s ease',
                                                 colorScheme: 'dark'
-                                            }}
-                                            onFocus={(e) => {
-                                                e.target.style.borderColor = primaryAccent;
-                                                e.target.style.boxShadow = `0 0 0 3px ${primaryAccentGlow}`;
-                                            }}
-                                            onBlur={(e) => {
-                                                e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                                                e.target.style.boxShadow = 'none';
                                             }}
                                         />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* SECTION 3: MOTIVO PRINCIPAL (APPLE SELECTOR CHIPS) */}
+                            {/* SECCIÓN 3: MOTIVO PRINCIPAL */}
                             <div style={{
-                                background: 'rgba(255, 255, 255, 0.025)',
-                                border: '1px solid rgba(255, 255, 255, 0.06)',
-                                borderRadius: '16px',
-                                padding: '1.5rem'
+                                background: '#0e1420',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                borderRadius: '12px',
+                                padding: '1.25rem'
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: primaryAccent, background: primaryAccentBg, padding: '2px 8px', borderRadius: '6px', border: `1px solid ${primaryAccentBorder}` }}>03</span>
-                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#ffffff' }}>Tipificación de la Infracción *</h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: brandColor, background: brandBadgeBg, padding: '2px 6px', borderRadius: '4px', border: `1px solid ${brandBadgeBorder}` }}>3</span>
+                                    <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#ffffff' }}>Tipo de Falta / Motivo *</h2>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem', marginBottom: motivoSelect === 'Otro' ? '1rem' : 0 }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.65rem' }}>
                                     {MOTIVOS_PREDEFINIDOS.map((item) => {
                                         const isSelected = motivoSelect === item.id;
                                         return (
@@ -592,28 +512,23 @@ function PublicIADenuncia() {
                                                 key={item.id}
                                                 onClick={() => setMotivoSelect(item.id)}
                                                 style={{
-                                                    padding: '0.85rem 1rem',
-                                                    borderRadius: '12px',
-                                                    background: isSelected ? primaryAccentBg : 'rgba(0, 0, 0, 0.3)',
-                                                    border: isSelected ? `1.5px solid ${primaryAccent}` : '1px solid rgba(255, 255, 255, 0.08)',
+                                                    padding: '0.75rem 0.85rem',
+                                                    borderRadius: '8px',
+                                                    background: isSelected ? 'rgba(59, 130, 246, 0.08)' : '#141c2c',
+                                                    border: isSelected ? `1.5px solid ${brandColor}` : '1px solid rgba(255, 255, 255, 0.08)',
                                                     cursor: 'pointer',
-                                                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                    boxShadow: isSelected ? `0 4px 15px ${primaryAccentGlow}` : 'none'
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    if (!isSelected) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    if (!isSelected) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                                                    transition: 'all 0.15s ease'
                                                 }}
                                             >
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.2rem' }}>
-                                                    <span style={{ fontSize: '1.1rem' }}>{item.icon}</span>
-                                                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: isSelected ? '#ffffff' : '#e2e8f0' }}>
+                                                    <span style={{ color: isSelected ? brandColor : '#94a3b8', display: 'flex', alignItems: 'center' }}>
+                                                        {renderMotivoIcon(item.iconType, isSelected ? brandColor : '#94a3b8', 16)}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.84rem', fontWeight: 600, color: isSelected ? '#ffffff' : '#e2e8f0' }}>
                                                         {item.label}
                                                     </span>
                                                 </div>
-                                                <div style={{ fontSize: '0.74rem', color: isSelected ? primaryAccent : '#94a3b8' }}>
+                                                <div style={{ fontSize: '0.72rem', color: isSelected ? '#93c5fd' : '#64748b' }}>
                                                     {item.desc}
                                                 </div>
                                             </div>
@@ -623,157 +538,122 @@ function PublicIADenuncia() {
 
                                 {motivoSelect === 'Otro' && (
                                     <div style={{ marginTop: '1rem' }}>
-                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#cbd5e1', marginBottom: '0.35rem' }}>
                                             Especifique el Motivo Concreto *
                                         </label>
                                         <input
                                             type="text"
                                             required
-                                            placeholder="Ej: Allanamiento sin orden judicial, coacción, etc."
+                                            placeholder="Ej: Registro ilegal de vehículo o vivienda"
                                             value={motivoOtro}
                                             onChange={(e) => setMotivoOtro(e.target.value)}
                                             style={{
                                                 width: '100%',
                                                 boxSizing: 'border-box',
-                                                padding: '0.75rem 0.9rem',
-                                                background: 'rgba(0, 0, 0, 0.4)',
-                                                border: '1px solid rgba(255, 255, 255, 0.12)',
-                                                borderRadius: '10px',
+                                                padding: '0.65rem 0.8rem',
+                                                background: '#141c2c',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '8px',
                                                 color: '#ffffff',
-                                                fontSize: '0.9rem',
-                                                outline: 'none',
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                            onFocus={(e) => {
-                                                e.target.style.borderColor = primaryAccent;
-                                                e.target.style.boxShadow = `0 0 0 3px ${primaryAccentGlow}`;
-                                            }}
-                                            onBlur={(e) => {
-                                                e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                                                e.target.style.boxShadow = 'none';
+                                                fontSize: '0.88rem',
+                                                outline: 'none'
                                             }}
                                         />
                                     </div>
                                 )}
                             </div>
 
-                            {/* SECTION 4: DECLARACIÓN DETALLADA */}
+                            {/* SECCIÓN 4: DECLARACIÓN */}
                             <div style={{
-                                background: 'rgba(255, 255, 255, 0.025)',
-                                border: '1px solid rgba(255, 255, 255, 0.06)',
-                                borderRadius: '16px',
-                                padding: '1.5rem'
+                                background: '#0e1420',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                borderRadius: '12px',
+                                padding: '1.25rem'
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: primaryAccent, background: primaryAccentBg, padding: '2px 8px', borderRadius: '6px', border: `1px solid ${primaryAccentBorder}` }}>04</span>
-                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#ffffff' }}>Declaración y Relato de los Hechos *</h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: brandColor, background: brandBadgeBg, padding: '2px 6px', borderRadius: '4px', border: `1px solid ${brandBadgeBorder}` }}>4</span>
+                                    <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#ffffff' }}>Declaración y Relato de los Hechos *</h2>
                                 </div>
 
                                 <textarea
                                     required
-                                    rows="6"
-                                    placeholder="Describa de forma clara y cronológica todo lo ocurrido: ubicación exacta, contexto, diálogo, acciones realizadas por el oficial y personas presentes..."
+                                    rows="5"
+                                    placeholder="Describa de forma cronológica los hechos: lugar, contexto, conducta del agente y cualquier testigo presente..."
                                     value={declaracion}
                                     onChange={(e) => setDeclaracion(e.target.value)}
                                     style={{
                                         width: '100%',
                                         boxSizing: 'border-box',
-                                        padding: '0.9rem',
-                                        background: 'rgba(0, 0, 0, 0.4)',
-                                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                                        borderRadius: '12px',
+                                        padding: '0.75rem',
+                                        background: '#141c2c',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        borderRadius: '8px',
                                         color: '#ffffff',
-                                        fontSize: '0.92rem',
-                                        lineHeight: '1.6',
+                                        fontSize: '0.88rem',
+                                        lineHeight: '1.5',
                                         outline: 'none',
                                         resize: 'vertical',
-                                        transition: 'all 0.2s ease',
                                         fontFamily: 'inherit'
-                                    }}
-                                    onFocus={(e) => {
-                                        e.target.style.borderColor = primaryAccent;
-                                        e.target.style.boxShadow = `0 0 0 3px ${primaryAccentGlow}`;
-                                    }}
-                                    onBlur={(e) => {
-                                        e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                                        e.target.style.boxShadow = 'none';
                                     }}
                                 />
                             </div>
 
-                            {/* SECTION 5: PRUEBAS Y MULTIMEDIA */}
+                            {/* SECCIÓN 5: PRUEBAS */}
                             <div style={{
-                                background: 'rgba(255, 255, 255, 0.025)',
-                                border: '1px solid rgba(255, 255, 255, 0.06)',
-                                borderRadius: '16px',
-                                padding: '1.5rem'
+                                background: '#0e1420',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                borderRadius: '12px',
+                                padding: '1.25rem'
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: primaryAccent, background: primaryAccentBg, padding: '2px 8px', borderRadius: '6px', border: `1px solid ${primaryAccentBorder}` }}>05</span>
-                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#ffffff' }}>Evidencias y Pruebas Gráficas (Opcional)</h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: brandColor, background: brandBadgeBg, padding: '2px 6px', borderRadius: '4px', border: `1px solid ${brandBadgeBorder}` }}>5</span>
+                                    <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#ffffff' }}>Pruebas y Documentos (Opcional)</h2>
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                                    {/* Video URL Link */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
-                                            Enlace a Grabaciones / Video (YouTube, Streamable, Google Drive...)
+                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                                            Enlace a Grabación / Video (YouTube, Streamable, Drive...)
                                         </label>
                                         <input
                                             type="url"
-                                            placeholder="https://youtube.com/watch?v=... o enlace de descarga"
+                                            placeholder="https://..."
                                             value={enlacePrueba}
                                             onChange={(e) => setEnlacePrueba(e.target.value)}
                                             style={{
                                                 width: '100%',
                                                 boxSizing: 'border-box',
-                                                padding: '0.75rem 0.9rem',
-                                                background: 'rgba(0, 0, 0, 0.4)',
-                                                border: '1px solid rgba(255, 255, 255, 0.12)',
-                                                borderRadius: '10px',
+                                                padding: '0.65rem 0.8rem',
+                                                background: '#141c2c',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '8px',
                                                 color: '#ffffff',
-                                                fontSize: '0.9rem',
-                                                outline: 'none',
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                            onFocus={(e) => {
-                                                e.target.style.borderColor = primaryAccent;
-                                                e.target.style.boxShadow = `0 0 0 3px ${primaryAccentGlow}`;
-                                            }}
-                                            onBlur={(e) => {
-                                                e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                                                e.target.style.boxShadow = 'none';
+                                                fontSize: '0.88rem',
+                                                outline: 'none'
                                             }}
                                         />
                                     </div>
 
-                                    {/* Image Attachment Dropzone */}
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: '#cbd5e1', marginBottom: '0.35rem' }}>
                                             Captura o Fotografía Adjunta
                                         </label>
-                                        <label 
-                                            htmlFor="ia-image-upload" 
+                                        <label
+                                            htmlFor="ia-image-upload"
                                             style={{
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                padding: '1.5rem',
-                                                borderRadius: '14px',
-                                                border: '1.5px dashed rgba(255, 255, 255, 0.18)',
-                                                background: 'rgba(0, 0, 0, 0.25)',
+                                                padding: '1.25rem',
+                                                borderRadius: '8px',
+                                                border: '1px dashed rgba(255, 255, 255, 0.15)',
+                                                background: '#141c2c',
                                                 cursor: 'pointer',
-                                                transition: 'all 0.2s ease'
+                                                transition: 'border-color 0.15s ease'
                                             }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.borderColor = primaryAccent;
-                                                e.currentTarget.style.background = primaryAccentBg;
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.18)';
-                                                e.currentTarget.style.background = 'rgba(0, 0, 0, 0.25)';
-                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.borderColor = brandColor}
+                                            onMouseLeave={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
                                         >
                                             <input
                                                 id="ia-image-upload"
@@ -782,43 +662,39 @@ function PublicIADenuncia() {
                                                 onChange={handleImageUpload}
                                                 style={{ display: 'none' }}
                                             />
-                                            <div style={{ fontSize: '1.6rem', marginBottom: '0.35rem' }}>📷</div>
-                                            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#ffffff' }}>
-                                                {imagenBase64 ? 'Imagen seleccionada' : 'Haz clic para seleccionar o arrastra una imagen'}
-                                            </div>
-                                            <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '0.35rem' }}>
+                                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                                <circle cx="12" cy="13" r="4" />
+                                            </svg>
+                                            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#ffffff' }}>
+                                                {imagenBase64 ? 'Imagen adjuntada correctamente' : 'Haga clic para subir una captura'}
+                                            </span>
+                                            <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
                                                 PNG, JPG, WEBP hasta 8MB
-                                            </div>
+                                            </span>
                                         </label>
 
                                         {imagenBase64 && (
-                                            <div style={{ marginTop: '0.9rem', display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.4)', padding: '0.5rem 0.8rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                            <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '10px', background: '#141c2c', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
                                                 <img
                                                     src={imagenBase64}
                                                     alt="Preview"
-                                                    style={{ 
-                                                        width: '50px',
-                                                        height: '50px', 
-                                                        borderRadius: '8px', 
-                                                        objectFit: 'cover',
-                                                        border: `1px solid ${primaryAccent}` 
-                                                    }}
+                                                    style={{ width: '42px', height: '42px', borderRadius: '6px', objectFit: 'cover' }}
                                                 />
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0' }}>Captura lista para envío</div>
-                                                    <div style={{ fontSize: '0.72rem', color: '#34d399' }}>✓ Lista para adjuntar</div>
+                                                <div style={{ flex: 1, minWidth: 0, fontSize: '0.8rem', color: '#10b981', fontWeight: 500 }}>
+                                                    Imagen lista para adjuntar
                                                 </div>
                                                 <button
                                                     type="button"
                                                     onClick={() => setImagenBase64('')}
                                                     style={{
-                                                        background: 'rgba(239, 68, 68, 0.15)',
+                                                        background: 'rgba(239, 68, 68, 0.1)',
                                                         color: '#f87171',
-                                                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                        border: '1px solid rgba(239, 68, 68, 0.25)',
                                                         borderRadius: '6px',
-                                                        padding: '4px 8px',
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: 600,
+                                                        padding: '3px 8px',
+                                                        fontSize: '0.72rem',
+                                                        fontWeight: 500,
                                                         cursor: 'pointer'
                                                     }}
                                                 >
@@ -831,79 +707,66 @@ function PublicIADenuncia() {
                             </div>
 
                             {errorMsg && (
-                                <div style={{ 
-                                    padding: '0.85rem 1rem', 
-                                    borderRadius: '12px', 
-                                    background: 'rgba(239, 68, 68, 0.15)', 
-                                    border: '1px solid rgba(239, 68, 68, 0.35)', 
-                                    color: '#fca5a5', 
-                                    fontSize: '0.88rem', 
-                                    fontWeight: 600,
+                                <div style={{
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: '8px',
+                                    background: 'rgba(239, 68, 68, 0.12)',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    color: '#fca5a5',
+                                    fontSize: '0.85rem',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '8px'
                                 }}>
-                                    <span>⚠️</span> {errorMsg}
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <line x1="12" y1="8" x2="12" y2="12" />
+                                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                                    </svg>
+                                    <span>{errorMsg}</span>
                                 </div>
                             )}
 
-                            {/* SUBMIT ACTION BUTTON (APPLE STYLE) */}
+                            {/* BOTÓN DE ENVÍO */}
                             <button
                                 type="submit"
                                 disabled={submitting}
                                 style={{
                                     width: '100%',
-                                    padding: '1rem',
-                                    borderRadius: '14px',
-                                    background: isLSSD ? '#10b981' : '#f43f5e',
+                                    padding: '0.85rem',
+                                    borderRadius: '8px',
+                                    background: submitting ? '#334155' : brandColorDark,
                                     color: '#ffffff',
                                     border: 'none',
-                                    fontSize: '1.02rem',
-                                    fontWeight: 800,
-                                    letterSpacing: '0.01em',
+                                    fontSize: '0.92rem',
+                                    fontWeight: 600,
                                     cursor: submitting ? 'not-allowed' : 'pointer',
-                                    transition: 'all 0.25s ease',
-                                    boxShadow: `0 10px 30px ${primaryAccentGlow}`,
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    gap: '8px'
-                                }}
-                                onMouseEnter={(e) => {
-                                    if (!submitting) {
-                                        e.currentTarget.style.transform = 'translateY(-2px)';
-                                        e.currentTarget.style.boxShadow = `0 14px 40px ${primaryAccentGlow}`;
-                                    }
-                                }}
-                                onMouseLeave={(e) => {
-                                    if (!submitting) {
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.boxShadow = `0 10px 30px ${primaryAccentGlow}`;
-                                    }
+                                    gap: '8px',
+                                    transition: 'background 0.15s ease'
                                 }}
                             >
                                 {submitting ? (
-                                    <>
-                                        <span style={{ display: 'inline-block', width: '18px', height: '18px', border: '2px solid #ffffff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                                        <span>Procesando y Cifrando Envío...</span>
-                                    </>
+                                    <span>Enviando denuncia...</span>
                                 ) : (
                                     <>
-                                        <span>🛡️</span>
-                                        <span>Enviar Denuncia Oficial a Asuntos Internos</span>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                        </svg>
+                                        <span>Presentar Denuncia Oficial</span>
                                     </>
                                 )}
                             </button>
 
-                            {/* Footer Confidentiality Notice */}
-                            <div style={{ textAlign: 'center', fontSize: '0.76rem', color: '#64748b', lineHeight: '1.5' }}>
-                                Al enviar esta denuncia, certifica bajo apercibimiento que los hechos relatados son verídicos.
-                                Sus datos personales quedan amparados bajo el protocolo de protección al denunciante de Asuntos Internos.
+                            <div style={{ textAlign: 'center', fontSize: '0.74rem', color: '#64748b', lineHeight: '1.4' }}>
+                                Sus datos quedan bajo la custodia de la división de Asuntos Internos de acuerdo a los protocolos disciplinarios vigentes.
                             </div>
                         </form>
                     </div>
                 )}
-            </main>
+            </div>
         </div>
     );
 }

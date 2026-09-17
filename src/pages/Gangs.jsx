@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { uploadImageToStorage } from '../utils/imageStorage';
+import { uploadImageToStorage, filterBucketImages, getProfileImage, stripBase64FromHtml } from '../utils/imageStorage';
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
 import GangTodoList from '../components/GangTodoList';
@@ -38,9 +38,10 @@ function Gangs() {
 
     // --- ACTIVITY VIEW STATE ---
     const [showActivity, setShowActivity] = useState(false);
-    const [activityType, setActivityType] = useState('incidents'); // 'incidents' | 'outings'
+    const [activityType, setActivityType] = useState('incidents'); // 'incidents' | 'outings' | 'cases'
     const [activityLog, setActivityLog] = useState([]);
     const [loadingActivity, setLoadingActivity] = useState(false);
+    const [activitySearchQuery, setActivitySearchQuery] = useState('');
 
     // --- FORMS STATE ---
     // Gang
@@ -923,17 +924,21 @@ function Gangs() {
     };
 
     const handleViewActivity = async (type, gangId) => {
+        const targetGangId = gangId || activeGangId;
+        if (!targetGangId) return;
+
         // Handle patrol table separately
         if (type === 'patrolTable') {
-            handleViewPatrolLogs(gangId);
+            handleViewPatrolLogs(targetGangId);
             return;
         }
 
-        setActiveGangId(gangId);
+        setActiveGangId(targetGangId);
         setActivityType(type);
         setShowActivity(true);
         setLoadingActivity(true);
         setActivityLog([]);
+        setActivitySearchQuery('');
 
         try {
             const rpcName = type === 'incidents' 
@@ -941,12 +946,34 @@ function Gangs() {
                 : type === 'cases' 
                     ? 'get_gang_cases' 
                     : 'get_gang_outings';
-            const { data, error } = await supabase.rpc(rpcName, { p_gang_id: gangId });
+            const { data, error } = await supabase.rpc(rpcName, { p_gang_id: targetGangId });
             if (error) throw error;
-            setActivityLog(data || []);
+
+            let formattedData = data || [];
+            if (type === 'incidents') {
+                formattedData = formattedData.map(inc => ({
+                    ...inc,
+                    images: filterBucketImages(inc.images),
+                    author_avatar: getProfileImage(inc.author_avatar, '/logowebp/anon.webp'),
+                    description: stripBase64FromHtml(inc.description)
+                }));
+            } else if (type === 'outings') {
+                formattedData = formattedData.map(out => ({
+                    ...out,
+                    images: filterBucketImages(out.images),
+                    documents: Array.isArray(out.documents) ? out.documents : [],
+                    author_avatar: getProfileImage(out.author_avatar, '/logowebp/anon.webp'),
+                    info_obtained: stripBase64FromHtml(out.info_obtained),
+                    detectives: (out.detectives && Array.isArray(out.detectives))
+                        ? out.detectives.map(d => ({ ...d, avatar: getProfileImage(d.avatar, '/logowebp/anon.webp') }))
+                        : []
+                }));
+            }
+
+            setActivityLog(formattedData);
         } catch (err) {
             console.error("Error fetching activity:", err);
-            alert("Could not load activity log.");
+            alert("No se pudo cargar el registro de actividad: " + err.message);
         } finally {
             setLoadingActivity(false);
         }
@@ -2203,86 +2230,424 @@ function Gangs() {
                 </div>
             )}
 
-            {/* Activity View Modal */}
-            {showActivity && (
-                <div className="cropper-modal-overlay" onClick={closeModal}>
-                    <div className="cropper-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3 className="section-title" style={{ marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
-                            {activityType === 'incidents' ? '📁 Related Incidents' : activityType === 'cases' ? '📂 Expedientes / Casos Ligados' : '🚓 Related Patrols & Outings'}
-                        </h3>
+            {/* Activity View Modal (Apple macOS Dossier Window) */}
+            {showActivity && (() => {
+                const activeGang = gangs.find(g => g.gang_id === activeGangId) || {};
+                const gangColor = activeGang.color || '#3b82f6';
+                const cleanSearch = activitySearchQuery.trim().toLowerCase();
 
-                        {loadingActivity ? (
-                            <div style={{ textAlign: 'center', padding: '2rem' }}>Loading records...</div>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                {activityLog.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '2rem', fontStyle: 'italic', opacity: 0.7 }}>No records found for this syndicate.</div>
+                const filteredList = activityLog.filter(item => {
+                    if (!cleanSearch) return true;
+                    if (activityType === 'incidents') {
+                        return (
+                            (item.title && item.title.toLowerCase().includes(cleanSearch)) ||
+                            (item.description && item.description.toLowerCase().includes(cleanSearch)) ||
+                            (item.tablet_incident_number && item.tablet_incident_number.toString().toLowerCase().includes(cleanSearch)) ||
+                            (item.location && item.location.toLowerCase().includes(cleanSearch)) ||
+                            (item.author_name && item.author_name.toLowerCase().includes(cleanSearch))
+                        );
+                    }
+                    if (activityType === 'outings') {
+                        return (
+                            (item.title && item.title.toLowerCase().includes(cleanSearch)) ||
+                            (item.reason && item.reason.toLowerCase().includes(cleanSearch)) ||
+                            (item.info_obtained && item.info_obtained.toLowerCase().includes(cleanSearch)) ||
+                            (item.tag && item.tag.toLowerCase().includes(cleanSearch)) ||
+                            (item.author_name && item.author_name.toLowerCase().includes(cleanSearch)) ||
+                            (item.detectives && item.detectives.some(d => d.name && d.name.toLowerCase().includes(cleanSearch)))
+                        );
+                    }
+                    if (activityType === 'cases') {
+                        return (
+                            (item.title && item.title.toLowerCase().includes(cleanSearch)) ||
+                            (item.case_number && item.case_number.toString().toLowerCase().includes(cleanSearch)) ||
+                            (item.location && item.location.toLowerCase().includes(cleanSearch)) ||
+                            (item.status && item.status.toLowerCase().includes(cleanSearch))
+                        );
+                    }
+                    return true;
+                });
+
+                return (
+                    <div className="mac-modal-overlay" onClick={closeModal} style={{ zIndex: 3500 }}>
+                        <div 
+                            className="mac-modal-card" 
+                            onClick={e => e.stopPropagation()} 
+                            style={{ 
+                                maxWidth: '900px', 
+                                width: '94vw', 
+                                height: '88vh', 
+                                maxHeight: '90vh',
+                                display: 'flex', 
+                                flexDirection: 'column',
+                                background: 'rgba(15, 23, 42, 0.9)',
+                                backdropFilter: 'blur(30px)',
+                                WebkitBackdropFilter: 'blur(30px)',
+                                borderRadius: '22px',
+                                border: '1px solid rgba(255, 255, 255, 0.14)',
+                                boxShadow: '0 30px 80px rgba(0, 0, 0, 0.75), 0 0 40px rgba(0,0,0,0.5)',
+                                overflow: 'hidden'
+                            }}
+                        >
+                            {/* macOS Window Header */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '1.1rem 1.5rem',
+                                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                                background: 'rgba(255, 255, 255, 0.02)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span 
+                                        className="mac-window-dot close" 
+                                        onClick={closeModal} 
+                                        title="Cerrar ventana" 
+                                        style={{ cursor: 'pointer', width: '12px', height: '12px' }} 
+                                    />
+                                    <span className="mac-window-dot min" style={{ width: '12px', height: '12px' }} />
+                                    <span className="mac-window-dot max" style={{ width: '12px', height: '12px' }} />
+                                </div>
+
+                                {/* Center Gang Pill & Dossier Title */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '7px',
+                                        padding: '4px 12px',
+                                        borderRadius: '9999px',
+                                        background: `${gangColor}22`,
+                                        border: `1px solid ${gangColor}60`,
+                                        color: gangColor,
+                                        fontSize: '0.85rem',
+                                        fontWeight: 800,
+                                        letterSpacing: '0.02em',
+                                        boxShadow: `0 0 15px ${gangColor}25`
+                                    }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: gangColor, boxShadow: `0 0 8px ${gangColor}` }} />
+                                        <span>{activeGang.name || 'Organización'}</span>
+                                    </div>
+                                    <span style={{ fontSize: '0.86rem', color: '#94a3b8', fontWeight: 600 }}>
+                                        • Expediente de Inteligencia y Registros
+                                    </span>
+                                </div>
+
+                                <div style={{ width: '60px', textAlign: 'right' }}>
+                                    <button
+                                        onClick={closeModal}
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.06)',
+                                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                                            color: '#94a3b8',
+                                            fontSize: '0.82rem',
+                                            borderRadius: '6px',
+                                            padding: '4px 8px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        title="Cerrar"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Apple Segmented Bar (Tabs) */}
+                            <div style={{
+                                padding: '0.85rem 1.5rem',
+                                background: 'rgba(0, 0, 0, 0.3)',
+                                borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: '0.75rem',
+                                alignItems: 'center',
+                                justifyContent: 'space-between'
+                            }}>
+                                <div style={{
+                                    display: 'flex',
+                                    background: 'rgba(255, 255, 255, 0.05)',
+                                    padding: '4px',
+                                    borderRadius: '12px',
+                                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                                    gap: '3px'
+                                }}>
+                                    {/* Tab 1: Incidents */}
+                                    <button
+                                        onClick={() => handleViewActivity('incidents', activeGangId)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '7px',
+                                            padding: '0.5rem 1rem',
+                                            borderRadius: '8px',
+                                            border: 'none',
+                                            background: activityType === 'incidents' ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
+                                            color: activityType === 'incidents' ? '#38bdf8' : '#94a3b8',
+                                            fontWeight: activityType === 'incidents' ? 700 : 500,
+                                            fontSize: '0.84rem',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            boxShadow: activityType === 'incidents' ? '0 2px 10px rgba(56, 189, 248, 0.25)' : 'none'
+                                        }}
+                                    >
+                                        <span>📁</span>
+                                        <span>Informes e Incidentes</span>
+                                        <span style={{
+                                            fontSize: '0.72rem',
+                                            padding: '2px 7px',
+                                            borderRadius: '9999px',
+                                            background: activityType === 'incidents' ? '#38bdf8' : 'rgba(255, 255, 255, 0.1)',
+                                            color: activityType === 'incidents' ? '#0f172a' : '#cbd5e1',
+                                            fontWeight: 800
+                                        }}>
+                                            {activeGang.incident_count || (activityType === 'incidents' ? activityLog.length : 0)}
+                                        </span>
+                                    </button>
+
+                                    {/* Tab 2: Outings */}
+                                    <button
+                                        onClick={() => handleViewActivity('outings', activeGangId)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '7px',
+                                            padding: '0.5rem 1rem',
+                                            borderRadius: '8px',
+                                            border: 'none',
+                                            background: activityType === 'outings' ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                                            color: activityType === 'outings' ? '#fbbf24' : '#94a3b8',
+                                            fontWeight: activityType === 'outings' ? 700 : 500,
+                                            fontSize: '0.84rem',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            boxShadow: activityType === 'outings' ? '0 2px 10px rgba(245, 158, 11, 0.25)' : 'none'
+                                        }}
+                                    >
+                                        <span>🚓</span>
+                                        <span>Vigilancias y Salidas</span>
+                                        <span style={{
+                                            fontSize: '0.72rem',
+                                            padding: '2px 7px',
+                                            borderRadius: '9999px',
+                                            background: activityType === 'outings' ? '#fbbf24' : 'rgba(255, 255, 255, 0.1)',
+                                            color: activityType === 'outings' ? '#0f172a' : '#cbd5e1',
+                                            fontWeight: 800
+                                        }}>
+                                            {activeGang.outing_count || (activityType === 'outings' ? activityLog.length : 0)}
+                                        </span>
+                                    </button>
+
+                                    {/* Tab 3: Cases */}
+                                    <button
+                                        onClick={() => handleViewActivity('cases', activeGangId)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '7px',
+                                            padding: '0.5rem 1rem',
+                                            borderRadius: '8px',
+                                            border: 'none',
+                                            background: activityType === 'cases' ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
+                                            color: activityType === 'cases' ? '#34d399' : '#94a3b8',
+                                            fontWeight: activityType === 'cases' ? 700 : 500,
+                                            fontSize: '0.84rem',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            boxShadow: activityType === 'cases' ? '0 2px 10px rgba(16, 185, 129, 0.25)' : 'none'
+                                        }}
+                                    >
+                                        <span>📂</span>
+                                        <span>Casos Ligados</span>
+                                        <span style={{
+                                            fontSize: '0.72rem',
+                                            padding: '2px 7px',
+                                            borderRadius: '9999px',
+                                            background: activityType === 'cases' ? '#34d399' : 'rgba(255, 255, 255, 0.1)',
+                                            color: activityType === 'cases' ? '#0f172a' : '#cbd5e1',
+                                            fontWeight: 800
+                                        }}>
+                                            {activeGang.case_count || (activeGang.cases ? activeGang.cases.length : (activityType === 'cases' ? activityLog.length : 0))}
+                                        </span>
+                                    </button>
+                                </div>
+
+                                {/* Search Field */}
+                                <div style={{ position: 'relative', width: '250px', maxWidth: '100%' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Filtrar por texto, agente..."
+                                        value={activitySearchQuery}
+                                        onChange={(e) => setActivitySearchQuery(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            boxSizing: 'border-box',
+                                            padding: '0.45rem 2rem 0.45rem 0.85rem',
+                                            background: 'rgba(0, 0, 0, 0.4)',
+                                            border: '1px solid rgba(255, 255, 255, 0.14)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            fontSize: '0.8rem',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                    {activitySearchQuery && (
+                                        <button
+                                            onClick={() => setActivitySearchQuery('')}
+                                            style={{
+                                                position: 'absolute',
+                                                right: '8px',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: '#94a3b8',
+                                                cursor: 'pointer',
+                                                fontSize: '11px'
+                                            }}
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Scrollable Records Body */}
+                            <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem 1.5rem' }}>
+                                {loadingActivity ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 1rem', gap: '0.85rem' }}>
+                                        <div style={{ width: '32px', height: '32px', border: '3px solid rgba(255,255,255,0.15)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                                        <span style={{ fontSize: '0.9rem', color: '#94a3b8', fontWeight: 600 }}>Cargando registros de inteligencia...</span>
+                                    </div>
+                                ) : filteredList.length === 0 ? (
+                                    <div style={{
+                                        padding: '3.5rem 1.5rem',
+                                        textAlign: 'center',
+                                        background: 'rgba(255, 255, 255, 0.02)',
+                                        borderRadius: '18px',
+                                        border: '1px dashed rgba(255, 255, 255, 0.1)'
+                                    }}>
+                                        <div style={{ fontSize: '2.8rem', marginBottom: '0.5rem', opacity: 0.85 }}>
+                                            {activityType === 'incidents' ? '📁' : activityType === 'outings' ? '🚓' : '📂'}
+                                        </div>
+                                        <h4 style={{ margin: '0 0 0.4rem 0', color: '#ffffff', fontSize: '1.1rem', fontWeight: 700 }}>
+                                            {cleanSearch ? 'No se encontraron coincidencias' : 'Sin registros vinculados'}
+                                        </h4>
+                                        <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.86rem', maxWidth: '420px', marginInline: 'auto', lineHeight: '1.5' }}>
+                                            {cleanSearch 
+                                                ? `No hay registros que coincidan con el término "${activitySearchQuery}".`
+                                                : `No hay ${activityType === 'incidents' ? 'informes o incidentes' : activityType === 'outings' ? 'vigilancias operativas' : 'casos criminales'} vinculados a ${activeGang.name || 'este grupo'}.`}
+                                        </p>
+                                    </div>
                                 ) : (
-                                    activityLog.map(item => (
-                                        activityType === 'incidents' ? (
-                                            <IncidentCard
-                                                key={item.record_id || item.id}
-                                                data={item}
-                                                onExpand={setExpandedImage}
-                                                onDelete={null}
-                                                onEdit={null}
-                                            />
-                                        ) : activityType === 'cases' ? (
-                                            <div
-                                                key={item.id}
-                                                onClick={() => { closeModal(); navigate(`/cases/${item.id}`); }}
-                                                style={{
-                                                    padding: '0.85rem 1rem',
-                                                    background: 'rgba(30, 41, 59, 0.7)',
-                                                    border: '1px solid rgba(255,255,255,0.1)',
-                                                    borderLeft: `4px solid ${(!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? '#10b981' : '#ef4444'}`,
-                                                    borderRadius: '8px',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    alignItems: 'center',
-                                                    transition: 'all 0.2s'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.borderColor = '#60a5fa'}
-                                                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
-                                            >
-                                                <div>
-                                                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', marginBottom: '0.2rem' }}>
-                                                        {item.case_number ? `CASO #${item.case_number}: ` : ''}{item.title}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        {filteredList.map(item => (
+                                            activityType === 'incidents' ? (
+                                                <IncidentCard
+                                                    key={item.record_id || item.id}
+                                                    data={item}
+                                                    onExpand={setExpandedImage}
+                                                    onDelete={null}
+                                                    onEdit={null}
+                                                />
+                                            ) : activityType === 'cases' ? (
+                                                <div
+                                                    key={item.id}
+                                                    onClick={() => { closeModal(); navigate(`/cases/${item.id}`); }}
+                                                    style={{
+                                                        padding: '1.1rem 1.3rem',
+                                                        background: 'rgba(255, 255, 255, 0.035)',
+                                                        border: '1px solid rgba(255, 255, 255, 0.09)',
+                                                        borderLeft: `4px solid ${(!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? '#10b981' : '#ef4444'}`,
+                                                        borderRadius: '14px',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                        gap: '1rem'
+                                                    }}
+                                                    onMouseEnter={e => {
+                                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.07)';
+                                                        e.currentTarget.style.transform = 'translateY(-1px)';
+                                                        e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+                                                    }}
+                                                    onMouseLeave={e => {
+                                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.035)';
+                                                        e.currentTarget.style.transform = 'translateY(0)';
+                                                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.09)';
+                                                    }}
+                                                >
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+                                                            <span style={{ color: 'var(--accent-gold, #f59e0b)', fontFamily: 'monospace', fontWeight: 800, fontSize: '0.88rem' }}>
+                                                                #{item.case_number || '---'}
+                                                            </span>
+                                                            <span style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff' }}>
+                                                                {item.title}
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                                            {item.location && <span>📍 {item.location}</span>}
+                                                            {item.occurred_at && <span>🕒 {new Date(item.occurred_at).toLocaleDateString()}</span>}
+                                                            {item.assigned_detective_name && <span>🛡️ {item.assigned_detective_name}</span>}
+                                                        </div>
                                                     </div>
-                                                    <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                                                        {item.location ? `📍 ${item.location}` : ''} {item.occurred_at ? `• 🕒 ${new Date(item.occurred_at).toLocaleDateString()}` : ''}
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexShrink: 0 }}>
+                                                        <span style={{
+                                                            fontSize: '0.74rem',
+                                                            fontWeight: 800,
+                                                            color: (!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? '#34d399' : '#f87171',
+                                                            background: (!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                                                            border: `1px solid ${(!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                                                            padding: '0.32rem 0.7rem',
+                                                            borderRadius: '6px'
+                                                        }}>
+                                                            {(!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? 'ABIERTO' : item.status.toUpperCase()}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.84rem', color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            Ver Expediente ↗
+                                                        </span>
                                                     </div>
                                                 </div>
-                                                <div style={{
-                                                    fontSize: '0.72rem',
-                                                    fontWeight: 800,
-                                                    color: (!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? '#10b981' : '#ef4444',
-                                                    background: (!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                                                    padding: '0.3rem 0.6rem',
-                                                    borderRadius: '6px'
-                                                }}>
-                                                    {(!item.status || item.status.toLowerCase() === 'open' || item.status.toLowerCase() === 'abierto') ? 'ABIERTO' : item.status.toUpperCase()}
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <OutingCard
-                                                key={item.record_id || item.id}
-                                                data={item}
-                                                onExpand={setExpandedImage}
-                                                onDelete={null}
-                                            />
-                                        )
-                                    ))
+                                            ) : (
+                                                <OutingCard
+                                                    key={item.record_id || item.id}
+                                                    data={item}
+                                                    onExpand={setExpandedImage}
+                                                    onDelete={null}
+                                                />
+                                            )
+                                        ))}
+                                    </div>
                                 )}
                             </div>
-                        )}
-                        <div style={{ marginTop: '2rem', textAlign: 'right' }}>
-                            <button className="login-button btn-secondary" onClick={closeModal} style={{ width: 'auto' }}>Close</button>
+
+                            {/* macOS Modal Footer */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '0.9rem 1.5rem',
+                                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                                background: 'rgba(255, 255, 255, 0.02)'
+                            }}>
+                                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                                    Mostrando <strong style={{ color: '#ffffff' }}>{filteredList.length}</strong> {filteredList.length === 1 ? 'registro' : 'registros'}
+                                </span>
+                                <button
+                                    onClick={closeModal}
+                                    className="mac-btn mac-btn-secondary"
+                                    style={{ padding: '0.45rem 1.2rem', fontSize: '0.84rem', borderRadius: '8px' }}
+                                >
+                                    Cerrar Ventana
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Image Viewer */}
             {expandedImage && (
