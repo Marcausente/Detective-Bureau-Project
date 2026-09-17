@@ -1,6 +1,17 @@
 -- create_coordination_licenses.sql
 -- Migration to create coordination_licenses table, user licenses column, and RPCs
 
+-- 0. Drop old function overloads to prevent PostgreSQL ambiguity (42725 function name is not unique)
+DROP FUNCTION IF EXISTS public.update_personnel_admin(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT);
+DROP FUNCTION IF EXISTS public.update_personnel_admin(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT, TEXT[]);
+DROP FUNCTION IF EXISTS public.update_personnel_admin(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT, TEXT[], TEXT);
+DROP FUNCTION IF EXISTS public.update_personnel_admin(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT, TEXT[], TEXT, TEXT[]);
+
+DROP FUNCTION IF EXISTS public.create_new_personnel(TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT);
+DROP FUNCTION IF EXISTS public.create_new_personnel(TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT, TEXT[]);
+DROP FUNCTION IF EXISTS public.create_new_personnel(TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT, TEXT[], TEXT);
+DROP FUNCTION IF EXISTS public.create_new_personnel(TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT, TEXT[], TEXT, TEXT[]);
+
 -- 1. Table: coordination_licenses
 CREATE TABLE IF NOT EXISTS public.coordination_licenses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -225,5 +236,5 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, extensions;
 
-GRANT EXECUTE ON FUNCTION public.create_new_personnel TO authenticated;
-GRANT EXECUTE ON FUNCTION public.update_personnel_admin TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_new_personnel(TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT, TEXT[], TEXT, TEXT[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_personnel_admin(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, app_rank, app_role, TIMESTAMP WITH TIME ZONE, TIMESTAMP WITH TIME ZONE, TEXT, TEXT[], TEXT, TEXT[]) TO authenticated;

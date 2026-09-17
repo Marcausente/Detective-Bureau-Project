@@ -777,6 +777,14 @@ function CoordinationRolesConfig() {
                                                 </button>
                                             )}
                                         </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* SECTION 3: LICENSES */}
             {subSection === 'licenses' && (
                 <div>
