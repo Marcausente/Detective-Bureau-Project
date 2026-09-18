@@ -132,13 +132,58 @@ const DEFAULT_ASD_INFRACTIONS = [
     }
 ];
 
+// Default Aircraft Models (Maverick by default + custom models)
+const DEFAULT_ASD_MODELS = [
+    { id: 'model-1', name: 'Maverick', type: 'Helicóptero Ligero / Patrullaje', registration: 'POLMAV-01', description: 'Aeronave principal de patrullaje aéreo estándar con cámara táctica y foco NiteSun.', status: 'Operativo' },
+    { id: 'model-2', name: 'SuperVolito Carbon', type: 'Helicóptero Táctico / VIP', registration: 'AIR-TAC-02', description: 'Aeronave de alta velocidad para transporte táctico de mandos e inserciones rápidas.', status: 'Operativo' },
+    { id: 'model-3', name: 'Frogger', type: 'Helicóptero de Apoyo y Rescate', registration: 'RESCUE-03', description: 'Unidad de rescate y evacuación médica equipada con grúa y camilla aérea.', status: 'Operativo' }
+];
+
+// Default Flight Logs
+const DEFAULT_ASD_FLIGHT_LOGS = [
+    {
+        id: 'flight-1',
+        pilot_id: 'asd-user-1',
+        pilot_name: 'Marcus Miller',
+        pilot_callsign: 'AIR-01',
+        aircraft_model: 'Maverick',
+        reason: 'Patrullaje',
+        reason_other: null,
+        date: '2026-09-17',
+        departure_time: '18:00',
+        landing_time: '19:30',
+        duration_minutes: 90,
+        notes: 'Patrullaje preventivo sobre South Central y Vinewood Hills sin novedades críticas.',
+        status: 'Aprobado',
+        reviewed_by: 'Marcus Miller',
+        created_at: '2026-09-17T18:00:00Z'
+    },
+    {
+        id: 'flight-2',
+        pilot_id: 'asd-user-3',
+        pilot_name: 'Sarah Vance',
+        pilot_callsign: 'HAWK-1',
+        aircraft_model: 'Maverick',
+        reason: '487',
+        reason_other: null,
+        date: '2026-09-18',
+        departure_time: '02:15',
+        landing_time: '03:00',
+        duration_minutes: 45,
+        notes: 'Persecución activa de un deportivo de alta gama por la autopista oeste. Sujeto neutralizado.',
+        status: 'Pendiente',
+        reviewed_by: null,
+        created_at: '2026-09-18T02:15:00Z'
+    }
+];
+
 function AirSupport() {
     const navigate = useNavigate();
     const { language } = useLanguage();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Active Navigation Tab: 'cuadrilla' | 'ranks' | 'licenses' | 'infractions'
+    // Active Navigation Tab: 'cuadrilla' | 'ranks' | 'licenses' | 'flight_logs' | 'aircraft_models' | 'infractions'
     const [activeTab, setActiveTab] = useState('cuadrilla');
 
     // Data Collections
@@ -146,7 +191,11 @@ function AirSupport() {
     const [members, setMembers] = useState([]);
     const [licenses, setLicenses] = useState([]);
     const [infractions, setInfractions] = useState([]);
+    const [models, setModels] = useState([]);
+    const [flightLogs, setFlightLogs] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [flightStatusFilter, setFlightStatusFilter] = useState('Todos');
+    const [copyFeedback, setCopyFeedback] = useState(false);
 
     // --- Modal States ---
     const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
@@ -167,6 +216,31 @@ function AirSupport() {
         avatar: '',
         status: 'En Servicio',
         phone: ''
+    });
+
+    // Model Modal
+    const [isModelModalOpen, setIsModelModalOpen] = useState(false);
+    const [editingModel, setEditingModel] = useState(null);
+    const [modelForm, setModelForm] = useState({
+        name: '',
+        type: 'Helicóptero Ligero / Patrullaje',
+        registration: 'POLMAV-01',
+        description: '',
+        status: 'Operativo'
+    });
+
+    // Flight Log Manual Creation / Detail Modal
+    const [isFlightLogModalOpen, setIsFlightLogModalOpen] = useState(false);
+    const [flightLogForm, setFlightLogForm] = useState({
+        pilot_id: '',
+        aircraft_model: 'Maverick',
+        reason: 'Patrullaje',
+        reason_other: '',
+        date: new Date().toISOString().split('T')[0],
+        departure_time: '12:00',
+        landing_time: '13:00',
+        notes: '',
+        status: 'Aprobado'
     });
 
     const [isRankModalOpen, setIsRankModalOpen] = useState(false);
@@ -221,6 +295,12 @@ function AirSupport() {
                     loadASDData();
                 })
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'asd_infractions' }, () => {
+                    loadASDData();
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'asd_aircraft_models' }, () => {
+                    loadASDData();
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'asd_flight_logs' }, () => {
                     loadASDData();
                 })
                 .subscribe();
@@ -378,6 +458,58 @@ function AirSupport() {
             console.warn('Infractions fetch fallback:', e);
             const savedInfs = localStorage.getItem('asd_infractions_v2');
             setInfractions(savedInfs ? JSON.parse(savedInfs) : DEFAULT_ASD_INFRACTIONS);
+        }
+
+        // 5. Aircraft Models from Supabase
+        try {
+            const { data: dbModels, error: modErr } = await supabase
+                .from('asd_aircraft_models')
+                .select('*')
+                .order('name', { ascending: true });
+
+            if (!modErr && dbModels && dbModels.length > 0) {
+                setModels(dbModels);
+                localStorage.setItem('asd_models_v2', JSON.stringify(dbModels));
+            } else if (!modErr && dbModels && dbModels.length === 0) {
+                for (const def of DEFAULT_ASD_MODELS) {
+                    await supabase.from('asd_aircraft_models').insert([def]);
+                }
+                const { data: seededMod } = await supabase.from('asd_aircraft_models').select('*').order('name', { ascending: true });
+                setModels(seededMod || DEFAULT_ASD_MODELS);
+            } else {
+                const savedM = localStorage.getItem('asd_models_v2');
+                setModels(savedM ? JSON.parse(savedM) : DEFAULT_ASD_MODELS);
+            }
+        } catch (e) {
+            console.warn('Aircraft models fetch fallback:', e);
+            const savedM = localStorage.getItem('asd_models_v2');
+            setModels(savedM ? JSON.parse(savedM) : DEFAULT_ASD_MODELS);
+        }
+
+        // 6. Flight Logs from Supabase
+        try {
+            const { data: dbLogs, error: logErr } = await supabase
+                .from('asd_flight_logs')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (!logErr && dbLogs && dbLogs.length > 0) {
+                setFlightLogs(dbLogs);
+                localStorage.setItem('asd_flight_logs_v2', JSON.stringify(dbLogs));
+            } else if (!logErr && dbLogs && dbLogs.length === 0) {
+                for (const def of DEFAULT_ASD_FLIGHT_LOGS) {
+                    await supabase.from('asd_flight_logs').insert([def]);
+                }
+                const { data: seededLogs } = await supabase.from('asd_flight_logs').select('*').order('created_at', { ascending: false });
+                setFlightLogs(seededLogs || DEFAULT_ASD_FLIGHT_LOGS);
+            } else {
+                const savedLogs = localStorage.getItem('asd_flight_logs_v2');
+                setFlightLogs(savedLogs ? JSON.parse(savedLogs) : DEFAULT_ASD_FLIGHT_LOGS);
+            }
+        } catch (e) {
+            console.warn('Flight logs fetch fallback:', e);
+            const savedLogs = localStorage.getItem('asd_flight_logs_v2');
+            setFlightLogs(savedLogs ? JSON.parse(savedLogs) : DEFAULT_ASD_FLIGHT_LOGS);
         }
     };
 
@@ -755,6 +887,150 @@ function AirSupport() {
         }
     };
 
+    // --- Aircraft Models Actions (Supabase + Local) ---
+    const handleSaveModel = async (e) => {
+        e.preventDefault();
+        if (!modelForm.name) return;
+
+        let updated;
+        if (editingModel) {
+            const payload = { ...modelForm };
+            updated = models.map(m => m.id === editingModel.id ? { ...m, ...payload } : m);
+            setModels(updated);
+            localStorage.setItem('asd_models_v2', JSON.stringify(updated));
+
+            try {
+                await supabase.from('asd_aircraft_models').update(payload).eq('id', editingModel.id);
+            } catch (err) {
+                console.warn('Supabase model update error:', err);
+            }
+        } else {
+            const newMod = {
+                id: 'model-' + Date.now(),
+                ...modelForm
+            };
+            updated = [...models, newMod];
+            setModels(updated);
+            localStorage.setItem('asd_models_v2', JSON.stringify(updated));
+
+            try {
+                await supabase.from('asd_aircraft_models').insert([newMod]);
+            } catch (err) {
+                console.warn('Supabase model insert error:', err);
+            }
+        }
+
+        setIsModelModalOpen(false);
+        setEditingModel(null);
+    };
+
+    const handleDeleteModel = async (id, name) => {
+        if (models.length <= 1) {
+            alert(language === 'es' ? 'Debe haber al menos un modelo de aeronave registrado.' : 'There must be at least one aircraft model.');
+            return;
+        }
+        if (!window.confirm(language === 'es' ? `¿Eliminar el modelo de aeronave "${name}"?` : `Delete aircraft model "${name}"?`)) return;
+        const updated = models.filter(m => m.id !== id);
+        setModels(updated);
+        localStorage.setItem('asd_models_v2', JSON.stringify(updated));
+
+        try {
+            await supabase.from('asd_aircraft_models').delete().eq('id', id);
+        } catch (err) {
+            console.warn('Supabase model delete error:', err);
+        }
+    };
+
+    // --- Flight Logs Actions (Supabase + Local) ---
+    const handleApproveFlightLog = async (id) => {
+        const reviewer = profile ? `${profile.nombre} ${profile.apellido}` : 'Mando ASD';
+        const updated = flightLogs.map(fl => fl.id === id ? { ...fl, status: 'Aprobado', reviewed_by: reviewer } : fl);
+        setFlightLogs(updated);
+        localStorage.setItem('asd_flight_logs_v2', JSON.stringify(updated));
+
+        try {
+            await supabase.from('asd_flight_logs').update({ status: 'Aprobado', reviewed_by: reviewer }).eq('id', id);
+        } catch (err) {
+            console.warn('Supabase flight log approve error:', err);
+        }
+    };
+
+    const handleRejectFlightLog = async (id) => {
+        const reviewer = profile ? `${profile.nombre} ${profile.apellido}` : 'Mando ASD';
+        const updated = flightLogs.map(fl => fl.id === id ? { ...fl, status: 'Rechazado', reviewed_by: reviewer } : fl);
+        setFlightLogs(updated);
+        localStorage.setItem('asd_flight_logs_v2', JSON.stringify(updated));
+
+        try {
+            await supabase.from('asd_flight_logs').update({ status: 'Rechazado', reviewed_by: reviewer }).eq('id', id);
+        } catch (err) {
+            console.warn('Supabase flight log reject error:', err);
+        }
+    };
+
+    const handleDeleteFlightLog = async (id) => {
+        if (!window.confirm(language === 'es' ? '¿Eliminar este registro de vuelo?' : 'Delete this flight log?')) return;
+        const updated = flightLogs.filter(fl => fl.id !== id);
+        setFlightLogs(updated);
+        localStorage.setItem('asd_flight_logs_v2', JSON.stringify(updated));
+
+        try {
+            await supabase.from('asd_flight_logs').delete().eq('id', id);
+        } catch (err) {
+            console.warn('Supabase flight log delete error:', err);
+        }
+    };
+
+    const handleCopyPublicLink = () => {
+        const url = `${window.location.origin}/registro-vuelo`;
+        navigator.clipboard.writeText(url);
+        setCopyFeedback(true);
+        setTimeout(() => setCopyFeedback(false), 3000);
+    };
+
+    const handleSaveManualFlightLog = async (e) => {
+        e.preventDefault();
+        const targetPilot = members.find(m => m.id === flightLogForm.pilot_id) || members[0];
+        if (!targetPilot) return;
+
+        const [depH, depM] = flightLogForm.departure_time.split(':').map(Number);
+        const [lanH, lanM] = flightLogForm.landing_time.split(':').map(Number);
+        let depMinutes = depH * 60 + depM;
+        let lanMinutes = lanH * 60 + lanM;
+        if (lanMinutes < depMinutes) lanMinutes += 24 * 60;
+        const dur = lanMinutes - depMinutes;
+
+        const newLog = {
+            id: 'flight-' + Date.now(),
+            pilot_id: targetPilot.id,
+            pilot_name: `${targetPilot.nombre} ${targetPilot.apellido}`,
+            pilot_callsign: targetPilot.callsign,
+            aircraft_model: flightLogForm.aircraft_model,
+            reason: flightLogForm.reason,
+            reason_other: flightLogForm.reason === 'Otro' ? flightLogForm.reason_other : null,
+            date: flightLogForm.date,
+            departure_time: flightLogForm.departure_time,
+            landing_time: flightLogForm.landing_time,
+            duration_minutes: dur,
+            notes: flightLogForm.notes || null,
+            status: flightLogForm.status || 'Aprobado',
+            reviewed_by: profile ? `${profile.nombre} ${profile.apellido}` : 'Mando ASD',
+            created_at: new Date().toISOString()
+        };
+
+        const updated = [newLog, ...flightLogs];
+        setFlightLogs(updated);
+        localStorage.setItem('asd_flight_logs_v2', JSON.stringify(updated));
+
+        try {
+            await supabase.from('asd_flight_logs').insert([newLog]);
+        } catch (err) {
+            console.warn('Supabase manual flight log insert error:', err);
+        }
+
+        setIsFlightLogModalOpen(false);
+    };
+
     // Sorted & Filtered lists
     const sortedRanks = useMemo(() => {
         return [...ranks].sort((a, b) => a.level - b.level);
@@ -781,6 +1057,41 @@ function AirSupport() {
             i.level.toLowerCase().includes(q)
         );
     }, [infractions, searchTerm]);
+
+    const filteredFlightLogs = useMemo(() => {
+        return flightLogs.filter(fl => {
+            const matchesStatus = flightStatusFilter === 'Todos' || fl.status === flightStatusFilter;
+            if (!matchesStatus) return false;
+            if (!searchTerm.trim()) return true;
+            const q = searchTerm.toLowerCase();
+            return (
+                fl.pilot_name.toLowerCase().includes(q) ||
+                fl.pilot_callsign.toLowerCase().includes(q) ||
+                fl.aircraft_model.toLowerCase().includes(q) ||
+                fl.reason.toLowerCase().includes(q) ||
+                (fl.reason_other && fl.reason_other.toLowerCase().includes(q)) ||
+                (fl.notes && fl.notes.toLowerCase().includes(q))
+            );
+        });
+    }, [flightLogs, flightStatusFilter, searchTerm]);
+
+    const filteredModels = useMemo(() => {
+        if (!searchTerm.trim()) return models;
+        const q = searchTerm.toLowerCase();
+        return models.filter(m =>
+            m.name.toLowerCase().includes(q) ||
+            (m.type && m.type.toLowerCase().includes(q)) ||
+            (m.registration && m.registration.toLowerCase().includes(q))
+        );
+    }, [models, searchTerm]);
+
+    const totalFlightMinutes = useMemo(() => {
+        return flightLogs.reduce((acc, curr) => acc + (Number(curr.duration_minutes) || 0), 0);
+    }, [flightLogs]);
+
+    const pendingLogsCount = useMemo(() => {
+        return flightLogs.filter(fl => fl.status === 'Pendiente').length;
+    }, [flightLogs]);
 
     if (loading) {
         return (
@@ -880,6 +1191,17 @@ function AirSupport() {
                         <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Habilitaciones</div>
                         <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#34d399' }}>{licenses.length}</div>
                     </div>
+                    <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(56, 189, 248, 0.35)', borderRadius: '10px', padding: '0.5rem 1rem', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Vuelos Registrados</div>
+                        <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            <span>{flightLogs.length}</span>
+                            {pendingLogsCount > 0 && (
+                                <span style={{ fontSize: '0.72rem', background: '#f59e0b', color: '#000', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>
+                                    {pendingLogsCount} pend.
+                                </span>
+                            )}
+                        </div>
+                    </div>
                     <div style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '10px', padding: '0.5rem 1rem', textAlign: 'center' }}>
                         <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Infracciones</div>
                         <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#f87171' }}>{infractions.filter(i => i.status === 'Activa').length} Activas</div>
@@ -907,9 +1229,9 @@ function AirSupport() {
                             color: activeTab === 'cuadrilla' ? '#38bdf8' : '#94a3b8',
                             border: `1px solid ${activeTab === 'cuadrilla' ? 'rgba(2, 132, 199, 0.55)' : 'rgba(255, 255, 255, 0.1)'}`,
                             borderRadius: '8px',
-                            padding: '0.65rem 1.35rem',
+                            padding: '0.65rem 1.15rem',
                             fontWeight: 700,
-                            fontSize: '0.9rem',
+                            fontSize: '0.88rem',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -917,7 +1239,63 @@ function AirSupport() {
                         }}
                     >
                         <span>👥</span>
-                        <span>Cuadrilla ASD (Jerarquía)</span>
+                        <span>Cuadrilla ASD</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('flight_logs')}
+                        style={{
+                            background: activeTab === 'flight_logs' ? 'rgba(2, 132, 199, 0.25)' : 'rgba(15, 23, 42, 0.6)',
+                            color: activeTab === 'flight_logs' ? '#38bdf8' : '#94a3b8',
+                            border: `1px solid ${activeTab === 'flight_logs' ? 'rgba(2, 132, 199, 0.55)' : 'rgba(255, 255, 255, 0.1)'}`,
+                            borderRadius: '8px',
+                            padding: '0.65rem 1.15rem',
+                            fontWeight: 700,
+                            fontSize: '0.88rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}
+                    >
+                        <span>📋</span>
+                        <span>Registros de Vuelo</span>
+                        {pendingLogsCount > 0 ? (
+                            <span style={{
+                                background: '#f59e0b',
+                                color: '#000',
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                borderRadius: '10px',
+                                padding: '1px 6px'
+                            }}>
+                                {pendingLogsCount}
+                            </span>
+                        ) : (
+                            <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>({flightLogs.length})</span>
+                        )}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('aircraft_models')}
+                        style={{
+                            background: activeTab === 'aircraft_models' ? 'rgba(2, 132, 199, 0.25)' : 'rgba(15, 23, 42, 0.6)',
+                            color: activeTab === 'aircraft_models' ? '#38bdf8' : '#94a3b8',
+                            border: `1px solid ${activeTab === 'aircraft_models' ? 'rgba(2, 132, 199, 0.55)' : 'rgba(255, 255, 255, 0.1)'}`,
+                            borderRadius: '8px',
+                            padding: '0.65rem 1.15rem',
+                            fontWeight: 700,
+                            fontSize: '0.88rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}
+                    >
+                        <span>🚁</span>
+                        <span>Modelos ({models.length})</span>
                     </button>
 
                     <button
@@ -928,9 +1306,9 @@ function AirSupport() {
                             color: activeTab === 'ranks' ? '#38bdf8' : '#94a3b8',
                             border: `1px solid ${activeTab === 'ranks' ? 'rgba(2, 132, 199, 0.55)' : 'rgba(255, 255, 255, 0.1)'}`,
                             borderRadius: '8px',
-                            padding: '0.65rem 1.35rem',
+                            padding: '0.65rem 1.15rem',
                             fontWeight: 700,
-                            fontSize: '0.9rem',
+                            fontSize: '0.88rem',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -938,7 +1316,7 @@ function AirSupport() {
                         }}
                     >
                         <span>🎖️</span>
-                        <span>Gestión de Rangos</span>
+                        <span>Rangos</span>
                     </button>
 
                     <button
@@ -949,9 +1327,9 @@ function AirSupport() {
                             color: activeTab === 'licenses' ? '#38bdf8' : '#94a3b8',
                             border: `1px solid ${activeTab === 'licenses' ? 'rgba(2, 132, 199, 0.55)' : 'rgba(255, 255, 255, 0.1)'}`,
                             borderRadius: '8px',
-                            padding: '0.65rem 1.35rem',
+                            padding: '0.65rem 1.15rem',
                             fontWeight: 700,
-                            fontSize: '0.9rem',
+                            fontSize: '0.88rem',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -959,7 +1337,7 @@ function AirSupport() {
                         }}
                     >
                         <span>🪪</span>
-                        <span>Licencias de Vuelo ({licenses.length})</span>
+                        <span>Licencias ({licenses.length})</span>
                     </button>
 
                     <button
@@ -970,9 +1348,9 @@ function AirSupport() {
                             color: activeTab === 'infractions' ? '#38bdf8' : '#94a3b8',
                             border: `1px solid ${activeTab === 'infractions' ? 'rgba(2, 132, 199, 0.55)' : 'rgba(255, 255, 255, 0.1)'}`,
                             borderRadius: '8px',
-                            padding: '0.65rem 1.35rem',
+                            padding: '0.65rem 1.15rem',
                             fontWeight: 700,
-                            fontSize: '0.9rem',
+                            fontSize: '0.88rem',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -985,10 +1363,10 @@ function AirSupport() {
                 </div>
 
                 {/* Right Search & Action */}
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     <input
                         type="text"
-                        placeholder="Buscar integrante, callsign..."
+                        placeholder="Buscar en ASD..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         style={{
@@ -998,7 +1376,7 @@ function AirSupport() {
                             color: '#ffffff',
                             padding: '0.6rem 1rem',
                             fontSize: '0.85rem',
-                            width: '220px'
+                            width: '200px'
                         }}
                     />
 
@@ -1022,6 +1400,100 @@ function AirSupport() {
                         >
                             <span>+</span>
                             <span>Añadir a la Cuadrilla</span>
+                        </button>
+                    )}
+
+                    {activeTab === 'flight_logs' && (
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                                type="button"
+                                onClick={handleCopyPublicLink}
+                                style={{
+                                    background: copyFeedback ? 'rgba(16, 185, 129, 0.25)' : 'rgba(56, 189, 248, 0.15)',
+                                    border: `1px solid ${copyFeedback ? '#10b981' : 'rgba(56, 189, 248, 0.4)'}`,
+                                    borderRadius: '8px',
+                                    padding: '0.65rem 1rem',
+                                    color: copyFeedback ? '#34d399' : '#38bdf8',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    transition: 'all 0.2s'
+                                }}
+                                title="Copiar enlace del formulario público estilo iOS"
+                            >
+                                <span>{copyFeedback ? '✓' : '🔗'}</span>
+                                <span>{copyFeedback ? 'Enlace Copiado!' : 'Copiar Enlace Público'}</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setFlightLogForm({
+                                        pilot_id: members[0]?.id || '',
+                                        aircraft_model: models[0]?.name || 'Maverick',
+                                        reason: 'Patrullaje',
+                                        reason_other: '',
+                                        date: new Date().toISOString().split('T')[0],
+                                        departure_time: '12:00',
+                                        landing_time: '13:00',
+                                        notes: '',
+                                        status: 'Aprobado'
+                                    });
+                                    setIsFlightLogModalOpen(true);
+                                }}
+                                style={{
+                                    background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '0.65rem 1.15rem',
+                                    color: '#ffffff',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                <span>+</span>
+                                <span>Registrar Vuelo</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {activeTab === 'aircraft_models' && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setEditingModel(null);
+                                setModelForm({
+                                    name: '',
+                                    type: 'Helicóptero Ligero / Patrullaje',
+                                    registration: 'POLMAV-0' + (models.length + 1),
+                                    description: '',
+                                    status: 'Operativo'
+                                });
+                                setIsModelModalOpen(true);
+                            }}
+                            style={{
+                                background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '0.65rem 1.25rem',
+                                color: '#ffffff',
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                        >
+                            <span>+</span>
+                            <span>Nuevo Modelo</span>
                         </button>
                     )}
 
@@ -1677,6 +2149,615 @@ function AirSupport() {
                 </div>
             )}
 
+            {/* TAB: REGISTROS DE VUELO (FLIGHT LOGS) */}
+            {activeTab === 'flight_logs' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    {/* Top Stats & Public Link Banner */}
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                        border: '1px solid rgba(2, 132, 199, 0.35)',
+                        borderRadius: '14px',
+                        padding: '1.25rem 1.75rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '1rem',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.3)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '12px',
+                                background: 'rgba(2, 132, 199, 0.2)',
+                                border: '1px solid #0284c7',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '1.6rem'
+                            }}>
+                                ✈️
+                            </div>
+                            <div>
+                                <h3 style={{ margin: '0 0 0.2rem 0', color: '#f8fafc', fontSize: '1.15rem', fontWeight: 800 }}>
+                                    Bitácora de Vuelos ASD • Enlace Público
+                                </h3>
+                                <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>
+                                    Los pilotos pueden enviar sus reportes de vuelo desde el enlace público estilo Apple iOS sin necesidad de iniciar sesión.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Tiempo Total de Vuelo</div>
+                                <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#38bdf8' }}>
+                                    {Math.floor(totalFlightMinutes / 60)}h {totalFlightMinutes % 60}m
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleCopyPublicLink}
+                                style={{
+                                    background: copyFeedback ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #0284c7, #0369a1)',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '0.65rem 1.25rem',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)'
+                                }}
+                            >
+                                <span>{copyFeedback ? '✓' : '🔗'}</span>
+                                <span>{copyFeedback ? '¡Enlace Copiado al Portapapeles!' : 'Copiar URL Pública de Vuelo'}</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Filter Status Pills */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(15, 23, 42, 0.6)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                            {['Todos', 'Pendiente', 'Aprobado', 'Rechazado'].map(st => {
+                                const isSel = flightStatusFilter === st;
+                                const count = st === 'Todos' ? flightLogs.length : flightLogs.filter(f => f.status === st).length;
+                                return (
+                                    <button
+                                        key={st}
+                                        type="button"
+                                        onClick={() => setFlightStatusFilter(st)}
+                                        style={{
+                                            background: isSel ? 'rgba(2, 132, 199, 0.35)' : 'transparent',
+                                            color: isSel ? '#38bdf8' : '#94a3b8',
+                                            border: `1px solid ${isSel ? 'rgba(2, 132, 199, 0.5)' : 'transparent'}`,
+                                            borderRadius: '7px',
+                                            padding: '0.45rem 0.95rem',
+                                            fontSize: '0.82rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px'
+                                        }}
+                                    >
+                                        <span>{st}</span>
+                                        <span style={{
+                                            fontSize: '0.72rem',
+                                            background: isSel ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                                            color: isSel ? '#38bdf8' : '#64748b',
+                                            padding: '1px 6px',
+                                            borderRadius: '8px',
+                                            fontWeight: 800
+                                        }}>
+                                            {count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                            Mostrando {filteredFlightLogs.length} registro(s) de vuelo
+                        </span>
+                    </div>
+
+                    {/* Flight Logs Table / Cards */}
+                    {filteredFlightLogs.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'rgba(15, 23, 42, 0.5)', borderRadius: '14px', border: '1px dashed rgba(255, 255, 255, 0.15)', color: '#94a3b8' }}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🛫</div>
+                            <h3 style={{ color: '#f8fafc', margin: '0 0 0.5rem 0' }}>No hay registros de vuelo</h3>
+                            <p style={{ margin: '0 0 1.5rem 0', maxWidth: '480px', marginInline: 'auto', fontSize: '0.9rem' }}>
+                                No se han encontrado registros con el filtro actual. Comparte el enlace público o añade un vuelo manualmente.
+                            </p>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={handleCopyPublicLink}
+                                    style={{
+                                        background: 'rgba(2, 132, 199, 0.2)',
+                                        border: '1px solid #0284c7',
+                                        color: '#38bdf8',
+                                        borderRadius: '8px',
+                                        padding: '0.6rem 1.25rem',
+                                        fontWeight: 700,
+                                        fontSize: '0.85rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    🔗 Copiar Enlace Público
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setFlightLogForm({
+                                            pilot_id: members[0]?.id || '',
+                                            aircraft_model: models[0]?.name || 'Maverick',
+                                            reason: 'Patrullaje',
+                                            reason_other: '',
+                                            date: new Date().toISOString().split('T')[0],
+                                            departure_time: '12:00',
+                                            landing_time: '13:00',
+                                            notes: '',
+                                            status: 'Aprobado'
+                                        });
+                                        setIsFlightLogModalOpen(true);
+                                    }}
+                                    style={{
+                                        background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                                        border: 'none',
+                                        color: '#ffffff',
+                                        borderRadius: '8px',
+                                        padding: '0.6rem 1.25rem',
+                                        fontWeight: 700,
+                                        fontSize: '0.85rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    + Registrar Manualmente
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{
+                            background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.85))',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: '14px',
+                            overflow: 'hidden',
+                            boxShadow: '0 8px 30px rgba(0,0,0,0.3)'
+                        }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+                                <thead>
+                                    <tr style={{ background: 'rgba(15, 23, 42, 0.95)', borderBottom: '1px solid rgba(255, 255, 255, 0.15)', color: '#94a3b8' }}>
+                                        <th style={{ padding: '0.9rem 1.25rem' }}>FECHA Y HORARIO</th>
+                                        <th style={{ padding: '0.9rem 1.25rem' }}>PILOTO / CALLSIGN</th>
+                                        <th style={{ padding: '0.9rem 1.25rem' }}>AERONAVE</th>
+                                        <th style={{ padding: '0.9rem 1.25rem' }}>MOTIVO DE VUELO</th>
+                                        <th style={{ padding: '0.9rem 1.25rem' }}>OBSERVACIONES</th>
+                                        <th style={{ padding: '0.9rem 1.25rem' }}>ESTADO</th>
+                                        <th style={{ padding: '0.9rem 1.25rem', textAlign: 'right' }}>ACCIONES</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredFlightLogs.map((log) => {
+                                        const statusColors = {
+                                            'Aprobado': { bg: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '#10b981' },
+                                            'Pendiente': { bg: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '#f59e0b' },
+                                            'Rechazado': { bg: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '#ef4444' }
+                                        };
+                                        const sc = statusColors[log.status] || statusColors['Pendiente'];
+                                        const pilotObj = members.find(m => m.id === log.pilot_id || m.callsign === log.pilot_callsign);
+
+                                        const durH = Math.floor((Number(log.duration_minutes) || 0) / 60);
+                                        const durM = (Number(log.duration_minutes) || 0) % 60;
+
+                                        return (
+                                            <tr key={log.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                                                {/* Date & Flight Times */}
+                                                <td style={{ padding: '1rem 1.25rem' }}>
+                                                    <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.92rem' }}>
+                                                        {log.date}
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                                                        <span style={{ fontSize: '0.78rem', color: '#38bdf8', fontWeight: 700 }}>
+                                                            {log.departure_time} ➔ {log.landing_time}
+                                                        </span>
+                                                        <span style={{
+                                                            background: 'rgba(56, 189, 248, 0.15)',
+                                                            color: '#38bdf8',
+                                                            borderRadius: '4px',
+                                                            padding: '1px 5px',
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: 800
+                                                        }}>
+                                                            ⏱️ {durH > 0 ? `${durH}h ` : ''}{durM}m
+                                                        </span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Pilot */}
+                                                <td style={{ padding: '1rem 1.25rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                                                        <div style={{
+                                                            width: '32px',
+                                                            height: '32px',
+                                                            borderRadius: '50%',
+                                                            overflow: 'hidden',
+                                                            background: '#0b1120',
+                                                            border: '1.5px solid #0284c7',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            fontSize: '0.9rem',
+                                                            flexShrink: 0
+                                                        }}>
+                                                            {pilotObj?.avatar ? (
+                                                                <img
+                                                                    src={getProfileImage(pilotObj.avatar, '/logowebp/anon.webp')}
+                                                                    alt={log.pilot_name}
+                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.onerror = null;
+                                                                        e.currentTarget.src = '/logowebp/anon.webp';
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <span>👨‍✈️</span>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.88rem' }}>
+                                                                {log.pilot_name}
+                                                            </div>
+                                                            <div style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 800 }}>
+                                                                {log.pilot_callsign}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                {/* Model */}
+                                                <td style={{ padding: '1rem 1.25rem' }}>
+                                                    <span style={{
+                                                        background: 'rgba(2, 132, 199, 0.2)',
+                                                        color: '#38bdf8',
+                                                        border: '1px solid rgba(2, 132, 199, 0.45)',
+                                                        borderRadius: '6px',
+                                                        padding: '0.25rem 0.6rem',
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 800,
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                    }}>
+                                                        <span>🚁</span>
+                                                        <span>{log.aircraft_model}</span>
+                                                    </span>
+                                                </td>
+
+                                                {/* Reason */}
+                                                <td style={{ padding: '1rem 1.25rem' }}>
+                                                    <div style={{ fontWeight: 700, color: '#fbbf24', fontSize: '0.85rem' }}>
+                                                        {log.reason}
+                                                    </div>
+                                                    {log.reason_other && (
+                                                        <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '2px', fontStyle: 'italic' }}>
+                                                            "{log.reason_other}"
+                                                        </div>
+                                                    )}
+                                                </td>
+
+                                                {/* Notes */}
+                                                <td style={{ padding: '1rem 1.25rem', color: '#cbd5e1', maxWidth: '260px', lineHeight: 1.4, fontSize: '0.82rem' }}>
+                                                    {log.notes || <span style={{ color: '#64748b', fontStyle: 'italic' }}>Sin observaciones adicionales</span>}
+                                                </td>
+
+                                                {/* Status */}
+                                                <td style={{ padding: '1rem 1.25rem' }}>
+                                                    <span style={{
+                                                        background: sc.bg,
+                                                        color: sc.color,
+                                                        border: `1px solid ${sc.border}`,
+                                                        borderRadius: '6px',
+                                                        padding: '0.25rem 0.6rem',
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 800,
+                                                        display: 'inline-block'
+                                                    }}>
+                                                        ● {log.status}
+                                                    </span>
+                                                    {log.reviewed_by && (
+                                                        <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
+                                                            Por: {log.reviewed_by}
+                                                        </div>
+                                                    )}
+                                                </td>
+
+                                                {/* Actions */}
+                                                <td style={{ padding: '1rem 1.25rem', textAlign: 'right' }}>
+                                                    <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                                                        {log.status === 'Pendiente' ? (
+                                                            <>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleApproveFlightLog(log.id)}
+                                                                    style={{
+                                                                        background: 'rgba(16, 185, 129, 0.2)',
+                                                                        border: '1px solid #10b981',
+                                                                        color: '#34d399',
+                                                                        borderRadius: '6px',
+                                                                        padding: '0.35rem 0.65rem',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: 800,
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                    title="Aprobar registro de vuelo"
+                                                                >
+                                                                    ✓ Aprobar
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleRejectFlightLog(log.id)}
+                                                                    style={{
+                                                                        background: 'rgba(239, 68, 68, 0.2)',
+                                                                        border: '1px solid #ef4444',
+                                                                        color: '#f87171',
+                                                                        borderRadius: '6px',
+                                                                        padding: '0.35rem 0.65rem',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: 800,
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                    title="Rechazar registro de vuelo"
+                                                                >
+                                                                    ✕
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    if (log.status === 'Aprobado') handleRejectFlightLog(log.id);
+                                                                    else handleApproveFlightLog(log.id);
+                                                                }}
+                                                                style={{
+                                                                    background: 'rgba(255, 255, 255, 0.05)',
+                                                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                                    color: '#cbd5e1',
+                                                                    borderRadius: '6px',
+                                                                    padding: '0.35rem 0.65rem',
+                                                                    fontSize: '0.74rem',
+                                                                    fontWeight: 700,
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                Cambiar
+                                                            </button>
+                                                        )}
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteFlightLog(log.id)}
+                                                            style={{
+                                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                                border: 'none',
+                                                                borderRadius: '6px',
+                                                                color: '#f87171',
+                                                                padding: '0.35rem 0.65rem',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.75rem'
+                                                            }}
+                                                            title="Eliminar registro"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* TAB: MODELOS DE AERONAVES (AIRCRAFT MODELS) */}
+            {activeTab === 'aircraft_models' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                        border: '1px solid rgba(2, 132, 199, 0.35)',
+                        borderRadius: '14px',
+                        padding: '1.25rem 1.75rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '1rem'
+                    }}>
+                        <div>
+                            <h3 style={{ margin: '0 0 0.25rem 0', color: '#f8fafc', fontSize: '1.15rem', fontWeight: 800 }}>
+                                Flota y Modelos de Aeronaves ASD
+                            </h3>
+                            <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>
+                                Crea, edita y organiza los modelos de helicópteros disponibles para los registros de vuelo de la división.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setEditingModel(null);
+                                setModelForm({
+                                    name: '',
+                                    type: 'Helicóptero Ligero / Patrullaje',
+                                    registration: 'POLMAV-0' + (models.length + 1),
+                                    description: '',
+                                    status: 'Operativo'
+                                });
+                                setIsModelModalOpen(true);
+                            }}
+                            style={{
+                                background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '0.65rem 1.25rem',
+                                fontSize: '0.85rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                        >
+                            <span>+</span>
+                            <span>Añadir Nuevo Modelo</span>
+                        </button>
+                    </div>
+
+                    {/* Aircraft Models Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+                        {filteredModels.map((mod) => {
+                            const flightsWithThisModel = flightLogs.filter(f => f.aircraft_model === mod.name).length;
+
+                            return (
+                                <div
+                                    key={mod.id}
+                                    style={{
+                                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.85) 100%)',
+                                        border: '1px solid rgba(2, 132, 199, 0.3)',
+                                        borderRadius: '14px',
+                                        padding: '1.5rem',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'space-between',
+                                        gap: '1rem',
+                                        boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                                        position: 'relative',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    {/* Top Card Details */}
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <div style={{
+                                                    width: '42px',
+                                                    height: '42px',
+                                                    borderRadius: '10px',
+                                                    background: 'rgba(2, 132, 199, 0.2)',
+                                                    border: '1px solid #0284c7',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '1.4rem'
+                                                }}>
+                                                    🚁
+                                                </div>
+                                                <div>
+                                                    <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc' }}>
+                                                        {mod.name}
+                                                    </h4>
+                                                    <span style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 700 }}>
+                                                        {mod.registration || 'SIN MATRÍCULA'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <span style={{
+                                                background: mod.status === 'Operativo' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                                                color: mod.status === 'Operativo' ? '#34d399' : '#fbbf24',
+                                                border: `1px solid ${mod.status === 'Operativo' ? '#10b981' : '#f59e0b'}`,
+                                                borderRadius: '6px',
+                                                padding: '2px 8px',
+                                                fontSize: '0.72rem',
+                                                fontWeight: 800
+                                            }}>
+                                                ● {mod.status || 'Operativo'}
+                                            </span>
+                                        </div>
+
+                                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600, marginBottom: '0.5rem' }}>
+                                            Tipo: <span style={{ color: '#cbd5e1' }}>{mod.type || 'Helicóptero'}</span>
+                                        </div>
+
+                                        <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
+                                            {mod.description || 'Sin descripción técnica detallada.'}
+                                        </p>
+                                    </div>
+
+                                    {/* Bottom Card Footer with Flight Count & Actions */}
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                                        paddingTop: '0.75rem',
+                                        marginTop: '0.25rem'
+                                    }}>
+                                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                                            📊 <strong style={{ color: '#38bdf8' }}>{flightsWithThisModel}</strong> vuelos registrados
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: '6px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setEditingModel(mod);
+                                                    setModelForm({
+                                                        name: mod.name,
+                                                        type: mod.type || 'Helicóptero Ligero / Patrullaje',
+                                                        registration: mod.registration || '',
+                                                        description: mod.description || '',
+                                                        status: mod.status || 'Operativo'
+                                                    });
+                                                    setIsModelModalOpen(true);
+                                                }}
+                                                style={{
+                                                    background: 'rgba(2, 132, 199, 0.15)',
+                                                    border: '1px solid rgba(2, 132, 199, 0.4)',
+                                                    borderRadius: '6px',
+                                                    color: '#38bdf8',
+                                                    padding: '0.35rem 0.75rem',
+                                                    fontSize: '0.76rem',
+                                                    fontWeight: 700,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Editar
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteModel(mod.id, mod.name)}
+                                                style={{
+                                                    background: 'rgba(239, 68, 68, 0.15)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                    borderRadius: '6px',
+                                                    color: '#f87171',
+                                                    padding: '0.35rem 0.65rem',
+                                                    fontSize: '0.76rem',
+                                                    fontWeight: 700,
+                                                    cursor: 'pointer'
+                                                }}
+                                                title="Eliminar modelo"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* MODAL 1: AÑADIR / EDITAR INTEGRANTE */}
             {isMemberModalOpen && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
@@ -2094,6 +3175,216 @@ function AirSupport() {
                                 Listo
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL 6: CREAR / EDITAR MODELO DE AERONAVE */}
+            {isModelModalOpen && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                    <div style={{ background: '#0f172a', border: '1px solid rgba(2, 132, 199, 0.4)', borderRadius: '16px', padding: '2rem', maxWidth: '500px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>🚁</span>
+                                <span>{editingModel ? 'Editar Modelo de Aeronave' : 'Nuevo Modelo de Aeronave'}</span>
+                            </h2>
+                            <button type="button" onClick={() => setIsModelModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.25rem', cursor: 'pointer' }}>✕</button>
+                        </div>
+
+                        <form onSubmit={handleSaveModel} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.35rem', fontWeight: 700 }}>Nombre del Modelo *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={modelForm.name}
+                                    onChange={(e) => setModelForm({ ...modelForm, name: e.target.value })}
+                                    placeholder="Ej: Maverick, SuperVolito, Frogger..."
+                                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.35rem', fontWeight: 700 }}>Tipo / Clasificación</label>
+                                    <input
+                                        type="text"
+                                        value={modelForm.type}
+                                        onChange={(e) => setModelForm({ ...modelForm, type: e.target.value })}
+                                        placeholder="Ej: Patrullaje / Rescate"
+                                        style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.35rem', fontWeight: 700 }}>Matrícula / Registro</label>
+                                    <input
+                                        type="text"
+                                        value={modelForm.registration}
+                                        onChange={(e) => setModelForm({ ...modelForm, registration: e.target.value })}
+                                        placeholder="Ej: POLMAV-01"
+                                        style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.35rem', fontWeight: 700 }}>Estado Operativo</label>
+                                <select
+                                    value={modelForm.status}
+                                    onChange={(e) => setModelForm({ ...modelForm, status: e.target.value })}
+                                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
+                                >
+                                    <option value="Operativo">🟢 Operativo (Listo para vuelo)</option>
+                                    <option value="Mantenimiento">🟡 Mantenimiento en Hangar</option>
+                                    <option value="Fuera de Servicio">🔴 Fuera de Servicio</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.35rem', fontWeight: 700 }}>Descripción / Equipamiento Especial</label>
+                                <textarea
+                                    rows="3"
+                                    value={modelForm.description}
+                                    onChange={(e) => setModelForm({ ...modelForm, description: e.target.value })}
+                                    placeholder="Equipado con cámara infrarroja FLIR, foco NiteSun, gancho de rescate..."
+                                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem', resize: 'vertical' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem' }}>
+                                <button type="button" onClick={() => setIsModelModalOpen(false)} style={{ background: 'transparent', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '8px', color: '#94a3b8', padding: '0.65rem 1.25rem', cursor: 'pointer' }}>Cancelar</button>
+                                <button type="submit" style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', border: 'none', borderRadius: '8px', color: '#ffffff', fontWeight: 700, padding: '0.65rem 1.5rem', cursor: 'pointer' }}>Guardar Modelo</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL 7: REGISTRO MANUAL DE VUELO */}
+            {isFlightLogModalOpen && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                    <div style={{ background: '#0f172a', border: '1px solid rgba(2, 132, 199, 0.4)', borderRadius: '16px', padding: '2rem', maxWidth: '520px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>✈️</span>
+                                <span>Registrar Vuelo (Manual)</span>
+                            </h2>
+                            <button type="button" onClick={() => setIsFlightLogModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.25rem', cursor: 'pointer' }}>✕</button>
+                        </div>
+
+                        <form onSubmit={handleSaveManualFlightLog} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.35rem', fontWeight: 700 }}>Piloto al Mando *</label>
+                                <select
+                                    required
+                                    value={flightLogForm.pilot_id}
+                                    onChange={(e) => setFlightLogForm({ ...flightLogForm, pilot_id: e.target.value })}
+                                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(2, 132, 199, 0.4)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
+                                >
+                                    {members.map(m => (
+                                        <option key={m.id} value={m.id}>
+                                            {m.callsign} - {m.nombre} {m.apellido}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.35rem', fontWeight: 700 }}>Modelo de Aeronave *</label>
+                                    <select
+                                        value={flightLogForm.aircraft_model}
+                                        onChange={(e) => setFlightLogForm({ ...flightLogForm, aircraft_model: e.target.value })}
+                                        style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
+                                    >
+                                        {models.map(mod => (
+                                            <option key={mod.id} value={mod.name}>{mod.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.35rem', fontWeight: 700 }}>Motivo de Vuelo *</label>
+                                    <select
+                                        value={flightLogForm.reason}
+                                        onChange={(e) => setFlightLogForm({ ...flightLogForm, reason: e.target.value })}
+                                        style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
+                                    >
+                                        <option value="Patrullaje">Patrullaje</option>
+                                        <option value="487">487 (Robo de vehículo / Persecución)</option>
+                                        <option value="207">207 (Secuestro)</option>
+                                        <option value="215">215 (Robo a mano armada)</option>
+                                        <option value="Búsqueda y Localización">Búsqueda y Localización</option>
+                                        <option value="Operativo">Operativo</option>
+                                        <option value="Práctica">Práctica</option>
+                                        <option value="Otro">Otro (Especificar)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {flightLogForm.reason === 'Otro' && (
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#fbbf24', marginBottom: '0.35rem', fontWeight: 700 }}>Indicar Motivo de Vuelo *</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={flightLogForm.reason_other}
+                                        onChange={(e) => setFlightLogForm({ ...flightLogForm, reason_other: e.target.value })}
+                                        placeholder="Ej: Traslado VIP, Apoyo marítimo..."
+                                        style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
+                                    />
+                                </div>
+                            )}
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.35rem', fontWeight: 700 }}>Fecha del Vuelo</label>
+                                <input
+                                    type="date"
+                                    required
+                                    value={flightLogForm.date}
+                                    onChange={(e) => setFlightLogForm({ ...flightLogForm, date: e.target.value })}
+                                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#38bdf8', marginBottom: '0.35rem', fontWeight: 700 }}>Hora de Salida *</label>
+                                    <input
+                                        type="time"
+                                        required
+                                        value={flightLogForm.departure_time}
+                                        onChange={(e) => setFlightLogForm({ ...flightLogForm, departure_time: e.target.value })}
+                                        style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(2, 132, 199, 0.4)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#38bdf8', marginBottom: '0.35rem', fontWeight: 700 }}>Hora de Aterrizaje *</label>
+                                    <input
+                                        type="time"
+                                        required
+                                        value={flightLogForm.landing_time}
+                                        onChange={(e) => setFlightLogForm({ ...flightLogForm, landing_time: e.target.value })}
+                                        style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(2, 132, 199, 0.4)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.35rem', fontWeight: 700 }}>Observaciones / Informe Breve</label>
+                                <textarea
+                                    rows="2"
+                                    value={flightLogForm.notes}
+                                    onChange={(e) => setFlightLogForm({ ...flightLogForm, notes: e.target.value })}
+                                    placeholder="Novedades del vuelo, persecuciones, condiciones meteorológicas..."
+                                    style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem', resize: 'vertical' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem' }}>
+                                <button type="button" onClick={() => setIsFlightLogModalOpen(false)} style={{ background: 'transparent', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '8px', color: '#94a3b8', padding: '0.65rem 1.25rem', cursor: 'pointer' }}>Cancelar</button>
+                                <button type="submit" style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', border: 'none', borderRadius: '8px', color: '#ffffff', fontWeight: 700, padding: '0.65rem 1.5rem', cursor: 'pointer' }}>Guardar Registro</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

@@ -40,6 +40,7 @@ import Ballistics from './pages/Ballistics';
 import Coordination from './pages/Coordination';
 import SEB from './pages/SEB';
 import AirSupport from './pages/AirSupport';
+import PublicASDFlightLog from './pages/PublicASDFlightLog';
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
 import { ThemeProvider } from './contexts/ThemeContext'; // Import ThemeProvider
@@ -54,10 +55,13 @@ function App() {
         <PresenceProvider>
           <Router>
           <Routes>
-          {/* Public Route */}
+          {/* Public Routes */}
           <Route path="/" element={<Login />} />
           <Route path="/public-map" element={<PublicGangMap />} />
           <Route path="/denuncia-ia" element={<PublicIADenuncia />} />
+          <Route path="/registro-vuelo" element={<PublicASDFlightLog />} />
+          <Route path="/flight-log" element={<PublicASDFlightLog />} />
+          <Route path="/asd-vuelo" element={<PublicASDFlightLog />} />
 
           {/* Interstitial Route */}
           <Route path="/welcome" element={<Welcome />} />
