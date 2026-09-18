@@ -269,7 +269,10 @@ export async function uploadDocumentToStorage(documentInput, folder = 'documents
 
     if (error) {
         console.error('Supabase document upload failed:', error);
-        throw new Error(`Error al subir documento: ${error.message}. Asegúrate de que el bucket "uploads" esté configurado.`);
+        if (error.statusCode === '413' || error.message?.toLowerCase().includes('payload too large') || error.message?.toLowerCase().includes('exceeded')) {
+            throw new Error(`El archivo "${originalName}" supera el límite de subida permitido en Supabase Storage. Ejecuta el script de migración para ampliar el límite.`);
+        }
+        throw new Error(`Error al subir documento "${originalName}": ${error.message}. Asegúrate de que el bucket "uploads" esté configurado.`);
     }
 
     const { data: publicUrlData } = supabase.storage

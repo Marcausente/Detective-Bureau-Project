@@ -266,14 +266,32 @@ function Incidents() {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
 
-        const newDocs = files.map(file => ({
-            file: file,
-            name: file.name,
-            size: file.size,
-            type: file.type || 'application/pdf',
-            isNew: true
-        }));
-        setState(prev => [...prev, ...newDocs]);
+        const MAX_SIZE_MB = 50;
+        const MAX_BYTES = MAX_SIZE_MB * 1024 * 1024;
+        const validDocs = [];
+        const oversized = [];
+
+        files.forEach(file => {
+            if (file.size > MAX_BYTES) {
+                oversized.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
+            } else {
+                validDocs.push({
+                    file: file,
+                    name: file.name,
+                    size: file.size,
+                    type: file.type || 'application/pdf',
+                    isNew: true
+                });
+            }
+        });
+
+        if (oversized.length > 0) {
+            alert(`Los siguientes archivos superan el límite máximo de ${MAX_SIZE_MB}MB:\n\n${oversized.join('\n')}\n\nPor favor, comprime el archivo o selecciona uno de menor tamaño.`);
+        }
+
+        if (validDocs.length > 0) {
+            setState(prev => [...prev, ...validDocs]);
+        }
         e.target.value = '';
     };
 

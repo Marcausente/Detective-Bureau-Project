@@ -4,10 +4,10 @@
 -- Ejecuta este script en el SQL Editor de tu Dashboard de Supabase
 -- para corregir el error: "new row violates row-level security policy"
 
--- 1. Asegurar que el bucket 'uploads' exista y sea público
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('uploads', 'uploads', true)
-ON CONFLICT (id) DO UPDATE SET public = true;
+-- 1. Asegurar que el bucket 'uploads' exista, sea público y tenga límite ampliado (50MB)
+INSERT INTO storage.buckets (id, name, public, file_size_limit)
+VALUES ('uploads', 'uploads', true, 52428800)
+ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = 52428800;
 
 -- 2. Permitir lectura pública de archivos en el bucket 'uploads'
 DROP POLICY IF EXISTS "Public Read Access on uploads bucket" ON storage.objects;
