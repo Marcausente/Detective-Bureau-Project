@@ -111,12 +111,12 @@ const DEFAULT_ASD_INFRACTIONS = [
         member_id: 'asd-user-3',
         member_name: 'Sarah Vance',
         member_callsign: 'HAWK-1',
-        level: 'Leve', // 'Leve' | 'Media' | 'Grave'
+        level: 'Leve',
         reason: 'Retraso en entrega del informe de inspección prevuelo en hangar',
         sanction: 'Amonestación verbal y registro en expediente de vuelo',
         issued_by: 'Marcus Miller (COM-ASD)',
         date: '2026-08-14',
-        status: 'Cumplida' // 'Activa' | 'Cumplida' | 'Anulada'
+        status: 'Cumplida'
     },
     {
         id: 'inf-2',
@@ -149,7 +149,6 @@ function AirSupport() {
     const [searchTerm, setSearchTerm] = useState('');
 
     // --- Modal States ---
-    // Member Modal
     const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
     const [editingMember, setEditingMember] = useState(null);
     const [memberForm, setMemberForm] = useState({
@@ -164,7 +163,6 @@ function AirSupport() {
         phone: ''
     });
 
-    // Rank Modal
     const [isRankModalOpen, setIsRankModalOpen] = useState(false);
     const [editingRank, setEditingRank] = useState(null);
     const [rankForm, setRankForm] = useState({
@@ -174,7 +172,6 @@ function AirSupport() {
         abbrev: ''
     });
 
-    // License Modal
     const [isLicenseModalOpen, setIsLicenseModalOpen] = useState(false);
     const [editingLicense, setEditingLicense] = useState(null);
     const [licenseForm, setLicenseForm] = useState({
@@ -185,7 +182,6 @@ function AirSupport() {
         description: ''
     });
 
-    // Infraction Modal
     const [isInfractionModalOpen, setIsInfractionModalOpen] = useState(false);
     const [infractionForm, setInfractionForm] = useState({
         member_id: '',
@@ -196,10 +192,8 @@ function AirSupport() {
         date: new Date().toISOString().split('T')[0]
     });
 
-    // Manage Member Licenses Quick Modal
     const [selectedMemberForLicenses, setSelectedMemberForLicenses] = useState(null);
 
-    // Load initial data
     useEffect(() => {
         loadUserProfile();
     }, []);
@@ -207,6 +201,27 @@ function AirSupport() {
     useEffect(() => {
         if (profile && hasAccess()) {
             loadASDData();
+
+            // Real-time synchronization for all users across browsers
+            const channel = supabase
+                .channel('asd_realtime_sync')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'asd_members' }, () => {
+                    loadASDData();
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'asd_ranks' }, () => {
+                    loadASDData();
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'asd_licenses' }, () => {
+                    loadASDData();
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'asd_infractions' }, () => {
+                    loadASDData();
+                })
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         }
     }, [profile]);
 
@@ -243,60 +258,124 @@ function AirSupport() {
     };
 
     const loadASDData = async () => {
-        // 1. Ranks
+        // 1. Ranks from Supabase
         try {
+            const { data: dbRanks, error: rankErr } = await supabase
+                .from('asd_ranks')
+                .select('*')
+                .order('level', { ascending: true });
+
+            if (!rankErr && dbRanks && dbRanks.length > 0) {
+                setRanks(dbRanks);
+                localStorage.setItem('asd_ranks_v2', JSON.stringify(dbRanks));
+            } else if (!rankErr && dbRanks && dbRanks.length === 0) {
+                for (const def of DEFAULT_ASD_RANKS) {
+                    await supabase.from('asd_ranks').insert([def]);
+                }
+                const { data: seededRanks } = await supabase.from('asd_ranks').select('*').order('level', { ascending: true });
+                setRanks(seededRanks || DEFAULT_ASD_RANKS);
+            } else {
+                const savedRanks = localStorage.getItem('asd_ranks_v2');
+                setRanks(savedRanks ? JSON.parse(savedRanks) : DEFAULT_ASD_RANKS);
+            }
+        } catch (e) {
+            console.warn('Ranks fetch fallback:', e);
             const savedRanks = localStorage.getItem('asd_ranks_v2');
-            if (savedRanks) {
-                setRanks(JSON.parse(savedRanks));
-            } else {
-                setRanks(DEFAULT_ASD_RANKS);
-                localStorage.setItem('asd_ranks_v2', JSON.stringify(DEFAULT_ASD_RANKS));
-            }
-        } catch (e) {
-            setRanks(DEFAULT_ASD_RANKS);
+            setRanks(savedRanks ? JSON.parse(savedRanks) : DEFAULT_ASD_RANKS);
         }
 
-        // 2. Licenses
+        // 2. Licenses from Supabase
         try {
+            const { data: dbLic, error: licErr } = await supabase
+                .from('asd_licenses')
+                .select('*')
+                .order('name', { ascending: true });
+
+            if (!licErr && dbLic && dbLic.length > 0) {
+                setLicenses(dbLic);
+                localStorage.setItem('asd_licenses_v2', JSON.stringify(dbLic));
+            } else if (!licErr && dbLic && dbLic.length === 0) {
+                for (const def of DEFAULT_ASD_LICENSES) {
+                    await supabase.from('asd_licenses').insert([def]);
+                }
+                const { data: seededLic } = await supabase.from('asd_licenses').select('*').order('name', { ascending: true });
+                setLicenses(seededLic || DEFAULT_ASD_LICENSES);
+            } else {
+                const savedLic = localStorage.getItem('asd_licenses_v2');
+                setLicenses(savedLic ? JSON.parse(savedLic) : DEFAULT_ASD_LICENSES);
+            }
+        } catch (e) {
+            console.warn('Licenses fetch fallback:', e);
             const savedLic = localStorage.getItem('asd_licenses_v2');
-            if (savedLic) {
-                setLicenses(JSON.parse(savedLic));
-            } else {
-                setLicenses(DEFAULT_ASD_LICENSES);
-                localStorage.setItem('asd_licenses_v2', JSON.stringify(DEFAULT_ASD_LICENSES));
-            }
-        } catch (e) {
-            setLicenses(DEFAULT_ASD_LICENSES);
+            setLicenses(savedLic ? JSON.parse(savedLic) : DEFAULT_ASD_LICENSES);
         }
 
-        // 3. Members
+        // 3. Members from Supabase
         try {
+            const { data: dbMembers, error: memErr } = await supabase
+                .from('asd_members')
+                .select('*')
+                .order('created_at', { ascending: true });
+
+            if (!memErr && dbMembers && dbMembers.length > 0) {
+                const parsed = dbMembers.map(m => ({
+                    ...m,
+                    licenses: Array.isArray(m.licenses) ? m.licenses : (typeof m.licenses === 'string' ? JSON.parse(m.licenses) : [])
+                }));
+                setMembers(parsed);
+                localStorage.setItem('asd_members_v2', JSON.stringify(parsed));
+            } else if (!memErr && dbMembers && dbMembers.length === 0) {
+                for (const def of DEFAULT_ASD_MEMBERS) {
+                    await supabase.from('asd_members').insert([def]);
+                }
+                const { data: seededMem } = await supabase.from('asd_members').select('*').order('created_at', { ascending: true });
+                if (seededMem && seededMem.length > 0) {
+                    const parsed = seededMem.map(m => ({
+                        ...m,
+                        licenses: Array.isArray(m.licenses) ? m.licenses : (typeof m.licenses === 'string' ? JSON.parse(m.licenses) : [])
+                    }));
+                    setMembers(parsed);
+                } else {
+                    setMembers(DEFAULT_ASD_MEMBERS);
+                }
+            } else {
+                const savedMembers = localStorage.getItem('asd_members_v2');
+                setMembers(savedMembers ? JSON.parse(savedMembers) : DEFAULT_ASD_MEMBERS);
+            }
+        } catch (e) {
+            console.warn('Members fetch fallback:', e);
             const savedMembers = localStorage.getItem('asd_members_v2');
-            if (savedMembers) {
-                setMembers(JSON.parse(savedMembers));
-            } else {
-                setMembers(DEFAULT_ASD_MEMBERS);
-                localStorage.setItem('asd_members_v2', JSON.stringify(DEFAULT_ASD_MEMBERS));
-            }
-        } catch (e) {
-            setMembers(DEFAULT_ASD_MEMBERS);
+            setMembers(savedMembers ? JSON.parse(savedMembers) : DEFAULT_ASD_MEMBERS);
         }
 
-        // 4. Infractions
+        // 4. Infractions from Supabase
         try {
-            const savedInfs = localStorage.getItem('asd_infractions_v2');
-            if (savedInfs) {
-                setInfractions(JSON.parse(savedInfs));
+            const { data: dbInfs, error: infErr } = await supabase
+                .from('asd_infractions')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (!infErr && dbInfs && dbInfs.length > 0) {
+                setInfractions(dbInfs);
+                localStorage.setItem('asd_infractions_v2', JSON.stringify(dbInfs));
+            } else if (!infErr && dbInfs && dbInfs.length === 0) {
+                for (const def of DEFAULT_ASD_INFRACTIONS) {
+                    await supabase.from('asd_infractions').insert([def]);
+                }
+                const { data: seededInf } = await supabase.from('asd_infractions').select('*').order('created_at', { ascending: false });
+                setInfractions(seededInf || DEFAULT_ASD_INFRACTIONS);
             } else {
-                setInfractions(DEFAULT_ASD_INFRACTIONS);
-                localStorage.setItem('asd_infractions_v2', JSON.stringify(DEFAULT_ASD_INFRACTIONS));
+                const savedInfs = localStorage.getItem('asd_infractions_v2');
+                setInfractions(savedInfs ? JSON.parse(savedInfs) : DEFAULT_ASD_INFRACTIONS);
             }
         } catch (e) {
-            setInfractions(DEFAULT_ASD_INFRACTIONS);
+            console.warn('Infractions fetch fallback:', e);
+            const savedInfs = localStorage.getItem('asd_infractions_v2');
+            setInfractions(savedInfs ? JSON.parse(savedInfs) : DEFAULT_ASD_INFRACTIONS);
         }
     };
 
-    // --- Member Actions ---
+    // --- Member Actions (Supabase + Local) ---
     const handleOpenCreateMember = () => {
         setEditingMember(null);
         setMemberForm({
@@ -329,13 +408,22 @@ function AirSupport() {
         setIsMemberModalOpen(true);
     };
 
-    const handleSaveMember = (e) => {
+    const handleSaveMember = async (e) => {
         e.preventDefault();
         if (!memberForm.nombre || !memberForm.apellido || !memberForm.callsign) return;
 
         let updated;
         if (editingMember) {
-            updated = members.map(m => m.id === editingMember.id ? { ...m, ...memberForm } : m);
+            const payload = { ...memberForm };
+            updated = members.map(m => m.id === editingMember.id ? { ...m, ...payload } : m);
+            setMembers(updated);
+            localStorage.setItem('asd_members_v2', JSON.stringify(updated));
+
+            try {
+                await supabase.from('asd_members').update(payload).eq('id', editingMember.id);
+            } catch (err) {
+                console.warn('Supabase member update error:', err);
+            }
         } else {
             const newMem = {
                 id: 'asd-user-' + Date.now(),
@@ -343,28 +431,50 @@ function AirSupport() {
                 joined_at: new Date().toISOString().split('T')[0]
             };
             updated = [...members, newMem];
+            setMembers(updated);
+            localStorage.setItem('asd_members_v2', JSON.stringify(updated));
+
+            try {
+                await supabase.from('asd_members').insert([newMem]);
+            } catch (err) {
+                console.warn('Supabase member insert error:', err);
+            }
         }
 
-        setMembers(updated);
-        localStorage.setItem('asd_members_v2', JSON.stringify(updated));
         setIsMemberModalOpen(false);
     };
 
-    const handleDeleteMember = (id) => {
+    const handleDeleteMember = async (id) => {
         if (!window.confirm(language === 'es' ? '¿Eliminar a este integrante de la cuadrilla de ASD?' : 'Delete this member from the ASD roster?')) return;
         const updated = members.filter(m => m.id !== id);
         setMembers(updated);
         localStorage.setItem('asd_members_v2', JSON.stringify(updated));
+
+        try {
+            await supabase.from('asd_members').delete().eq('id', id);
+        } catch (err) {
+            console.warn('Supabase member delete error:', err);
+        }
     };
 
-    // --- Rank Actions ---
-    const handleSaveRank = (e) => {
+    // --- Rank Actions (Supabase + Local) ---
+    const handleSaveRank = async (e) => {
         e.preventDefault();
         if (!rankForm.name) return;
 
         let updated;
         if (editingRank) {
-            updated = ranks.map(r => r.id === editingRank.id ? { ...r, ...rankForm, level: Number(rankForm.level) } : r);
+            const payload = { ...rankForm, level: Number(rankForm.level) };
+            updated = ranks.map(r => r.id === editingRank.id ? { ...r, ...payload } : r);
+            updated.sort((a, b) => a.level - b.level);
+            setRanks(updated);
+            localStorage.setItem('asd_ranks_v2', JSON.stringify(updated));
+
+            try {
+                await supabase.from('asd_ranks').update(payload).eq('id', editingRank.id);
+            } catch (err) {
+                console.warn('Supabase rank update error:', err);
+            }
         } else {
             const newRank = {
                 id: 'rank-' + Date.now(),
@@ -372,18 +482,22 @@ function AirSupport() {
                 level: Number(rankForm.level) || (ranks.length + 1)
             };
             updated = [...ranks, newRank];
+            updated.sort((a, b) => a.level - b.level);
+            setRanks(updated);
+            localStorage.setItem('asd_ranks_v2', JSON.stringify(updated));
+
+            try {
+                await supabase.from('asd_ranks').insert([newRank]);
+            } catch (err) {
+                console.warn('Supabase rank insert error:', err);
+            }
         }
 
-        // Sort by hierarchy level ascending (Level 1 at top)
-        updated.sort((a, b) => a.level - b.level);
-
-        setRanks(updated);
-        localStorage.setItem('asd_ranks_v2', JSON.stringify(updated));
         setIsRankModalOpen(false);
         setEditingRank(null);
     };
 
-    const handleDeleteRank = (id) => {
+    const handleDeleteRank = async (id) => {
         if (ranks.length <= 1) {
             alert(language === 'es' ? 'Debe haber al menos un rango en la división.' : 'There must be at least one rank.');
             return;
@@ -392,9 +506,15 @@ function AirSupport() {
         const updated = ranks.filter(r => r.id !== id);
         setRanks(updated);
         localStorage.setItem('asd_ranks_v2', JSON.stringify(updated));
+
+        try {
+            await supabase.from('asd_ranks').delete().eq('id', id);
+        } catch (err) {
+            console.warn('Supabase rank delete error:', err);
+        }
     };
 
-    const handleMoveRank = (index, direction) => {
+    const handleMoveRank = async (index, direction) => {
         const targetIndex = index + direction;
         if (targetIndex < 0 || targetIndex >= ranks.length) return;
 
@@ -403,20 +523,36 @@ function AirSupport() {
         newRanks[index] = newRanks[targetIndex];
         newRanks[targetIndex] = temp;
 
-        // Reassign level numbers
         const reordered = newRanks.map((r, i) => ({ ...r, level: i + 1 }));
         setRanks(reordered);
         localStorage.setItem('asd_ranks_v2', JSON.stringify(reordered));
+
+        try {
+            for (const r of reordered) {
+                await supabase.from('asd_ranks').update({ level: r.level }).eq('id', r.id);
+            }
+        } catch (err) {
+            console.warn('Supabase rank reorder error:', err);
+        }
     };
 
-    // --- License Actions ---
-    const handleSaveLicense = (e) => {
+    // --- License Actions (Supabase + Local) ---
+    const handleSaveLicense = async (e) => {
         e.preventDefault();
         if (!licenseForm.name) return;
 
         let updated;
         if (editingLicense) {
-            updated = licenses.map(l => l.id === editingLicense.id ? { ...l, ...licenseForm } : l);
+            const payload = { ...licenseForm };
+            updated = licenses.map(l => l.id === editingLicense.id ? { ...l, ...payload } : l);
+            setLicenses(updated);
+            localStorage.setItem('asd_licenses_v2', JSON.stringify(updated));
+
+            try {
+                await supabase.from('asd_licenses').update(payload).eq('id', editingLicense.id);
+            } catch (err) {
+                console.warn('Supabase license update error:', err);
+            }
         } else {
             const newLic = {
                 id: 'lic-' + Date.now(),
@@ -424,21 +560,32 @@ function AirSupport() {
                 code: licenseForm.code || 'ASD-' + licenseForm.name.substring(0, 3).toUpperCase()
             };
             updated = [...licenses, newLic];
+            setLicenses(updated);
+            localStorage.setItem('asd_licenses_v2', JSON.stringify(updated));
+
+            try {
+                await supabase.from('asd_licenses').insert([newLic]);
+            } catch (err) {
+                console.warn('Supabase license insert error:', err);
+            }
         }
 
-        setLicenses(updated);
-        localStorage.setItem('asd_licenses_v2', JSON.stringify(updated));
         setIsLicenseModalOpen(false);
         setEditingLicense(null);
     };
 
-    const handleDeleteLicense = (id, name) => {
+    const handleDeleteLicense = async (id, name) => {
         if (!window.confirm(language === 'es' ? `¿Eliminar la licencia "${name}"?` : `Delete license "${name}"?`)) return;
         const updated = licenses.filter(l => l.id !== id);
         setLicenses(updated);
         localStorage.setItem('asd_licenses_v2', JSON.stringify(updated));
 
-        // Remove from members
+        try {
+            await supabase.from('asd_licenses').delete().eq('id', id);
+        } catch (err) {
+            console.warn('Supabase license delete error:', err);
+        }
+
         const updatedMembers = members.map(m => ({
             ...m,
             licenses: (m.licenses || []).filter(lName => lName !== name)
@@ -447,12 +594,13 @@ function AirSupport() {
         localStorage.setItem('asd_members_v2', JSON.stringify(updatedMembers));
     };
 
-    const handleToggleMemberLicense = (memberId, licenseName) => {
+    const handleToggleMemberLicense = async (memberId, licenseName) => {
+        let nextLic = [];
         const updated = members.map(m => {
             if (m.id === memberId) {
                 const currentLic = m.licenses || [];
                 const hasLic = currentLic.includes(licenseName);
-                const nextLic = hasLic ? currentLic.filter(l => l !== licenseName) : [...currentLic, licenseName];
+                nextLic = hasLic ? currentLic.filter(l => l !== licenseName) : [...currentLic, licenseName];
                 return { ...m, licenses: nextLic };
             }
             return m;
@@ -464,9 +612,15 @@ function AirSupport() {
             const updatedSelected = updated.find(m => m.id === memberId);
             setSelectedMemberForLicenses(updatedSelected);
         }
+
+        try {
+            await supabase.from('asd_members').update({ licenses: nextLic }).eq('id', memberId);
+        } catch (err) {
+            console.warn('Supabase member license update error:', err);
+        }
     };
 
-    // --- Infraction Actions ---
+    // --- Infraction Actions (Supabase + Local) ---
     const handleOpenCreateInfraction = (member = null) => {
         setInfractionForm({
             member_id: member ? member.id : (members[0]?.id || ''),
@@ -479,7 +633,7 @@ function AirSupport() {
         setIsInfractionModalOpen(true);
     };
 
-    const handleSaveInfraction = (e) => {
+    const handleSaveInfraction = async (e) => {
         e.preventDefault();
         if (!infractionForm.member_id || !infractionForm.reason) return;
 
@@ -495,26 +649,46 @@ function AirSupport() {
         const updated = [newInf, ...infractions];
         setInfractions(updated);
         localStorage.setItem('asd_infractions_v2', JSON.stringify(updated));
+
+        try {
+            await supabase.from('asd_infractions').insert([newInf]);
+        } catch (err) {
+            console.warn('Supabase infraction insert error:', err);
+        }
+
         setIsInfractionModalOpen(false);
     };
 
-    const handleDeleteInfraction = (id) => {
+    const handleDeleteInfraction = async (id) => {
         if (!window.confirm(language === 'es' ? '¿Eliminar este registro de infracción?' : 'Delete this infraction?')) return;
         const updated = infractions.filter(i => i.id !== id);
         setInfractions(updated);
         localStorage.setItem('asd_infractions_v2', JSON.stringify(updated));
+
+        try {
+            await supabase.from('asd_infractions').delete().eq('id', id);
+        } catch (err) {
+            console.warn('Supabase infraction delete error:', err);
+        }
     };
 
-    const handleToggleInfractionStatus = (id) => {
+    const handleToggleInfractionStatus = async (id) => {
+        let nextStatus = 'Activa';
         const updated = infractions.map(i => {
             if (i.id === id) {
-                const nextStatus = i.status === 'Activa' ? 'Cumplida' : 'Activa';
+                nextStatus = i.status === 'Activa' ? 'Cumplida' : 'Activa';
                 return { ...i, status: nextStatus };
             }
             return i;
         });
         setInfractions(updated);
         localStorage.setItem('asd_infractions_v2', JSON.stringify(updated));
+
+        try {
+            await supabase.from('asd_infractions').update({ status: nextStatus }).eq('id', id);
+        } catch (err) {
+            console.warn('Supabase infraction status update error:', err);
+        }
     };
 
     // Sorted & Filtered lists
@@ -552,7 +726,6 @@ function AirSupport() {
         );
     }
 
-    // Access Denied Screen
     if (!hasAccess()) {
         return (
             <div className="documentation-container" style={{ padding: '3rem 2rem', maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
