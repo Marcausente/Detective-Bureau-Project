@@ -3,7 +3,115 @@ import { supabase } from '../supabaseClient';
 import { getProfileImage } from '../utils/imageStorage';
 import '../index.css';
 
-// Default Fallback Pilots if DB not yet loaded
+// SVG Icon Components for sleek iOS design (no emojis)
+const Icons = {
+    Helicopter: ({ size = 24, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 4h16" />
+            <path d="M12 4v4" />
+            <path d="M4 14a4 4 0 0 0 4 4h7a4 4 0 0 0 4-4V9H7a3 3 0 0 0-3 3v2z" />
+            <path d="M19 13h4" />
+            <path d="M23 10v6" />
+            <path d="M7 20h10" />
+            <path d="M10 18v2" />
+            <path d="M14 18v2" />
+        </svg>
+    ),
+    Patrol: ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 19 8.5 12 15 5 8.5 12 2" />
+            <line x1="12" y1="22" x2="12" y2="15.5" />
+            <polyline points="22 8.5 12 15.5 2 8.5" />
+            <polyline points="2 15.5 12 22 22 15.5" />
+        </svg>
+    ),
+    Car: ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 3C2 11.2 2 11.6 2 12v4c0 .6.4 1 1 1h2" />
+            <circle cx="7" cy="17" r="2" />
+            <circle cx="17" cy="17" r="2" />
+            <path d="M5 17h8" />
+        </svg>
+    ),
+    Siren: ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 18v-6a5 5 0 0 1 10 0v6" />
+            <path d="M5 21h14" />
+            <path d="M12 2v3" />
+            <path d="M4 6l2.5 1.5" />
+            <path d="M20 6l-2.5 1.5" />
+        </svg>
+    ),
+    Warning: ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+    ),
+    Search: ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+    ),
+    Target: ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="22" y1="12" x2="18" y2="12" />
+            <line x1="6" y1="12" x2="2" y2="12" />
+            <line x1="12" y1="6" x2="12" y2="2" />
+            <line x1="12" y1="22" x2="12" y2="18" />
+            <circle cx="12" cy="12" r="4" />
+        </svg>
+    ),
+    Training: ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+            <path d="M6 12v5c3 3 9 3 12 0v-5" />
+        </svg>
+    ),
+    Other: ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+        </svg>
+    ),
+    Clock: ({ size = 18, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+        </svg>
+    ),
+    UserPilot: ({ size = 22, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+            <path d="M4 11l4-2 4 2 4-2 4 2" />
+        </svg>
+    ),
+    Check: ({ size = 18, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+        </svg>
+    ),
+    PlaneSend: ({ size = 20, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13" />
+            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+        </svg>
+    ),
+    Calendar: ({ size = 16, color = 'currentColor' }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+    )
+};
+
+// Default Fallback Pilots
 const DEFAULT_PILOTS = [
     { id: 'asd-user-1', nombre: 'Marcus', apellido: 'Miller', callsign: 'AIR-01', avatar: '', status: 'En Servicio' },
     { id: 'asd-user-2', nombre: 'Alex', apellido: 'Ross', callsign: 'AIR-02', avatar: '', status: 'En Servicio' },
@@ -16,20 +124,20 @@ const DEFAULT_PILOTS = [
 // Default Fallback Aircraft Models
 const DEFAULT_MODELS = [
     { id: 'model-1', name: 'Maverick', type: 'Helicóptero Ligero / Patrullaje', registration: 'POLMAV-01' },
-    { id: 'model-2', 'name': 'SuperVolito Carbon', type: 'Helicóptero Táctico / VIP', registration: 'AIR-TAC-02' },
+    { id: 'model-2', name: 'SuperVolito Carbon', type: 'Helicóptero Táctico / VIP', registration: 'AIR-TAC-02' },
     { id: 'model-3', name: 'Frogger', type: 'Helicóptero de Apoyo y Rescate', registration: 'RESCUE-03' }
 ];
 
-// Flight Reason Options
+// Flight Reason Options with SVG Icon keys
 const FLIGHT_REASONS = [
-    { id: 'Patrullaje', label: 'Patrullaje Aéreo', icon: '🚁', color: '#38bdf8' },
-    { id: '487', label: '487 (Robo de Vehículo)', icon: '🚘', color: '#f59e0b' },
-    { id: '207', label: '207 (Secuestro)', icon: '🚨', color: '#ef4444' },
-    { id: '215', label: '215 (Carjacking)', icon: '⚠️', color: '#f97316' },
-    { id: 'Búsqueda y Localización', label: 'Búsqueda y Localización', icon: '🔍', color: '#06b6d4' },
-    { id: 'Operativo', label: 'Operativo Táctico', icon: '🎯', color: '#a855f7' },
-    { id: 'Práctica', label: 'Vuelo de Instrucción / Práctica', icon: '🎓', color: '#10b981' },
-    { id: 'Otro', label: 'Otro Motivo', icon: '✍️', color: '#94a3b8' }
+    { id: 'Patrullaje', label: 'Patrullaje Aéreo', iconKey: 'Patrol', color: '#38bdf8' },
+    { id: '487', label: '487 (Robo de Vehículo)', iconKey: 'Car', color: '#f59e0b' },
+    { id: '207', label: '207 (Secuestro)', iconKey: 'Siren', color: '#ef4444' },
+    { id: '215', label: '215 (Carjacking)', iconKey: 'Warning', color: '#f97316' },
+    { id: 'Búsqueda y Localización', label: 'Búsqueda y Localización', iconKey: 'Search', color: '#06b6d4' },
+    { id: 'Operativo', label: 'Operativo Táctico', iconKey: 'Target', color: '#a855f7' },
+    { id: 'Práctica', label: 'Vuelo de Instrucción / Práctica', iconKey: 'Training', color: '#10b981' },
+    { id: 'Otro', label: 'Otro Motivo', iconKey: 'Other', color: '#94a3b8' }
 ];
 
 function PublicASDFlightLog() {
@@ -153,7 +261,7 @@ function PublicASDFlightLog() {
         e.preventDefault();
         setErrorMsg('');
 
-        if (!selectedPilotId) {
+        if (!selectedPilotId && !selectedPilotObj) {
             setErrorMsg('Por favor, selecciona un piloto.');
             return;
         }
@@ -173,8 +281,8 @@ function PublicASDFlightLog() {
         const newLog = {
             id: 'flight-' + Date.now(),
             pilot_id: selectedPilotObj?.id || null,
-            pilot_name: `${selectedPilotObj?.nombre || ''} ${selectedPilotObj?.apellido || ''}`.trim(),
-            pilot_callsign: selectedPilotObj?.callsign || 'N/A',
+            pilot_name: `${selectedPilotObj?.nombre || ''} ${selectedPilotObj?.apellido || ''}`.trim() || 'Piloto ASD',
+            pilot_callsign: selectedPilotObj?.callsign || 'AIR',
             aircraft_model: selectedModel,
             reason: selectedReason,
             reason_other: selectedReason === 'Otro' ? customReason.trim() : null,
@@ -193,20 +301,24 @@ function PublicASDFlightLog() {
                 .insert([newLog]);
 
             if (error) {
-                console.warn('Supabase flight log insert fallback:', error);
-                // Also save to localStorage fallback so it isn't lost
+                console.error('Supabase flight log insert error:', error);
+                // Also write to local storage as safety backup
                 const existing = JSON.parse(localStorage.getItem('asd_flight_logs_v2') || '[]');
                 localStorage.setItem('asd_flight_logs_v2', JSON.stringify([newLog, ...existing]));
+                setErrorMsg(`Error al guardar en base de datos: ${error.message}. Por favor, avisa a tu mando o reintenta.`);
+                setSubmitting(false);
+                return;
             }
+
+            // Sync local storage on success as well
+            const existing = JSON.parse(localStorage.getItem('asd_flight_logs_v2') || '[]');
+            localStorage.setItem('asd_flight_logs_v2', JSON.stringify([newLog, ...existing]));
 
             setSubmittedLog(newLog);
             setSubmitted(true);
         } catch (err) {
             console.error('Error submitting flight log:', err);
-            const existing = JSON.parse(localStorage.getItem('asd_flight_logs_v2') || '[]');
-            localStorage.setItem('asd_flight_logs_v2', JSON.stringify([newLog, ...existing]));
-            setSubmittedLog(newLog);
-            setSubmitted(true);
+            setErrorMsg(`Error de conexión: ${err.message || 'No se pudo contactar con el servidor'}`);
         } finally {
             setSubmitting(false);
         }
@@ -295,11 +407,11 @@ function PublicASDFlightLog() {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '1.8rem',
                             boxShadow: '0 8px 20px rgba(2, 132, 199, 0.45)',
-                            border: '1px solid rgba(255, 255, 255, 0.25)'
+                            border: '1px solid rgba(255, 255, 255, 0.25)',
+                            color: '#ffffff'
                         }}>
-                            🚁
+                            <Icons.Helicopter size={30} color="#ffffff" />
                         </div>
                         <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -319,7 +431,7 @@ function PublicASDFlightLog() {
                                 </span>
                             </div>
                             <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: '0.85rem' }}>
-                                Formulario público de control de horas y misiones aéreas
+                                Formulario oficial de control de horas y misiones aéreas
                             </p>
                         </div>
                     </div>
@@ -343,7 +455,7 @@ function PublicASDFlightLog() {
 
                 {/* Main Content Area */}
                 {submitted ? (
-                    /* iOS Flight Confirmation Screen */
+                    /* iOS Flight Confirmation Screen (Apple Wallet Boarding Pass) */
                     <div style={{
                         background: 'rgba(15, 23, 42, 0.75)',
                         backdropFilter: 'blur(24px)',
@@ -364,12 +476,11 @@ function PublicASDFlightLog() {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '2.2rem',
                             color: '#10b981',
                             margin: '0 auto 1.25rem',
                             boxShadow: '0 0 25px rgba(16, 185, 129, 0.35)'
                         }}>
-                            ✓
+                            <Icons.Check size={36} color="#10b981" />
                         </div>
 
                         <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.5rem' }}>
@@ -431,8 +542,9 @@ function PublicASDFlightLog() {
                                     </div>
                                     <div>
                                         <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>TIEMPO DE VUELO</div>
-                                        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#34d399' }}>
-                                            ⏱️ {formatDuration(submittedLog.duration_minutes)}
+                                        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#34d399', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <Icons.Clock size={15} color="#34d399" />
+                                            <span>{formatDuration(submittedLog.duration_minutes)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -457,10 +569,14 @@ function PublicASDFlightLog() {
                                     fontWeight: 700,
                                     cursor: 'pointer',
                                     boxShadow: '0 8px 24px rgba(2, 132, 199, 0.45)',
-                                    transition: 'all 0.2s'
+                                    transition: 'all 0.2s',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
                                 }}
                             >
-                                + Rellenar Nuevo Vuelo
+                                <Icons.PlaneSend size={18} color="#ffffff" />
+                                <span>Rellenar Nuevo Vuelo</span>
                             </button>
                         </div>
                     </div>
@@ -486,9 +602,13 @@ function PublicASDFlightLog() {
                                 borderRadius: '12px',
                                 padding: '0.75rem 1rem',
                                 fontSize: '0.85rem',
-                                fontWeight: 600
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
                             }}>
-                                ⚠️ {errorMsg}
+                                <Icons.Warning size={18} color="#f87171" />
+                                <span>{errorMsg}</span>
                             </div>
                         )}
 
@@ -519,7 +639,7 @@ function PublicASDFlightLog() {
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    fontSize: '1.4rem'
+                                    color: '#38bdf8'
                                 }}>
                                     {selectedPilotObj?.avatar ? (
                                         <img
@@ -532,7 +652,7 @@ function PublicASDFlightLog() {
                                             }}
                                         />
                                     ) : (
-                                        '👨‍✈️'
+                                        <Icons.UserPilot size={24} color="#38bdf8" />
                                     )}
                                 </div>
 
@@ -588,13 +708,16 @@ function PublicASDFlightLog() {
                                             }}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <span style={{ fontWeight: 800, color: isSelected ? '#38bdf8' : '#f8fafc', fontSize: '0.92rem' }}>
-                                                    {m.name}
-                                                </span>
-                                                {isSelected && <span style={{ color: '#38bdf8', fontSize: '0.85rem' }}>✓</span>}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <Icons.Helicopter size={16} color={isSelected ? '#38bdf8' : '#94a3b8'} />
+                                                    <span style={{ fontWeight: 800, color: isSelected ? '#38bdf8' : '#f8fafc', fontSize: '0.92rem' }}>
+                                                        {m.name}
+                                                    </span>
+                                                </div>
+                                                {isSelected && <Icons.Check size={16} color="#38bdf8" />}
                                             </div>
                                             {m.type && (
-                                                <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>
+                                                <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '3px' }}>
                                                     {m.type}
                                                 </div>
                                             )}
@@ -613,6 +736,8 @@ function PublicASDFlightLog() {
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem', marginBottom: selectedReason === 'Otro' ? '0.75rem' : '0' }}>
                                 {FLIGHT_REASONS.map(r => {
                                     const isSelected = selectedReason === r.id;
+                                    const IconComponent = Icons[r.iconKey] || Icons.Patrol;
+
                                     return (
                                         <button
                                             key={r.id}
@@ -623,7 +748,7 @@ function PublicASDFlightLog() {
                                                 border: `1.5px solid ${isSelected ? r.color : 'rgba(255, 255, 255, 0.08)'}`,
                                                 color: isSelected ? '#f8fafc' : '#94a3b8',
                                                 borderRadius: '12px',
-                                                padding: '0.65rem 0.5rem',
+                                                padding: '0.75rem 0.5rem',
                                                 textAlign: 'center',
                                                 cursor: 'pointer',
                                                 transition: 'all 0.15s ease',
@@ -632,10 +757,10 @@ function PublicASDFlightLog() {
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 alignItems: 'center',
-                                                gap: '4px'
+                                                gap: '6px'
                                             }}
                                         >
-                                            <span style={{ fontSize: '1.2rem' }}>{r.icon}</span>
+                                            <IconComponent size={22} color={isSelected ? r.color : '#94a3b8'} />
                                             <span>{r.label}</span>
                                         </button>
                                     );
@@ -672,7 +797,10 @@ function PublicASDFlightLog() {
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                                 <div>
-                                    <span style={{ display: 'block', fontSize: '0.75rem', color: '#cbd5e1', marginBottom: '0.25rem', fontWeight: 600 }}>Fecha</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#cbd5e1', marginBottom: '0.25rem', fontWeight: 600 }}>
+                                        <Icons.Calendar size={13} color="#94a3b8" />
+                                        <span>Fecha</span>
+                                    </span>
                                     <input
                                         type="date"
                                         required
@@ -691,7 +819,10 @@ function PublicASDFlightLog() {
                                 </div>
 
                                 <div>
-                                    <span style={{ display: 'block', fontSize: '0.75rem', color: '#38bdf8', marginBottom: '0.25rem', fontWeight: 700 }}>Hora Salida</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#38bdf8', marginBottom: '0.25rem', fontWeight: 700 }}>
+                                        <Icons.Clock size={13} color="#38bdf8" />
+                                        <span>Hora Salida</span>
+                                    </span>
                                     <input
                                         type="time"
                                         required
@@ -711,7 +842,10 @@ function PublicASDFlightLog() {
                                 </div>
 
                                 <div>
-                                    <span style={{ display: 'block', fontSize: '0.75rem', color: '#34d399', marginBottom: '0.25rem', fontWeight: 700 }}>Hora Aterrizaje</span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#34d399', marginBottom: '0.25rem', fontWeight: 700 }}>
+                                        <Icons.Clock size={13} color="#34d399" />
+                                        <span>Hora Aterrizaje</span>
+                                    </span>
                                     <input
                                         type="time"
                                         required
@@ -744,8 +878,9 @@ function PublicASDFlightLog() {
                                 fontSize: '0.8rem'
                             }}>
                                 <span style={{ color: '#94a3b8' }}>Duración calculada de vuelo:</span>
-                                <span style={{ color: '#fbbf24', fontWeight: 800 }}>
-                                    ⏱️ {formatDuration(durationMinutes)} ({durationMinutes} minutos)
+                                <span style={{ color: '#fbbf24', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <Icons.Clock size={15} color="#fbbf24" />
+                                    <span>{formatDuration(durationMinutes)} ({durationMinutes} minutos)</span>
                                 </span>
                             </div>
                         </div>
@@ -803,7 +938,7 @@ function PublicASDFlightLog() {
                                     </>
                                 ) : (
                                     <>
-                                        <span>✈️</span>
+                                        <Icons.PlaneSend size={20} color="#ffffff" />
                                         <span>Enviar Registro de Vuelo</span>
                                     </>
                                 )}

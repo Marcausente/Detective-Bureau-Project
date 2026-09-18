@@ -14,6 +14,7 @@
     "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
     "leaflet": "^1.9.4",
+    "lucide-react": "^1.47.0",
     "react": "^18.2.0",
     "react-avatar-editor": "^14.0.0",
     "react-dom": "^18.2.0",

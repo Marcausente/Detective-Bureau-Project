@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS public.asd_aircraft_models (
 -- 2. Tabla de Registros de Vuelo
 CREATE TABLE IF NOT EXISTS public.asd_flight_logs (
   id TEXT PRIMARY KEY,
-  pilot_id TEXT REFERENCES public.asd_members(id) ON DELETE SET NULL,
+  pilot_id TEXT,
   pilot_name TEXT NOT NULL,
   pilot_callsign TEXT NOT NULL,
   aircraft_model TEXT NOT NULL,
@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS public.asd_flight_logs (
   reviewed_by TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Si la tabla ya existía con clave foránea estricta, la eliminamos para permitir inserciones públicas sin bloqueos
+ALTER TABLE public.asd_flight_logs DROP CONSTRAINT IF EXISTS asd_flight_logs_pilot_id_fkey;
 
 -- Habilitar RLS
 ALTER TABLE public.asd_aircraft_models ENABLE ROW LEVEL SECURITY;
@@ -56,10 +59,24 @@ CREATE POLICY "asd_flight_logs_public_insert" ON public.asd_flight_logs FOR INSE
 DROP POLICY IF EXISTS "asd_flight_logs_auth_all" ON public.asd_flight_logs;
 CREATE POLICY "asd_flight_logs_auth_all" ON public.asd_flight_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+-- Habilitar Realtime para ambas tablas
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.asd_aircraft_models;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.asd_flight_logs;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
 -- Datos iniciales de modelos de aeronave por defecto
 INSERT INTO public.asd_aircraft_models (id, name, type, registration, status) VALUES
   ('model-1', 'Maverick', 'Helicóptero Ligero / Patrullaje', 'POLMAV-01', 'Operativo'),
   ('model-2', 'SuperVolito Carbon', 'Helicóptero Táctico / VIP', 'AIR-TAC-02', 'Operativo'),
   ('model-3', 'Frogger', 'Helicóptero de Apoyo y Rescate', 'RESCUE-03', 'Operativo')
 ON CONFLICT (id) DO NOTHING;
+
 
