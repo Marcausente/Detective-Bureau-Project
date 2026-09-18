@@ -1916,17 +1916,15 @@ export default function CaseWhiteboard({ caseId = null, isIA = false, isGang = f
                         // ONLY match vehicle cards
                         if (n.category !== 'vehicle') return false;
 
-                        // Direct ID Tag Match
+                        // Direct ID Tag Match (Strongest & 100% Deterministic)
                         if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || (v.id && n.linked_update_ids.includes(v.id)))) return true;
 
                         const nTitle = clean(n.title);
                         const nTitleNorm = normalizeAlphanum(n.title);
 
                         // Fallback matches for older cards without tag
-                        if (img && n.image_url && n.image_url === img) return true;
                         if (nTitle === clean(titleStr)) return true;
                         if (plateNorm && plateNorm !== 'sinplaca' && plateNorm.length >= 3 && nTitleNorm.includes(plateNorm)) return true;
-                        if (modelClean && ownerClean && ownerClean !== 'desconocido' && nTitle.includes(modelClean) && clean(n.content).includes(ownerClean)) return true;
 
                         return false;
                     });

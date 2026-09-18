@@ -364,9 +364,8 @@ function Gangs() {
 
                     if (bNodes && bNodes.length > 0) {
                         const targetNode = bNodes.find(n => {
-                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(tag)) return true;
-                            if (plate && plate.trim() && (n.title || '').includes(plate.trim())) return true;
-                            if (model && model.trim() && (n.title || '').toLowerCase().includes(model.trim().toLowerCase())) return true;
+                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || n.linked_update_ids.includes(editingItemId))) return true;
+                            if (plate && plate.trim() && plate.trim().toUpperCase() !== 'SIN PLACA' && plate.trim().length >= 3 && (n.title || '').includes(plate.trim())) return true;
                             return false;
                         });
 
@@ -376,9 +375,19 @@ function Gangs() {
                                     title: (model || 'Vehículo') + ' [' + (plate || 'SIN PLACA') + ']',
                                     content: 'Propietario: ' + (owner || 'Desconocido') + (notes ? '\n' + notes : ''),
                                     linked_update_ids: [tag],
-                                    ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
+                                    image_url: (uploadedImages && uploadedImages.length > 0) ? uploadedImages[0] : null
                                 })
                                 .eq('id', targetNode.id);
+                        } else {
+                            createWhiteboardCardForGang(
+                                activeGangId,
+                                (model || 'Vehículo') + ' [' + (plate || 'SIN PLACA') + ']',
+                                'Propietario: ' + (owner || 'Desconocido') + (notes ? '\n' + notes : ''),
+                                'vehicle',
+                                'purple',
+                                (uploadedImages && uploadedImages.length > 0) ? uploadedImages[0] : null,
+                                tag
+                            );
                         }
                     }
                 } catch (nodeErr) {
@@ -455,8 +464,7 @@ function Gangs() {
 
                     if (bNodes && bNodes.length > 0) {
                         const targetNode = bNodes.find(n => {
-                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(tag)) return true;
-                            if (owner && owner.trim() && (n.title || '').toLowerCase().includes(owner.trim().toLowerCase())) return true;
+                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || n.linked_update_ids.includes(editingItemId))) return true;
                             return false;
                         });
 
@@ -466,9 +474,19 @@ function Gangs() {
                                     title: 'Propiedad: ' + (owner || 'Ubicación Banda'),
                                     content: notes || 'Sin notas',
                                     linked_update_ids: [tag],
-                                    ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
+                                    image_url: (uploadedImages && uploadedImages.length > 0) ? uploadedImages[0] : null
                                 })
                                 .eq('id', targetNode.id);
+                        } else {
+                            createWhiteboardCardForGang(
+                                activeGangId,
+                                'Propiedad: ' + (owner || 'Ubicación Banda'),
+                                notes || 'Sin detalles de dirección',
+                                'location',
+                                'green',
+                                uploadedImages && uploadedImages.length > 0 ? uploadedImages[0] : null,
+                                tag
+                            );
                         }
                     }
                 } catch (nodeErr) {
@@ -532,9 +550,8 @@ function Gangs() {
 
                     if (bNodes && bNodes.length > 0) {
                         const targetNode = bNodes.find(n => {
-                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(tag)) return true;
-                            if (memId && memId.trim() && (n.title || '').includes(memId.trim())) return true;
-                            if (memName.trim() && (n.title || '').toLowerCase().startsWith(memName.trim().toLowerCase())) return true;
+                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || n.linked_update_ids.includes(editingItemId))) return true;
+                            if (memId && memId.trim() && (n.title || '').includes(`[${memId.trim()}]`)) return true;
                             return false;
                         });
 
@@ -546,9 +563,19 @@ function Gangs() {
                                     color: nodeColor,
                                     is_inactive: isInactive,
                                     linked_update_ids: [tag],
-                                    ...(uploadedPhoto ? { image_url: uploadedPhoto } : {})
+                                    image_url: uploadedPhoto || null
                                 })
                                 .eq('id', targetNode.id);
+                        } else {
+                            createWhiteboardCardForGang(
+                                activeGangId,
+                                finalName + ' (' + memRole + ')',
+                                'Rol: ' + memRole,
+                                'suspect',
+                                memRole === 'Lider' ? 'red' : memRole === 'Sublider' ? 'yellow' : 'blue',
+                                uploadedPhoto || null,
+                                tag
+                            );
                         }
                     }
                 } catch (nodeErr) {
@@ -621,15 +648,8 @@ function Gangs() {
                         .in('category', ['evidence', 'note']);
 
                     if (bNodes && bNodes.length > 0) {
-                        const contentLow = content.toLowerCase();
                         const targetNode = bNodes.find(n => {
-                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(tag)) return true;
-                            const cLow = (n.content || '').toLowerCase();
-                            const tLow = (n.title || '').toLowerCase();
-                            if (contentLow.includes('vestimenta') && (cLow.includes('vestimenta') || tLow.includes('vestimenta'))) return true;
-                            if (contentLow.includes('territorio') && (cLow.includes('territorio') || tLow.includes('territorio'))) return true;
-                            if (contentLow.includes('armamento') && (cLow.includes('armamento') || tLow.includes('armamento'))) return true;
-                            if (cLow.slice(0, 30) && contentLow.includes(cLow.slice(0, 30))) return true;
+                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || n.linked_update_ids.includes(editingItemId))) return true;
                             return false;
                         });
 
@@ -641,9 +661,19 @@ function Gangs() {
                                     color: infoType === 'characteristic' ? 'yellow' : 'dark',
                                     category: 'evidence',
                                     linked_update_ids: [tag],
-                                    ...(uploadedImages && uploadedImages.length > 0 ? { image_url: uploadedImages[0] } : {})
+                                    image_url: (uploadedImages && uploadedImages.length > 0) ? uploadedImages[0] : null
                                 })
                                 .eq('id', targetNode.id);
+                        } else {
+                            createWhiteboardCardForGang(
+                                activeGangId,
+                                'Inteligencia (' + (infoType === 'characteristic' ? 'Característica' : 'Info') + ')',
+                                content,
+                                'evidence',
+                                infoType === 'characteristic' ? 'yellow' : 'dark',
+                                uploadedImages && uploadedImages.length > 0 ? uploadedImages[0] : null,
+                                tag
+                            );
                         }
                     }
                 } catch (nodeErr) {
@@ -723,8 +753,7 @@ function Gangs() {
 
                     if (bNodes && bNodes.length > 0) {
                         const targetNode = bNodes.find(n => {
-                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(tag)) return true;
-                            if ((n.title || '').toLowerCase().includes('grafiti')) return true;
+                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || n.linked_update_ids.includes(editingItemId))) return true;
                             return false;
                         });
 
@@ -734,9 +763,19 @@ function Gangs() {
                                     title: 'Grafiti / GPS',
                                     content: graffitiNotes.trim() || 'Evidencia de grafiti registrado',
                                     linked_update_ids: [tag],
-                                    ...(newImg ? { image_url: newImg } : {})
+                                    image_url: newImg || null
                                 })
                                 .eq('id', targetNode.id);
+                        } else {
+                            createWhiteboardCardForGang(
+                                activeGangId,
+                                'Grafiti / GPS',
+                                graffitiNotes.trim() || 'Evidencia de grafiti registrado',
+                                'evidence',
+                                'purple',
+                                uploadedGraffiti || uploadedGps || null,
+                                tag
+                            );
                         }
                     }
                 } catch (nodeErr) {
@@ -809,8 +848,7 @@ function Gangs() {
 
                     if (bNodes && bNodes.length > 0) {
                         const targetNode = bNodes.find(n => {
-                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && n.linked_update_ids.includes(tag)) return true;
-                            if (finalTargetName && (n.title || '').toLowerCase().includes(finalTargetName.toLowerCase())) return true;
+                            if (n.linked_update_ids && Array.isArray(n.linked_update_ids) && (n.linked_update_ids.includes(tag) || n.linked_update_ids.includes(editingItemId))) return true;
                             return false;
                         });
 
@@ -824,6 +862,16 @@ function Gangs() {
                                     linked_update_ids: [tag]
                                 })
                                 .eq('id', targetNode.id);
+                        } else {
+                            createWhiteboardCardForGang(
+                                activeGangId,
+                                'Conflicto: ' + (finalTargetName || 'Banda Rival'),
+                                'Motivo: ' + finalReason + (finalStatus === 'resolved' ? ' (Finalizado)' : ' (Activo)'),
+                                'threat',
+                                finalStatus === 'resolved' ? 'green' : 'red',
+                                null,
+                                tag
+                            );
                         }
                     }
                 } catch (nodeErr) {
