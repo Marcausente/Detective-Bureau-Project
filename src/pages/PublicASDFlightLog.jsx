@@ -278,11 +278,19 @@ function PublicASDFlightLog() {
 
         setSubmitting(true);
 
+        const pilotFullName = `${selectedPilotObj?.nombre || ''} ${selectedPilotObj?.apellido || ''}`.trim() || 'Piloto ASD';
+        const pilotCallsign = selectedPilotObj?.callsign || 'AIR';
+
         const newLog = {
             id: 'flight-' + Date.now(),
             pilot_id: selectedPilotObj?.id || null,
-            pilot_name: `${selectedPilotObj?.nombre || ''} ${selectedPilotObj?.apellido || ''}`.trim() || 'Piloto ASD',
-            pilot_callsign: selectedPilotObj?.callsign || 'AIR',
+            pilot_name: pilotFullName,
+            pilot_callsign: pilotCallsign,
+            // Legacy schema compatibility fields
+            callsign: pilotCallsign,
+            pilot: pilotFullName,
+            summary: notes.trim() || selectedReason,
+            // Current schema fields
             aircraft_model: selectedModel,
             reason: selectedReason,
             reason_other: selectedReason === 'Otro' ? customReason.trim() : null,

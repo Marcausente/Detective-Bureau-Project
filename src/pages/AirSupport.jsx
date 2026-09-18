@@ -1000,11 +1000,19 @@ function AirSupport() {
         if (lanMinutes < depMinutes) lanMinutes += 24 * 60;
         const dur = lanMinutes - depMinutes;
 
+        const targetPilotFullName = `${targetPilot.nombre} ${targetPilot.apellido}`;
+        const targetPilotCallsign = targetPilot.callsign;
+
         const newLog = {
             id: 'flight-' + Date.now(),
             pilot_id: targetPilot.id,
-            pilot_name: `${targetPilot.nombre} ${targetPilot.apellido}`,
-            pilot_callsign: targetPilot.callsign,
+            pilot_name: targetPilotFullName,
+            pilot_callsign: targetPilotCallsign,
+            // Legacy schema compatibility
+            callsign: targetPilotCallsign,
+            pilot: targetPilotFullName,
+            summary: flightLogForm.notes || flightLogForm.reason,
+            // Current schema
             aircraft_model: flightLogForm.aircraft_model,
             reason: flightLogForm.reason,
             reason_other: flightLogForm.reason === 'Otro' ? flightLogForm.reason_other : null,

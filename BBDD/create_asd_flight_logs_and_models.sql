@@ -56,8 +56,34 @@ ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 
 ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS reviewed_by TEXT;
 ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
+-- Si la tabla ya existía con columnas antiguas y restricciones NOT NULL, las relajamos
+DO $$
+BEGIN
+    ALTER TABLE public.asd_flight_logs ALTER COLUMN callsign DROP NOT NULL;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER TABLE public.asd_flight_logs ALTER COLUMN pilot DROP NOT NULL;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER TABLE public.asd_flight_logs ALTER COLUMN summary DROP NOT NULL;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    ALTER TABLE public.asd_flight_logs ALTER COLUMN created_by DROP NOT NULL;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
 -- Si la tabla ya existía con clave foránea estricta, la eliminamos para permitir inserciones públicas sin bloqueos
 ALTER TABLE public.asd_flight_logs DROP CONSTRAINT IF EXISTS asd_flight_logs_pilot_id_fkey;
+ALTER TABLE public.asd_flight_logs DROP CONSTRAINT IF EXISTS asd_flight_logs_created_by_fkey;
 
 -- Habilitar RLS
 ALTER TABLE public.asd_aircraft_models ENABLE ROW LEVEL SECURITY;
