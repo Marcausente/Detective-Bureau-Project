@@ -13,6 +13,14 @@ CREATE TABLE IF NOT EXISTS public.asd_aircraft_models (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Asegurar columnas en asd_aircraft_models si ya existía previamente
+ALTER TABLE public.asd_aircraft_models ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE public.asd_aircraft_models ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'Helicóptero';
+ALTER TABLE public.asd_aircraft_models ADD COLUMN IF NOT EXISTS registration TEXT;
+ALTER TABLE public.asd_aircraft_models ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE public.asd_aircraft_models ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Operativo';
+ALTER TABLE public.asd_aircraft_models ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
 -- 2. Tabla de Registros de Vuelo
 CREATE TABLE IF NOT EXISTS public.asd_flight_logs (
   id TEXT PRIMARY KEY,
@@ -31,6 +39,22 @@ CREATE TABLE IF NOT EXISTS public.asd_flight_logs (
   reviewed_by TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Asegurar que TODAS las columnas existan en asd_flight_logs aunque la tabla se crease antes
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS pilot_id TEXT;
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS pilot_name TEXT;
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS pilot_callsign TEXT;
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS aircraft_model TEXT;
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS reason TEXT;
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS reason_other TEXT;
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS date DATE DEFAULT CURRENT_DATE;
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS departure_time TEXT;
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS landing_time TEXT;
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS duration_minutes INTEGER DEFAULT 0;
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Pendiente';
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS reviewed_by TEXT;
+ALTER TABLE public.asd_flight_logs ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
 -- Si la tabla ya existía con clave foránea estricta, la eliminamos para permitir inserciones públicas sin bloqueos
 ALTER TABLE public.asd_flight_logs DROP CONSTRAINT IF EXISTS asd_flight_logs_pilot_id_fkey;
@@ -78,5 +102,10 @@ INSERT INTO public.asd_aircraft_models (id, name, type, registration, status) VA
   ('model-2', 'SuperVolito Carbon', 'Helicóptero Táctico / VIP', 'AIR-TAC-02', 'Operativo'),
   ('model-3', 'Frogger', 'Helicóptero de Apoyo y Rescate', 'RESCUE-03', 'Operativo')
 ON CONFLICT (id) DO NOTHING;
+
+-- Recargar caché del schema en PostgREST / Supabase
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload config';
+
 
 
