@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
-import { getProfileImage } from '../utils/imageStorage';
+import { getProfileImage, compressImage, uploadImageToStorage } from '../utils/imageStorage';
 import '../index.css';
 
 // Default Custom Ranks
@@ -151,6 +151,12 @@ function AirSupport() {
     // --- Modal States ---
     const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
     const [editingMember, setEditingMember] = useState(null);
+    const [avatarFile, setAvatarFile] = useState(null);
+    const [avatarPreview, setAvatarPreview] = useState(null);
+    const [avatarLoading, setAvatarLoading] = useState(false);
+    const [savingMember, setSavingMember] = useState(false);
+    const avatarInputRef = useRef(null);
+
     const [memberForm, setMemberForm] = useState({
         nombre: '',
         apellido: '',
@@ -378,6 +384,8 @@ function AirSupport() {
     // --- Member Actions (Supabase + Local) ---
     const handleOpenCreateMember = () => {
         setEditingMember(null);
+        setAvatarFile(null);
+        setAvatarPreview(null);
         setMemberForm({
             nombre: '',
             apellido: '',
@@ -394,6 +402,8 @@ function AirSupport() {
 
     const handleOpenEditMember = (m) => {
         setEditingMember(m);
+        setAvatarFile(null);
+        setAvatarPreview(m.avatar || null);
         setMemberForm({
             nombre: m.nombre,
             apellido: m.apellido,
@@ -408,40 +418,94 @@ function AirSupport() {
         setIsMemberModalOpen(true);
     };
 
+    const handleAvatarFileSelect = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setAvatarLoading(true);
+            // Compress aggressively on the client: max 220px, 0.60 quality (~15-25 KB)
+            const compressedBlob = await compressImage(file, 220, 0.60);
+            setAvatarFile(compressedBlob);
+            const previewUrl = URL.createObjectURL(compressedBlob);
+            setAvatarPreview(previewUrl);
+        } catch (err) {
+            console.error('Error compressing avatar image:', err);
+        } finally {
+            setAvatarLoading(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleRemoveAvatar = () => {
+        setAvatarFile(null);
+        setAvatarPreview(null);
+        setMemberForm(prev => ({ ...prev, avatar: '' }));
+    };
+
     const handleSaveMember = async (e) => {
         e.preventDefault();
         if (!memberForm.nombre || !memberForm.apellido || !memberForm.callsign) return;
 
-        let updated;
-        if (editingMember) {
-            const payload = { ...memberForm };
-            updated = members.map(m => m.id === editingMember.id ? { ...m, ...payload } : m);
-            setMembers(updated);
-            localStorage.setItem('asd_members_v2', JSON.stringify(updated));
+        setSavingMember(true);
+        try {
+            let finalAvatarUrl = memberForm.avatar;
 
-            try {
-                await supabase.from('asd_members').update(payload).eq('id', editingMember.id);
-            } catch (err) {
-                console.warn('Supabase member update error:', err);
+            // If a new compressed image is staged, upload to Supabase Storage ('uploads/avatars')
+            // This applies Cache-Control: '31536000' (1 year) to eliminate repeat Egress costs.
+            if (avatarFile) {
+                try {
+                    finalAvatarUrl = await uploadImageToStorage(avatarFile, 'avatars');
+                } catch (uploadErr) {
+                    console.error('Error uploading pilot avatar to storage:', uploadErr);
+                }
+            } else if (finalAvatarUrl && finalAvatarUrl.startsWith('data:')) {
+                try {
+                    finalAvatarUrl = await uploadImageToStorage(finalAvatarUrl, 'avatars');
+                } catch (uploadErr) {
+                    console.error('Error uploading base64 avatar to storage:', uploadErr);
+                }
             }
-        } else {
-            const newMem = {
-                id: 'asd-user-' + Date.now(),
+
+            const memberPayload = {
                 ...memberForm,
-                joined_at: new Date().toISOString().split('T')[0]
+                avatar: finalAvatarUrl || ''
             };
-            updated = [...members, newMem];
-            setMembers(updated);
-            localStorage.setItem('asd_members_v2', JSON.stringify(updated));
 
-            try {
-                await supabase.from('asd_members').insert([newMem]);
-            } catch (err) {
-                console.warn('Supabase member insert error:', err);
+            let updated;
+            if (editingMember) {
+                updated = members.map(m => m.id === editingMember.id ? { ...m, ...memberPayload } : m);
+                setMembers(updated);
+                localStorage.setItem('asd_members_v2', JSON.stringify(updated));
+
+                try {
+                    await supabase.from('asd_members').update(memberPayload).eq('id', editingMember.id);
+                } catch (err) {
+                    console.warn('Supabase member update error:', err);
+                }
+            } else {
+                const newMem = {
+                    id: 'asd-user-' + Date.now(),
+                    ...memberPayload,
+                    joined_at: new Date().toISOString().split('T')[0]
+                };
+                updated = [...members, newMem];
+                setMembers(updated);
+                localStorage.setItem('asd_members_v2', JSON.stringify(updated));
+
+                try {
+                    await supabase.from('asd_members').insert([newMem]);
+                } catch (err) {
+                    console.warn('Supabase member insert error:', err);
+                }
             }
-        }
 
-        setIsMemberModalOpen(false);
+            setIsMemberModalOpen(false);
+        } finally {
+            setSavingMember(false);
+            setAvatarFile(null);
+            setAvatarPreview(null);
+        }
     };
 
     const handleDeleteMember = async (id) => {
@@ -1129,22 +1193,33 @@ function AirSupport() {
                                                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
                                                         {/* Avatar */}
                                                         <div style={{
-                                                            width: '56px',
-                                                            height: '56px',
+                                                            width: '58px',
+                                                            height: '58px',
                                                             borderRadius: '50%',
                                                             overflow: 'hidden',
-                                                            background: '#0f172a',
+                                                            background: '#0b1120',
                                                             border: `2px solid ${rank.color}`,
                                                             flexShrink: 0,
                                                             display: 'flex',
                                                             alignItems: 'center',
                                                             justifyContent: 'center',
-                                                            fontSize: '1.5rem'
+                                                            fontSize: '1.6rem',
+                                                            boxShadow: `0 4px 14px ${rank.color}25`
                                                         }}>
                                                             {m.avatar ? (
-                                                                <img src={getProfileImage(m.avatar)} alt={m.apellido} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                                <img
+                                                                    src={getProfileImage(m.avatar, '/logowebp/anon.webp')}
+                                                                    alt={`${m.nombre} ${m.apellido}`}
+                                                                    loading="lazy"
+                                                                    decoding="async"
+                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.onerror = null;
+                                                                        e.currentTarget.src = '/logowebp/anon.webp';
+                                                                    }}
+                                                                />
                                                             ) : (
-                                                                '👨‍✈️'
+                                                                <span role="img" aria-label="pilot">👨‍✈️</span>
                                                             )}
                                                         </div>
 
@@ -1613,7 +1688,121 @@ function AirSupport() {
                             <button type="button" onClick={() => setIsMemberModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.25rem', cursor: 'pointer' }}>✕</button>
                         </div>
 
-                        <form onSubmit={handleSaveMember} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <form onSubmit={handleSaveMember} style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
+                            {/* Pilot Avatar Upload & Compression Preview */}
+                            <div style={{
+                                background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.1) 0%, rgba(15, 23, 42, 0.7) 100%)',
+                                border: '1px solid rgba(2, 132, 199, 0.35)',
+                                borderRadius: '12px',
+                                padding: '1rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '1.25rem'
+                            }}>
+                                {/* Circular Avatar Preview */}
+                                <div style={{
+                                    width: '64px',
+                                    height: '64px',
+                                    borderRadius: '50%',
+                                    overflow: 'hidden',
+                                    background: '#0b1120',
+                                    border: '2px solid #0284c7',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '1.8rem',
+                                    flexShrink: 0,
+                                    boxShadow: '0 4px 14px rgba(2, 132, 199, 0.3)',
+                                    position: 'relative'
+                                }}>
+                                    {avatarLoading ? (
+                                        <div style={{ width: '22px', height: '22px', border: '2px solid #38bdf8', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                                    ) : (avatarPreview || memberForm.avatar) ? (
+                                        <img
+                                            src={avatarPreview || getProfileImage(memberForm.avatar, '/logowebp/anon.webp')}
+                                            alt="Avatar Preview"
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                            onError={(e) => {
+                                                e.currentTarget.onerror = null;
+                                                e.currentTarget.src = '/logowebp/anon.webp';
+                                            }}
+                                        />
+                                    ) : (
+                                        <span role="img" aria-label="pilot">👨‍✈️</span>
+                                    )}
+                                </div>
+
+                                {/* Upload Controls & Egress Badge */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                                        <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#f8fafc' }}>
+                                            Foto del Piloto / Operador ASD
+                                        </span>
+                                        <span style={{
+                                            fontSize: '0.68rem',
+                                            fontWeight: 800,
+                                            background: 'rgba(16, 185, 129, 0.2)',
+                                            color: '#34d399',
+                                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                                            borderRadius: '5px',
+                                            padding: '1px 6px'
+                                        }}>
+                                            ⚡ Anti-Egress Caching
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '0.6rem', lineHeight: 1.3 }}>
+                                        Comprime automáticamente la imagen (&lt; 25 KB) con cabecera Cache-Control a 1 año para no gastar ancho de banda en BBDD.
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                        <label style={{
+                                            background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                                            color: '#ffffff',
+                                            borderRadius: '6px',
+                                            padding: '0.35rem 0.85rem',
+                                            fontSize: '0.76rem',
+                                            fontWeight: 700,
+                                            cursor: avatarLoading || savingMember ? 'not-allowed' : 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '5px',
+                                            boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)'
+                                        }}>
+                                            <span>📷</span>
+                                            <span>{avatarPreview || memberForm.avatar ? 'Cambiar Foto' : 'Subir Foto'}</span>
+                                            <input
+                                                ref={avatarInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleAvatarFileSelect}
+                                                disabled={avatarLoading || savingMember}
+                                                style={{ display: 'none' }}
+                                            />
+                                        </label>
+
+                                        {(avatarPreview || memberForm.avatar) && (
+                                            <button
+                                                type="button"
+                                                onClick={handleRemoveAvatar}
+                                                disabled={avatarLoading || savingMember}
+                                                style={{
+                                                    background: 'rgba(239, 68, 68, 0.15)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                                                    color: '#f87171',
+                                                    borderRadius: '6px',
+                                                    padding: '0.35rem 0.75rem',
+                                                    fontSize: '0.76rem',
+                                                    fontWeight: 700,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Eliminar Foto
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.35rem', fontWeight: 700 }}>Nombre *</label>
@@ -1641,7 +1830,7 @@ function AirSupport() {
                                     <label style={{ display: 'block', fontSize: '0.8rem', color: '#fbbf24', marginBottom: '0.35rem', fontWeight: 700 }}>Rango en ASD *</label>
                                     <select value={memberForm.rank_id} onChange={(e) => setMemberForm({ ...memberForm, rank_id: e.target.value })} style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(245, 158, 11, 0.4)', borderRadius: '8px', color: '#fff', padding: '0.6rem 0.8rem', fontSize: '0.88rem' }}>
                                         {sortedRanks.map(r => (
-                                            <option key={r.id} value={r.id}>#{r.level} - {r.name}</option>
+                                             <option key={r.id} value={r.id}>#{r.level} - {r.name}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -1680,10 +1869,11 @@ function AirSupport() {
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
-                                <button type="button" onClick={() => setIsMemberModalOpen(false)} style={{ background: 'transparent', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '8px', color: '#94a3b8', padding: '0.65rem 1.25rem', cursor: 'pointer' }}>Cancelar</button>
-                                <button type="submit" style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', border: 'none', borderRadius: '8px', color: '#ffffff', fontWeight: 700, padding: '0.65rem 1.5rem', cursor: 'pointer' }}>
-                                    {editingMember ? 'Guardar Cambios' : 'Crear Integrante'}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                                <button type="button" onClick={() => setIsMemberModalOpen(false)} disabled={savingMember} style={{ background: 'transparent', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '8px', color: '#94a3b8', padding: '0.65rem 1.25rem', cursor: 'pointer' }}>Cancelar</button>
+                                <button type="submit" disabled={savingMember || avatarLoading} style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)', border: 'none', borderRadius: '8px', color: '#ffffff', fontWeight: 700, padding: '0.65rem 1.5rem', cursor: savingMember ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {savingMember && <div style={{ width: '14px', height: '14px', border: '2px solid #ffffff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />}
+                                    <span>{savingMember ? 'Guardando...' : (editingMember ? 'Guardar Cambios' : 'Crear Integrante')}</span>
                                 </button>
                             </div>
                         </form>
