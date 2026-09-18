@@ -27,6 +27,7 @@ const getRankLevel = (rank) => {
             return 4;
         case 'Internal Affairs Agent':
         case 'SEB Agent':
+        case 'ASD Agent':
         case 'Department of Justice Agent':
             return 4.5;
         case 'Teniente':
@@ -341,8 +342,8 @@ function PersonnelDetail() {
     };
 
     const checkAndFetchEvaluations = async (viewerProfile, targetProfile) => {
-        // Exclude IA, SEB and DOJ Agents from evaluations system entirely
-        const excludedRanks = ['Internal Affairs Agent', 'SEB Agent', 'Department of Justice Agent'];
+        // Exclude IA, SEB, ASD and DOJ Agents from evaluations system entirely
+        const excludedRanks = ['Internal Affairs Agent', 'SEB Agent', 'ASD Agent', 'Department of Justice Agent'];
         
         // If viewer is IA/DOJ agent, they cannot view anyone's evaluations
         if (excludedRanks.includes(viewerProfile.rango)) {

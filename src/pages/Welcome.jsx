@@ -36,6 +36,8 @@ function Welcome() {
 
                 if (rank === 'SEB Agent' || (div.includes('SEB') && !isDB)) {
                     targetRoute = '/seb';
+                } else if (rank === 'ASD Agent' || (div.includes('ASD') && !isDB)) {
+                    targetRoute = '/air-support';
                 } else if (rank === 'Internal Affairs Agent' || (div.includes('Internal Affairs') && !isDB)) {
                     targetRoute = '/internal-affairs';
                 } else if (rank === 'Department of Justice Agent' || (div.includes('DOJ') && !isDB)) {

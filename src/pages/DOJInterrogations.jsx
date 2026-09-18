@@ -74,6 +74,7 @@ function DOJInterrogations() {
                     'Teniente': 90,
                     'Internal Affairs Agent': 87,
                     'SEB Agent': 86,
+                    'ASD Agent': 86,
                     'Department of Justice Agent': 85,
                     'Detective III': 80,
                     'Detective II': 70,

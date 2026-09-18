@@ -39,6 +39,7 @@ import Admin from './pages/Admin'; // New Admin page
 import Ballistics from './pages/Ballistics';
 import Coordination from './pages/Coordination';
 import SEB from './pages/SEB';
+import AirSupport from './pages/AirSupport';
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
 import { ThemeProvider } from './contexts/ThemeContext'; // Import ThemeProvider
@@ -91,6 +92,8 @@ function App() {
             <Route path="/doj/licenses" element={<DOJLicenses />} />
             <Route path="/doj/licenses/:id" element={<DOJLicenseProfile />} />
             <Route path="/seb" element={<SEB />} />
+            <Route path="/air-support" element={<AirSupport />} />
+            <Route path="/asd" element={<Navigate to="/air-support" replace />} />
             <Route path="/warrants" element={<OrderArchive />} /> {/* Updated Route */}
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} /> {/* Admin Route */}
