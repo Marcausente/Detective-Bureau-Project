@@ -131,9 +131,9 @@ const DEFAULT_MODELS = [
 // Flight Reason Options with SVG Icon keys
 const FLIGHT_REASONS = [
     { id: 'Patrullaje', label: 'Patrullaje Aéreo', iconKey: 'Patrol', color: '#38bdf8' },
-    { id: '487', label: '487 (Robo de Vehículo)', iconKey: 'Car', color: '#f59e0b' },
+    { id: '487', label: '487 (Robo Mediano / Mayor)', iconKey: 'Warning', color: '#f59e0b' },
     { id: '207', label: '207 (Secuestro)', iconKey: 'Siren', color: '#ef4444' },
-    { id: '215', label: '215 (Carjacking)', iconKey: 'Warning', color: '#f97316' },
+    { id: '215', label: '215 (Tiroteo)', iconKey: 'Target', color: '#f97316' },
     { id: 'Búsqueda y Localización', label: 'Búsqueda y Localización', iconKey: 'Search', color: '#06b6d4' },
     { id: 'Operativo', label: 'Operativo Táctico', iconKey: 'Target', color: '#a855f7' },
     { id: 'Práctica', label: 'Vuelo de Instrucción / Práctica', iconKey: 'Training', color: '#10b981' },

@@ -139,43 +139,6 @@ const DEFAULT_ASD_MODELS = [
     { id: 'model-3', name: 'Frogger', type: 'Helicóptero de Apoyo y Rescate', registration: 'RESCUE-03', description: 'Unidad de rescate y evacuación médica equipada con grúa y camilla aérea.', status: 'Operativo' }
 ];
 
-// Default Flight Logs
-const DEFAULT_ASD_FLIGHT_LOGS = [
-    {
-        id: 'flight-1',
-        pilot_id: 'asd-user-1',
-        pilot_name: 'Marcus Miller',
-        pilot_callsign: 'AIR-01',
-        aircraft_model: 'Maverick',
-        reason: 'Patrullaje',
-        reason_other: null,
-        date: '2026-09-17',
-        departure_time: '18:00',
-        landing_time: '19:30',
-        duration_minutes: 90,
-        notes: 'Patrullaje preventivo sobre South Central y Vinewood Hills sin novedades críticas.',
-        status: 'Aprobado',
-        reviewed_by: 'Marcus Miller',
-        created_at: '2026-09-17T18:00:00Z'
-    },
-    {
-        id: 'flight-2',
-        pilot_id: 'asd-user-3',
-        pilot_name: 'Sarah Vance',
-        pilot_callsign: 'HAWK-1',
-        aircraft_model: 'Maverick',
-        reason: '487',
-        reason_other: null,
-        date: '2026-09-18',
-        departure_time: '02:15',
-        landing_time: '03:00',
-        duration_minutes: 45,
-        notes: 'Persecución activa de un deportivo de alta gama por la autopista oeste. Sujeto neutralizado.',
-        status: 'Pendiente',
-        reviewed_by: null,
-        created_at: '2026-09-18T02:15:00Z'
-    }
-];
 
 function AirSupport() {
     const navigate = useNavigate();
@@ -493,23 +456,17 @@ function AirSupport() {
                 .select('*')
                 .order('created_at', { ascending: false });
 
-            if (!logErr && dbLogs && dbLogs.length > 0) {
+            if (!logErr && dbLogs) {
                 setFlightLogs(dbLogs);
                 localStorage.setItem('asd_flight_logs_v2', JSON.stringify(dbLogs));
-            } else if (!logErr && dbLogs && dbLogs.length === 0) {
-                for (const def of DEFAULT_ASD_FLIGHT_LOGS) {
-                    await supabase.from('asd_flight_logs').insert([def]);
-                }
-                const { data: seededLogs } = await supabase.from('asd_flight_logs').select('*').order('created_at', { ascending: false });
-                setFlightLogs(seededLogs || DEFAULT_ASD_FLIGHT_LOGS);
             } else {
                 const savedLogs = localStorage.getItem('asd_flight_logs_v2');
-                setFlightLogs(savedLogs ? JSON.parse(savedLogs) : DEFAULT_ASD_FLIGHT_LOGS);
+                setFlightLogs(savedLogs ? JSON.parse(savedLogs) : []);
             }
         } catch (e) {
             console.warn('Flight logs fetch fallback:', e);
             const savedLogs = localStorage.getItem('asd_flight_logs_v2');
-            setFlightLogs(savedLogs ? JSON.parse(savedLogs) : DEFAULT_ASD_FLIGHT_LOGS);
+            setFlightLogs(savedLogs ? JSON.parse(savedLogs) : []);
         }
     };
 
@@ -3318,9 +3275,9 @@ function AirSupport() {
                                         style={{ width: '100%', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '8px', color: '#fff', padding: '0.65rem 0.9rem', fontSize: '0.88rem' }}
                                     >
                                         <option value="Patrullaje">Patrullaje</option>
-                                        <option value="487">487 (Robo de vehículo / Persecución)</option>
+                                        <option value="487">487 (Robo Mediano / Mayor)</option>
                                         <option value="207">207 (Secuestro)</option>
-                                        <option value="215">215 (Robo a mano armada)</option>
+                                        <option value="215">215 (Tiroteo)</option>
                                         <option value="Búsqueda y Localización">Búsqueda y Localización</option>
                                         <option value="Operativo">Operativo</option>
                                         <option value="Práctica">Práctica</option>
