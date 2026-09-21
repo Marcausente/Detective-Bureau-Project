@@ -3136,164 +3136,6 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                 <StatBox label={t('gangCasesLabel') || 'Casos'} count={gang.case_count || (gang.cases ? gang.cases.length : 0)} onClick={() => onViewActivity('cases', gang.gang_id)} />
             </div>
 
-            {/* Media de Actividad por Día de la Semana */}
-            <div className="gang-section-card">
-                <div className="gang-section-header">
-                    <span className="gang-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                            <line x1="16" y1="2" x2="16" y2="6" />
-                            <line x1="8" y1="2" x2="8" y2="6" />
-                            <line x1="3" y1="10" x2="21" y2="10" />
-                        </svg>
-                        <span>{t('weeklyActivityPattern') || 'Media de Actividad por Día'}</span>
-                    </span>
-                    {gang.weekly_activity?.totalIncidents > 0 && (
-                        <button 
-                            className="mac-btn mac-btn-secondary" 
-                            style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '4px' }}
-                            onClick={() => onViewActivity('incidents', gang.gang_id)}
-                            title="Ver informes del grupo"
-                        >
-                            {gang.weekly_activity.totalIncidents} {gang.weekly_activity.totalIncidents === 1 ? 'informe' : 'informes'}
-                        </button>
-                    )}
-                </div>
-                <div className="gang-list-content" style={{ padding: '0.55rem 0.75rem' }}>
-                    {(!gang.weekly_activity || gang.weekly_activity.totalIncidents === 0) ? (
-                        <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.78rem', padding: '0.75rem 0.5rem' }}>
-                            <div style={{ opacity: 0.5, fontSize: '1.1rem', marginBottom: '0.15rem' }}>📅</div>
-                            <div>{t('noIncidentActivity') || 'Sin informes para calcular la media de actividad semanal'}</div>
-                        </div>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                            {/* Highlight Peak Summary Banner */}
-                            {gang.weekly_activity.peakDay && (
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    padding: '0.4rem 0.6rem',
-                                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(245, 158, 11, 0.04))',
-                                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                                    borderRadius: '7px',
-                                    marginBottom: '0.15rem'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                        <span style={{ fontSize: '0.85rem' }}>🔥</span>
-                                        <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#fbbf24' }}>
-                                            {t('peakActivityDay') || 'Mayor Actividad'}:
-                                        </span>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#ffffff' }}>
-                                            {gang.weekly_activity.peakDay.label}
-                                        </span>
-                                    </div>
-                                    <span style={{
-                                        fontSize: '0.68rem',
-                                        fontWeight: '800',
-                                        color: '#fbbf24',
-                                        background: 'rgba(245, 158, 11, 0.22)',
-                                        padding: '1px 6px',
-                                        borderRadius: '9999px',
-                                        border: '1px solid rgba(245, 158, 11, 0.35)'
-                                    }}>
-                                        {gang.weekly_activity.peakDay.count} inf. ({gang.weekly_activity.peakDay.formattedPercentage}%)
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Ranked Days Breakdown (1º al 7º de mayor a menor actividad) */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.28rem' }}>
-                                {gang.weekly_activity.sortedDays.map((d, rankIdx) => {
-                                    const isTop1 = rankIdx === 0 && d.count > 0;
-                                    const isTop2 = rankIdx === 1 && d.count > 0;
-                                    const isTop3 = rankIdx === 2 && d.count > 0;
-                                    const rankBadgeColor = isTop1 ? '#f59e0b' : isTop2 ? '#cbd5e1' : isTop3 ? '#cd7f32' : '#64748b';
-                                    const rankBadgeBg = isTop1 ? 'rgba(245, 158, 11, 0.2)' : isTop2 ? 'rgba(203, 213, 225, 0.15)' : isTop3 ? 'rgba(205, 127, 50, 0.15)' : 'rgba(255, 255, 255, 0.04)';
-                                    const barFillPercent = gang.weekly_activity.maxDayCount > 0 ? (d.count / gang.weekly_activity.maxDayCount) * 100 : 0;
-
-                                    return (
-                                        <div
-                                            key={d.key}
-                                            onClick={() => onViewActivity('incidents', gang.gang_id)}
-                                            style={{
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: '2px',
-                                                padding: '0.3rem 0.45rem',
-                                                borderRadius: '5px',
-                                                background: isTop1 ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.015)',
-                                                border: isTop1 ? '1px solid rgba(245, 158, 11, 0.18)' : '1px solid rgba(255, 255, 255, 0.04)',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.15s ease'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.background = isTop1 ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.015)';
-                                            }}
-                                            title={`${d.label}: ${d.count} informes (${d.formattedPercentage}% de los incidentes)`}
-                                        >
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                    <span style={{
-                                                        fontSize: '0.62rem',
-                                                        fontWeight: '800',
-                                                        color: rankBadgeColor,
-                                                        background: rankBadgeBg,
-                                                        width: '17px',
-                                                        height: '17px',
-                                                        borderRadius: '4px',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center'
-                                                    }}>
-                                                        {rankIdx + 1}º
-                                                    </span>
-                                                    <span style={{ fontWeight: isTop1 ? '700' : '500', color: d.count > 0 ? '#f1f5f9' : '#64748b' }}>
-                                                        {d.label}
-                                                    </span>
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.68rem' }}>
-                                                    <span style={{ fontWeight: '700', color: d.count > 0 ? (isTop1 ? '#fbbf24' : '#38bdf8') : '#64748b' }}>
-                                                        {d.count} inf.
-                                                    </span>
-                                                    <span style={{ color: '#94a3b8', fontSize: '0.64rem', fontFamily: 'monospace' }}>
-                                                        ({d.formattedPercentage}%)
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            {/* Bar Track & Fill */}
-                                            <div style={{
-                                                width: '100%',
-                                                height: '3.5px',
-                                                background: 'rgba(255, 255, 255, 0.06)',
-                                                borderRadius: '9999px',
-                                                overflow: 'hidden',
-                                                marginTop: '2px'
-                                            }}>
-                                                <div style={{
-                                                    width: `${barFillPercent}%`,
-                                                    height: '100%',
-                                                    background: isTop1
-                                                        ? 'linear-gradient(90deg, #f59e0b, #fbbf24)'
-                                                        : d.count > 0
-                                                            ? 'linear-gradient(90deg, #0284c7, #38bdf8)'
-                                                            : 'transparent',
-                                                    borderRadius: '9999px',
-                                                    transition: 'width 0.3s ease'
-                                                }} />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-
             {/* Linked Cases Section */}
             <div className="gang-section-card">
                 <div className="gang-section-header">
@@ -3852,6 +3694,164 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                             );
                         })}
                     {gang.members.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>{t('noKnownMembers')}</div>}
+                </div>
+            </div>
+
+            {/* Media de Actividad por Día de la Semana (Bottom of column) */}
+            <div className="gang-section-card">
+                <div className="gang-section-header">
+                    <span className="gang-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
+                        <span>{t('weeklyActivityPattern') || 'Media de Actividad por Día'}</span>
+                    </span>
+                    {gang.weekly_activity?.totalIncidents > 0 && (
+                        <button 
+                            className="mac-btn mac-btn-secondary" 
+                            style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '4px' }}
+                            onClick={() => onViewActivity('incidents', gang.gang_id)}
+                            title="Ver informes del grupo"
+                        >
+                            {gang.weekly_activity.totalIncidents} {gang.weekly_activity.totalIncidents === 1 ? 'informe' : 'informes'}
+                        </button>
+                    )}
+                </div>
+                <div className="gang-list-content" style={{ padding: '0.55rem 0.75rem' }}>
+                    {(!gang.weekly_activity || gang.weekly_activity.totalIncidents === 0) ? (
+                        <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.78rem', padding: '0.75rem 0.5rem' }}>
+                            <div style={{ opacity: 0.5, fontSize: '1.1rem', marginBottom: '0.15rem' }}>📅</div>
+                            <div>{t('noIncidentActivity') || 'Sin informes para calcular la media de actividad semanal'}</div>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {/* Highlight Peak Summary Banner */}
+                            {gang.weekly_activity.peakDay && (
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '0.4rem 0.6rem',
+                                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(245, 158, 11, 0.04))',
+                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    borderRadius: '7px',
+                                    marginBottom: '0.15rem'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <span style={{ fontSize: '0.85rem' }}>🔥</span>
+                                        <span style={{ fontSize: '0.72rem', fontWeight: '700', color: '#fbbf24' }}>
+                                            {t('peakActivityDay') || 'Mayor Actividad'}:
+                                        </span>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#ffffff' }}>
+                                            {gang.weekly_activity.peakDay.label}
+                                        </span>
+                                    </div>
+                                    <span style={{
+                                        fontSize: '0.68rem',
+                                        fontWeight: '800',
+                                        color: '#fbbf24',
+                                        background: 'rgba(245, 158, 11, 0.22)',
+                                        padding: '1px 6px',
+                                        borderRadius: '9999px',
+                                        border: '1px solid rgba(245, 158, 11, 0.35)'
+                                    }}>
+                                        {gang.weekly_activity.peakDay.count} inf. ({gang.weekly_activity.peakDay.formattedPercentage}%)
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Ranked Days Breakdown (1º al 7º de mayor a menor actividad) */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.28rem' }}>
+                                {gang.weekly_activity.sortedDays.map((d, rankIdx) => {
+                                    const isTop1 = rankIdx === 0 && d.count > 0;
+                                    const isTop2 = rankIdx === 1 && d.count > 0;
+                                    const isTop3 = rankIdx === 2 && d.count > 0;
+                                    const rankBadgeColor = isTop1 ? '#f59e0b' : isTop2 ? '#cbd5e1' : isTop3 ? '#cd7f32' : '#64748b';
+                                    const rankBadgeBg = isTop1 ? 'rgba(245, 158, 11, 0.2)' : isTop2 ? 'rgba(203, 213, 225, 0.15)' : isTop3 ? 'rgba(205, 127, 50, 0.15)' : 'rgba(255, 255, 255, 0.04)';
+                                    const barFillPercent = gang.weekly_activity.maxDayCount > 0 ? (d.count / gang.weekly_activity.maxDayCount) * 100 : 0;
+
+                                    return (
+                                        <div
+                                            key={d.key}
+                                            onClick={() => onViewActivity('incidents', gang.gang_id)}
+                                            style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '2px',
+                                                padding: '0.3rem 0.45rem',
+                                                borderRadius: '5px',
+                                                background: isTop1 ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.015)',
+                                                border: isTop1 ? '1px solid rgba(245, 158, 11, 0.18)' : '1px solid rgba(255, 255, 255, 0.04)',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.background = isTop1 ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.015)';
+                                            }}
+                                            title={`${d.label}: ${d.count} informes (${d.formattedPercentage}% de los incidentes)`}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                    <span style={{
+                                                        fontSize: '0.62rem',
+                                                        fontWeight: '800',
+                                                        color: rankBadgeColor,
+                                                        background: rankBadgeBg,
+                                                        width: '17px',
+                                                        height: '17px',
+                                                        borderRadius: '4px',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}>
+                                                        {rankIdx + 1}º
+                                                    </span>
+                                                    <span style={{ fontWeight: isTop1 ? '700' : '500', color: d.count > 0 ? '#f1f5f9' : '#64748b' }}>
+                                                        {d.label}
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.68rem' }}>
+                                                    <span style={{ fontWeight: '700', color: d.count > 0 ? (isTop1 ? '#fbbf24' : '#38bdf8') : '#64748b' }}>
+                                                        {d.count} inf.
+                                                    </span>
+                                                    <span style={{ color: '#94a3b8', fontSize: '0.64rem', fontFamily: 'monospace' }}>
+                                                        ({d.formattedPercentage}%)
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {/* Bar Track & Fill */}
+                                            <div style={{
+                                                width: '100%',
+                                                height: '3.5px',
+                                                background: 'rgba(255, 255, 255, 0.06)',
+                                                borderRadius: '9999px',
+                                                overflow: 'hidden',
+                                                marginTop: '2px'
+                                            }}>
+                                                <div style={{
+                                                    width: `${barFillPercent}%`,
+                                                    height: '100%',
+                                                    background: isTop1
+                                                        ? 'linear-gradient(90deg, #f59e0b, #fbbf24)'
+                                                        : d.count > 0
+                                                            ? 'linear-gradient(90deg, #0284c7, #38bdf8)'
+                                                            : 'transparent',
+                                                    borderRadius: '9999px',
+                                                    transition: 'width 0.3s ease'
+                                                }} />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
