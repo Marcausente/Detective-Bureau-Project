@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { signatureFontBase64 } from './signatureFont';
+import { calculateGangWeeklyActivity } from './gangActivityStats';
 
 // Helper to sanitize text and remove emojis or unprintable Unicode surrogate pairs
 const cleanPDFText = (str) => {
@@ -435,7 +436,35 @@ export const generateGangSummaryPDF = async (gang, extraData = {}) => {
             margin: { left: 14, right: 14 }
         });
 
-        y = doc.lastAutoTable.finalY + 8;
+        y = doc.lastAutoTable.finalY + 6;
+
+        // Weekly activity analysis box
+        const weeklyActivity = calculateGangWeeklyActivity(incidents);
+        if (weeklyActivity.totalIncidents > 0 && weeklyActivity.peakDay) {
+            const peakText = `DIA DE MAYOR ACTIVIDAD: ${weeklyActivity.peakDay.label.toUpperCase()} (${weeklyActivity.peakDay.count} inf. - ${weeklyActivity.peakDay.formattedPercentage}%)`;
+            const rankingSummary = weeklyActivity.sortedDays
+                .map((d, i) => `${i + 1}º ${d.label} (${d.count} inf. - ${d.formattedPercentage}%)`)
+                .join('  |  ');
+
+            doc.setFillColor(248, 250, 252);
+            doc.setDrawColor(accentGold[0], accentGold[1], accentGold[2]);
+            doc.setLineWidth(0.2);
+            doc.roundedRect(14, y, pageWidth - 28, 13, 1.5, 1.5, 'FD');
+
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(accentGold[0], accentGold[1], accentGold[2]);
+            doc.text(peakText, 17, y + 4.5);
+
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+            doc.text(rankingSummary, 17, y + 9.5, { maxWidth: pageWidth - 34 });
+
+            y += 18;
+        } else {
+            y += 2;
+        }
     } else {
         doc.setFontSize(8.5);
         doc.setFont('helvetica', 'italic');

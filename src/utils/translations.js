@@ -332,6 +332,12 @@ export const translations = {
         graffitiImageLabel: "Graffiti Photo",
         gpsImageLabel: "GPS Location Photo",
         noNotes: "No notes",
+        weeklyActivityPattern: "Weekly Activity by Day",
+        weeklyActivityTitle: "Activity Pattern by Day",
+        peakActivityDay: "Peak Activity Day",
+        lowestActivityDay: "Lowest Activity Day",
+        noIncidentActivity: "No incidents recorded to calculate weekly activity",
+        incidentsAvgText: "Incidents distribution",
 
         // Incidents & Outings
         loadingIncidents: "Loading Operation Data...",
@@ -915,6 +921,12 @@ export const translations = {
         graffitiImageLabel: "Foto del Grafiti",
         gpsImageLabel: "Foto de la Ubicación GPS",
         noNotes: "Sin notas",
+        weeklyActivityPattern: "Media de Actividad por Día",
+        weeklyActivityTitle: "Patrón de Actividad por Día",
+        peakActivityDay: "Día de Mayor Actividad",
+        lowestActivityDay: "Día de Menor Actividad",
+        noIncidentActivity: "Sin informes para calcular la media de actividad semanal",
+        incidentsAvgText: "Media de actividad",
 
         // Incidents & Outings
         loadingIncidents: "Cargando Datos de Operación...",
