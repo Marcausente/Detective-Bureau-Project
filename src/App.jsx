@@ -40,6 +40,7 @@ import Ballistics from './pages/Ballistics';
 import Coordination from './pages/Coordination';
 import SEB from './pages/SEB';
 import AirSupport from './pages/AirSupport';
+import Undercover from './pages/Undercover';
 import PublicASDFlightLog from './pages/PublicASDFlightLog';
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
@@ -97,6 +98,7 @@ function App() {
             <Route path="/doj/licenses/:id" element={<DOJLicenseProfile />} />
             <Route path="/seb" element={<SEB />} />
             <Route path="/air-support" element={<AirSupport />} />
+            <Route path="/undercover" element={<Undercover />} />
             <Route path="/asd" element={<Navigate to="/air-support" replace />} />
             <Route path="/warrants" element={<OrderArchive />} /> {/* Updated Route */}
             <Route path="/profile" element={<Profile />} />

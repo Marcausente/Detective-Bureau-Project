@@ -146,6 +146,16 @@ const getNavIcon = (path) => {
                     <path d="M12 2v4M4 6h16M12 6c-3 0-5 2-5 5v3h10v-3c0-3-2-5-5-5zM8 17l-4 3M16 17l4 3M6 21h12" />
                 </svg>
             );
+        case '/undercover':
+            return (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 12h20" />
+                    <path d="M20 12v8H4v-8" />
+                    <circle cx="8" cy="16" r="2" />
+                    <circle cx="16" cy="16" r="2" />
+                    <path d="M12 2a4 4 0 0 0-4 4v3h8V6a4 4 0 0 0-4-4z" />
+                </svg>
+            );
         default:
             return (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -173,6 +183,7 @@ const getShortLabel = (path, fullName) => {
         case '/doj': return 'DOJ';
         case '/seb': return 'SEB';
         case '/air-support': return 'Air Support';
+        case '/undercover': return 'Undercover';
         case '/coordination': return 'Coordinación';
         case '/admin': return 'Panel Admin';
         default: return fullName;
@@ -315,7 +326,8 @@ function MainLayout() {
         { name: t('doj'), path: '/doj', divisions: ['DOJ'] },
         { name: t('seb'), path: '/seb', divisions: ['SEB'] },
         { name: t('airSupport') || 'Air Support', path: '/air-support', divisions: ['ASD'] },
-        { name: t('coordination'), path: '/coordination', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD'], roles: ['coordinador', 'comisionado', 'administrador', 'superadmin'] },
+        { name: t('undercover') || 'Undercover', path: '/undercover', divisions: ['Undercover', 'Undercover Division', 'UD'] },
+        { name: t('coordination'), path: '/coordination', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'Undercover'], roles: ['coordinador', 'comisionado', 'administrador', 'superadmin'] },
         { name: t('adminPanel'), path: '/admin', divisions: ['SysAdmin'] },
     ];
 
@@ -349,6 +361,14 @@ function MainLayout() {
             return isASDRank || isASDDivision || hasAllowedRole;
         }
 
+        if (item.path === '/undercover') {
+            const userRole = profile.rol ? profile.rol.toLowerCase() : '';
+            const isUDRole = ['coordinador', 'comisionado', 'administrador', 'admin', 'superadmin'].includes(userRole);
+            const isUDDivision = (profile.divisions && (profile.divisions.includes('Undercover') || profile.divisions.includes('Undercover Division') || profile.divisions.includes('UD'))) ||
+                                 (profile.subdivisions && (profile.subdivisions.includes('Undercover') || profile.subdivisions.includes('Undercover Division') || profile.subdivisions.includes('UD')));
+            return isUDRole || isUDDivision;
+        }
+
         if (!profile.divisions) return false;
         
         if (item.roles) {
@@ -370,8 +390,8 @@ function MainLayout() {
 
     const maxPrimary = getResponsiveMaxPrimary(windowWidth);
 
-    // Force Formación, Órdenes, Asuntos Internos, DOJ, Air Support, Coordinación, Admin into "Más ▾" in exact order
-    const forcedMorePaths = ['/training', '/warrants', '/internal-affairs', '/doj', '/air-support', '/coordination', '/admin'];
+    // Force Formación, Órdenes, Asuntos Internos, DOJ, Air Support, Undercover, Coordinación, Admin into "Más ▾" in exact order
+    const forcedMorePaths = ['/training', '/warrants', '/internal-affairs', '/doj', '/air-support', '/undercover', '/coordination', '/admin'];
 
     const forcedMoreItems = navItems.filter(item => forcedMorePaths.includes(item.path));
     const eligiblePrimaryItems = navItems.filter(item => !forcedMorePaths.includes(item.path));

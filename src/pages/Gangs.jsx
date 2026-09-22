@@ -223,13 +223,32 @@ function Gangs() {
                     console.warn("Could not fetch incidents for weekly activity calculation:", incErr);
                 }
 
-                // Attach weekly activity analysis to each gang
+                // Fetch undercover intelligence linked to gangs
+                let undercoverIntelMap = {};
+                try {
+                    const { data: udIntel } = await supabase.rpc('get_undercover_gang_intel');
+                    if (udIntel && Array.isArray(udIntel)) {
+                        udIntel.forEach(item => {
+                            if (item.gang_id) {
+                                if (!undercoverIntelMap[item.gang_id]) undercoverIntelMap[item.gang_id] = [];
+                                undercoverIntelMap[item.gang_id].push(item);
+                            }
+                        });
+                    }
+                } catch (udErr) {
+                    console.warn("Could not fetch undercover intel for gangs:", udErr);
+                }
+
+                // Attach weekly activity analysis and undercover intel to each gang
                 const enrichedGangs = (data || []).map(g => {
                     const gangIncidents = incidentsMap[g.gang_id] || [];
+                    const gangUndercover = undercoverIntelMap[g.gang_id] || [];
                     return {
                         ...g,
                         linked_incidents_data: gangIncidents,
-                        weekly_activity: calculateGangWeeklyActivity(gangIncidents)
+                        weekly_activity: calculateGangWeeklyActivity(gangIncidents),
+                        undercover_intel: gangUndercover,
+                        undercover_count: gangUndercover.length
                     };
                 });
 
@@ -1051,6 +1070,22 @@ function Gangs() {
         setActivitySearchQuery('');
 
         try {
+            if (type === 'undercover') {
+                try {
+                    const { data: udData, error: udError } = await supabase.rpc('get_undercover_gang_intel', { p_gang_id: targetGangId });
+                    if (!udError && udData) {
+                        setActivityLog(udData);
+                    } else {
+                        const targetGang = gangs.find(g => g.gang_id === targetGangId);
+                        setActivityLog(targetGang?.undercover_intel || []);
+                    }
+                } catch (e) {
+                    const targetGang = gangs.find(g => g.gang_id === targetGangId);
+                    setActivityLog(targetGang?.undercover_intel || []);
+                }
+                return;
+            }
+
             const rpcName = type === 'incidents' 
                 ? 'get_gang_incidents' 
                 : type === 'cases' 
@@ -1623,6 +1658,24 @@ function Gangs() {
                         item: c,
                         title: `Conflicto: ${c.target_gang_name}`,
                         subtitle: `Motivo: ${c.reason || 'Desconocido'}${gang.is_archived ? ' [Archivado]' : ''}`,
+                        gangId: gang.gang_id,
+                        gangName: gang.name,
+                        gangColor: gang.color
+                    });
+                }
+            });
+
+            (gang.undercover_intel || []).forEach(ud => {
+                const titleMatch = safeStrMatch(ud?.title, q);
+                const contentMatch = safeStrMatch(ud?.content, q);
+                const personaMatch = safeStrMatch(ud?.persona_name, q);
+                const officerMatch = safeStrMatch(ud?.officer_name, q);
+                if (titleMatch || contentMatch || personaMatch || officerMatch) {
+                    results.push({
+                        type: 'undercover',
+                        item: ud,
+                        title: `🕶️ Inteligencia UD: ${ud.title || 'Informe Encubierto'}`,
+                        subtitle: `Agente/Identidad: ${ud.persona_name || ud.officer_name || 'Agente UD'} • ${ud.threat_level || 'MEDIO'}`,
                         gangId: gang.gang_id,
                         gangName: gang.name,
                         gangColor: gang.color
@@ -2375,6 +2428,16 @@ function Gangs() {
                             (item.status && item.status.toLowerCase().includes(cleanSearch))
                         );
                     }
+                    if (activityType === 'undercover') {
+                        return (
+                            (item.title && item.title.toLowerCase().includes(cleanSearch)) ||
+                            (item.content && item.content.toLowerCase().includes(cleanSearch)) ||
+                            (item.persona_name && item.persona_name.toLowerCase().includes(cleanSearch)) ||
+                            (item.officer_name && item.officer_name.toLowerCase().includes(cleanSearch)) ||
+                            (item.category && item.category.toLowerCase().includes(cleanSearch)) ||
+                            (item.threat_level && item.threat_level.toLowerCase().includes(cleanSearch))
+                        );
+                    }
                     return true;
                 });
 
@@ -2580,6 +2643,39 @@ function Gangs() {
                                             {activeGang.case_count || (activeGang.cases ? activeGang.cases.length : (activityType === 'cases' ? activityLog.length : 0))}
                                         </span>
                                     </button>
+
+                                    {/* Tab 4: Undercover (UD) Intelligence */}
+                                    <button
+                                        onClick={() => handleViewActivity('undercover', activeGangId)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '7px',
+                                            padding: '0.5rem 1rem',
+                                            borderRadius: '8px',
+                                            border: 'none',
+                                            background: activityType === 'undercover' ? 'rgba(168, 85, 247, 0.25)' : 'transparent',
+                                            color: activityType === 'undercover' ? '#c084fc' : '#94a3b8',
+                                            fontWeight: activityType === 'undercover' ? 700 : 500,
+                                            fontSize: '0.84rem',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            boxShadow: activityType === 'undercover' ? '0 2px 10px rgba(168, 85, 247, 0.3)' : 'none'
+                                        }}
+                                    >
+                                        <span>🕶️</span>
+                                        <span>Inteligencia UD</span>
+                                        <span style={{
+                                            fontSize: '0.72rem',
+                                            padding: '2px 7px',
+                                            borderRadius: '9999px',
+                                            background: activityType === 'undercover' ? '#c084fc' : 'rgba(255, 255, 255, 0.1)',
+                                            color: activityType === 'undercover' ? '#0f172a' : '#cbd5e1',
+                                            fontWeight: 800
+                                        }}>
+                                            {activeGang.undercover_count || (activeGang.undercover_intel ? activeGang.undercover_intel.length : (activityType === 'undercover' ? activityLog.length : 0))}
+                                        </span>
+                                    </button>
                                 </div>
 
                                 {/* Search Field */}
@@ -2720,6 +2816,111 @@ function Gangs() {
                                                             Ver Expediente ↗
                                                         </span>
                                                     </div>
+                                                </div>
+                                            ) : activityType === 'undercover' ? (
+                                                <div
+                                                    key={item.id}
+                                                    style={{
+                                                        padding: '1.25rem',
+                                                        background: 'rgba(15, 23, 42, 0.6)',
+                                                        border: '1px solid rgba(168, 85, 247, 0.25)',
+                                                        borderLeft: `4px solid ${
+                                                            item.threat_level === 'CRÍTICO' ? '#ef4444' :
+                                                            item.threat_level === 'ALTO' ? '#f97316' :
+                                                            item.threat_level === 'MEDIO' ? '#f59e0b' : '#3b82f6'
+                                                        }`,
+                                                        borderRadius: '14px',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        gap: '0.75rem',
+                                                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)'
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                        <div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                                                                <span style={{
+                                                                    fontSize: '0.72rem',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '4px',
+                                                                    fontWeight: 800,
+                                                                    background: 'rgba(168, 85, 247, 0.15)',
+                                                                    color: '#c084fc',
+                                                                    border: '1px solid rgba(168, 85, 247, 0.35)'
+                                                                }}>
+                                                                    🕶️ {item.category || 'INFORMACIÓN GENERAL'}
+                                                                </span>
+                                                                <span style={{
+                                                                    fontSize: '0.72rem',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '4px',
+                                                                    fontWeight: 800,
+                                                                    background: item.threat_level === 'CRÍTICO' ? 'rgba(239, 68, 68, 0.2)' : item.threat_level === 'ALTO' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                                                                    color: item.threat_level === 'CRÍTICO' ? '#f87171' : item.threat_level === 'ALTO' ? '#fb923c' : '#fbbf24',
+                                                                    border: `1px solid ${item.threat_level === 'CRÍTICO' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`
+                                                                }}>
+                                                                    AMENAZA {item.threat_level || 'MEDIO'}
+                                                                </span>
+                                                                {item.is_confidential && (
+                                                                    <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(239,68,68,0.2)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.4)', fontWeight: 700 }}>
+                                                                        🔒 CONFIDENCIAL UD
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <h4 style={{ margin: '0 0 4px 0', color: '#ffffff', fontSize: '1.05rem', fontWeight: 700 }}>
+                                                                {item.title}
+                                                            </h4>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.78rem', color: '#94a3b8', flexWrap: 'wrap' }}>
+                                                                {item.persona_name && (
+                                                                    <span style={{ color: '#c084fc', fontWeight: 600 }}>
+                                                                        🎭 Identidad: {item.persona_name}
+                                                                    </span>
+                                                                )}
+                                                                {item.officer_name && (
+                                                                    <span>
+                                                                        🛡️ {item.officer_rank ? `${item.officer_rank} ` : ''}{item.officer_name}
+                                                                    </span>
+                                                                )}
+                                                                {item.created_at && (
+                                                                    <span>
+                                                                        📅 {new Date(item.created_at).toLocaleString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{
+                                                        color: '#cbd5e1',
+                                                        fontSize: '0.86rem',
+                                                        lineHeight: '1.5',
+                                                        whiteSpace: 'pre-line',
+                                                        background: 'rgba(0, 0, 0, 0.25)',
+                                                        padding: '0.85rem',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid rgba(255, 255, 255, 0.05)'
+                                                    }}>
+                                                        {item.content}
+                                                    </div>
+
+                                                    {item.photos && item.photos.length > 0 && (
+                                                        <div>
+                                                            <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>EVIDENCIA FOTOGRÁFICA / ARCHIVO:</span>
+                                                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                                {item.photos.map((ph, phIdx) => (
+                                                                    <img
+                                                                        key={phIdx}
+                                                                        src={ph}
+                                                                        onClick={() => setExpandedImage(ph)}
+                                                                        alt="Intel photo"
+                                                                        style={{ width: '80px', height: '65px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)', transition: 'transform 0.15s' }}
+                                                                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                                        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <OutingCard
@@ -3130,10 +3331,11 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
             </div>
 
             {/* Stats Grid */}
-            <div className="gang-stat-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+            <div className="gang-stat-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
                 <StatBox label={t('gangIncidentsLabel')} count={gang.incident_count} onClick={() => onViewActivity('incidents', gang.gang_id)} />
                 <StatBox label={t('gangOutingsLabel')} count={gang.outing_count} onClick={() => onViewActivity('outings', gang.gang_id)} />
                 <StatBox label={t('gangCasesLabel') || 'Casos'} count={gang.case_count || (gang.cases ? gang.cases.length : 0)} onClick={() => onViewActivity('cases', gang.gang_id)} />
+                <StatBox label="🕶️ UD Intel" count={gang.undercover_count || (gang.undercover_intel ? gang.undercover_intel.length : 0)} onClick={() => onViewActivity('undercover', gang.gang_id)} />
             </div>
 
             {/* Linked Cases Section */}
@@ -3220,6 +3422,98 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                     {(!gang.cases || gang.cases.length === 0) && (
                         <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>
                             {t('noLinkedCasesGang') || 'Sin casos criminales vinculados'}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Undercover Division (UD) Intelligence Section */}
+            <div className="gang-section-card" style={{ borderColor: 'rgba(168, 85, 247, 0.3)' }}>
+                <div className="gang-section-header" style={{ background: 'linear-gradient(90deg, rgba(168, 85, 247, 0.12), transparent)' }}>
+                    <span className="gang-section-title" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#c084fc' }}>
+                        <span>🕶️</span>
+                        <span>Inteligencia Encubierta (UD) ({(gang.undercover_intel || []).length})</span>
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <button
+                            className="mac-btn mac-btn-secondary"
+                            style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px', borderColor: 'rgba(168, 85, 247, 0.4)', color: '#c084fc' }}
+                            onClick={() => onViewActivity('undercover', gang.gang_id)}
+                            title="Ver todo el dossier de inteligencia encubierta"
+                        >
+                            Ver Todo
+                        </button>
+                        <button
+                            className="gang-add-btn"
+                            style={{ background: 'rgba(168, 85, 247, 0.25)', borderColor: 'rgba(168, 85, 247, 0.5)', color: '#e9d5ff' }}
+                            onClick={() => navigate('/undercover')}
+                            title="Ir a Undercover Division para redactar nuevo informe"
+                        >
+                            +
+                        </button>
+                    </div>
+                </div>
+                <div className="gang-list-content">
+                    {(gang.undercover_intel || []).slice(0, 3).map(intel => {
+                        const isIntelMatch = searchQuery && searchQuery.trim() !== '' && (
+                            safeStrMatch(intel?.title, searchQuery) ||
+                            safeStrMatch(intel?.content, searchQuery) ||
+                            safeStrMatch(intel?.persona_name, searchQuery) ||
+                            safeStrMatch(intel?.officer_name, searchQuery)
+                        );
+                        return (
+                            <div
+                                key={intel.id}
+                                onClick={() => onViewActivity('undercover', gang.gang_id)}
+                                className={`gang-list-item ${isIntelMatch ? 'search-highlight-item' : ''}`}
+                                style={{
+                                    flexDirection: 'column',
+                                    alignItems: 'flex-start',
+                                    borderLeft: `3px solid ${
+                                        intel.threat_level === 'CRÍTICO' ? '#ef4444' :
+                                        intel.threat_level === 'ALTO' ? '#f97316' :
+                                        intel.threat_level === 'MEDIO' ? '#f59e0b' : '#a855f7'
+                                    }`,
+                                    paddingLeft: '0.8rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    background: 'rgba(168, 85, 247, 0.04)',
+                                    marginBottom: '0.4rem',
+                                    borderRadius: '0 6px 6px 0',
+                                    padding: '0.5rem 0.8rem'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(168, 85, 247, 0.08)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(168, 85, 247, 0.04)'; }}
+                                title="Click para abrir en el visor de inteligencia"
+                            >
+                                <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                                    <span style={{ color: '#ffffff', fontWeight: '700', fontSize: '0.82rem' }}>
+                                        {intel.title}
+                                    </span>
+                                    <span style={{
+                                        fontSize: '0.62rem',
+                                        padding: '1px 5px',
+                                        borderRadius: '4px',
+                                        background: intel.threat_level === 'CRÍTICO' ? 'rgba(239,68,68,0.2)' : 'rgba(168,85,247,0.2)',
+                                        color: intel.threat_level === 'CRÍTICO' ? '#f87171' : '#c084fc',
+                                        fontWeight: '700'
+                                    }}>
+                                        {intel.threat_level || 'MEDIO'}
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: '0.74rem', color: '#cbd5e1', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: '1.3' }}>
+                                    {intel.content}
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '4px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                    {intel.persona_name && <span style={{ color: '#c084fc' }}>🎭 {intel.persona_name}</span>}
+                                    {intel.category && <span>🏷️ {intel.category}</span>}
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {(!gang.undercover_intel || gang.undercover_intel.length === 0) && (
+                        <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#64748b', fontSize: '0.8rem', padding: '1rem' }}>
+                            Sin reportes de agentes encubiertos
                         </div>
                     )}
                 </div>
