@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { uploadImageToStorage, filterBucketImages, getProfileImage, stripBase64FromHtml } from '../utils/imageStorage';
@@ -4399,8 +4399,214 @@ function PatrolMatrix({ logs, onSelectLog }) {
         return new Date(yearB, monthB - 1, dayB) - new Date(yearA, monthA - 1, dayA);
     });
 
+    // Calculate Top 5 hours with highest average people seen in the neighborhood
+    const topHoursStats = useMemo(() => {
+        if (!logs || logs.length === 0) return [];
+
+        const statsByHour = {};
+        for (let h = 0; h < 24; h++) {
+            statsByHour[h] = {
+                hour: h,
+                timeLabel: `${String(h).padStart(2, '0')}:00 - ${String((h + 1) % 24).padStart(2, '0')}:00`,
+                shortLabel: `${String(h).padStart(2, '0')}:00`,
+                totalPeople: 0,
+                logCount: 0,
+                maxPeople: 0
+            };
+        }
+
+        logs.forEach(log => {
+            if (!log.patrol_time) return;
+            const d = new Date(log.patrol_time);
+            const h = d.getHours();
+            const count = Number(log.people_count) || 0;
+            statsByHour[h].totalPeople += count;
+            statsByHour[h].logCount += 1;
+            if (count > statsByHour[h].maxPeople) {
+                statsByHour[h].maxPeople = count;
+            }
+        });
+
+        const activeHours = Object.values(statsByHour)
+            .filter(st => st.logCount > 0)
+            .map(st => ({
+                ...st,
+                avgPeople: Number((st.totalPeople / st.logCount).toFixed(1))
+            }))
+            .sort((a, b) => {
+                if (b.avgPeople !== a.avgPeople) return b.avgPeople - a.avgPeople;
+                if (b.totalPeople !== a.totalPeople) return b.totalPeople - a.totalPeople;
+                return b.logCount - a.logCount;
+            });
+
+        return activeHours.slice(0, 5);
+    }, [logs]);
+
+    const topHourRankMap = useMemo(() => {
+        const map = {};
+        topHoursStats.forEach((st, idx) => {
+            map[st.hour] = idx;
+        });
+        return map;
+    }, [topHoursStats]);
+
+    const rankStyles = [
+        {
+            badgeBg: 'linear-gradient(135deg, #eab308, #ca8a04)',
+            badgeColor: '#000',
+            borderColor: 'rgba(234, 179, 8, 0.45)',
+            bgColor: 'rgba(234, 179, 8, 0.1)',
+            textColor: '#fef08a',
+            glow: '0 0 16px rgba(234, 179, 8, 0.2)',
+            icon: '🥇'
+        },
+        {
+            badgeBg: 'linear-gradient(135deg, #94a3b8, #64748b)',
+            badgeColor: '#000',
+            borderColor: 'rgba(148, 163, 184, 0.45)',
+            bgColor: 'rgba(148, 163, 184, 0.1)',
+            textColor: '#e2e8f0',
+            glow: '0 0 16px rgba(148, 163, 184, 0.15)',
+            icon: '🥈'
+        },
+        {
+            badgeBg: 'linear-gradient(135deg, #d97706, #b45309)',
+            badgeColor: '#fff',
+            borderColor: 'rgba(217, 119, 6, 0.45)',
+            bgColor: 'rgba(217, 119, 6, 0.1)',
+            textColor: '#fed7aa',
+            glow: '0 0 16px rgba(217, 119, 6, 0.15)',
+            icon: '🥉'
+        },
+        {
+            badgeBg: 'linear-gradient(135deg, #0284c7, #0369a1)',
+            badgeColor: '#fff',
+            borderColor: 'rgba(56, 189, 248, 0.45)',
+            bgColor: 'rgba(56, 189, 248, 0.1)',
+            textColor: '#bae6fd',
+            glow: '0 0 16px rgba(56, 189, 248, 0.15)',
+            icon: '⚡'
+        },
+        {
+            badgeBg: 'linear-gradient(135deg, #9333ea, #7e22ce)',
+            badgeColor: '#fff',
+            borderColor: 'rgba(168, 85, 247, 0.45)',
+            bgColor: 'rgba(168, 85, 247, 0.1)',
+            textColor: '#e9d5ff',
+            glow: '0 0 16px rgba(168, 85, 247, 0.15)',
+            icon: '📍'
+        }
+    ];
+
     return (
         <>
+            {/* Top 5 Peak Activity Hours Analytics Banner */}
+            {topHoursStats.length > 0 && (
+                <div style={{
+                    marginBottom: '1.25rem',
+                    padding: '1.1rem 1.35rem',
+                    background: 'rgba(15, 23, 42, 0.75)',
+                    borderRadius: '14px',
+                    border: '1px solid rgba(234, 179, 8, 0.25)',
+                    backdropFilter: 'blur(12px)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            <div style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(234, 179, 8, 0.05))',
+                                border: '1px solid rgba(234, 179, 8, 0.4)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#eab308'
+                            }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <polyline points="12 6 12 12 16 14" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div style={{ color: '#fef08a', fontWeight: 800, fontSize: '0.95rem', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <span>Top 5 Horas de Mayor Presencia en el Barrio</span>
+                                    <span style={{ fontSize: '0.7rem', padding: '0.15rem 0.55rem', borderRadius: '20px', background: 'rgba(234, 179, 8, 0.2)', border: '1px solid rgba(234, 179, 8, 0.4)', color: '#fef08a', fontWeight: 700 }}>
+                                        Media de Personas
+                                    </span>
+                                </div>
+                                <div style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: '0.15rem' }}>
+                                    Franjas horarias con mayor promedio de miembros avistados durante las patrullas en zona
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                            Total observaciones registradas: <strong style={{ color: '#e2e8f0' }}>{logs.length}</strong>
+                        </div>
+                    </div>
+
+                    {/* Top 5 Cards Grid */}
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+                        gap: '0.75rem'
+                    }}>
+                        {topHoursStats.map((st, idx) => {
+                            const style = rankStyles[idx] || rankStyles[4];
+                            return (
+                                <div
+                                    key={st.hour}
+                                    style={{
+                                        padding: '0.85rem 1rem',
+                                        borderRadius: '10px',
+                                        background: style.bgColor,
+                                        border: `1px solid ${style.borderColor}`,
+                                        boxShadow: style.glow,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '0.35rem',
+                                        transition: 'all 0.2s ease',
+                                        position: 'relative'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <span style={{
+                                            padding: '0.15rem 0.45rem',
+                                            borderRadius: '6px',
+                                            background: style.badgeBg,
+                                            color: style.badgeColor,
+                                            fontWeight: 900,
+                                            fontSize: '0.7rem',
+                                            letterSpacing: '0.04em'
+                                        }}>
+                                            {style.icon} #{idx + 1}
+                                        </span>
+                                        <span style={{ color: '#ffffff', fontWeight: 800, fontSize: '0.9rem', letterSpacing: '0.03em' }}>
+                                            {st.shortLabel}
+                                        </span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem', marginTop: '0.2rem' }}>
+                                        <span style={{ fontSize: '1.5rem', fontWeight: 900, color: style.textColor, lineHeight: 1 }}>
+                                            {st.avgPeople}
+                                        </span>
+                                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>
+                                            pers. media
+                                        </span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.35rem', marginTop: '0.2rem' }}>
+                                        <span>📋 {st.logCount} {st.logCount === 1 ? 'patrulla' : 'patrullas'}</span>
+                                        <span style={{ color: '#cbd5e1' }}>Pico: <strong style={{ color: style.textColor }}>{st.maxPeople}</strong></span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* Legend - Apple macOS Glass Badge Bar */}
             <div style={{
                 marginBottom: '1.25rem',
@@ -4489,12 +4695,16 @@ function PatrolMatrix({ logs, onSelectLog }) {
                             </th>
                             {hours.map(hour => {
                                 const [h, m] = hour.split(':');
+                                const numHour = parseInt(h, 10);
+                                const isTopRank = topHourRankMap[numHour] !== undefined;
+                                const rankIndex = topHourRankMap[numHour];
                                 return (
                                     <th key={hour} style={{
                                         padding: '0.35rem 0.2rem',
-                                        borderBottom: '2px solid rgba(234, 179, 8, 0.4)',
+                                        borderBottom: isTopRank ? '2px solid #eab308' : '2px solid rgba(234, 179, 8, 0.4)',
                                         borderLeft: hour.endsWith(':00') ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.04)',
-                                        color: hour.endsWith(':00') ? '#fef08a' : '#94a3b8',
+                                        background: isTopRank ? 'rgba(234, 179, 8, 0.06)' : 'transparent',
+                                        color: isTopRank ? '#fef08a' : (hour.endsWith(':00') ? '#fef08a' : '#94a3b8'),
                                         minWidth: '32px',
                                         fontSize: '0.65rem',
                                         textAlign: 'center',
@@ -4503,6 +4713,11 @@ function PatrolMatrix({ logs, onSelectLog }) {
                                     }}>
                                         <div>{h}:</div>
                                         <div>{m}</div>
+                                        {hour.endsWith(':00') && isTopRank && (
+                                            <div style={{ fontSize: '0.55rem', color: rankIndex === 0 ? '#eab308' : '#93c5fd', fontWeight: 800, marginTop: '2px' }}>
+                                                #{rankIndex + 1}
+                                            </div>
+                                        )}
                                     </th>
                                 );
                             })}
@@ -4527,6 +4742,8 @@ function PatrolMatrix({ logs, onSelectLog }) {
                                 </td>
                                 {hours.map(hour => {
                                     const log = matrix[date]?.[hour];
+                                    const numHour = parseInt(hour.split(':')[0], 10);
+                                    const isTopHour = topHourRankMap[numHour] !== undefined;
                                     return (
                                         <td
                                             key={hour}
@@ -4541,7 +4758,7 @@ function PatrolMatrix({ logs, onSelectLog }) {
                                                         log.people_count > 5 ? 'rgba(245, 158, 11, 0.85)' :
                                                             log.people_count > 2 ? 'rgba(59, 130, 246, 0.85)' :
                                                                 'rgba(16, 185, 129, 0.85)'
-                                                ) : 'transparent',
+                                                ) : (isTopHour ? 'rgba(234, 179, 8, 0.02)' : 'transparent'),
                                                 color: log ? '#ffffff' : 'transparent',
                                                 fontWeight: log ? 800 : 400,
                                                 cursor: log ? 'pointer' : 'default',
