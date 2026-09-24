@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
@@ -15,23 +15,41 @@ function Login() {
     const { isLSSD } = useTheme();
     const { t } = useLanguage();
 
+    useEffect(() => {
+        // Clear any old/corrupted JWT session from before server restart
+        supabase.auth.getSession().then(({ data: { session }, error }) => {
+            if (error) {
+                supabase.auth.signOut().catch(() => {});
+            }
+        });
+    }, []);
+
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
 
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
+        try {
+            // First sign out of any stale token
+            await supabase.auth.signOut().catch(() => {});
 
-        if (authError) {
-            setError(authError.message === 'Invalid login credentials' 
-                ? 'Credenciales incorrectas. Comprueba tu correo y contraseña.' 
-                : authError.message);
+            const { data, error: authError } = await supabase.auth.signInWithPassword({
+                email: email.trim(),
+                password,
+            });
+
+            if (authError) {
+                setError(authError.message === 'Invalid login credentials' 
+                    ? 'Credenciales incorrectas. Comprueba tu correo y contraseña.' 
+                    : authError.message);
+                setLoading(false);
+            } else {
+                navigate('/welcome');
+            }
+        } catch (err) {
+            console.error('Error durante la autenticación:', err);
+            setError(err.message || 'Error de red o conexión al servidor de autenticación.');
             setLoading(false);
-        } else {
-            navigate('/welcome');
         }
     };
 
