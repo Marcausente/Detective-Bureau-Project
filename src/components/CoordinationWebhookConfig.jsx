@@ -1,5 +1,20 @@
 import { useState, useEffect } from 'react';
-import { getDiscordWebhookConfig, saveDiscordWebhookConfig, testDiscordWebhook } from '../utils/discordWebhook';
+import {
+    getDiscordWebhookConfig,
+    saveDiscordWebhookConfig,
+    testDiscordWebhook,
+    SCUB_LOGO_URL,
+    DEFAULT_BOT_NAME,
+    DEFAULT_HEADER_TEXT,
+    DEFAULT_FOOTER_TEXT,
+    DEFAULT_REMINDER_TEXT
+} from '../utils/discordWebhook';
+import { uploadImageToStorage } from '../utils/imageStorage';
+
+const AVATAR_PRESETS = [
+    { label: 'Logo SCUB', url: SCUB_LOGO_URL, icon: '🛡️' },
+    { label: 'Detective Bureau', url: 'https://i.postimg.cc/mD8V4y2N/lspd-badge.png', icon: '🔍' }
+];
 
 function CoordinationWebhookConfig() {
     const [webhookUrl, setWebhookUrl] = useState('');
@@ -7,10 +22,18 @@ function CoordinationWebhookConfig() {
     const [rolePing, setRolePing] = useState('');
     const [pingPreset, setPingPreset] = useState('none'); // 'none' | 'everyone' | 'here' | 'custom'
 
+    // Identity Customization States
+    const [botName, setBotName] = useState(DEFAULT_BOT_NAME);
+    const [botAvatar, setBotAvatar] = useState(SCUB_LOGO_URL);
+    const [footerText, setFooterText] = useState(DEFAULT_FOOTER_TEXT);
+    const [customHeader, setCustomHeader] = useState(DEFAULT_HEADER_TEXT);
+    const [reminderText, setReminderText] = useState(DEFAULT_REMINDER_TEXT);
+
     const [showUrl, setShowUrl] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
     const [statusMsg, setStatusMsg] = useState(null); // { type: 'success' | 'error', text: string }
 
@@ -25,6 +48,11 @@ function CoordinationWebhookConfig() {
             setWebhookUrl(cfg.webhookUrl || '');
             setEnabled(!!cfg.enabled);
             setRolePing(cfg.rolePing || '');
+            setBotName(cfg.botName || DEFAULT_BOT_NAME);
+            setBotAvatar(cfg.botAvatar || SCUB_LOGO_URL);
+            setFooterText(cfg.footerText || DEFAULT_FOOTER_TEXT);
+            setCustomHeader(cfg.customHeader || DEFAULT_HEADER_TEXT);
+            setReminderText(cfg.reminderText !== undefined ? cfg.reminderText : DEFAULT_REMINDER_TEXT);
 
             const ping = (cfg.rolePing || '').trim();
             if (!ping) {
@@ -54,6 +82,32 @@ function CoordinationWebhookConfig() {
         }
     };
 
+    const handleAvatarUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploadingAvatar(true);
+        setStatusMsg(null);
+        try {
+            const publicUrl = await uploadImageToStorage(file, 'system');
+            if (publicUrl) {
+                setBotAvatar(publicUrl);
+                setStatusMsg({
+                    type: 'success',
+                    text: 'Avatar personalizado subido con éxito al almacenamiento.'
+                });
+                setTimeout(() => setStatusMsg(null), 3500);
+            }
+        } catch (err) {
+            setStatusMsg({
+                type: 'error',
+                text: `Error al subir avatar: ${err.message}`
+            });
+        } finally {
+            setUploadingAvatar(false);
+        }
+    };
+
     const handleSave = async (e) => {
         if (e) e.preventDefault();
         setSaving(true);
@@ -67,12 +121,17 @@ function CoordinationWebhookConfig() {
             await saveDiscordWebhookConfig({
                 webhookUrl: webhookUrl.trim(),
                 enabled,
-                rolePing: rolePing.trim()
+                rolePing: rolePing.trim(),
+                botName: botName.trim() || DEFAULT_BOT_NAME,
+                botAvatar: botAvatar.trim() || SCUB_LOGO_URL,
+                footerText: footerText.trim() || DEFAULT_FOOTER_TEXT,
+                customHeader: customHeader.trim() || DEFAULT_HEADER_TEXT,
+                reminderText: reminderText.trim()
             });
 
             setStatusMsg({
                 type: 'success',
-                text: 'Configuración de Discord Webhook guardada exitosamente.'
+                text: 'Configuración de Discord Webhook e Identidad guardadas exitosamente.'
             });
             setTimeout(() => setStatusMsg(null), 4000);
         } catch (err) {
@@ -98,10 +157,18 @@ function CoordinationWebhookConfig() {
         setStatusMsg(null);
 
         try {
-            await testDiscordWebhook(webhookUrl.trim(), rolePing.trim());
+            await testDiscordWebhook({
+                webhookUrl: webhookUrl.trim(),
+                rolePing: rolePing.trim(),
+                botName: botName.trim() || DEFAULT_BOT_NAME,
+                botAvatar: botAvatar.trim() || SCUB_LOGO_URL,
+                footerText: footerText.trim() || DEFAULT_FOOTER_TEXT,
+                customHeader: customHeader.trim() || DEFAULT_HEADER_TEXT,
+                reminderText: reminderText.trim()
+            });
             setStatusMsg({
                 type: 'success',
-                text: '¡Mensaje de prueba enviado con éxito a Discord! Revisa el canal configurado.'
+                text: '¡Mensaje de prueba enviado con éxito a Discord con la identidad configurada!'
             });
             setTimeout(() => setStatusMsg(null), 6000);
         } catch (err) {
@@ -146,25 +213,28 @@ function CoordinationWebhookConfig() {
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <div style={{
-                        width: '46px',
-                        height: '46px',
+                        width: '48px',
+                        height: '48px',
                         borderRadius: '14px',
-                        background: 'linear-gradient(135deg, #5865F2, #4752C4)',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#ffffff',
-                        boxShadow: '0 6px 20px rgba(88, 101, 242, 0.4)',
+                        overflow: 'hidden',
                         flexShrink: 0
                     }}>
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-                        </svg>
+                        <img
+                            src={botAvatar || SCUB_LOGO_URL}
+                            alt="Avatar"
+                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            onError={(e) => { e.target.src = '/logowebp/SCUB.webp'; }}
+                        />
                     </div>
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                             <h3 style={{ margin: 0, color: '#ffffff', fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.01em' }}>
-                                Integración Webhook de Discord
+                                Integración Webhook & Identidad Discord
                             </h3>
                             <span style={{
                                 padding: '3px 10px',
@@ -191,7 +261,7 @@ function CoordinationWebhookConfig() {
                             </span>
                         </div>
                         <p style={{ margin: '0.25rem 0 0 0', color: '#94a3b8', fontSize: '0.84rem' }}>
-                            Retransmite automáticamente cualquier comunicado o anuncio oficial publicado en el Dashboard directamente al canal de Discord de tu servidor.
+                            Personaliza el nombre de bot, imagen de perfil, avisos y pie de página que se enviarán a tu servidor de Discord.
                         </p>
                     </div>
                 </div>
@@ -265,7 +335,7 @@ function CoordinationWebhookConfig() {
                 </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1.05fr)', gap: '1.5rem' }}>
                 {/* Configuration Form Panel */}
                 <div className="mac-profile-panel" style={{
                     background: 'rgba(15, 23, 42, 0.75)',
@@ -275,124 +345,245 @@ function CoordinationWebhookConfig() {
                     padding: '1.75rem',
                     backdropFilter: 'blur(20px)'
                 }}>
-                    <h3 style={{ margin: '0 0 1.25rem 0', color: '#ffffff', fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5865F2" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                        </svg>
-                        Parámetros del Webhook
-                    </h3>
-
                     <form onSubmit={handleSave}>
-                        {/* Webhook URL Input */}
-                        <div className="mac-form-group" style={{ marginBottom: '1.25rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                                <label className="mac-form-label" style={{ margin: 0, fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0' }}>
-                                    URL del Webhook de Discord *
-                                </label>
-                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                    Canal de Discord &gt; Editar Canal &gt; Integraciones &gt; Webhooks
-                                </span>
+                        {/* SECTION A: WEBHOOK CONNECTION */}
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <h4 style={{ margin: '0 0 1rem 0', color: '#60a5fa', fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span>🔗</span> Conexión del Webhook
+                            </h4>
+
+                            {/* Webhook URL Input */}
+                            <div className="mac-form-group" style={{ marginBottom: '1rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                    <label className="mac-form-label" style={{ margin: 0, fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0' }}>
+                                        URL del Webhook de Discord *
+                                    </label>
+                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                        Canal &gt; Editar &gt; Integraciones
+                                    </span>
+                                </div>
+
+                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                    <input
+                                        type={showUrl ? 'text' : 'password'}
+                                        className="mac-form-input"
+                                        placeholder="https://discord.com/api/webhooks/..."
+                                        value={webhookUrl}
+                                        onChange={(e) => setWebhookUrl(e.target.value)}
+                                        style={{
+                                            fontFamily: showUrl ? 'monospace' : 'inherit',
+                                            fontSize: '0.85rem',
+                                            paddingRight: '5.5rem'
+                                        }}
+                                    />
+                                    <div style={{ position: 'absolute', right: '8px', display: 'flex', gap: '4px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowUrl(!showUrl)}
+                                            className="mac-btn mac-btn-secondary"
+                                            style={{ padding: '4px 8px', fontSize: '0.72rem', borderRadius: '6px' }}
+                                            title={showUrl ? 'Ocultar URL' : 'Mostrar URL'}
+                                        >
+                                            {showUrl ? '🙈 Ocultar' : '👁️ Ver'}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                <input
-                                    type={showUrl ? 'text' : 'password'}
-                                    className="mac-form-input"
-                                    placeholder="https://discord.com/api/webhooks/..."
-                                    value={webhookUrl}
-                                    onChange={(e) => setWebhookUrl(e.target.value)}
-                                    style={{
-                                        fontFamily: showUrl ? 'monospace' : 'inherit',
-                                        fontSize: '0.85rem',
-                                        paddingRight: '5.5rem'
-                                    }}
-                                />
-                                <div style={{ position: 'absolute', right: '8px', display: 'flex', gap: '4px' }}>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowUrl(!showUrl)}
-                                        className="mac-btn mac-btn-secondary"
-                                        style={{ padding: '4px 8px', fontSize: '0.72rem', borderRadius: '6px' }}
-                                        title={showUrl ? 'Ocultar URL' : 'Mostrar URL'}
-                                    >
-                                        {showUrl ? '🙈 Ocultar' : '👁️ Ver'}
-                                    </button>
+                            {/* Mention / Ping Role Selector */}
+                            <div className="mac-form-group" style={{ margin: 0 }}>
+                                <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
+                                    Mención de Rol / Ping (Opcional)
+                                </label>
+                                
+                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
+                                    {[
+                                        { id: 'none', label: 'Sin mención' },
+                                        { id: 'everyone', label: '@everyone' },
+                                        { id: 'here', label: '@here' },
+                                        { id: 'custom', label: 'Rol Personalizado' }
+                                    ].map(preset => (
+                                        <button
+                                            key={preset.id}
+                                            type="button"
+                                            onClick={() => handlePresetChange(preset.id)}
+                                            style={{
+                                                padding: '0.35rem 0.75rem',
+                                                borderRadius: '8px',
+                                                fontSize: '0.78rem',
+                                                fontWeight: 700,
+                                                border: pingPreset === preset.id ? '1px solid rgba(88, 101, 242, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                                background: pingPreset === preset.id ? 'rgba(88, 101, 242, 0.25)' : 'rgba(255, 255, 255, 0.03)',
+                                                color: pingPreset === preset.id ? '#ffffff' : '#94a3b8',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s'
+                                            }}
+                                        >
+                                            {preset.label}
+                                        </button>
+                                    ))}
                                 </div>
+
+                                {pingPreset === 'custom' && (
+                                    <div>
+                                        <input
+                                            type="text"
+                                            className="mac-form-input"
+                                            placeholder="Ej: <@&1306619156052967471>"
+                                            value={rolePing}
+                                            onChange={(e) => setRolePing(e.target.value)}
+                                            style={{ fontSize: '0.85rem' }}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Mention / Ping Role Selector */}
-                        <div className="mac-form-group" style={{ marginBottom: '1.5rem' }}>
-                            <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                Mención / Ping de Notificación (Opcional)
-                            </label>
-                            
-                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-                                {[
-                                    { id: 'none', label: 'Sin mención' },
-                                    { id: 'everyone', label: '@everyone' },
-                                    { id: 'here', label: '@here' },
-                                    { id: 'custom', label: 'Rol Personalizado' }
-                                ].map(preset => (
-                                    <button
-                                        key={preset.id}
-                                        type="button"
-                                        onClick={() => handlePresetChange(preset.id)}
-                                        style={{
-                                            padding: '0.4rem 0.85rem',
-                                            borderRadius: '8px',
-                                            fontSize: '0.78rem',
-                                            fontWeight: 700,
-                                            border: pingPreset === preset.id ? '1px solid rgba(88, 101, 242, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
-                                            background: pingPreset === preset.id ? 'rgba(88, 101, 242, 0.25)' : 'rgba(255, 255, 255, 0.03)',
-                                            color: pingPreset === preset.id ? '#ffffff' : '#94a3b8',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.15s'
-                                        }}
-                                    >
-                                        {preset.label}
-                                    </button>
-                                ))}
+                        {/* SECTION B: BOT IDENTITY & BRANDING */}
+                        <div style={{ paddingTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '1.5rem' }}>
+                            <h4 style={{ margin: '0 0 1rem 0', color: '#fbbf24', fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span>🤖</span> Identidad Visual del Bot
+                            </h4>
+
+                            {/* Bot Username */}
+                            <div className="mac-form-group" style={{ marginBottom: '1rem' }}>
+                                <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
+                                    Nombre del Usuario / Bot en Discord
+                                </label>
+                                <input
+                                    type="text"
+                                    className="mac-form-input"
+                                    placeholder="Ej: SCUB • Sheriff Criminal Unit Bureau"
+                                    value={botName}
+                                    onChange={(e) => setBotName(e.target.value)}
+                                    style={{ fontSize: '0.88rem' }}
+                                />
                             </div>
 
-                            {pingPreset === 'custom' && (
-                                <div>
+                            {/* Bot Avatar URL & Presets */}
+                            <div className="mac-form-group" style={{ marginBottom: '1rem' }}>
+                                <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
+                                    Imagen de Perfil / Logo (URL pública o subir archivo)
+                                </label>
+
+                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.6rem' }}>
+                                    <div style={{
+                                        width: '44px',
+                                        height: '44px',
+                                        borderRadius: '12px',
+                                        background: 'rgba(255, 255, 255, 0.05)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        overflow: 'hidden',
+                                        flexShrink: 0
+                                    }}>
+                                        <img
+                                            src={botAvatar || SCUB_LOGO_URL}
+                                            alt="Preview avatar"
+                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                            onError={(e) => { e.target.src = '/logowebp/SCUB.webp'; }}
+                                        />
+                                    </div>
+
                                     <input
                                         type="text"
                                         className="mac-form-input"
-                                        placeholder="Ej: <@&1029384756> o @NombreRol"
-                                        value={rolePing}
-                                        onChange={(e) => setRolePing(e.target.value)}
-                                        style={{ fontSize: '0.85rem' }}
+                                        placeholder="https://... o selecciona un preset"
+                                        value={botAvatar}
+                                        onChange={(e) => setBotAvatar(e.target.value)}
+                                        style={{ fontSize: '0.82rem', flex: 1 }}
                                     />
-                                    <p style={{ margin: '0.3rem 0 0 0', color: '#64748b', fontSize: '0.75rem' }}>
-                                        💡 Para mencionar un rol en Discord, usa el formato <code>&lt;@&amp;ID_DEL_ROL&gt;</code>.
-                                    </p>
+
+                                    <label htmlFor="webhook-avatar-file" className="mac-btn mac-btn-secondary" style={{ cursor: 'pointer', padding: '0.55rem 0.9rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                                        <span>{uploadingAvatar ? 'Subiendo...' : '📁 Subir'}</span>
+                                    </label>
+                                    <input
+                                        id="webhook-avatar-file"
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleAvatarUpload}
+                                        style={{ display: 'none' }}
+                                        disabled={uploadingAvatar}
+                                    />
                                 </div>
-                            )}
+
+                                {/* Avatar Presets */}
+                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                    {AVATAR_PRESETS.map((preset, idx) => (
+                                        <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => setBotAvatar(preset.url)}
+                                            style={{
+                                                padding: '0.3rem 0.65rem',
+                                                borderRadius: '6px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 600,
+                                                border: botAvatar === preset.url ? '1px solid rgba(245, 158, 11, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                                background: botAvatar === preset.url ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                                                color: botAvatar === preset.url ? '#fbbf24' : '#94a3b8',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            {preset.icon} {preset.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Instructions Box */}
-                        <div style={{
-                            background: 'rgba(88, 101, 242, 0.07)',
-                            border: '1px solid rgba(88, 101, 242, 0.2)',
-                            borderRadius: '12px',
-                            padding: '1rem',
-                            marginBottom: '1.5rem',
-                            fontSize: '0.8rem',
-                            color: '#cbd5e1',
-                            lineHeight: 1.5
-                        }}>
-                            <div style={{ fontWeight: 700, color: '#818cf8', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <span>📖</span> ¿Cómo obtener la URL de Webhook en Discord?
+                        {/* SECTION C: EMBED TEXTS & NOTIFICATION HEADERS */}
+                        <div style={{ paddingTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '1.5rem' }}>
+                            <h4 style={{ margin: '0 0 1rem 0', color: '#a78bfa', fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span>📝</span> Textos de Notificación y Embed
+                            </h4>
+
+                            {/* Header announcement text */}
+                            <div className="mac-form-group" style={{ marginBottom: '1rem' }}>
+                                <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
+                                    Texto de Alerta / Cabecera (Junto a la mención)
+                                </label>
+                                <input
+                                    type="text"
+                                    className="mac-form-input"
+                                    placeholder="Ej: Nueva publicación en la BBDD de la SCUB"
+                                    value={customHeader}
+                                    onChange={(e) => setCustomHeader(e.target.value)}
+                                    style={{ fontSize: '0.88rem' }}
+                                />
                             </div>
-                            <ol style={{ margin: 0, paddingLeft: '1.2rem', color: '#94a3b8' }}>
-                                <li>En Discord, ve al canal donde desees recibir los anuncios y pulsa en la rueda dentada (<strong>Editar canal</strong>).</li>
-                                <li>Ve a la pestaña <strong>Integraciones</strong> &gt; <strong>Webhooks</strong> &gt; <strong>Nuevo Webhook</strong>.</li>
-                                <li>Asigna el nombre deseado (ej: <em>Detective Bureau Anuncios</em>) y pulsa en <strong>Copiar URL del Webhook</strong>.</li>
-                                <li>Pégala en el campo superior, activa el servicio y pulsa en <strong>Guardar Cambios</strong>.</li>
-                            </ol>
+
+                            {/* Reminder text */}
+                            <div className="mac-form-group" style={{ marginBottom: '1rem' }}>
+                                <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
+                                    Texto Recordatorio al final del Anuncio (En cursiva)
+                                </label>
+                                <input
+                                    type="text"
+                                    className="mac-form-input"
+                                    placeholder="Ej: Confirmad lectura en la propia Base de Datos."
+                                    value={reminderText}
+                                    onChange={(e) => setReminderText(e.target.value)}
+                                    style={{ fontSize: '0.88rem' }}
+                                />
+                            </div>
+
+                            {/* Footer text */}
+                            <div className="mac-form-group" style={{ margin: 0 }}>
+                                <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
+                                    Texto del Pie de Página (Footer)
+                                </label>
+                                <input
+                                    type="text"
+                                    className="mac-form-input"
+                                    placeholder="Ej: SCUB • Sheriff Criminal Unit Bureau"
+                                    value={footerText}
+                                    onChange={(e) => setFooterText(e.target.value)}
+                                    style={{ fontSize: '0.88rem' }}
+                                />
+                            </div>
                         </div>
 
                         {/* Action Buttons */}
@@ -444,10 +635,10 @@ function CoordinationWebhookConfig() {
                 <div>
                     <div style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '0.84rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                            Previsualización en Discord
+                            Previsualización en Vivo de Discord
                         </span>
                         <span style={{ fontSize: '0.75rem', color: '#5865F2', fontWeight: 700 }}>
-                            Canal de Texto #anuncios
+                            #tablón
                         </span>
                     </div>
 
@@ -464,21 +655,22 @@ function CoordinationWebhookConfig() {
                         {/* Bot Header */}
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '0.75rem' }}>
                             <img
-                                src="https://i.postimg.cc/mD8V4y2N/lspd-badge.png"
+                                src={botAvatar || SCUB_LOGO_URL}
                                 alt="Bot Avatar"
                                 style={{
                                     width: '40px',
                                     height: '40px',
                                     borderRadius: '50%',
                                     backgroundColor: '#2b2d31',
-                                    objectFit: 'contain'
+                                    objectFit: 'contain',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
                                 }}
-                                onError={(e) => { e.target.style.display = 'none'; }}
+                                onError={(e) => { e.target.src = '/logowebp/SCUB.webp'; }}
                             />
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                     <span style={{ color: '#ffffff', fontWeight: 700, fontSize: '0.95rem' }}>
-                                        Detective Bureau • Dashboard Announcements
+                                        {botName || DEFAULT_BOT_NAME}
                                     </span>
                                     <span style={{
                                         background: '#5865f2',
@@ -498,7 +690,7 @@ function CoordinationWebhookConfig() {
 
                                 {rolePing && (
                                     <div style={{ marginTop: '4px', color: '#c9cdfb', background: 'rgba(88, 101, 242, 0.15)', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', fontSize: '0.85rem', fontWeight: 600 }}>
-                                        {rolePing} 📢 <strong>Nuevo Anuncio publicado en el Dashboard</strong>
+                                        {rolePing} 📢 <strong>{customHeader || DEFAULT_HEADER_TEXT}</strong>
                                     </div>
                                 )}
                             </div>
@@ -516,9 +708,12 @@ function CoordinationWebhookConfig() {
                         }}>
                             {/* Author */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#5865F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>
-                                    👮
-                                </div>
+                                <img
+                                    src={botAvatar || SCUB_LOGO_URL}
+                                    alt="Author avatar"
+                                    style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'contain' }}
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                />
                                 <span style={{ color: '#f2f3f5', fontSize: '0.8rem', fontWeight: 700 }}>
                                     [Capitán] Marcus Campbell
                                 </span>
@@ -531,15 +726,24 @@ function CoordinationWebhookConfig() {
 
                             {/* Body */}
                             <div style={{ color: '#dbdee1', fontSize: '0.85rem', lineHeight: 1.45, whiteSpace: 'pre-line' }}>
-                                Se informa a toda la división que este viernes a las 20:00 se llevará a cabo una sesión de actualización en procedimientos balísticos e investigación en escena de crímenes.
+                                Se informa a toda la unidad que este viernes a las 20:00 se llevará a cabo una sesión de actualización en procedimientos balísticos e investigación en escena de crímenes.
                                 {'\n\n'}
                                 • Asistencia obligatoria para auxiliares y detectives.{'\n'}
                                 • Traer equipamiento reglamentario completo.
+                                {reminderText && (
+                                    <>
+                                        {'\n\n'}
+                                        <em style={{ color: '#949ba4' }}>{reminderText}</em>
+                                    </>
+                                )}
                             </div>
 
                             {/* Footer */}
                             <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', color: '#949ba4', fontSize: '0.72rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span>Detective Bureau • Portal de Anuncios del Dashboard</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <img src={botAvatar || SCUB_LOGO_URL} style={{ width: '14px', height: '14px', borderRadius: '50%' }} alt="" />
+                                    <span>{footerText || DEFAULT_FOOTER_TEXT}</span>
+                                </div>
                                 <span>{new Date().toLocaleDateString()}</span>
                             </div>
                         </div>
