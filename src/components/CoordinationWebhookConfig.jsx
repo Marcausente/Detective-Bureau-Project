@@ -3,6 +3,9 @@ import {
     getDiscordWebhookConfig,
     saveDiscordWebhookConfig,
     testDiscordWebhook,
+    getDiscordEventsWebhookConfig,
+    saveDiscordEventsWebhookConfig,
+    testDiscordEventsWebhook,
     getDiscordPracticesWebhookConfig,
     saveDiscordPracticesWebhookConfig,
     testDiscordPracticesWebhook,
@@ -13,6 +16,10 @@ import {
     DEFAULT_HEADER_TEXT,
     DEFAULT_FOOTER_TEXT,
     DEFAULT_REMINDER_TEXT,
+    DEFAULT_EVENTS_BOT_NAME,
+    DEFAULT_EVENTS_HEADER_TEXT,
+    DEFAULT_EVENTS_FOOTER_TEXT,
+    DEFAULT_EVENTS_REMINDER_TEXT,
     DEFAULT_PRACTICES_BOT_NAME,
     DEFAULT_PRACTICES_HEADER_TEXT,
     DEFAULT_PRACTICES_FOOTER_TEXT,
@@ -27,9 +34,9 @@ const AVATAR_PRESETS = [
 ];
 
 function CoordinationWebhookConfig() {
-    const [subTab, setSubTab] = useState('announcements'); // 'announcements' | 'practices'
+    const [subTab, setSubTab] = useState('announcements'); // 'announcements' | 'events' | 'practices'
 
-    // Announcements States
+    // 1. Announcements States
     const [annUrl, setAnnUrl] = useState('');
     const [annEnabled, setAnnEnabled] = useState(false);
     const [annPing, setAnnPing] = useState('');
@@ -40,7 +47,18 @@ function CoordinationWebhookConfig() {
     const [annHeader, setAnnHeader] = useState(DEFAULT_HEADER_TEXT);
     const [annReminder, setAnnReminder] = useState(DEFAULT_REMINDER_TEXT);
 
-    // Practices States
+    // 2. Calendar Events States
+    const [eventUrl, setEventUrl] = useState('');
+    const [eventEnabled, setEventEnabled] = useState(false);
+    const [eventPing, setEventPing] = useState('');
+    const [eventPingPreset, setEventPingPreset] = useState('none');
+    const [eventBotName, setEventBotName] = useState(DEFAULT_EVENTS_BOT_NAME);
+    const [eventBotAvatar, setEventBotAvatar] = useState(SCUB_LOGO_URL);
+    const [eventFooter, setEventFooter] = useState(DEFAULT_EVENTS_FOOTER_TEXT);
+    const [eventHeader, setEventHeader] = useState(DEFAULT_EVENTS_HEADER_TEXT);
+    const [eventReminder, setEventReminder] = useState(DEFAULT_EVENTS_REMINDER_TEXT);
+
+    // 3. Practices (DTP) States
     const [pracUrl, setPracUrl] = useState('');
     const [pracEnabled, setPracEnabled] = useState(false);
     const [pracPing, setPracPing] = useState('');
@@ -66,8 +84,9 @@ function CoordinationWebhookConfig() {
     const loadAllConfigs = async () => {
         try {
             setLoading(true);
-            const [annCfg, pracCfg] = await Promise.all([
+            const [annCfg, evCfg, pracCfg] = await Promise.all([
                 getDiscordWebhookConfig(),
+                getDiscordEventsWebhookConfig(),
                 getDiscordPracticesWebhookConfig()
             ]);
 
@@ -86,6 +105,22 @@ function CoordinationWebhookConfig() {
             else if (aPing === '@everyone') setAnnPingPreset('everyone');
             else if (aPing === '@here') setAnnPingPreset('here');
             else setAnnPingPreset('custom');
+
+            // Set Events
+            setEventUrl(evCfg.webhookUrl || '');
+            setEventEnabled(!!evCfg.enabled);
+            setEventPing(evCfg.rolePing || '');
+            setEventBotName(evCfg.botName || DEFAULT_EVENTS_BOT_NAME);
+            setEventBotAvatar(evCfg.botAvatar || SCUB_LOGO_URL);
+            setEventFooter(evCfg.footerText || DEFAULT_EVENTS_FOOTER_TEXT);
+            setEventHeader(evCfg.customHeader || DEFAULT_EVENTS_HEADER_TEXT);
+            setEventReminder(evCfg.reminderText !== undefined ? evCfg.reminderText : DEFAULT_EVENTS_REMINDER_TEXT);
+
+            const ePing = (evCfg.rolePing || '').trim();
+            if (!ePing) setEventPingPreset('none');
+            else if (ePing === '@everyone') setEventPingPreset('everyone');
+            else if (ePing === '@here') setEventPingPreset('here');
+            else setEventPingPreset('custom');
 
             // Set Practices
             setPracUrl(pracCfg.webhookUrl || '');
@@ -110,12 +145,17 @@ function CoordinationWebhookConfig() {
         }
     };
 
-    const handlePingPresetChange = (preset, isAnn = true) => {
-        if (isAnn) {
+    const handlePingPresetChange = (preset, targetTab = subTab) => {
+        if (targetTab === 'announcements') {
             setAnnPingPreset(preset);
             if (preset === 'none') setAnnPing('');
             else if (preset === 'everyone') setAnnPing('@everyone');
             else if (preset === 'here') setAnnPing('@here');
+        } else if (targetTab === 'events') {
+            setEventPingPreset(preset);
+            if (preset === 'none') setEventPing('');
+            else if (preset === 'everyone') setEventPing('@everyone');
+            else if (preset === 'here') setEventPing('@here');
         } else {
             setPracPingPreset(preset);
             if (preset === 'none') setPracPing('');
@@ -124,7 +164,7 @@ function CoordinationWebhookConfig() {
         }
     };
 
-    const handleAvatarUpload = async (e, isAnn = true) => {
+    const handleAvatarUpload = async (e, targetTab = subTab) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -133,7 +173,8 @@ function CoordinationWebhookConfig() {
         try {
             const publicUrl = await uploadImageToStorage(file, 'system');
             if (publicUrl) {
-                if (isAnn) setAnnBotAvatar(publicUrl);
+                if (targetTab === 'announcements') setAnnBotAvatar(publicUrl);
+                else if (targetTab === 'events') setEventBotAvatar(publicUrl);
                 else setPracBotAvatar(publicUrl);
 
                 setStatusMsg({
@@ -178,6 +219,26 @@ function CoordinationWebhookConfig() {
                     type: 'success',
                     text: 'Configuración de Webhook de Anuncios guardada exitosamente.'
                 });
+            } else if (subTab === 'events') {
+                if (eventEnabled && (!eventUrl.trim() || !eventUrl.trim().startsWith('https://'))) {
+                    throw new Error('Debes introducir una URL de webhook válida para habilitar el servicio de Eventos.');
+                }
+
+                await saveDiscordEventsWebhookConfig({
+                    webhookUrl: eventUrl.trim(),
+                    enabled: eventEnabled,
+                    rolePing: eventPing.trim(),
+                    botName: eventBotName.trim() || DEFAULT_EVENTS_BOT_NAME,
+                    botAvatar: eventBotAvatar.trim() || SCUB_LOGO_URL,
+                    footerText: eventFooter.trim() || DEFAULT_EVENTS_FOOTER_TEXT,
+                    customHeader: eventHeader.trim() || DEFAULT_EVENTS_HEADER_TEXT,
+                    reminderText: eventReminder.trim()
+                });
+
+                setStatusMsg({
+                    type: 'success',
+                    text: 'Configuración de Webhook de Eventos guardada exitosamente.'
+                });
             } else {
                 if (pracEnabled && (!pracUrl.trim() || !pracUrl.trim().startsWith('https://'))) {
                     throw new Error('Debes introducir una URL de webhook válida para habilitar el servicio de Prácticas.');
@@ -211,8 +272,10 @@ function CoordinationWebhookConfig() {
     };
 
     const handleTestWebhook = async () => {
-        const isAnn = subTab === 'announcements';
-        const targetUrl = isAnn ? annUrl.trim() : pracUrl.trim();
+        let targetUrl = '';
+        if (subTab === 'announcements') targetUrl = annUrl.trim();
+        else if (subTab === 'events') targetUrl = eventUrl.trim();
+        else targetUrl = pracUrl.trim();
 
         if (!targetUrl || !targetUrl.startsWith('https://')) {
             setStatusMsg({
@@ -226,7 +289,7 @@ function CoordinationWebhookConfig() {
         setStatusMsg(null);
 
         try {
-            if (isAnn) {
+            if (subTab === 'announcements') {
                 await testDiscordWebhook({
                     webhookUrl: annUrl.trim(),
                     rolePing: annPing.trim(),
@@ -235,6 +298,16 @@ function CoordinationWebhookConfig() {
                     footerText: annFooter.trim() || DEFAULT_FOOTER_TEXT,
                     customHeader: annHeader.trim() || DEFAULT_HEADER_TEXT,
                     reminderText: annReminder.trim()
+                });
+            } else if (subTab === 'events') {
+                await testDiscordEventsWebhook({
+                    webhookUrl: eventUrl.trim(),
+                    rolePing: eventPing.trim(),
+                    botName: eventBotName.trim() || DEFAULT_EVENTS_BOT_NAME,
+                    botAvatar: eventBotAvatar.trim() || SCUB_LOGO_URL,
+                    footerText: eventFooter.trim() || DEFAULT_EVENTS_FOOTER_TEXT,
+                    customHeader: eventHeader.trim() || DEFAULT_EVENTS_HEADER_TEXT,
+                    reminderText: eventReminder.trim()
                 });
             } else {
                 await testDiscordPracticesWebhook({
@@ -263,9 +336,23 @@ function CoordinationWebhookConfig() {
         }
     };
 
-    const currentUrl = subTab === 'announcements' ? annUrl : pracUrl;
-    const currentEnabled = subTab === 'announcements' ? annEnabled : pracEnabled;
+    // Current Active Tab Values
+    const currentUrl = subTab === 'announcements' ? annUrl : subTab === 'events' ? eventUrl : pracUrl;
+    const currentEnabled = subTab === 'announcements' ? annEnabled : subTab === 'events' ? eventEnabled : pracEnabled;
+    const currentPing = subTab === 'announcements' ? annPing : subTab === 'events' ? eventPing : pracPing;
+    const currentPingPreset = subTab === 'announcements' ? annPingPreset : subTab === 'events' ? eventPingPreset : pracPingPreset;
+    const currentBotName = subTab === 'announcements' ? annBotName : subTab === 'events' ? eventBotName : pracBotName;
+    const currentBotAvatar = subTab === 'announcements' ? annBotAvatar : subTab === 'events' ? eventBotAvatar : pracBotAvatar;
+    const currentFooter = subTab === 'announcements' ? annFooter : subTab === 'events' ? eventFooter : pracFooter;
+    const currentHeader = subTab === 'announcements' ? annHeader : subTab === 'events' ? eventHeader : pracHeader;
+    const currentReminder = subTab === 'announcements' ? annReminder : subTab === 'events' ? eventReminder : pracReminder;
+
     const isUrlConfigured = !!currentUrl && currentUrl.trim().startsWith('https://');
+
+    // Theme color accent for each tab
+    const tabAccentColor = subTab === 'announcements' ? '#5865F2' : subTab === 'events' ? '#10B981' : '#F59E0B';
+    const tabBadgeBg = subTab === 'announcements' ? 'rgba(88, 101, 242, 0.25)' : subTab === 'events' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.25)';
+    const tabBorder = subTab === 'announcements' ? 'rgba(88, 101, 242, 0.4)' : subTab === 'events' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)';
 
     if (loading) {
         return (
@@ -278,7 +365,7 @@ function CoordinationWebhookConfig() {
 
     return (
         <div style={{ width: '100%' }}>
-            {/* Top Sub-tabs Switcher for Announcements vs Practices */}
+            {/* Top Sub-tabs Switcher: Announcements vs Events vs Practices */}
             <div style={{
                 display: 'flex',
                 gap: '0.5rem',
@@ -317,6 +404,31 @@ function CoordinationWebhookConfig() {
 
                 <button
                     type="button"
+                    onClick={() => setSubTab('events')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.55rem 1.25rem',
+                        borderRadius: '10px',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        border: subTab === 'events' ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid transparent',
+                        background: subTab === 'events' ? 'rgba(16, 185, 129, 0.25)' : 'transparent',
+                        color: subTab === 'events' ? '#ffffff' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <span>📅</span>
+                    <span>Eventos del Calendario</span>
+                    {eventEnabled && eventUrl && (
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981', marginLeft: '4px' }}></span>
+                    )}
+                </button>
+
+                <button
+                    type="button"
                     onClick={() => setSubTab('practices')}
                     style={{
                         display: 'flex',
@@ -348,12 +460,10 @@ function CoordinationWebhookConfig() {
                 justifyContent: 'space-between',
                 padding: '1.25rem 1.75rem',
                 background: isUrlConfigured && currentEnabled
-                    ? (subTab === 'announcements'
-                        ? 'linear-gradient(135deg, rgba(88, 101, 242, 0.15), rgba(15, 23, 42, 0.85))'
-                        : 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(15, 23, 42, 0.85))')
+                    ? `linear-gradient(135deg, ${tabBadgeBg}, rgba(15, 23, 42, 0.85))`
                     : 'rgba(15, 23, 42, 0.75)',
                 border: isUrlConfigured && currentEnabled
-                    ? (subTab === 'announcements' ? '1px solid rgba(88, 101, 242, 0.35)' : '1px solid rgba(245, 158, 11, 0.35)')
+                    ? `1px solid ${tabBorder}`
                     : '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '18px',
                 marginBottom: '1.75rem',
@@ -376,16 +486,16 @@ function CoordinationWebhookConfig() {
                         flexShrink: 0
                     }}>
                         <img
-                            src={subTab === 'announcements' ? (annBotAvatar || SCUB_LOGO_URL) : (pracBotAvatar || DTP_LOGO_URL)}
+                            src={currentBotAvatar || SCUB_LOGO_URL}
                             alt="Avatar"
                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                            onError={(e) => { e.target.src = subTab === 'announcements' ? '/logowebp/SCUB.webp' : '/logowebp/DTP logo.webp'; }}
+                            onError={(e) => { e.target.src = '/logowebp/SCUB.webp'; }}
                         />
                     </div>
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                             <h3 style={{ margin: 0, color: '#ffffff', fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.01em' }}>
-                                {subTab === 'announcements' ? 'Webhook para Anuncios Oficiales' : 'Webhook para Prácticas e Instrucción DTP'}
+                                {subTab === 'announcements' ? 'Webhook para Anuncios Oficiales (Tablón)' : subTab === 'events' ? 'Webhook para Eventos y Operativos del Calendario' : 'Webhook para Prácticas e Instrucción DTP'}
                             </h3>
                             <span style={{
                                 padding: '3px 10px',
@@ -414,6 +524,8 @@ function CoordinationWebhookConfig() {
                         <p style={{ margin: '0.25rem 0 0 0', color: '#94a3b8', fontSize: '0.84rem' }}>
                             {subTab === 'announcements'
                                 ? 'Retransmite automáticamente los comunicados publicados en el Dashboard al canal de Discord.'
+                                : subTab === 'events'
+                                ? 'Avisa y publica automáticamente convocatorias de reuniones y eventos programados en el Calendario.'
                                 : 'Convoca y notifica automáticamente las prácticas programadas en el apartado de Formación a Discord.'}
                         </p>
                     </div>
@@ -438,6 +550,7 @@ function CoordinationWebhookConfig() {
                             checked={currentEnabled}
                             onChange={(e) => {
                                 if (subTab === 'announcements') setAnnEnabled(e.target.checked);
+                                else if (subTab === 'events') setEventEnabled(e.target.checked);
                                 else setPracEnabled(e.target.checked);
                             }}
                             style={{ opacity: 0, width: 0, height: 0 }}
@@ -449,19 +562,19 @@ function CoordinationWebhookConfig() {
                             left: 0,
                             right: 0,
                             bottom: 0,
-                            backgroundColor: currentEnabled ? (subTab === 'announcements' ? '#5865F2' : '#f59e0b') : 'rgba(255, 255, 255, 0.15)',
-                            transition: '0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                            borderRadius: '34px',
-                            boxShadow: currentEnabled ? (subTab === 'announcements' ? '0 0 14px rgba(88, 101, 242, 0.5)' : '0 0 14px rgba(245, 158, 11, 0.5)') : 'none'
+                            backgroundColor: currentEnabled ? tabAccentColor : 'rgba(255,255,255,0.15)',
+                            transition: '0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                            borderRadius: '34px'
                         }}>
                             <span style={{
                                 position: 'absolute',
+                                content: '""',
                                 height: '20px',
                                 width: '20px',
                                 left: currentEnabled ? '24px' : '3px',
                                 bottom: '3px',
-                                backgroundColor: '#ffffff',
-                                transition: '0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                                backgroundColor: 'white',
+                                transition: '0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                                 borderRadius: '50%',
                                 boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
                             }} />
@@ -484,479 +597,469 @@ function CoordinationWebhookConfig() {
                     background: statusMsg.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                     border: statusMsg.type === 'success' ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)',
                     color: statusMsg.type === 'success' ? '#34d399' : '#f87171',
-                    animation: 'fadeIn 0.25s ease'
+                    animation: 'fadeIn 0.2s ease-in-out'
                 }}>
-                    <span style={{ fontSize: '1.1rem' }}>{statusMsg.type === 'success' ? '✅' : '⚠️'}</span>
+                    <span>{statusMsg.type === 'success' ? '✅' : '⚠️'}</span>
                     <span>{statusMsg.text}</span>
                 </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1.05fr)', gap: '1.5rem' }}>
-                {/* Configuration Form Panel */}
-                <div className="mac-profile-panel" style={{
-                    background: 'rgba(15, 23, 42, 0.75)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    boxShadow: '0 16px 40px rgba(0,0,0,0.4)',
-                    borderRadius: '20px',
-                    padding: '1.75rem',
-                    backdropFilter: 'blur(20px)'
-                }}>
-                    <form onSubmit={handleSave}>
-                        {/* SECTION A: WEBHOOK CONNECTION */}
-                        <div style={{ marginBottom: '1.5rem' }}>
-                            <h4 style={{ margin: '0 0 1rem 0', color: subTab === 'announcements' ? '#60a5fa' : '#fbbf24', fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <span>🔗</span> Canal & Conexión de Discord ({subTab === 'announcements' ? 'Anuncios' : 'Prácticas'})
-                            </h4>
+            {/* Main Configuration Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 0.8fr)', gap: '1.75rem', alignItems: 'start' }}>
+                {/* Left Column: Form Settings */}
+                <form onSubmit={handleSave} className="mac-glass-card" style={{ padding: '1.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.85rem' }}>
+                        <span style={{ fontSize: '1.1rem' }}>⚙️</span>
+                        <h4 style={{ margin: 0, fontSize: '1.05rem', color: '#ffffff', fontWeight: 800 }}>
+                            {subTab === 'announcements' ? 'Parámetros del Webhook de Anuncios' : subTab === 'events' ? 'Parámetros del Webhook de Eventos' : 'Parámetros del Webhook de Prácticas (DTP)'}
+                        </h4>
+                    </div>
 
-                            {/* Webhook URL Input */}
-                            <div className="mac-form-group" style={{ marginBottom: '1rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                                    <label className="mac-form-label" style={{ margin: 0, fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0' }}>
-                                        URL del Webhook de Discord *
-                                    </label>
-                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                        Canal &gt; Editar &gt; Integraciones
-                                    </span>
-                                </div>
-
-                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                    <input
-                                        type={showUrl ? 'text' : 'password'}
-                                        className="mac-form-input"
-                                        placeholder="https://discord.com/api/webhooks/..."
-                                        value={subTab === 'announcements' ? annUrl : pracUrl}
-                                        onChange={(e) => {
-                                            if (subTab === 'announcements') setAnnUrl(e.target.value);
-                                            else setPracUrl(e.target.value);
-                                        }}
-                                        style={{
-                                            fontFamily: showUrl ? 'monospace' : 'inherit',
-                                            fontSize: '0.85rem',
-                                            paddingRight: '5.5rem'
-                                        }}
-                                    />
-                                    <div style={{ position: 'absolute', right: '8px', display: 'flex', gap: '4px' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowUrl(!showUrl)}
-                                            className="mac-btn mac-btn-secondary"
-                                            style={{ padding: '4px 8px', fontSize: '0.72rem', borderRadius: '6px' }}
-                                            title={showUrl ? 'Ocultar URL' : 'Mostrar URL'}
-                                        >
-                                            {showUrl ? '🙈 Ocultar' : '👁️ Ver'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Mention / Ping Role Selector */}
-                            <div className="mac-form-group" style={{ margin: 0 }}>
-                                <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                    Mención de Rol / Ping (Opcional)
-                                </label>
-                                
-                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
-                                    {[
-                                        { id: 'none', label: 'Sin mención' },
-                                        { id: 'everyone', label: '@everyone' },
-                                        { id: 'here', label: '@here' },
-                                        { id: 'custom', label: 'ID de Rol' }
-                                    ].map(preset => {
-                                        const activePreset = subTab === 'announcements' ? annPingPreset : pracPingPreset;
-                                        return (
-                                            <button
-                                                key={preset.id}
-                                                type="button"
-                                                onClick={() => handlePingPresetChange(preset.id, subTab === 'announcements')}
-                                                style={{
-                                                    padding: '0.35rem 0.75rem',
-                                                    borderRadius: '8px',
-                                                    fontSize: '0.78rem',
-                                                    fontWeight: 700,
-                                                    border: activePreset === preset.id ? '1px solid rgba(88, 101, 242, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
-                                                    background: activePreset === preset.id ? 'rgba(88, 101, 242, 0.25)' : 'rgba(255, 255, 255, 0.03)',
-                                                    color: activePreset === preset.id ? '#ffffff' : '#94a3b8',
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.15s'
-                                                }}
-                                            >
-                                                {preset.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-
-                                {((subTab === 'announcements' && annPingPreset === 'custom') || (subTab === 'practices' && pracPingPreset === 'custom')) && (
-                                    <div>
-                                        <input
-                                            type="text"
-                                            className="mac-form-input"
-                                            placeholder="Pega la ID del rol (ej: 1306619156052967471 o <@&1306619156052967471>)"
-                                            value={subTab === 'announcements' ? annPing : pracPing}
-                                            onChange={(e) => {
-                                                if (subTab === 'announcements') setAnnPing(e.target.value);
-                                                else setPracPing(e.target.value);
-                                            }}
-                                            style={{ fontSize: '0.85rem' }}
-                                        />
-                                        <p style={{ margin: '0.35rem 0 0 0', color: '#64748b', fontSize: '0.74rem' }}>
-                                            💡 Puedes pegar la ID numérica del rol directamente; el sistema la formateará automáticamente para que mencione al rol en Discord.
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* SECTION B: BOT IDENTITY & BRANDING */}
-                        <div style={{ paddingTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '1.5rem' }}>
-                            <h4 style={{ margin: '0 0 1rem 0', color: '#fbbf24', fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <span>🤖</span> Identidad Visual del Bot
-                            </h4>
-
-                            {/* Bot Username */}
-                            <div className="mac-form-group" style={{ marginBottom: '1rem' }}>
-                                <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                    Nombre del Usuario / Bot en Discord
-                                </label>
-                                <input
-                                    type="text"
-                                    className="mac-form-input"
-                                    placeholder={subTab === 'announcements' ? 'Ej: SCUB • Sheriff Criminal Unit Bureau' : 'Ej: DTP • Detective Training Program'}
-                                    value={subTab === 'announcements' ? annBotName : pracBotName}
-                                    onChange={(e) => {
-                                        if (subTab === 'announcements') setAnnBotName(e.target.value);
-                                        else setPracBotName(e.target.value);
-                                    }}
-                                    style={{ fontSize: '0.88rem' }}
-                                />
-                            </div>
-
-                            {/* Bot Avatar URL & Presets */}
-                            <div className="mac-form-group" style={{ marginBottom: '1rem' }}>
-                                <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                    Imagen de Perfil / Logo (URL o subir archivo)
-                                </label>
-
-                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.6rem' }}>
-                                    <div style={{
-                                        width: '44px',
-                                        height: '44px',
-                                        borderRadius: '12px',
-                                        background: 'rgba(255, 255, 255, 0.05)',
-                                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        overflow: 'hidden',
-                                        flexShrink: 0
-                                    }}>
-                                        <img
-                                            src={subTab === 'announcements' ? (annBotAvatar || SCUB_LOGO_URL) : (pracBotAvatar || DTP_LOGO_URL)}
-                                            alt="Preview avatar"
-                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                            onError={(e) => { e.target.src = subTab === 'announcements' ? '/logowebp/SCUB.webp' : '/logowebp/DTP logo.webp'; }}
-                                        />
-                                    </div>
-
-                                    <input
-                                        type="text"
-                                        className="mac-form-input"
-                                        placeholder="https://... o selecciona un preset"
-                                        value={subTab === 'announcements' ? annBotAvatar : pracBotAvatar}
-                                        onChange={(e) => {
-                                            if (subTab === 'announcements') setAnnBotAvatar(e.target.value);
-                                            else setPracBotAvatar(e.target.value);
-                                        }}
-                                        style={{ fontSize: '0.82rem', flex: 1 }}
-                                    />
-
-                                    <label htmlFor={`webhook-avatar-file-${subTab}`} className="mac-btn mac-btn-secondary" style={{ cursor: 'pointer', padding: '0.55rem 0.9rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
-                                        <span>{uploadingAvatar ? 'Subiendo...' : '📁 Subir'}</span>
-                                    </label>
-                                    <input
-                                        id={`webhook-avatar-file-${subTab}`}
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => handleAvatarUpload(e, subTab === 'announcements')}
-                                        style={{ display: 'none' }}
-                                        disabled={uploadingAvatar}
-                                    />
-                                </div>
-
-                                {/* Avatar Presets */}
-                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                                    {AVATAR_PRESETS.map((preset, idx) => {
-                                        const currentAvatar = subTab === 'announcements' ? annBotAvatar : pracBotAvatar;
-                                        return (
-                                            <button
-                                                key={idx}
-                                                type="button"
-                                                onClick={() => {
-                                                    if (subTab === 'announcements') setAnnBotAvatar(preset.url);
-                                                    else setPracBotAvatar(preset.url);
-                                                }}
-                                                style={{
-                                                    padding: '0.3rem 0.65rem',
-                                                    borderRadius: '6px',
-                                                    fontSize: '0.75rem',
-                                                    fontWeight: 600,
-                                                    border: currentAvatar === preset.url ? '1px solid rgba(245, 158, 11, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
-                                                    background: currentAvatar === preset.url ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.03)',
-                                                    color: currentAvatar === preset.url ? '#fbbf24' : '#94a3b8',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                {preset.icon} {preset.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* SECTION C: EMBED TEXTS & NOTIFICATION HEADERS */}
-                        <div style={{ paddingTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '1.5rem' }}>
-                            <h4 style={{ margin: '0 0 1rem 0', color: '#a78bfa', fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <span>📝</span> Textos de Notificación y Formato
-                            </h4>
-
-                            {/* Header announcement text */}
-                            <div className="mac-form-group" style={{ marginBottom: '1rem' }}>
-                                <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                    Texto de Alerta / Cabecera (Junto a la mención)
-                                </label>
-                                <input
-                                    type="text"
-                                    className="mac-form-input"
-                                    placeholder={subTab === 'announcements' ? 'Ej: Nueva publicación en la BBDD de la SCUB' : 'Ej: Convocatoria de Práctica / Instrucción Oficial'}
-                                    value={subTab === 'announcements' ? annHeader : pracHeader}
-                                    onChange={(e) => {
-                                        if (subTab === 'announcements') setAnnHeader(e.target.value);
-                                        else setPracHeader(e.target.value);
-                                    }}
-                                    style={{ fontSize: '0.88rem' }}
-                                />
-                            </div>
-
-                            {/* Reminder text */}
-                            <div className="mac-form-group" style={{ marginBottom: '1rem' }}>
-                                <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                    Texto Recordatorio al final (En cursiva)
-                                </label>
-                                <input
-                                    type="text"
-                                    className="mac-form-input"
-                                    placeholder={subTab === 'announcements' ? 'Ej: Confirmad lectura en la propia Base de Datos.' : 'Ej: Confirmad asistencia inscribiéndoos en el apartado de Formación.'}
-                                    value={subTab === 'announcements' ? annReminder : pracReminder}
-                                    onChange={(e) => {
-                                        if (subTab === 'announcements') setAnnReminder(e.target.value);
-                                        else setPracReminder(e.target.value);
-                                    }}
-                                    style={{ fontSize: '0.88rem' }}
-                                />
-                            </div>
-
-                            {/* Footer text */}
-                            <div className="mac-form-group" style={{ margin: 0 }}>
-                                <label className="mac-form-label" style={{ fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                    Texto del Pie de Página (Footer)
-                                </label>
-                                <input
-                                    type="text"
-                                    className="mac-form-input"
-                                    placeholder={subTab === 'announcements' ? 'Ej: SCUB • Sheriff Criminal Unit Bureau' : 'Ej: DTP • Detective Training Program'}
-                                    value={subTab === 'announcements' ? annFooter : pracFooter}
-                                    onChange={(e) => {
-                                        if (subTab === 'announcements') setAnnFooter(e.target.value);
-                                        else setPracFooter(e.target.value);
-                                    }}
-                                    style={{ fontSize: '0.88rem' }}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    {/* Webhook URL */}
+                    <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                            <label className="form-label" style={{ margin: 0, fontWeight: 700, color: '#e2e8f0', fontSize: '0.84rem' }}>
+                                URL del Webhook de Discord <span style={{ color: '#ef4444' }}>*</span>
+                            </label>
                             <button
                                 type="button"
-                                onClick={handleTestWebhook}
-                                disabled={testing || !isUrlConfigured}
-                                className="mac-btn mac-btn-secondary"
+                                onClick={() => setShowUrl(!showUrl)}
                                 style={{
-                                    padding: '0.65rem 1.25rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    fontSize: '0.85rem'
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#38bdf8',
+                                    fontSize: '0.75rem',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    padding: 0
                                 }}
                             >
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <polygon points="5 3 19 12 5 21 5 3"/>
-                                </svg>
-                                <span>{testing ? 'Enviando Prueba...' : `Probar Webhook ${subTab === 'announcements' ? 'Anuncios' : 'Prácticas'}`}</span>
-                            </button>
-
-                            <button
-                                type="submit"
-                                disabled={saving}
-                                className="mac-btn mac-btn-primary"
-                                style={{
-                                    padding: '0.65rem 1.5rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    fontSize: '0.85rem',
-                                    background: subTab === 'announcements' ? 'linear-gradient(135deg, #5865F2, #404EED)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
-                                    borderColor: subTab === 'announcements' ? '#5865F2' : '#f59e0b',
-                                    boxShadow: subTab === 'announcements' ? '0 4px 14px rgba(88, 101, 242, 0.4)' : '0 4px 14px rgba(245, 158, 11, 0.4)'
-                                }}
-                            >
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                    <polyline points="20 6 9 17 4 12"/>
-                                </svg>
-                                <span>{saving ? 'Guardando...' : `Guardar Configuración ${subTab === 'announcements' ? 'Anuncios' : 'Prácticas'}`}</span>
+                                {showUrl ? 'Ocultar URL' : 'Mostrar URL'}
                             </button>
                         </div>
-                    </form>
-                </div>
-
-                {/* Discord Embed Live Preview */}
-                <div>
-                    <div style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '0.84rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                            Previsualización en Vivo de Discord
-                        </span>
-                        <span style={{ fontSize: '0.75rem', color: subTab === 'announcements' ? '#5865F2' : '#fbbf24', fontWeight: 700 }}>
-                            {subTab === 'announcements' ? '#tablón-anuncios' : '#convocatorias-prácticas'}
+                        <input
+                            type={showUrl ? 'text' : 'password'}
+                            className="form-input"
+                            value={currentUrl}
+                            onChange={(e) => {
+                                if (subTab === 'announcements') setAnnUrl(e.target.value);
+                                else if (subTab === 'events') setEventUrl(e.target.value);
+                                else setPracUrl(e.target.value);
+                            }}
+                            placeholder="https://discord.com/api/webhooks/1234567890/abcde..."
+                            style={{ fontFamily: showUrl ? 'monospace' : 'inherit', fontSize: '0.85rem' }}
+                        />
+                        <span style={{ fontSize: '0.74rem', color: '#64748b', display: 'block', marginTop: '0.35rem' }}>
+                            Canal de Discord &gt; Ajustes del Canal &gt; Integraciones &gt; Webhooks &gt; Copiar URL.
                         </span>
                     </div>
 
-                    {/* Discord Message Mockup */}
-                    <div style={{
-                        background: '#313338',
-                        borderRadius: '16px',
-                        padding: '1.25rem',
-                        color: '#dbdee1',
-                        fontFamily: 'gg sans, "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif',
-                        border: '1px solid rgba(0, 0, 0, 0.2)',
-                        boxShadow: '0 12px 30px rgba(0, 0, 0, 0.5)'
-                    }}>
-                        {/* Bot Header */}
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '0.75rem' }}>
-                            <img
-                                src={subTab === 'announcements' ? (annBotAvatar || SCUB_LOGO_URL) : (pracBotAvatar || DTP_LOGO_URL)}
-                                alt="Bot Avatar"
-                                style={{
-                                    width: '40px',
-                                    height: '40px',
-                                    borderRadius: '50%',
-                                    backgroundColor: '#2b2d31',
-                                    objectFit: 'contain',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-                                }}
-                                onError={(e) => { e.target.src = subTab === 'announcements' ? '/logowebp/SCUB.webp' : '/logowebp/DTP logo.webp'; }}
-                            />
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                    <span style={{ color: '#ffffff', fontWeight: 700, fontSize: '0.95rem' }}>
-                                        {subTab === 'announcements' ? (annBotName || DEFAULT_BOT_NAME) : (pracBotName || DEFAULT_PRACTICES_BOT_NAME)}
-                                    </span>
-                                    <span style={{
-                                        background: '#5865f2',
-                                        color: '#ffffff',
-                                        fontSize: '0.62rem',
-                                        fontWeight: 800,
-                                        padding: '1px 5px',
-                                        borderRadius: '4px',
-                                        textTransform: 'uppercase'
-                                    }}>
-                                        APP
-                                    </span>
-                                    <span style={{ color: '#949ba4', fontSize: '0.75rem', marginLeft: '4px' }}>
-                                        Hoy a las {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                </div>
-
-                                {((subTab === 'announcements' && annPing) || (subTab === 'practices' && pracPing)) && (
-                                    <div style={{ marginTop: '4px', color: '#c9cdfb', background: 'rgba(88, 101, 242, 0.15)', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', fontSize: '0.85rem', fontWeight: 600 }}>
-                                        {formatRoleMention(subTab === 'announcements' ? annPing : pracPing)} {subTab === 'announcements' ? '📢' : '🎯'} <strong>{subTab === 'announcements' ? (annHeader || DEFAULT_HEADER_TEXT) : (pracHeader || DEFAULT_PRACTICES_HEADER_TEXT)}</strong>
-                                    </div>
-                                )}
-                            </div>
+                    {/* Role Ping Selector & Custom formatting */}
+                    <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                        <label className="form-label" style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '0.84rem' }}>
+                            Mención de Rol / Notificación
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                            {[
+                                { id: 'none', label: 'Sin mención' },
+                                { id: 'everyone', label: '@everyone' },
+                                { id: 'here', label: '@here' },
+                                { id: 'custom', label: 'ID de Rol' }
+                            ].map(preset => (
+                                <button
+                                    key={preset.id}
+                                    type="button"
+                                    onClick={() => handlePingPresetChange(preset.id)}
+                                    style={{
+                                        padding: '0.35rem 0.85rem',
+                                        borderRadius: '8px',
+                                        fontSize: '0.76rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        border: currentPingPreset === preset.id ? `1px solid ${tabAccentColor}` : '1px solid rgba(255,255,255,0.1)',
+                                        background: currentPingPreset === preset.id ? tabBadgeBg : 'rgba(255,255,255,0.03)',
+                                        color: currentPingPreset === preset.id ? '#ffffff' : '#94a3b8',
+                                        transition: 'all 0.15s'
+                                    }}
+                                >
+                                    {preset.label}
+                                </button>
+                            ))}
                         </div>
 
-                        {/* Embed Card */}
-                        <div style={{
-                            marginLeft: '52px',
-                            background: '#2b2d31',
-                            borderLeft: `4px solid ${subTab === 'announcements' ? '#3b82f6' : '#f59e0b'}`,
-                            borderRadius: '4px',
-                            padding: '0.75rem 1rem',
-                            maxWidth: '100%',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-                        }}>
-                            {/* Author */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                <img
-                                    src={subTab === 'announcements' ? (annBotAvatar || SCUB_LOGO_URL) : (pracBotAvatar || DTP_LOGO_URL)}
-                                    alt="Author avatar"
-                                    style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'contain' }}
-                                    onError={(e) => { e.target.style.display = 'none'; }}
+                        <input
+                            type="text"
+                            className="form-input"
+                            value={currentPing}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (subTab === 'announcements') {
+                                    setAnnPing(val);
+                                    if (val === '@everyone') setAnnPingPreset('everyone');
+                                    else if (val === '@here') setAnnPingPreset('here');
+                                    else if (!val) setAnnPingPreset('none');
+                                    else setAnnPingPreset('custom');
+                                } else if (subTab === 'events') {
+                                    setEventPing(val);
+                                    if (val === '@everyone') setEventPingPreset('everyone');
+                                    else if (val === '@here') setEventPingPreset('here');
+                                    else if (!val) setEventPingPreset('none');
+                                    else setEventPingPreset('custom');
+                                } else {
+                                    setPracPing(val);
+                                    if (val === '@everyone') setPracPingPreset('everyone');
+                                    else if (val === '@here') setPracPingPreset('here');
+                                    else if (!val) setPracPingPreset('none');
+                                    else setPracPingPreset('custom');
+                                }
+                            }}
+                            placeholder="Ej: 1306619156052967471 o @everyone"
+                            style={{ fontSize: '0.85rem' }}
+                        />
+                        {currentPing && (
+                            <span style={{ fontSize: '0.74rem', color: '#10b981', display: 'block', marginTop: '0.35rem' }}>
+                                Formato detectado: <strong style={{ color: '#34d399' }}>{formatRoleMention(currentPing)}</strong> (Notificará con ping directo al rol en Discord)
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Bot Name & Avatar URL Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '0.84rem' }}>
+                                Nombre del Bot
+                            </label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={currentBotName}
+                                onChange={(e) => {
+                                    if (subTab === 'announcements') setAnnBotName(e.target.value);
+                                    else if (subTab === 'events') setEventBotName(e.target.value);
+                                    else setPracBotName(e.target.value);
+                                }}
+                                placeholder={subTab === 'announcements' ? DEFAULT_BOT_NAME : subTab === 'events' ? DEFAULT_EVENTS_BOT_NAME : DEFAULT_PRACTICES_BOT_NAME}
+                                style={{ fontSize: '0.85rem' }}
+                            />
+                        </div>
+
+                        <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '0.84rem' }}>
+                                URL del Avatar / Logo
+                            </label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={currentBotAvatar}
+                                onChange={(e) => {
+                                    if (subTab === 'announcements') setAnnBotAvatar(e.target.value);
+                                    else if (subTab === 'events') setEventBotAvatar(e.target.value);
+                                    else setPracBotAvatar(e.target.value);
+                                }}
+                                placeholder="https://..."
+                                style={{ fontSize: '0.85rem' }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Avatar Preset Badges & File Upload */}
+                    <div style={{ marginBottom: '1.5rem', background: 'rgba(255, 255, 255, 0.02)', padding: '0.85rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 700, marginBottom: '0.5rem' }}>
+                            Logos Oficiales Rápidos:
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {AVATAR_PRESETS.map((p, idx) => (
+                                <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => {
+                                        if (subTab === 'announcements') setAnnBotAvatar(p.url);
+                                        else if (subTab === 'events') setEventBotAvatar(p.url);
+                                        else setPracBotAvatar(p.url);
+                                    }}
+                                    style={{
+                                        padding: '0.3rem 0.65rem',
+                                        borderRadius: '8px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        background: currentBotAvatar === p.url ? tabBadgeBg : 'rgba(255, 255, 255, 0.05)',
+                                        border: currentBotAvatar === p.url ? `1px solid ${tabAccentColor}` : '1px solid rgba(255, 255, 255, 0.1)',
+                                        color: currentBotAvatar === p.url ? '#ffffff' : '#cbd5e1',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px'
+                                    }}
+                                >
+                                    <span>{p.icon}</span>
+                                    <span>{p.label}</span>
+                                </button>
+                            ))}
+
+                            {/* Upload Custom Image Button */}
+                            <label style={{
+                                padding: '0.3rem 0.75rem',
+                                borderRadius: '8px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                background: 'rgba(56, 189, 248, 0.15)',
+                                border: '1px solid rgba(56, 189, 248, 0.35)',
+                                color: '#38bdf8',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                margin: 0
+                            }}>
+                                <span>📤</span>
+                                <span>{uploadingAvatar ? 'Subiendo...' : 'Subir Imagen Local'}</span>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleAvatarUpload}
+                                    disabled={uploadingAvatar}
+                                    style={{ display: 'none' }}
                                 />
-                                <span style={{ color: '#f2f3f5', fontSize: '0.8rem', fontWeight: 700 }}>
-                                    {subTab === 'announcements' ? '[Capitán] Marcus Campbell' : '[Sargento] James Miller (#104)'}
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Custom Header & Footer Texts */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+                        <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '0.84rem' }}>
+                                Cabecera del Mensaje
+                            </label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={currentHeader}
+                                onChange={(e) => {
+                                    if (subTab === 'announcements') setAnnHeader(e.target.value);
+                                    else if (subTab === 'events') setEventHeader(e.target.value);
+                                    else setPracHeader(e.target.value);
+                                }}
+                                placeholder={subTab === 'announcements' ? DEFAULT_HEADER_TEXT : subTab === 'events' ? DEFAULT_EVENTS_HEADER_TEXT : DEFAULT_PRACTICES_HEADER_TEXT}
+                                style={{ fontSize: '0.85rem' }}
+                            />
+                        </div>
+
+                        <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label" style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '0.84rem' }}>
+                                Pie de Página del Embed
+                            </label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={currentFooter}
+                                onChange={(e) => {
+                                    if (subTab === 'announcements') setAnnFooter(e.target.value);
+                                    else if (subTab === 'events') setEventFooter(e.target.value);
+                                    else setPracFooter(e.target.value);
+                                }}
+                                placeholder={subTab === 'announcements' ? DEFAULT_FOOTER_TEXT : subTab === 'events' ? DEFAULT_EVENTS_FOOTER_TEXT : DEFAULT_PRACTICES_FOOTER_TEXT}
+                                style={{ fontSize: '0.85rem' }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Reminder text */}
+                    <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                        <label className="form-label" style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '0.84rem' }}>
+                            Texto de Recordatorio al final del mensaje
+                        </label>
+                        <input
+                            type="text"
+                            className="form-input"
+                            value={currentReminder}
+                            onChange={(e) => {
+                                if (subTab === 'announcements') setAnnReminder(e.target.value);
+                                else if (subTab === 'events') setEventReminder(e.target.value);
+                                else setPracReminder(e.target.value);
+                            }}
+                            placeholder={subTab === 'announcements' ? DEFAULT_REMINDER_TEXT : subTab === 'events' ? DEFAULT_EVENTS_REMINDER_TEXT : DEFAULT_PRACTICES_REMINDER_TEXT}
+                            style={{ fontSize: '0.85rem' }}
+                        />
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.25rem' }}>
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-secondary"
+                            onClick={handleTestWebhook}
+                            disabled={testing || !isUrlConfigured}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                opacity: !isUrlConfigured ? 0.5 : 1
+                            }}
+                        >
+                            <span>{testing ? '⏳' : '🔔'}</span>
+                            <span>{testing ? 'Enviando Prueba...' : 'Enviar Mensaje de Prueba'}</span>
+                        </button>
+
+                        <button
+                            type="submit"
+                            className="mac-btn mac-btn-primary"
+                            disabled={saving}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: tabAccentColor
+                            }}
+                        >
+                            <span>{saving ? '⏳' : '💾'}</span>
+                            <span>{saving ? 'Guardando...' : 'Guardar Configuración'}</span>
+                        </button>
+                    </div>
+                </form>
+
+                {/* Right Column: Interactive Discord Live Preview */}
+                <div className="mac-glass-card" style={{ padding: '1.75rem', background: '#313338', border: '1px solid #1e1f22' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '0.85rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '1.1rem' }}>👁️</span>
+                            <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#dbdee1', fontWeight: 700 }}>
+                                Vista Previa en Vivo (Discord)
+                            </h4>
+                        </div>
+                        <span style={{ fontSize: '0.7rem', color: '#949ba4', fontWeight: 600, background: '#2b2d31', padding: '2px 8px', borderRadius: '6px' }}>
+                            #tablon-avisos
+                        </span>
+                    </div>
+
+                    {/* Discord Message Layout */}
+                    <div style={{ display: 'flex', gap: '1rem', fontFamily: '"gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif' }}>
+                        {/* Avatar */}
+                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', background: '#1e1f22', flexShrink: 0 }}>
+                            <img
+                                src={currentBotAvatar || SCUB_LOGO_URL}
+                                alt="Bot Avatar"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e) => { e.target.src = '/logowebp/SCUB.webp'; }}
+                            />
+                        </div>
+
+                        {/* Content */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            {/* Bot Name and App Badge */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.25rem' }}>
+                                <span style={{ color: '#f2f3f5', fontWeight: 600, fontSize: '0.95rem' }}>
+                                    {currentBotName || (subTab === 'announcements' ? DEFAULT_BOT_NAME : subTab === 'events' ? DEFAULT_EVENTS_BOT_NAME : DEFAULT_PRACTICES_BOT_NAME)}
+                                </span>
+                                <span style={{
+                                    backgroundColor: '#5865F2',
+                                    color: '#ffffff',
+                                    fontSize: '0.625rem',
+                                    padding: '1px 4px',
+                                    borderRadius: '3px',
+                                    fontWeight: 600,
+                                    lineHeight: '1.2'
+                                }}>
+                                    APP
+                                </span>
+                                <span style={{ color: '#949ba4', fontSize: '0.72rem', marginLeft: '0.25rem' }}>
+                                    Hoy a las 20:00
                                 </span>
                             </div>
 
-                            {/* Title */}
-                            <div style={{ color: '#ffffff', fontSize: '1rem', fontWeight: 700, marginBottom: '8px' }}>
-                                {subTab === 'announcements'
-                                    ? '📢 Convocatoria de Instrucción Táctica y Balística'
-                                    : '🎯 [CONVOCATORIA PRÁCTICA] Instrucción de Tiro & Balística de Combate'}
-                            </div>
+                            {/* Role Ping Header */}
+                            {currentPing && (
+                                <div style={{ color: '#dbdee1', fontSize: '0.92rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                                    <span style={{ background: 'rgba(88, 101, 242, 0.3)', color: '#c9cdfb', padding: '0 4px', borderRadius: '3px', fontWeight: 500, fontSize: '0.85rem' }}>
+                                        {formatRoleMention(currentPing)}
+                                    </span>
+                                    <strong style={{ color: '#ffffff' }}>
+                                        {currentHeader || (subTab === 'announcements' ? DEFAULT_HEADER_TEXT : subTab === 'events' ? DEFAULT_EVENTS_HEADER_TEXT : DEFAULT_PRACTICES_HEADER_TEXT)}
+                                    </strong>
+                                </div>
+                            )}
 
-                            {/* Body */}
-                            <div style={{ color: '#dbdee1', fontSize: '0.85rem', lineHeight: 1.45, whiteSpace: 'pre-line' }}>
-                                {subTab === 'announcements' ? (
-                                    <>
-                                        Se informa a toda la unidad que este viernes a las 20:00 se llevará a cabo una sesión de actualización en procedimientos balísticos e investigación en escena de crímenes.
-                                        {'\n\n'}
-                                        • Asistencia obligatoria para auxiliares y detectives.{'\n'}
-                                        • Traer equipamiento reglamentario completo.
-                                    </>
-                                ) : (
-                                    <>
-                                        Se convoca a todos los aspirantes y detectives a la sesión de instrucción técnica en campo de tiro y análisis de calibres de arma de fuego.
-                                    </>
+                            {/* Embed Card */}
+                            <div style={{
+                                backgroundColor: '#2b2d31',
+                                borderLeft: `4px solid ${tabAccentColor}`,
+                                borderRadius: '4px',
+                                padding: '0.85rem 1rem',
+                                maxWidth: '520px',
+                                boxShadow: '0 1px 0 rgba(4,4,5,0.2),0 1.5px 0 rgba(6,6,7,0.05),0 2px 0 rgba(4,4,5,0.05)'
+                            }}>
+                                {/* Embed Author */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', overflow: 'hidden', background: '#1e1f22' }}>
+                                        <img src={currentBotAvatar || SCUB_LOGO_URL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    </div>
+                                    <span style={{ color: '#f2f3f5', fontSize: '0.8rem', fontWeight: 600 }}>
+                                        {subTab === 'announcements' ? '[Teniente] Matthew Kleiner' : subTab === 'events' ? '[Teniente] Matthew Kleiner' : '[Sargento] James Miller (#104)'}
+                                    </span>
+                                </div>
+
+                                {/* Embed Title */}
+                                <div style={{ color: '#ffffff', fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.5rem' }}>
+                                    {subTab === 'announcements'
+                                        ? '📢 Revisión de Informes y Casos de la Unidad'
+                                        : subTab === 'events'
+                                        ? '📅 [EVENTO / OPERATIVO] Briefing General de Seguridad'
+                                        : '🎯 [PRÁCTICA DTP] Instrucción de Tiro & Balística de Combate'}
+                                </div>
+
+                                {/* Embed Description */}
+                                <div style={{ color: '#dbdee1', fontSize: '0.84rem', lineHeight: '1.4', whiteSpace: 'pre-line', marginBottom: '0.75rem' }}>
+                                    {subTab === 'announcements' ? (
+                                        <>
+                                            A partir de este momento, la revisión de informes será realizada por el personal asignado a cada división.
+                                            {currentReminder && <div style={{ marginTop: '0.5rem', fontStyle: 'italic', color: '#949ba4' }}>{currentReminder}</div>}
+                                        </>
+                                    ) : subTab === 'events' ? (
+                                        <>
+                                            Reunión operativa y coordinación táctica en sala de juntas para el despliegue del fin de semana.
+                                            {currentReminder && <div style={{ marginTop: '0.5rem', fontStyle: 'italic', color: '#949ba4' }}>{currentReminder}</div>}
+                                        </>
+                                    ) : (
+                                        <>
+                                            Se convoca a los aspirantes e instructores a la sesión práctica en campo de tiro.
+                                            {currentReminder && <div style={{ marginTop: '0.5rem', fontStyle: 'italic', color: '#949ba4' }}>{currentReminder}</div>}
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Embed Fields (For Events & Practices) */}
+                                {subTab === 'events' && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.6rem', fontSize: '0.8rem' }}>
+                                        <div>
+                                            <div style={{ color: '#949ba4', fontWeight: 600 }}>📅 Fecha y Hora</div>
+                                            <div style={{ color: '#f2f3f5' }}>Sábado 27/09/2026 • 21:30</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ color: '#949ba4', fontWeight: 600 }}>👤 Organizado por</div>
+                                            <div style={{ color: '#f2f3f5' }}>[Teniente] Matthew Kleiner</div>
+                                        </div>
+                                    </div>
                                 )}
 
                                 {subTab === 'practices' && (
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginTop: '0.8rem', background: 'rgba(0,0,0,0.2)', padding: '0.6rem', borderRadius: '6px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.6rem', fontSize: '0.8rem' }}>
                                         <div>
-                                            <div style={{ fontSize: '0.72rem', color: '#949ba4', fontWeight: 700 }}>📅 Fecha & Hora</div>
-                                            <div style={{ fontSize: '0.82rem', color: '#ffffff', fontWeight: 600 }}>Viernes 26/09 • 20:00</div>
+                                            <div style={{ color: '#949ba4', fontWeight: 600 }}>📅 Fecha & Hora</div>
+                                            <div style={{ color: '#f2f3f5' }}>Viernes 26/09/2026 • 20:00</div>
                                         </div>
                                         <div>
-                                            <div style={{ fontSize: '0.72rem', color: '#949ba4', fontWeight: 700 }}>👮 Instructor Principal</div>
-                                            <div style={{ fontSize: '0.82rem', color: '#ffffff', fontWeight: 600 }}>James Miller (#104)</div>
+                                            <div style={{ color: '#949ba4', fontWeight: 600 }}>👮 Instructor Principal</div>
+                                            <div style={{ color: '#f2f3f5' }}>James Miller (#104)</div>
                                         </div>
                                     </div>
                                 )}
 
-                                {((subTab === 'announcements' && annReminder) || (subTab === 'practices' && pracReminder)) && (
-                                    <div style={{ marginTop: '0.75rem' }}>
-                                        <em style={{ color: '#949ba4' }}>{subTab === 'announcements' ? annReminder : pracReminder}</em>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Footer */}
-                            <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', color: '#949ba4', fontSize: '0.72rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <img src={subTab === 'announcements' ? (annBotAvatar || SCUB_LOGO_URL) : (pracBotAvatar || DTP_LOGO_URL)} style={{ width: '14px', height: '14px', borderRadius: '50%' }} alt="" />
-                                    <span>{subTab === 'announcements' ? (annFooter || DEFAULT_FOOTER_TEXT) : (pracFooter || DEFAULT_PRACTICES_FOOTER_TEXT)}</span>
+                                {/* Embed Footer */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '0.5rem', fontSize: '0.72rem', color: '#949ba4' }}>
+                                    <img src={currentBotAvatar || SCUB_LOGO_URL} alt="" style={{ width: '14px', height: '14px', borderRadius: '50%' }} />
+                                    <span>{currentFooter || (subTab === 'announcements' ? DEFAULT_FOOTER_TEXT : subTab === 'events' ? DEFAULT_EVENTS_FOOTER_TEXT : DEFAULT_PRACTICES_FOOTER_TEXT)}</span>
+                                    <span>•</span>
+                                    <span>Hoy a las 20:00</span>
                                 </div>
-                                <span>{new Date().toLocaleDateString()}</span>
                             </div>
                         </div>
                     </div>

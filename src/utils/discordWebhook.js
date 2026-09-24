@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient';
 
 const LOCAL_STORAGE_KEY_ANNOUNCEMENTS = 'discord_announcements_webhook_cfg_v2';
+const LOCAL_STORAGE_KEY_EVENTS = 'discord_events_webhook_cfg_v2';
 const LOCAL_STORAGE_KEY_PRACTICES = 'discord_practices_webhook_cfg_v2';
 
 export const SCUB_LOGO_URL = 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/scub_logo.png';
@@ -11,6 +12,12 @@ export const DEFAULT_BOT_NAME = 'SCUB • Sheriff Criminal Unit Bureau';
 export const DEFAULT_HEADER_TEXT = 'Nueva publicación en la BBDD de la SCUB';
 export const DEFAULT_FOOTER_TEXT = 'SCUB • Sheriff Criminal Unit Bureau';
 export const DEFAULT_REMINDER_TEXT = 'Confirmad lectura en la propia Base de Datos.';
+
+// Defaults for Calendar Events
+export const DEFAULT_EVENTS_BOT_NAME = 'SCUB • Calendario de Operaciones';
+export const DEFAULT_EVENTS_HEADER_TEXT = 'Nuevo Evento Programado en el Calendario';
+export const DEFAULT_EVENTS_FOOTER_TEXT = 'SCUB • Calendario Oficial de Eventos';
+export const DEFAULT_EVENTS_REMINDER_TEXT = 'Confirmad asistencia inscribiéndoos en el Calendario del Dashboard.';
 
 // Defaults for Practices
 export const DEFAULT_PRACTICES_BOT_NAME = 'DTP • Detective Training Program';
@@ -786,3 +793,328 @@ export async function sendPracticeToDiscord({
         return { success: false, error: err.message };
     }
 }
+
+// ==============================================================================
+// 3. CALENDAR EVENTS DISCORD WEBHOOK FUNCTIONS
+// ==============================================================================
+
+export async function getDiscordEventsWebhookConfig() {
+    const defaultConfig = {
+        webhookUrl: '',
+        enabled: false,
+        rolePing: '',
+        botName: DEFAULT_EVENTS_BOT_NAME,
+        botAvatar: SCUB_LOGO_URL,
+        footerText: DEFAULT_EVENTS_FOOTER_TEXT,
+        customHeader: DEFAULT_EVENTS_HEADER_TEXT,
+        reminderText: DEFAULT_EVENTS_REMINDER_TEXT
+    };
+
+    try {
+        const { data, error } = await supabase.rpc('get_discord_events_webhook_config');
+        if (error) {
+            console.warn('RPC get_discord_events_webhook_config error, fallback to direct query:', error);
+            const { data: rows, error: tableErr } = await supabase
+                .from('app_settings')
+                .select('key, value')
+                .like('key', 'discord_events_%');
+
+            if (tableErr || !rows || rows.length === 0) {
+                const cached = localStorage.getItem(LOCAL_STORAGE_KEY_EVENTS);
+                if (cached) return { ...defaultConfig, ...JSON.parse(cached) };
+                return defaultConfig;
+            }
+
+            const map = {};
+            rows.forEach(r => { map[r.key] = r.value; });
+
+            const result = {
+                webhookUrl: map['discord_events_webhook_url'] || '',
+                enabled: map['discord_events_webhook_enabled'] === 'true',
+                rolePing: map['discord_events_webhook_role_ping'] || '',
+                botName: map['discord_events_bot_name'] || DEFAULT_EVENTS_BOT_NAME,
+                botAvatar: map['discord_events_bot_avatar'] || SCUB_LOGO_URL,
+                footerText: map['discord_events_footer_text'] || DEFAULT_EVENTS_FOOTER_TEXT,
+                customHeader: map['discord_events_custom_header'] || DEFAULT_EVENTS_HEADER_TEXT,
+                reminderText: map['discord_events_reminder_text'] !== undefined ? map['discord_events_reminder_text'] : DEFAULT_EVENTS_REMINDER_TEXT
+            };
+
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY_EVENTS, JSON.stringify(result));
+            } catch (e) {}
+
+            return result;
+        }
+
+        const res = {
+            webhookUrl: data?.webhook_url || '',
+            enabled: !!data?.enabled,
+            rolePing: data?.role_ping || '',
+            botName: data?.bot_name || DEFAULT_EVENTS_BOT_NAME,
+            botAvatar: data?.bot_avatar || SCUB_LOGO_URL,
+            footerText: data?.footer_text || DEFAULT_EVENTS_FOOTER_TEXT,
+            customHeader: data?.custom_header || DEFAULT_EVENTS_HEADER_TEXT,
+            reminderText: data?.reminder_text !== undefined ? data?.reminder_text : DEFAULT_EVENTS_REMINDER_TEXT
+        };
+
+        try {
+            localStorage.setItem(LOCAL_STORAGE_KEY_EVENTS, JSON.stringify(res));
+        } catch (e) {}
+
+        return res;
+    } catch (err) {
+        console.error('Error in getDiscordEventsWebhookConfig:', err);
+        const cached = localStorage.getItem(LOCAL_STORAGE_KEY_EVENTS);
+        if (cached) {
+            try { return { ...defaultConfig, ...JSON.parse(cached) }; } catch (e) {}
+        }
+        return defaultConfig;
+    }
+}
+
+export async function saveDiscordEventsWebhookConfig({
+    webhookUrl,
+    enabled,
+    rolePing = '',
+    botName = DEFAULT_EVENTS_BOT_NAME,
+    botAvatar = SCUB_LOGO_URL,
+    footerText = DEFAULT_EVENTS_FOOTER_TEXT,
+    customHeader = DEFAULT_EVENTS_HEADER_TEXT,
+    reminderText = DEFAULT_EVENTS_REMINDER_TEXT
+}) {
+    const cleanUrl = (webhookUrl || '').trim();
+    const isEnabled = Boolean(enabled);
+    const cleanPing = (rolePing || '').trim();
+    const cleanBotName = (botName || '').trim() || DEFAULT_EVENTS_BOT_NAME;
+    const cleanBotAvatar = (botAvatar || '').trim();
+    const cleanFooterText = (footerText || '').trim() || DEFAULT_EVENTS_FOOTER_TEXT;
+    const cleanHeader = (customHeader || '').trim() || DEFAULT_EVENTS_HEADER_TEXT;
+    const cleanReminder = reminderText !== undefined ? reminderText.trim() : DEFAULT_EVENTS_REMINDER_TEXT;
+
+    try {
+        const { error } = await supabase.rpc('save_discord_events_webhook_config', {
+            p_webhook_url: cleanUrl,
+            p_enabled: isEnabled,
+            p_role_ping: cleanPing,
+            p_bot_name: cleanBotName,
+            p_bot_avatar: cleanBotAvatar,
+            p_footer_text: cleanFooterText,
+            p_custom_header: cleanHeader,
+            p_reminder_text: cleanReminder
+        });
+
+        if (error) {
+            console.warn('RPC save_discord_events_webhook_config failed, trying direct upsert:', error);
+            await supabase.from('app_settings').upsert([
+                { key: 'discord_events_webhook_url', value: cleanUrl, updated_at: new Date().toISOString() },
+                { key: 'discord_events_webhook_enabled', value: isEnabled ? 'true' : 'false', updated_at: new Date().toISOString() },
+                { key: 'discord_events_webhook_role_ping', value: cleanPing, updated_at: new Date().toISOString() },
+                { key: 'discord_events_bot_name', value: cleanBotName, updated_at: new Date().toISOString() },
+                { key: 'discord_events_bot_avatar', value: cleanBotAvatar, updated_at: new Date().toISOString() },
+                { key: 'discord_events_footer_text', value: cleanFooterText, updated_at: new Date().toISOString() },
+                { key: 'discord_events_custom_header', value: cleanHeader, updated_at: new Date().toISOString() },
+                { key: 'discord_events_reminder_text', value: cleanReminder, updated_at: new Date().toISOString() }
+            ]);
+        }
+
+        const newConfig = {
+            webhookUrl: cleanUrl,
+            enabled: isEnabled,
+            rolePing: cleanPing,
+            botName: cleanBotName,
+            botAvatar: cleanBotAvatar,
+            footerText: cleanFooterText,
+            customHeader: cleanHeader,
+            reminderText: cleanReminder
+        };
+
+        try {
+            localStorage.setItem(LOCAL_STORAGE_KEY_EVENTS, JSON.stringify(newConfig));
+        } catch (e) {}
+
+        return { success: true, config: newConfig };
+    } catch (err) {
+        console.error('Error saving discord events webhook config:', err);
+        throw err;
+    }
+}
+
+export async function testDiscordEventsWebhook({
+    webhookUrl,
+    rolePing = '',
+    botName = DEFAULT_EVENTS_BOT_NAME,
+    botAvatar = SCUB_LOGO_URL,
+    footerText = DEFAULT_EVENTS_FOOTER_TEXT,
+    customHeader = DEFAULT_EVENTS_HEADER_TEXT,
+    reminderText = DEFAULT_EVENTS_REMINDER_TEXT
+}) {
+    if (!webhookUrl || !webhookUrl.trim().startsWith('https://')) {
+        throw new Error('La URL del webhook debe ser una URL válida que comience con https://');
+    }
+
+    const avatar = (botAvatar || '').trim() || SCUB_LOGO_URL;
+    const name = (botName || '').trim() || DEFAULT_EVENTS_BOT_NAME;
+    const footer = (footerText || '').trim() || DEFAULT_EVENTS_FOOTER_TEXT;
+    const header = (customHeader || '').trim() || DEFAULT_EVENTS_HEADER_TEXT;
+    const reminder = (reminderText !== undefined ? reminderText : DEFAULT_EVENTS_REMINDER_TEXT).trim();
+    const formattedPing = formatRoleMention(rolePing);
+
+    let contentMessage = undefined;
+    if (formattedPing) {
+        contentMessage = `${formattedPing} 📅 **${header}**`;
+    }
+
+    const reminderMarkdown = reminder ? `\n\n*${reminder}*` : '';
+
+    const payload = {
+        username: name,
+        avatar_url: avatar,
+        content: contentMessage,
+        allowed_mentions: {
+            parse: ['roles', 'users', 'everyone']
+        },
+        embeds: [
+            {
+                title: '📅 [EVENTO / OPERATIVO] Briefing General de Seguridad Ciudadana',
+                description: `Reunión operativa y coordinación táctica en sala de juntas para el despliegue del fin de semana.${reminderMarkdown}`,
+                color: 0x10B981, // Esmeralda / Verde brillante
+                fields: [
+                    { name: '📅 Fecha y Hora', value: 'Sábado 27/09/2026 • 21:30', inline: true },
+                    { name: '👮 Convocado por', value: '[Teniente] Matthew Kleiner (#782)', inline: true },
+                    { name: '📍 Lugar', value: 'Sala de Briefing Principal - Davis', inline: false }
+                ],
+                footer: { text: footer, icon_url: avatar },
+                timestamp: new Date().toISOString()
+            }
+        ]
+    };
+
+    const response = await fetch(webhookUrl.trim(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        let errText = '';
+        try {
+            const errJson = await response.json();
+            errText = errJson.message || JSON.stringify(errJson);
+        } catch (e) {
+            errText = `HTTP Error ${response.status} (${response.statusText})`;
+        }
+        throw new Error(`Discord rechazó el webhook de eventos (${response.status}): ${errText}`);
+    }
+
+    return { success: true };
+}
+
+export async function sendEventToDiscord({
+    title,
+    description = '',
+    eventDate,
+    author = {},
+    forceSend = false
+}) {
+    try {
+        const config = await getDiscordEventsWebhookConfig();
+
+        if (!forceSend) {
+            if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('https://')) {
+                return { skipped: true };
+            }
+        }
+
+        const targetUrl = config.webhookUrl.trim();
+        const botAvatar = (config.botAvatar || '').trim() || SCUB_LOGO_URL;
+        const botName = (config.botName || '').trim() || DEFAULT_EVENTS_BOT_NAME;
+        const footerText = (config.footerText || '').trim() || DEFAULT_EVENTS_FOOTER_TEXT;
+        const customHeader = (config.customHeader || '').trim() || DEFAULT_EVENTS_HEADER_TEXT;
+        const formattedPing = formatRoleMention(config.rolePing);
+
+        const cleanDesc = formatHtmlToDiscordMarkdown(description || '');
+        const reminder = (config.reminderText !== undefined ? config.reminderText : DEFAULT_EVENTS_REMINDER_TEXT).trim();
+        let finalDescription = cleanDesc;
+        if (reminder) {
+            finalDescription = finalDescription ? `${finalDescription}\n\n*${reminder}*` : `*${reminder}*`;
+        }
+
+        let formattedDateStr = 'Fecha por determinar';
+        try {
+            const d = new Date(eventDate);
+            if (!isNaN(d.getTime())) {
+                formattedDateStr = d.toLocaleString('es-ES', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+        } catch (e) {}
+
+        const authorName = [author?.nombre, author?.apellido].filter(Boolean).join(' ') || 'Coordinación';
+        const authorRank = author?.rango ? `[${author.rango}]` : '';
+        const authorBadge = author?.no_placa ? `(#${author.no_placa})` : '';
+        const authorFull = `${authorRank} ${authorName} ${authorBadge}`.trim();
+
+        const embed = {
+            title: `📅 [EVENTO PROGRAMADO] ${title || 'Nuevo Evento'}`,
+            description: finalDescription || '*Sin descripción adicional.*',
+            color: 0x10B981, // Verde esmeralda para eventos de calendario
+            author: {
+                name: authorFull || 'Coordinación de SCUB',
+                icon_url: author?.profile_image || author?.avatar_url || botAvatar
+            },
+            fields: [
+                { name: '📅 Fecha & Hora del Evento', value: formattedDateStr, inline: true },
+                { name: '👤 Organizado por', value: authorFull || 'Personal Autorizado', inline: true }
+            ],
+            footer: {
+                text: footerText,
+                icon_url: botAvatar
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        let messageContent = undefined;
+        if (formattedPing) {
+            messageContent = `${formattedPing} 📅 **${customHeader}**`;
+        }
+
+        const payload = {
+            username: botName,
+            avatar_url: botAvatar,
+            content: messageContent,
+            allowed_mentions: {
+                parse: ['roles', 'users', 'everyone']
+            },
+            embeds: [embed]
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errText = '';
+            try {
+                const errJson = await response.json();
+                errText = errJson.message || JSON.stringify(errJson);
+            } catch (e) {
+                errText = `HTTP Error ${response.status} (${response.statusText})`;
+            }
+            console.error('Failed to send event to Discord:', errText);
+            return { success: false, error: errText };
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error in sendEventToDiscord:', err);
+        return { success: false, error: err.message };
+    }
+}
+

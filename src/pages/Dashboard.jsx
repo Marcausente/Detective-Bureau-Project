@@ -7,7 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { makeQuillModules, quillFormats } from '../utils/quillConfig';
-import { sendAnnouncementToDiscord } from '../utils/discordWebhook';
+import { sendAnnouncementToDiscord, sendEventToDiscord } from '../utils/discordWebhook';
 import '../index.css';
 
 // SwiftUI Vector SVG Icons
@@ -103,7 +103,7 @@ function Dashboard() {
     const [feedbackNotice, setFeedbackNotice] = useState(null);
 
     const [showEventModal, setShowEventModal] = useState(false);
-    const [newEvent, setNewEvent] = useState({ title: '', description: '', event_date: '' });
+    const [newEvent, setNewEvent] = useState({ title: '', description: '', event_date: '', sendToDiscord: true });
     const [submittingEvent, setSubmittingEvent] = useState(false);
 
     const [showCalendarModal, setShowCalendarModal] = useState(false);
@@ -372,8 +372,20 @@ function Dashboard() {
             });
             if (error) throw error;
 
+            if (newEvent.sendToDiscord !== false) {
+                sendEventToDiscord({
+                    title: newEvent.title,
+                    description: newEvent.description,
+                    eventDate: newEvent.event_date,
+                    author: user
+                }).catch(err => console.warn('Error enviando evento a Discord:', err));
+            }
+
             closeEventModal();
             fetchEvents();
+            if (showCalendarModal) {
+                fetchAllMonthEvents();
+            }
         } catch (err) {
             alert('Error al guardar evento: ' + err.message);
         } finally {
@@ -383,7 +395,7 @@ function Dashboard() {
 
     const closeEventModal = () => {
         setShowEventModal(false);
-        setNewEvent({ title: '', description: '', event_date: '' });
+        setNewEvent({ title: '', description: '', event_date: '', sendToDiscord: true });
     };
 
     const toggleEventRegistration = async (eventId) => {
@@ -962,6 +974,29 @@ function Dashboard() {
                                     onChange={e => setNewEvent({ ...newEvent, event_date: e.target.value })}
                                     required
                                 />
+                            </div>
+
+                            <div style={{
+                                marginTop: '1rem',
+                                padding: '0.75rem 1rem',
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                border: '1px solid rgba(16, 185, 129, 0.25)',
+                                borderRadius: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    id="event-send-discord-toggle"
+                                    checked={newEvent.sendToDiscord !== false}
+                                    onChange={(e) => setNewEvent(prev => ({ ...prev, sendToDiscord: e.target.checked }))}
+                                    style={{ width: '16px', height: '16px', accentColor: '#10b981', cursor: 'pointer' }}
+                                />
+                                <label htmlFor="event-send-discord-toggle" style={{ margin: 0, fontSize: '0.85rem', color: '#e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>📅</span>
+                                    <span>Publicar automáticamente aviso del evento en Discord</span>
+                                </label>
                             </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
