@@ -1,12 +1,50 @@
 import { supabase } from '../supabaseClient';
 
-const LOCAL_STORAGE_KEY = 'discord_announcements_webhook_cfg_v2';
+const LOCAL_STORAGE_KEY_ANNOUNCEMENTS = 'discord_announcements_webhook_cfg_v2';
+const LOCAL_STORAGE_KEY_PRACTICES = 'discord_practices_webhook_cfg_v2';
 
 export const SCUB_LOGO_URL = 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/scub_logo.png';
+export const DTP_LOGO_URL = 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/dtp_logo.png';
+
+// Defaults for Announcements
 export const DEFAULT_BOT_NAME = 'SCUB • Sheriff Criminal Unit Bureau';
 export const DEFAULT_HEADER_TEXT = 'Nueva publicación en la BBDD de la SCUB';
 export const DEFAULT_FOOTER_TEXT = 'SCUB • Sheriff Criminal Unit Bureau';
 export const DEFAULT_REMINDER_TEXT = 'Confirmad lectura en la propia Base de Datos.';
+
+// Defaults for Practices
+export const DEFAULT_PRACTICES_BOT_NAME = 'DTP • Detective Training Program';
+export const DEFAULT_PRACTICES_HEADER_TEXT = 'Convocatoria de Práctica / Instrucción Oficial';
+export const DEFAULT_PRACTICES_FOOTER_TEXT = 'DTP • Detective Training Program';
+export const DEFAULT_PRACTICES_REMINDER_TEXT = 'Confirmad asistencia inscribiéndoos en el apartado de Formación.';
+
+/**
+ * Automatically format and normalize role mentions for Discord
+ * Converts <@1306619156052967471>, @1306619156052967471, or just 1306619156052967471 to <@&1306619156052967471>
+ */
+export function formatRoleMention(input) {
+    if (!input || typeof input !== 'string') return '';
+    const trimmed = input.trim();
+    if (!trimmed) return '';
+
+    if (trimmed === '@everyone' || trimmed === '@here') return trimmed;
+
+    // Already correct role mention <@&1234567890>
+    if (/^<@&\d+>$/.test(trimmed)) return trimmed;
+
+    // User tag format <@1234567890> mistakenly used for role -> fix to <@&1234567890>
+    const matchUserTag = trimmed.match(/^<@!?(\d+)>$/);
+    if (matchUserTag) return `<@&${matchUserTag[1]}>`;
+
+    // Starts with @ or & followed by digits
+    const matchAtNumber = trimmed.match(/^[@&](\d+)$/);
+    if (matchAtNumber) return `<@&${matchAtNumber[1]}>`;
+
+    // Only numbers (Discord Snowflake ID length 15-22 digits)
+    if (/^\d{15,22}$/.test(trimmed)) return `<@&${trimmed}>`;
+
+    return trimmed;
+}
 
 /**
  * Clean & convert HTML content from ReactQuill to Discord Markdown
@@ -70,9 +108,10 @@ export function formatHtmlToDiscordMarkdown(html) {
     return text;
 }
 
-/**
- * Fetch Discord Webhook settings from DB (or fallback to local cache)
- */
+// ==============================================================================
+// 1. ANNOUNCEMENTS DISCORD WEBHOOK FUNCTIONS
+// ==============================================================================
+
 export async function getDiscordWebhookConfig() {
     const defaultConfig = {
         webhookUrl: '',
@@ -86,13 +125,12 @@ export async function getDiscordWebhookConfig() {
     };
 
     try {
-        // Try calling RPC first
         const { data, error } = await supabase.rpc('get_discord_webhook_config');
         if (!error && data) {
             const config = {
                 webhookUrl: data.webhook_url || '',
                 enabled: !!data.enabled,
-                rolePing: data.role_ping || '',
+                rolePing: formatRoleMention(data.role_ping || ''),
                 botName: data.bot_name || DEFAULT_BOT_NAME,
                 botAvatar: data.bot_avatar || SCUB_LOGO_URL,
                 footerText: data.footer_text || DEFAULT_FOOTER_TEXT,
@@ -100,14 +138,11 @@ export async function getDiscordWebhookConfig() {
                 reminderText: data.reminder_text !== undefined ? data.reminder_text : DEFAULT_REMINDER_TEXT
             };
             try {
-                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
-            } catch (e) {
-                // ignore storage error
-            }
+                localStorage.setItem(LOCAL_STORAGE_KEY_ANNOUNCEMENTS, JSON.stringify(config));
+            } catch (e) {}
             return config;
         }
 
-        // Fallback: direct table query
         const { data: rows, error: tableError } = await supabase
             .from('app_settings')
             .select('key, value')
@@ -129,7 +164,7 @@ export async function getDiscordWebhookConfig() {
             const config = {
                 webhookUrl: configMap['discord_announcements_webhook_url'] || '',
                 enabled: configMap['discord_announcements_webhook_enabled'] === 'true',
-                rolePing: configMap['discord_announcements_webhook_role_ping'] || '',
+                rolePing: formatRoleMention(configMap['discord_announcements_webhook_role_ping'] || ''),
                 botName: configMap['discord_announcements_bot_name'] || DEFAULT_BOT_NAME,
                 botAvatar: configMap['discord_announcements_bot_avatar'] || SCUB_LOGO_URL,
                 footerText: configMap['discord_announcements_footer_text'] || DEFAULT_FOOTER_TEXT,
@@ -137,32 +172,22 @@ export async function getDiscordWebhookConfig() {
                 reminderText: configMap['discord_announcements_reminder_text'] !== undefined ? configMap['discord_announcements_reminder_text'] : DEFAULT_REMINDER_TEXT
             };
             try {
-                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(config));
-            } catch (e) {
-                // ignore
-            }
+                localStorage.setItem(LOCAL_STORAGE_KEY_ANNOUNCEMENTS, JSON.stringify(config));
+            } catch (e) {}
             return config;
         }
     } catch (err) {
-        console.warn('Could not load discord webhook config from DB, checking local storage:', err);
+        console.warn('Could not load announcements webhook config:', err);
     }
 
-    // Fallback to localStorage
     try {
-        const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (cached) {
-            return { ...defaultConfig, ...JSON.parse(cached) };
-        }
-    } catch (e) {
-        // ignore
-    }
+        const cached = localStorage.getItem(LOCAL_STORAGE_KEY_ANNOUNCEMENTS);
+        if (cached) return { ...defaultConfig, ...JSON.parse(cached) };
+    } catch (e) {}
 
     return defaultConfig;
 }
 
-/**
- * Save Discord Webhook settings
- */
 export async function saveDiscordWebhookConfig({
     webhookUrl,
     enabled,
@@ -174,7 +199,7 @@ export async function saveDiscordWebhookConfig({
     reminderText = DEFAULT_REMINDER_TEXT
 }) {
     const cleanUrl = (webhookUrl || '').trim();
-    const cleanPing = (rolePing || '').trim();
+    const cleanPing = formatRoleMention(rolePing);
     const isEnabled = Boolean(enabled);
     const cleanBotName = (botName || DEFAULT_BOT_NAME).trim();
     const cleanBotAvatar = (botAvatar || SCUB_LOGO_URL).trim();
@@ -183,7 +208,6 @@ export async function saveDiscordWebhookConfig({
     const cleanReminder = (reminderText !== undefined ? reminderText : DEFAULT_REMINDER_TEXT).trim();
 
     try {
-        // Try RPC
         const { error } = await supabase.rpc('save_discord_webhook_config', {
             p_webhook_url: cleanUrl,
             p_enabled: isEnabled,
@@ -196,7 +220,6 @@ export async function saveDiscordWebhookConfig({
         });
 
         if (error) {
-            // Fallback direct upserts
             await supabase.from('app_settings').upsert([
                 { key: 'discord_announcements_webhook_url', value: cleanUrl, updated_at: new Date().toISOString() },
                 { key: 'discord_announcements_webhook_enabled', value: isEnabled ? 'true' : 'false', updated_at: new Date().toISOString() },
@@ -221,10 +244,8 @@ export async function saveDiscordWebhookConfig({
         };
 
         try {
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newConfig));
-        } catch (e) {
-            // ignore
-        }
+            localStorage.setItem(LOCAL_STORAGE_KEY_ANNOUNCEMENTS, JSON.stringify(newConfig));
+        } catch (e) {}
 
         return { success: true, config: newConfig };
     } catch (err) {
@@ -233,9 +254,6 @@ export async function saveDiscordWebhookConfig({
     }
 }
 
-/**
- * Test sending a message to the provided Webhook URL
- */
 export async function testDiscordWebhook({
     webhookUrl,
     rolePing = '',
@@ -254,10 +272,11 @@ export async function testDiscordWebhook({
     const footer = (footerText || '').trim() || DEFAULT_FOOTER_TEXT;
     const header = (customHeader || '').trim() || DEFAULT_HEADER_TEXT;
     const reminder = (reminderText !== undefined ? reminderText : DEFAULT_REMINDER_TEXT).trim();
+    const formattedPing = formatRoleMention(rolePing);
 
     let contentMessage = undefined;
-    if (rolePing && rolePing.trim()) {
-        contentMessage = `${rolePing.trim()} 🔔 **Notificación de Prueba de Coordinación**\n*${header}*`;
+    if (formattedPing) {
+        contentMessage = `${formattedPing} 🔔 **Notificación de Prueba de Coordinación**\n*${header}*`;
     }
 
     const reminderMarkdown = reminder ? `\n\n*${reminder}*` : '';
@@ -266,32 +285,20 @@ export async function testDiscordWebhook({
         username: name,
         avatar_url: avatar,
         content: contentMessage,
+        allowed_mentions: {
+            parse: ['roles', 'users', 'everyone']
+        },
         embeds: [
             {
                 title: '🧪 Prueba de Conexión de Webhook Exitosa',
-                description: `Este es un mensaje de prueba enviado desde el **Panel de Coordinación** con los parámetros personalizados.\n\nEl sistema de webhooks está correctamente configurado y listo para retransmitir los comunicados y avisos oficiales que se publiquen en el Dashboard.${reminderMarkdown}`,
+                description: `Este es un mensaje de prueba enviado desde el **Panel de Coordinación** para el tablón de anuncios.\n\nEl servicio está correctamente configurado y transmitirá los anuncios oficiales publicados en el Dashboard.${reminderMarkdown}`,
                 color: 0x10B981, // Verde esmeralda
                 fields: [
-                    {
-                        name: '📊 Estado',
-                        value: '✅ Conexión establecida y verificada',
-                        inline: true
-                    },
-                    {
-                        name: '🤖 Nombre de Bot',
-                        value: `\`${name}\``,
-                        inline: true
-                    },
-                    {
-                        name: '🎯 Destino de mención',
-                        value: rolePing ? `\`${rolePing}\`` : '*Sin mención de rol*',
-                        inline: false
-                    }
+                    { name: '📊 Estado', value: '✅ Conexión verificada', inline: true },
+                    { name: '🤖 Nombre de Bot', value: `\`${name}\``, inline: true },
+                    { name: '🎯 Mención', value: formattedPing ? `\`${formattedPing}\`` : '*Sin mención*', inline: false }
                 ],
-                footer: {
-                    text: footer,
-                    icon_url: avatar
-                },
+                footer: { text: footer, icon_url: avatar },
                 timestamp: new Date().toISOString()
             }
         ]
@@ -299,9 +306,7 @@ export async function testDiscordWebhook({
 
     const response = await fetch(webhookUrl.trim(), {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
 
@@ -319,31 +324,18 @@ export async function testDiscordWebhook({
     return { success: true };
 }
 
-/**
- * Send an announcement to Discord via Webhook
- */
 export async function sendAnnouncementToDiscord({ title, content, pinned, images = [], author = {}, forceSend = false }) {
     try {
         const config = await getDiscordWebhookConfig();
 
         if (!forceSend) {
-            if (!config.enabled) {
-                console.log('Discord webhook disabled in settings, skipping notification.');
-                return { skipped: true, reason: 'disabled' };
-            }
-            if (!config.webhookUrl || !config.webhookUrl.trim().startsWith('https://')) {
-                console.log('No valid Discord webhook URL configured, skipping notification.');
-                return { skipped: true, reason: 'no_url' };
+            if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('https://')) {
+                return { skipped: true };
             }
         }
 
         const targetUrl = config.webhookUrl.trim();
-        if (!targetUrl.startsWith('https://')) {
-            throw new Error('URL de webhook no válida');
-        }
-
         const cleanMarkdown = formatHtmlToDiscordMarkdown(content);
-        // Truncate to Discord limit (embed description is max 4096 chars)
         const maxDescLength = 3800;
         let finalDescription = cleanMarkdown.length > maxDescLength
             ? cleanMarkdown.substring(0, maxDescLength) + '\n\n*... [Texto truncado por longitud. Ver anuncio completo en la BBDD]*'
@@ -358,13 +350,14 @@ export async function sendAnnouncementToDiscord({ title, content, pinned, images
         const authorRank = author?.rango ? `[${author.rango}]` : '';
         const authorFull = `${authorRank} ${authorName}`.trim();
 
-        const embedColor = pinned ? 0xF59E0B : 0x3B82F6; // Ámbar si está fijado, Azul si es estándar
+        const embedColor = pinned ? 0xF59E0B : 0x3B82F6;
         const embedTitle = pinned ? `📌 [COMUNICADO OFICIAL FIJADO] ${title}` : `📢 ${title}`;
 
         const botAvatar = (config.botAvatar || '').trim() || SCUB_LOGO_URL;
         const botName = (config.botName || '').trim() || DEFAULT_BOT_NAME;
         const footerText = (config.footerText || '').trim() || DEFAULT_FOOTER_TEXT;
         const customHeader = (config.customHeader || '').trim() || DEFAULT_HEADER_TEXT;
+        const formattedPing = formatRoleMention(config.rolePing);
 
         const embed = {
             title: embedTitle,
@@ -381,14 +374,10 @@ export async function sendAnnouncementToDiscord({ title, content, pinned, images
             timestamp: new Date().toISOString()
         };
 
-        // Attach first image if available
         if (images && images.length > 0 && typeof images[0] === 'string' && images[0].startsWith('http')) {
-            embed.image = {
-                url: images[0]
-            };
+            embed.image = { url: images[0] };
         }
 
-        // If there are additional images, list them in a field or as links
         if (images && images.length > 1) {
             const extraImages = images.slice(1).filter(img => typeof img === 'string' && img.startsWith('http'));
             if (extraImages.length > 0) {
@@ -403,22 +392,23 @@ export async function sendAnnouncementToDiscord({ title, content, pinned, images
         }
 
         let messageContent = undefined;
-        if (config.rolePing && config.rolePing.trim()) {
-            messageContent = `${config.rolePing.trim()} 📢 **${customHeader}**`;
+        if (formattedPing) {
+            messageContent = `${formattedPing} 📢 **${customHeader}**`;
         }
 
         const payload = {
             username: botName,
             avatar_url: botAvatar,
             content: messageContent,
+            allowed_mentions: {
+                parse: ['roles', 'users', 'everyone']
+            },
             embeds: [embed]
         };
 
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
@@ -437,6 +427,362 @@ export async function sendAnnouncementToDiscord({ title, content, pinned, images
         return { success: true };
     } catch (err) {
         console.error('Error in sendAnnouncementToDiscord:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+// ==============================================================================
+// 2. PRACTICES (DTP) DISCORD WEBHOOK FUNCTIONS
+// ==============================================================================
+
+export async function getDiscordPracticesWebhookConfig() {
+    const defaultConfig = {
+        webhookUrl: '',
+        enabled: false,
+        rolePing: '',
+        botName: DEFAULT_PRACTICES_BOT_NAME,
+        botAvatar: DTP_LOGO_URL,
+        footerText: DEFAULT_PRACTICES_FOOTER_TEXT,
+        customHeader: DEFAULT_PRACTICES_HEADER_TEXT,
+        reminderText: DEFAULT_PRACTICES_REMINDER_TEXT
+    };
+
+    try {
+        const { data, error } = await supabase.rpc('get_discord_practices_webhook_config');
+        if (!error && data) {
+            const config = {
+                webhookUrl: data.webhook_url || '',
+                enabled: !!data.enabled,
+                rolePing: formatRoleMention(data.role_ping || ''),
+                botName: data.bot_name || DEFAULT_PRACTICES_BOT_NAME,
+                botAvatar: data.bot_avatar || DTP_LOGO_URL,
+                footerText: data.footer_text || DEFAULT_PRACTICES_FOOTER_TEXT,
+                customHeader: data.custom_header || DEFAULT_PRACTICES_HEADER_TEXT,
+                reminderText: data.reminder_text !== undefined ? data.reminder_text : DEFAULT_PRACTICES_REMINDER_TEXT
+            };
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY_PRACTICES, JSON.stringify(config));
+            } catch (e) {}
+            return config;
+        }
+
+        const { data: rows, error: tableError } = await supabase
+            .from('app_settings')
+            .select('key, value')
+            .in('key', [
+                'discord_practices_webhook_url',
+                'discord_practices_webhook_enabled',
+                'discord_practices_webhook_role_ping',
+                'discord_practices_bot_name',
+                'discord_practices_bot_avatar',
+                'discord_practices_footer_text',
+                'discord_practices_custom_header',
+                'discord_practices_reminder_text'
+            ]);
+
+        if (!tableError && rows && rows.length > 0) {
+            const configMap = {};
+            rows.forEach(r => { configMap[r.key] = r.value; });
+
+            const config = {
+                webhookUrl: configMap['discord_practices_webhook_url'] || '',
+                enabled: configMap['discord_practices_webhook_enabled'] === 'true',
+                rolePing: formatRoleMention(configMap['discord_practices_webhook_role_ping'] || ''),
+                botName: configMap['discord_practices_bot_name'] || DEFAULT_PRACTICES_BOT_NAME,
+                botAvatar: configMap['discord_practices_bot_avatar'] || DTP_LOGO_URL,
+                footerText: configMap['discord_practices_footer_text'] || DEFAULT_PRACTICES_FOOTER_TEXT,
+                customHeader: configMap['discord_practices_custom_header'] || DEFAULT_PRACTICES_HEADER_TEXT,
+                reminderText: configMap['discord_practices_reminder_text'] !== undefined ? configMap['discord_practices_reminder_text'] : DEFAULT_PRACTICES_REMINDER_TEXT
+            };
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY_PRACTICES, JSON.stringify(config));
+            } catch (e) {}
+            return config;
+        }
+    } catch (err) {
+        console.warn('Could not load practices webhook config:', err);
+    }
+
+    try {
+        const cached = localStorage.getItem(LOCAL_STORAGE_KEY_PRACTICES);
+        if (cached) return { ...defaultConfig, ...JSON.parse(cached) };
+    } catch (e) {}
+
+    return defaultConfig;
+}
+
+export async function saveDiscordPracticesWebhookConfig({
+    webhookUrl,
+    enabled,
+    rolePing = '',
+    botName = DEFAULT_PRACTICES_BOT_NAME,
+    botAvatar = DTP_LOGO_URL,
+    footerText = DEFAULT_PRACTICES_FOOTER_TEXT,
+    customHeader = DEFAULT_PRACTICES_HEADER_TEXT,
+    reminderText = DEFAULT_PRACTICES_REMINDER_TEXT
+}) {
+    const cleanUrl = (webhookUrl || '').trim();
+    const cleanPing = formatRoleMention(rolePing);
+    const isEnabled = Boolean(enabled);
+    const cleanBotName = (botName || DEFAULT_PRACTICES_BOT_NAME).trim();
+    const cleanBotAvatar = (botAvatar || DTP_LOGO_URL).trim();
+    const cleanFooterText = (footerText || DEFAULT_PRACTICES_FOOTER_TEXT).trim();
+    const cleanHeader = (customHeader || DEFAULT_PRACTICES_HEADER_TEXT).trim();
+    const cleanReminder = (reminderText !== undefined ? reminderText : DEFAULT_PRACTICES_REMINDER_TEXT).trim();
+
+    try {
+        const { error } = await supabase.rpc('save_discord_practices_webhook_config', {
+            p_webhook_url: cleanUrl,
+            p_enabled: isEnabled,
+            p_role_ping: cleanPing,
+            p_bot_name: cleanBotName,
+            p_bot_avatar: cleanBotAvatar,
+            p_footer_text: cleanFooterText,
+            p_custom_header: cleanHeader,
+            p_reminder_text: cleanReminder
+        });
+
+        if (error) {
+            await supabase.from('app_settings').upsert([
+                { key: 'discord_practices_webhook_url', value: cleanUrl, updated_at: new Date().toISOString() },
+                { key: 'discord_practices_webhook_enabled', value: isEnabled ? 'true' : 'false', updated_at: new Date().toISOString() },
+                { key: 'discord_practices_webhook_role_ping', value: cleanPing, updated_at: new Date().toISOString() },
+                { key: 'discord_practices_bot_name', value: cleanBotName, updated_at: new Date().toISOString() },
+                { key: 'discord_practices_bot_avatar', value: cleanBotAvatar, updated_at: new Date().toISOString() },
+                { key: 'discord_practices_footer_text', value: cleanFooterText, updated_at: new Date().toISOString() },
+                { key: 'discord_practices_custom_header', value: cleanHeader, updated_at: new Date().toISOString() },
+                { key: 'discord_practices_reminder_text', value: cleanReminder, updated_at: new Date().toISOString() }
+            ]);
+        }
+
+        const newConfig = {
+            webhookUrl: cleanUrl,
+            enabled: isEnabled,
+            rolePing: cleanPing,
+            botName: cleanBotName,
+            botAvatar: cleanBotAvatar,
+            footerText: cleanFooterText,
+            customHeader: cleanHeader,
+            reminderText: cleanReminder
+        };
+
+        try {
+            localStorage.setItem(LOCAL_STORAGE_KEY_PRACTICES, JSON.stringify(newConfig));
+        } catch (e) {}
+
+        return { success: true, config: newConfig };
+    } catch (err) {
+        console.error('Error saving discord practices webhook config:', err);
+        throw err;
+    }
+}
+
+export async function testDiscordPracticesWebhook({
+    webhookUrl,
+    rolePing = '',
+    botName = DEFAULT_PRACTICES_BOT_NAME,
+    botAvatar = DTP_LOGO_URL,
+    footerText = DEFAULT_PRACTICES_FOOTER_TEXT,
+    customHeader = DEFAULT_PRACTICES_HEADER_TEXT,
+    reminderText = DEFAULT_PRACTICES_REMINDER_TEXT
+}) {
+    if (!webhookUrl || !webhookUrl.trim().startsWith('https://')) {
+        throw new Error('La URL del webhook debe ser una URL válida que comience con https://');
+    }
+
+    const avatar = (botAvatar || '').trim() || DTP_LOGO_URL;
+    const name = (botName || '').trim() || DEFAULT_PRACTICES_BOT_NAME;
+    const footer = (footerText || '').trim() || DEFAULT_PRACTICES_FOOTER_TEXT;
+    const header = (customHeader || '').trim() || DEFAULT_PRACTICES_HEADER_TEXT;
+    const reminder = (reminderText !== undefined ? reminderText : DEFAULT_PRACTICES_REMINDER_TEXT).trim();
+    const formattedPing = formatRoleMention(rolePing);
+
+    let contentMessage = undefined;
+    if (formattedPing) {
+        contentMessage = `${formattedPing} 🔔 **${header}**`;
+    }
+
+    const reminderMarkdown = reminder ? `\n\n*${reminder}*` : '';
+
+    const payload = {
+        username: name,
+        avatar_url: avatar,
+        content: contentMessage,
+        allowed_mentions: {
+            parse: ['roles', 'users', 'everyone']
+        },
+        embeds: [
+            {
+                title: '🎯 [PRÁCTICA DTP] Instrucción de Tiro & Balística de Combate',
+                description: `Se convoca a todos los aspirantes y detectives a la sesión de instrucción técnica en campo de tiro y análisis de calibres.${reminderMarkdown}`,
+                color: 0xF59E0B, // Dorado / Ámbar
+                fields: [
+                    { name: '📅 Fecha & Hora', value: 'Viernes 26/09/2026 • 20:00', inline: true },
+                    { name: '👮 Instructor Principal', value: '[Sargento] James Miller (#104)', inline: true },
+                    { name: '📋 Modalidad', value: 'Instrucción Práctica Obligatoria', inline: true },
+                    { name: '👥 Instructores de Apoyo', value: '• Detective Sarah Connor\n• Detective Alex Murphy', inline: false }
+                ],
+                footer: { text: footer, icon_url: avatar },
+                timestamp: new Date().toISOString()
+            }
+        ]
+    };
+
+    const response = await fetch(webhookUrl.trim(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        let errText = '';
+        try {
+            const errJson = await response.json();
+            errText = errJson.message || JSON.stringify(errJson);
+        } catch (e) {
+            errText = `HTTP Error ${response.status} (${response.statusText})`;
+        }
+        throw new Error(`Discord rechazó el webhook de prácticas (${response.status}): ${errText}`);
+    }
+
+    return { success: true };
+}
+
+export async function sendPracticeToDiscord({
+    practiceTitle,
+    practiceType = '',
+    practiceDescription = '',
+    eventDate,
+    eventTime = '',
+    organizer = {},
+    instructors = [],
+    notes = '',
+    forceSend = false
+}) {
+    try {
+        const config = await getDiscordPracticesWebhookConfig();
+
+        if (!forceSend) {
+            if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('https://')) {
+                return { skipped: true };
+            }
+        }
+
+        const targetUrl = config.webhookUrl.trim();
+        const botAvatar = (config.botAvatar || '').trim() || DTP_LOGO_URL;
+        const botName = (config.botName || '').trim() || DEFAULT_PRACTICES_BOT_NAME;
+        const footerText = (config.footerText || '').trim() || DEFAULT_PRACTICES_FOOTER_TEXT;
+        const customHeader = (config.customHeader || '').trim() || DEFAULT_PRACTICES_HEADER_TEXT;
+        const formattedPing = formatRoleMention(config.rolePing);
+
+        // Clean & format descriptions
+        const cleanDesc = formatHtmlToDiscordMarkdown(practiceDescription || '');
+        const cleanNotes = formatHtmlToDiscordMarkdown(notes || '');
+
+        let fullDescription = '';
+        if (cleanDesc) fullDescription += cleanDesc;
+        if (cleanNotes) {
+            fullDescription += (fullDescription ? '\n\n**Observaciones / Instrucciones:**\n' : '**Observaciones / Instrucciones:**\n') + cleanNotes;
+        }
+
+        const reminder = (config.reminderText !== undefined ? config.reminderText : DEFAULT_PRACTICES_REMINDER_TEXT).trim();
+        if (reminder) {
+            fullDescription = fullDescription ? `${fullDescription}\n\n*${reminder}*` : `*${reminder}*`;
+        }
+
+        // Format Date string
+        let formattedDate = eventDate;
+        try {
+            const d = new Date(eventDate);
+            if (!isNaN(d.getTime())) {
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const year = d.getFullYear();
+                formattedDate = `${day}/${month}/${year}`;
+                if (eventTime) {
+                    formattedDate += ` • ${eventTime}`;
+                }
+            }
+        } catch (e) {}
+
+        const organizerName = [organizer?.nombre, organizer?.apellido].filter(Boolean).join(' ') || 'Instructor DTP';
+        const organizerRank = organizer?.rango ? `[${organizer.rango}]` : '';
+        const organizerBadge = organizer?.no_placa ? `(#${organizer.no_placa})` : '';
+        const organizerFull = `${organizerRank} ${organizerName} ${organizerBadge}`.trim();
+
+        const fields = [
+            { name: '📅 Fecha y Hora', value: formattedDate || 'Por determinar', inline: true },
+            { name: '👮 Instructor Principal', value: organizerFull, inline: true }
+        ];
+
+        if (practiceType) {
+            fields.push({ name: '📋 Tipo de Práctica', value: practiceType, inline: true });
+        }
+
+        if (instructors && instructors.length > 0) {
+            const instList = instructors.map(inst => {
+                const name = typeof inst === 'string' ? inst : [inst?.nombre, inst?.apellido].filter(Boolean).join(' ');
+                const badge = inst?.no_placa ? `(#${inst.no_placa})` : '';
+                return `• ${name} ${badge}`.trim();
+            }).join('\n');
+
+            if (instList) {
+                fields.push({ name: '👥 Instructores de Apoyo', value: instList, inline: false });
+            }
+        }
+
+        const embed = {
+            title: `🎯 [CONVOCATORIA PRÁCTICA] ${practiceTitle || 'Práctica Oficial de Formación'}`,
+            description: fullDescription || '*Convocatoria de práctica emitida por el equipo de instrucción.*',
+            color: 0xF59E0B, // Color ámbar / dorado de DTP
+            author: {
+                name: organizerFull || 'DTP • Detective Training Program',
+                icon_url: organizer?.profile_image || organizer?.avatar_url || botAvatar
+            },
+            fields: fields,
+            footer: {
+                text: footerText,
+                icon_url: botAvatar
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        let messageContent = undefined;
+        if (formattedPing) {
+            messageContent = `${formattedPing} 🎯 **${customHeader}**`;
+        }
+
+        const payload = {
+            username: botName,
+            avatar_url: botAvatar,
+            content: messageContent,
+            allowed_mentions: {
+                parse: ['roles', 'users', 'everyone']
+            },
+            embeds: [embed]
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errText = '';
+            try {
+                const errJson = await response.json();
+                errText = errJson.message || JSON.stringify(errJson);
+            } catch (e) {
+                errText = `HTTP Error ${response.status} (${response.statusText})`;
+            }
+            console.error('Failed to send practice to Discord:', errText);
+            return { success: false, error: errText };
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error in sendPracticeToDiscord:', err);
         return { success: false, error: err.message };
     }
 }

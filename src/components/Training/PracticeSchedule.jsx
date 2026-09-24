@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { dtpService } from '../../services/dtpService';
+import { sendPracticeToDiscord } from '../../utils/discordWebhook';
 import '../../pages/Training/Training.css'; // Shared premium styles
 
 function PracticeSchedule({ userProfile }) {
@@ -25,7 +26,8 @@ function PracticeSchedule({ userProfile }) {
         event_time: '',
         organizer_id: '',
         notes: '',
-        selectedInstructors: []
+        selectedInstructors: [],
+        sendToDiscord: true
     });
 
     const [editAttendees, setEditAttendees] = useState({
@@ -230,6 +232,24 @@ function PracticeSchedule({ userProfile }) {
                     dtpService.registerAttendee(createdEvent.id, id, true)
                 );
                 await Promise.all(instructorPromises);
+            }
+
+            // Enviar notificación a Discord si está habilitado
+            if (formData.sendToDiscord !== false) {
+                const selectedPractice = practices.find(p => p.id === formData.practice_id);
+                const organizer = users.find(u => u.id === formData.organizer_id);
+                const instructors = users.filter(u => (formData.selectedInstructors || []).includes(u.id));
+                
+                sendPracticeToDiscord({
+                    practiceTitle: selectedPractice?.title,
+                    practiceType: selectedPractice?.type,
+                    practiceDescription: selectedPractice?.description,
+                    eventDate: formData.event_date,
+                    eventTime: formData.event_time,
+                    organizer,
+                    instructors,
+                    notes: formData.notes
+                }).catch(err => console.warn('Error enviando práctica a Discord:', err));
             }
             
             setSuccessMessage('Práctica programada con éxito.');
@@ -625,6 +645,30 @@ const detectives = users.filter(u => u.rol && u.rol.toLowerCase() !== 'externo')
                                     placeholder="Ej: Comisaría de Mission Row, Uniforme ordinario..."
                                     style={{ width: '100%', background: 'rgba(15, 23, 42, 0.75)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '10px', color: '#ffffff', fontSize: '0.88rem', padding: '0.65rem 0.9rem', boxSizing: 'border-box' }}
                                 />
+                            </div>
+
+                            <div style={{
+                                marginTop: '1rem',
+                                padding: '0.75rem 1rem',
+                                background: 'rgba(99, 102, 241, 0.1)',
+                                border: '1px solid rgba(99, 102, 241, 0.25)',
+                                borderRadius: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px'
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    id="practice-send-discord-toggle"
+                                    name="sendToDiscord"
+                                    checked={formData.sendToDiscord !== false}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, sendToDiscord: e.target.checked }))}
+                                    style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
+                                />
+                                <label htmlFor="practice-send-discord-toggle" style={{ margin: 0, fontSize: '0.85rem', color: '#e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>📢</span>
+                                    <span>Publicar automáticamente convocatoria en el Discord del DTP</span>
+                                </label>
                             </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.12)', paddingTop: '1rem' }}>
