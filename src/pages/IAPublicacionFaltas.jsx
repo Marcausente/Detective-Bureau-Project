@@ -1144,29 +1144,97 @@ export default function IAPublicacionFaltas() {
                         </div>
 
                         {/* Bot Name & Avatar */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '1.25rem' }}>
-                            <div>
-                                <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                                    Nombre del Bot
-                                </label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    value={webhookConfig.botName}
-                                    onChange={e => setWebhookConfig({ ...webhookConfig, botName: e.target.value })}
+                        <div style={{ marginBottom: '1.25rem' }}>
+                            <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem', color: '#cbd5e1' }}>
+                                Nombre del Bot
+                            </label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={webhookConfig.botName}
+                                onChange={e => setWebhookConfig({ ...webhookConfig, botName: e.target.value })}
+                            />
+                        </div>
+
+                        {/* Bot Avatar Section */}
+                        <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '1rem', borderRadius: '10px', marginBottom: '1.25rem', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                            <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '0.5rem', display: 'block' }}>
+                                🛡️ Avatar Oficial del Bot
+                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                                <img
+                                    src={webhookConfig.botAvatar || IA_LOGO_URL}
+                                    alt="Bot Avatar"
+                                    style={{
+                                        width: '56px',
+                                        height: '56px',
+                                        borderRadius: '50%',
+                                        objectFit: 'cover',
+                                        border: '2px solid #ef4444',
+                                        boxShadow: '0 0 10px rgba(239, 68, 68, 0.35)'
+                                    }}
+                                    onError={(e) => { e.target.src = '/logowebp/ialogo.webp'; }}
                                 />
-                            </div>
-                            <div>
-                                <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                                    URL Avatar del Bot
-                                </label>
-                                <input
-                                    type="url"
-                                    className="form-input"
-                                    placeholder="https://..."
-                                    value={webhookConfig.botAvatar}
-                                    onChange={e => setWebhookConfig({ ...webhookConfig, botAvatar: e.target.value })}
-                                />
+                                <div style={{ flex: 1, minWidth: '220px' }}>
+                                    <input
+                                        type="url"
+                                        className="form-input"
+                                        placeholder="https://..."
+                                        value={webhookConfig.botAvatar || IA_LOGO_URL}
+                                        onChange={e => setWebhookConfig({ ...webhookConfig, botAvatar: e.target.value })}
+                                        style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem', marginBottom: '6px' }}
+                                    />
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setWebhookConfig({ ...webhookConfig, botAvatar: IA_LOGO_URL })}
+                                            style={{
+                                                padding: '4px 10px',
+                                                borderRadius: '6px',
+                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                border: '1px solid rgba(239, 68, 68, 0.35)',
+                                                color: '#f87171',
+                                                fontSize: '0.72rem',
+                                                cursor: 'pointer',
+                                                fontWeight: '600'
+                                            }}
+                                        >
+                                            🛡️ Restablecer Logo Oficial IA
+                                        </button>
+                                        <label style={{
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            background: 'rgba(255, 255, 255, 0.08)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            color: '#cbd5e1',
+                                            fontSize: '0.72rem',
+                                            cursor: 'pointer',
+                                            fontWeight: '600',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                style={{ display: 'none' }}
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        try {
+                                                            const url = await uploadImageToStorage(file, 'system');
+                                                            setWebhookConfig({ ...webhookConfig, botAvatar: url });
+                                                            showSuccess('Avatar subido con éxito.');
+                                                        } catch (err) {
+                                                            showError('Error al subir avatar: ' + err.message);
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                            <span>📁 Subir Avatar Personalizado</span>
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

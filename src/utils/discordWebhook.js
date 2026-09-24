@@ -1237,7 +1237,7 @@ export async function getDiscordIASanctionsWebhookConfig() {
         enabled: false,
         rolePing: '',
         botName: DEFAULT_IA_BOT_NAME,
-        botAvatar: '',
+        botAvatar: IA_LOGO_URL,
         footerText: DEFAULT_IA_FOOTER_TEXT,
         customHeader: 'MOTIVO: {motivo}',
         reminderText: ''
@@ -1251,7 +1251,7 @@ export async function getDiscordIASanctionsWebhookConfig() {
                 enabled: !!data.enabled,
                 rolePing: data.role_ping || '',
                 botName: data.bot_name || DEFAULT_IA_BOT_NAME,
-                botAvatar: data.bot_avatar || '',
+                botAvatar: data.bot_avatar || IA_LOGO_URL,
                 footerText: data.footer_text || DEFAULT_IA_FOOTER_TEXT,
                 customHeader: data.custom_header || 'MOTIVO: {motivo}',
                 reminderText: data.reminder_text || ''
