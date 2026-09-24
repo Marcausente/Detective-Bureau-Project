@@ -4657,7 +4657,7 @@ function PatrolMatrix({ logs, onSelectLog }) {
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem' }}>
                                 <span style={{ color: '#eab308', fontWeight: 800 }}>⚡ Momento Óptimo Recomendado:</span>
-                                <span style={{ color: '#ffffff', fontWeight: 800, background: '#eab308', color: '#000', padding: '0.1rem 0.5rem', borderRadius: '4px' }}>
+                                <span style={{ fontWeight: 800, background: '#eab308', color: '#000', padding: '0.1rem 0.5rem', borderRadius: '4px' }}>
                                     {bestRaidHour.timeLabel}
                                 </span>
                                 <span style={{ color: '#cbd5e1' }}>
