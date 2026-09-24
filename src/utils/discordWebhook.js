@@ -1174,3 +1174,388 @@ export async function sendEventToDiscord({
     }
 }
 
+// ==============================================================================
+// 4. INTERNAL AFFAIRS (IA) SANCTIONS DISCORD WEBHOOK & BANNERS INTEGRATION
+// ==============================================================================
+
+const LOCAL_STORAGE_KEY_IA_SANCTIONS = 'discord_ia_sanctions_webhook_cfg_v2';
+const LOCAL_STORAGE_KEY_IA_BANNERS = 'discord_ia_banners_cfg_v2';
+
+export const IA_LOGO_URL = 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/ia_logo.png';
+export const DEFAULT_IA_BOT_NAME = 'INTERNAL AFFAIRS BUREAU';
+export const DEFAULT_IA_FOOTER_TEXT = 'Internal Affairs Bureau • Régimen Disciplinario';
+
+export const IA_SANCTION_TYPES = {
+    leves_sargentos: {
+        id: 'leves_sargentos',
+        name: 'LEVES SARGENTOS',
+        label: 'Falta Leve (Sargentos)',
+        color: 0x22C55E, // Lima / Verde
+        hexColor: '#22c55e',
+        tag: '🟢 LEVE SARGENTOS'
+    },
+    leves_ia: {
+        id: 'leves_ia',
+        name: 'LEVES IA',
+        label: 'Falta Leve (Asuntos Internos)',
+        color: 0x10B981, // Esmeralda
+        hexColor: '#10b981',
+        tag: '🟢 LEVE IA'
+    },
+    medias: {
+        id: 'medias',
+        name: 'MEDIAS',
+        label: 'Falta Media',
+        color: 0xF59E0B, // Ámbar / Amarillo
+        hexColor: '#f59e0b',
+        tag: '🟡 MEDIA'
+    },
+    graves: {
+        id: 'graves',
+        name: 'GRAVES',
+        label: 'Falta Grave',
+        color: 0xEF4444, // Rojo
+        hexColor: '#ef4444',
+        tag: '🔴 GRAVE'
+    },
+    despido: {
+        id: 'despido',
+        name: 'DESPIDO',
+        label: 'Despido / Expulsión',
+        color: 0x991B1B, // Carmesí / Rojo Oscuro
+        hexColor: '#991b1b',
+        tag: '⚫ DESPIDO'
+    }
+};
+
+/**
+ * Retrieve Discord IA Sanctions Webhook configuration
+ */
+export async function getDiscordIASanctionsWebhookConfig() {
+    let config = {
+        webhookUrl: '',
+        enabled: false,
+        rolePing: '',
+        botName: DEFAULT_IA_BOT_NAME,
+        botAvatar: '',
+        footerText: DEFAULT_IA_FOOTER_TEXT,
+        customHeader: 'MOTIVO: {motivo}',
+        reminderText: ''
+    };
+
+    try {
+        const { data, error } = await supabase.rpc('get_discord_ia_sanctions_webhook_config');
+        if (!error && data) {
+            config = {
+                webhookUrl: data.webhook_url || '',
+                enabled: !!data.enabled,
+                rolePing: data.role_ping || '',
+                botName: data.bot_name || DEFAULT_IA_BOT_NAME,
+                botAvatar: data.bot_avatar || '',
+                footerText: data.footer_text || DEFAULT_IA_FOOTER_TEXT,
+                customHeader: data.custom_header || 'MOTIVO: {motivo}',
+                reminderText: data.reminder_text || ''
+            };
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY_IA_SANCTIONS, JSON.stringify(config));
+            } catch (e) {}
+            return config;
+        }
+    } catch (rpcErr) {
+        console.warn('RPC get_discord_ia_sanctions_webhook_config failed:', rpcErr);
+    }
+
+    try {
+        const local = localStorage.getItem(LOCAL_STORAGE_KEY_IA_SANCTIONS);
+        if (local) {
+            const parsed = JSON.parse(local);
+            return { ...config, ...parsed };
+        }
+    } catch (e) {}
+
+    return config;
+}
+
+/**
+ * Save Discord IA Sanctions Webhook configuration
+ */
+export async function saveDiscordIASanctionsWebhookConfig(cfg) {
+    try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_IA_SANCTIONS, JSON.stringify(cfg));
+    } catch (e) {}
+
+    try {
+        const { error } = await supabase.rpc('save_discord_ia_sanctions_webhook_config', {
+            p_webhook_url: cfg.webhookUrl || '',
+            p_enabled: !!cfg.enabled,
+            p_role_ping: cfg.rolePing || '',
+            p_bot_name: cfg.botName || DEFAULT_IA_BOT_NAME,
+            p_bot_avatar: cfg.botAvatar || '',
+            p_footer_text: cfg.footerText || DEFAULT_IA_FOOTER_TEXT,
+            p_custom_header: cfg.customHeader || 'MOTIVO: {motivo}',
+            p_reminder_text: cfg.reminderText || ''
+        });
+        if (error) {
+            console.error('Error saving IA webhook config to database:', error);
+            throw error;
+        }
+        return { success: true };
+    } catch (err) {
+        console.error('Failed to persist IA webhook config to supabase:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Retrieve IA Sanction Banners for all 5 tiers
+ */
+export async function getIASanctionBanners() {
+    let banners = {
+        leves_sargentos: '',
+        leves_ia: '',
+        medias: '',
+        graves: '',
+        despido: ''
+    };
+
+    try {
+        const { data, error } = await supabase.rpc('get_ia_sanction_banners');
+        if (!error && data) {
+            banners = {
+                leves_sargentos: data.leves_sargentos || '',
+                leves_ia: data.leves_ia || '',
+                medias: data.medias || '',
+                graves: data.graves || '',
+                despido: data.despido || ''
+            };
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY_IA_BANNERS, JSON.stringify(banners));
+            } catch (e) {}
+            return banners;
+        }
+    } catch (rpcErr) {
+        console.warn('RPC get_ia_sanction_banners failed, falling back:', rpcErr);
+    }
+
+    try {
+        const local = localStorage.getItem(LOCAL_STORAGE_KEY_IA_BANNERS);
+        if (local) {
+            const parsed = JSON.parse(local);
+            return { ...banners, ...parsed };
+        }
+    } catch (e) {}
+
+    return banners;
+}
+
+/**
+ * Save IA Sanction Banners to database
+ */
+export async function saveIASanctionBanners(banners) {
+    try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_IA_BANNERS, JSON.stringify(banners));
+    } catch (e) {}
+
+    try {
+        const { error } = await supabase.rpc('save_ia_sanction_banners', {
+            p_leves_sargentos: banners.leves_sargentos || '',
+            p_leves_ia: banners.leves_ia || '',
+            p_medias: banners.medias || '',
+            p_graves: banners.graves || '',
+            p_despido: banners.despido || ''
+        });
+        if (error) {
+            console.error('Error saving IA sanction banners to DB:', error);
+            throw error;
+        }
+        return { success: true };
+    } catch (err) {
+        console.error('Failed to persist IA banners to supabase:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Test IA Sanctions Discord Webhook
+ */
+export async function testIASanctionsDiscordWebhook(customConfig = null, sanctionType = 'leves_ia') {
+    const cfg = customConfig || await getDiscordIASanctionsWebhookConfig();
+    if (!cfg.webhookUrl || !cfg.webhookUrl.trim().startsWith('https://')) {
+        throw new Error('La URL del webhook no es válida.');
+    }
+
+    const banners = await getIASanctionBanners();
+    const bannerUrl = banners[sanctionType] || '';
+
+    return sendIASanctionToDiscord({
+        sanctionType: sanctionType,
+        officerName: 'Agente de Prueba',
+        officerBadge: '999',
+        officerRank: 'Detective I',
+        reason: 'PRUEBA DE CONFIGURACIÓN DE WEBHOOK IA',
+        sanctionApplied: 'Notificación de verificación del sistema de Asuntos Internos.',
+        sanctionerName: 'Dirección de Asuntos Internos',
+        sanctionDate: new Date().toISOString().split('T')[0],
+        evidenceUrl: 'https://ejemplo.com/evidencias',
+        notes: 'Este es un mensaje de prueba emitido desde la Base de Datos.',
+        customBannerUrl: bannerUrl,
+        author: { nombre: 'Test', apellido: 'Bot', rango: 'IAB Supervisor', no_placa: '00' },
+        forceSend: true,
+        customConfig: cfg
+    });
+}
+
+/**
+ * Dispatch IA Sanction Notice to Discord Webhook
+ */
+export async function sendIASanctionToDiscord({
+    sanctionType = 'leves_ia',
+    officerName = '',
+    officerBadge = '',
+    officerRank = '',
+    reason = '',
+    sanctionApplied = '',
+    sanctionerName = '',
+    sanctionDate = '',
+    evidenceUrl = '',
+    notes = '',
+    customBannerUrl = '',
+    author = {},
+    forceSend = false,
+    customConfig = null
+}) {
+    try {
+        const config = customConfig || await getDiscordIASanctionsWebhookConfig();
+
+        if (!forceSend) {
+            if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('https://')) {
+                console.warn('Webhook de sanciones IA no habilitado o sin URL válida configurada.');
+                return { skipped: true };
+            }
+        }
+
+        const targetUrl = config.webhookUrl.trim();
+        const formattedPing = formatRoleMention(config.rolePing);
+
+        const typeInfo = IA_SANCTION_TYPES[sanctionType] || IA_SANCTION_TYPES.leves_ia;
+
+        // Determine banner
+        let bannerImage = customBannerUrl;
+        if (!bannerImage) {
+            const allBanners = await getIASanctionBanners();
+            bannerImage = allBanners[sanctionType] || '';
+        }
+
+        const botAvatar = (config.botAvatar || '').trim() || IA_LOGO_URL;
+        const botName = (config.botName || '').trim() || DEFAULT_IA_BOT_NAME;
+        const footerText = (config.footerText || '').trim() || DEFAULT_IA_FOOTER_TEXT;
+
+        const cleanReason = (reason || 'FALTA AL RÉGIMEN DISCIPLINARIO').trim().toUpperCase();
+        const embedHeader = `MOTIVO: ${cleanReason}`;
+
+        // Format Officer
+        const officerBadgeStr = officerBadge ? `(#${officerBadge})` : '';
+        const officerRankStr = officerRank ? `[${officerRank}]` : '';
+        const formattedOfficer = `${officerRankStr} ${officerName} ${officerBadgeStr}`.trim() || 'No especificado';
+
+        // Format Sanctioner
+        const authorName = [author?.nombre, author?.apellido].filter(Boolean).join(' ');
+        const authorBadge = author?.no_placa ? `(#${author.no_placa})` : '';
+        const authorRank = author?.rango ? `[${author.rango}]` : '';
+        const fallbackAuthor = `${authorRank} ${authorName} ${authorBadge}`.trim();
+        const formattedSanctioner = (sanctionerName || fallbackAuthor || 'División de Asuntos Internos').trim();
+
+        // Format Date
+        let formattedDateStr = sanctionDate || new Date().toLocaleDateString('es-ES');
+        try {
+            const d = new Date(sanctionDate);
+            if (!isNaN(d.getTime())) {
+                formattedDateStr = d.toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+            }
+        } catch (e) {}
+
+        const fields = [
+            { name: '👮‍♂️ Agente Sancionado', value: `\`\`\`${formattedOfficer}\`\`\``, inline: true },
+            { name: '⚖️ Calificación de la Falta', value: `\`\`\`${typeInfo.name}\`\`\``, inline: true },
+            { name: '📜 Sanción Aplicada', value: sanctionApplied ? `>>> ${sanctionApplied}` : '>>> *Sin especificar*', inline: false },
+            { name: '✍️ Instructor / Supervisor', value: formattedSanctioner, inline: true },
+            { name: '📅 Fecha de Imposición', value: formattedDateStr, inline: true }
+        ];
+
+        if (evidenceUrl && evidenceUrl.trim()) {
+            fields.push({
+                name: '📁 Documentación / Expediente',
+                value: `[Ver Expediente o Pruebas](${evidenceUrl.trim()})`,
+                inline: false
+            });
+        }
+
+        if (notes && notes.trim()) {
+            fields.push({
+                name: '📝 Observaciones',
+                value: formatHtmlToDiscordMarkdown(notes.trim()),
+                inline: false
+            });
+        }
+
+        const embed = {
+            title: embedHeader,
+            color: typeInfo.color,
+            fields: fields,
+            footer: {
+                text: footerText,
+                icon_url: botAvatar
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        if (bannerImage && bannerImage.trim().startsWith('http')) {
+            embed.image = {
+                url: bannerImage.trim()
+            };
+        }
+
+        let messageContent = undefined;
+        if (formattedPing) {
+            messageContent = `${formattedPing} **NOTIFICACIÓN DISCIPLINARIA OFICIAL**`;
+        }
+
+        const payload = {
+            username: botName,
+            avatar_url: botAvatar,
+            content: messageContent,
+            allowed_mentions: {
+                parse: ['roles', 'users', 'everyone']
+            },
+            embeds: [embed]
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errText = '';
+            try {
+                const errJson = await response.json();
+                errText = errJson.message || JSON.stringify(errJson);
+            } catch (e) {
+                errText = `HTTP Error ${response.status} (${response.statusText})`;
+            }
+            console.error('Failed to send IA sanction to Discord:', errText);
+            return { success: false, error: errText };
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error in sendIASanctionToDiscord:', err);
+        return { success: false, error: err.message };
+    }
+}
+

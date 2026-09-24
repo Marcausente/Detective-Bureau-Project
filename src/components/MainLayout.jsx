@@ -180,6 +180,7 @@ const getShortLabel = (path, fullName) => {
         case '/personnel': return 'Personal';
         case '/training': return 'Formación';
         case '/internal-affairs': return 'Asuntos Internos';
+        case '/internal-affairs/publicacion-faltas': return 'Publicación Faltas (IA)';
         case '/doj': return 'DOJ';
         case '/seb': return 'SEB';
         case '/air-support': return 'Air Support';

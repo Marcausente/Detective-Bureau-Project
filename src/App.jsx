@@ -24,6 +24,7 @@ import IAInterrogations from './pages/IAInterrogations';
 import IASanctions from './pages/IASanctions';
 import IASanctionProfile from './pages/IASanctionProfile';
 import IAReceptorDenuncias from './pages/IAReceptorDenuncias';
+import IAPublicacionFaltas from './pages/IAPublicacionFaltas';
 import PublicIADenuncia from './pages/PublicIADenuncia';
 import DOJ from './pages/DOJ'; // Import
 import DOJCases from './pages/DOJCases';
@@ -89,6 +90,7 @@ function App() {
             <Route path="/internal-affairs/sanctions" element={<IASanctions />} />
             <Route path="/internal-affairs/sanctions/:id" element={<IASanctionProfile />} />
             <Route path="/internal-affairs/receptor-denuncias" element={<IAReceptorDenuncias />} />
+            <Route path="/internal-affairs/publicacion-faltas" element={<IAPublicacionFaltas />} />
             <Route path="/doj" element={<DOJ />} />
             <Route path="/doj/cases" element={<DOJCases />} />
             <Route path="/doj/cases/:id" element={<DOJCaseDetail />} />
