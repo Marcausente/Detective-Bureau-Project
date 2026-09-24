@@ -103,7 +103,7 @@ function Dashboard() {
     const [feedbackNotice, setFeedbackNotice] = useState(null);
 
     const [showEventModal, setShowEventModal] = useState(false);
-    const [newEvent, setNewEvent] = useState({ title: '', description: '', event_date: '', sendToDiscord: true });
+    const [newEvent, setNewEvent] = useState({ title: '', description: '', event_date: '', event_type: 'reunion', sendToDiscord: true });
     const [submittingEvent, setSubmittingEvent] = useState(false);
 
     const [showCalendarModal, setShowCalendarModal] = useState(false);
@@ -377,6 +377,7 @@ function Dashboard() {
                     title: newEvent.title,
                     description: newEvent.description,
                     eventDate: newEvent.event_date,
+                    eventType: newEvent.event_type || 'reunion',
                     author: user
                 }).catch(err => console.warn('Error enviando evento a Discord:', err));
             }
@@ -386,6 +387,8 @@ function Dashboard() {
             if (showCalendarModal) {
                 fetchAllMonthEvents();
             }
+            setFeedbackNotice("Evento creado y programado correctamente");
+            setTimeout(() => setFeedbackNotice(null), 4000);
         } catch (err) {
             alert('Error al guardar evento: ' + err.message);
         } finally {
@@ -395,7 +398,7 @@ function Dashboard() {
 
     const closeEventModal = () => {
         setShowEventModal(false);
-        setNewEvent({ title: '', description: '', event_date: '', sendToDiscord: true });
+        setNewEvent({ title: '', description: '', event_date: '', event_type: 'reunion', sendToDiscord: true });
     };
 
     const toggleEventRegistration = async (eventId) => {
@@ -941,6 +944,49 @@ function Dashboard() {
                         </div>
 
                         <form onSubmit={handleSaveEvent} style={{ padding: '1.75rem' }}>
+                            <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                                <label className="form-label" style={{ display: 'block', marginBottom: '0.6rem', fontWeight: '600' }}>
+                                    Tipo de Convocatoria / Evento
+                                </label>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                                    {[
+                                        { id: 'reunion', label: '👥 Reunión / Briefing', color: '#3B82F6' },
+                                        { id: 'practica', label: '🎯 Práctica / DTP', color: '#F59E0B' },
+                                        { id: 'operativo', label: '🚨 Operativo Táctico', color: '#EF4444' },
+                                        { id: 'ceremonia', label: '🏆 Acto / Ascensos', color: '#8B5CF6' },
+                                        { id: 'otro', label: '📅 General / Otro', color: '#10B981' },
+                                    ].map(item => {
+                                        const isSelected = (newEvent.event_type || 'reunion') === item.id;
+                                        return (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                onClick={() => setNewEvent({ ...newEvent, event_type: item.id })}
+                                                style={{
+                                                    padding: '9px 10px',
+                                                    borderRadius: '8px',
+                                                    border: isSelected 
+                                                        ? `2px solid ${item.color}` 
+                                                        : '1px solid rgba(255, 255, 255, 0.12)',
+                                                    background: isSelected 
+                                                        ? `${item.color}25` 
+                                                        : 'rgba(255, 255, 255, 0.04)',
+                                                    color: isSelected ? '#ffffff' : '#94a3b8',
+                                                    fontWeight: isSelected ? '700' : '500',
+                                                    fontSize: '0.8rem',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.15s ease',
+                                                    textAlign: 'center',
+                                                    boxShadow: isSelected ? `0 0 10px ${item.color}35` : 'none'
+                                                }}
+                                            >
+                                                {item.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
                             <div className="form-group">
                                 <label className="form-label">Título del Evento</label>
                                 <input
@@ -948,7 +994,12 @@ function Dashboard() {
                                     className="form-input"
                                     value={newEvent.title}
                                     onChange={e => setNewEvent({ ...newEvent, title: e.target.value })}
-                                    placeholder="Nombre de la reunión u operativo..."
+                                    placeholder={
+                                        newEvent.event_type === 'practica' ? 'Ej: Práctica Semanal DTP - Tiro y Tácticas CQB...' :
+                                        newEvent.event_type === 'operativo' ? 'Ej: Operativo Redada Facciones Este...' :
+                                        newEvent.event_type === 'ceremonia' ? 'Ej: Ceremonia de Ascensos y Medallas...' :
+                                        'Ej: Reunión Semanal Ordinaria de Coordinación...'
+                                    }
                                     required
                                 />
                             </div>
@@ -960,7 +1011,7 @@ function Dashboard() {
                                     rows="4"
                                     value={newEvent.description}
                                     onChange={e => setNewEvent({ ...newEvent, description: e.target.value })}
-                                    placeholder="Detalles sobre el evento..."
+                                    placeholder="Detalles sobre el evento, temario, requisitos o equipamiento necesario..."
                                     required
                                 />
                             </div>
@@ -994,8 +1045,8 @@ function Dashboard() {
                                     style={{ width: '16px', height: '16px', accentColor: '#10b981', cursor: 'pointer' }}
                                 />
                                 <label htmlFor="event-send-discord-toggle" style={{ margin: 0, fontSize: '0.85rem', color: '#e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span>📅</span>
-                                    <span>Publicar automáticamente aviso del evento en Discord</span>
+                                    <span>{newEvent.event_type === 'practica' ? '🎯' : '📅'}</span>
+                                    <span>Publicar aviso automático en Discord ({newEvent.event_type === 'practica' ? 'Canal de Prácticas/DTP' : 'Canal de Eventos'})</span>
                                 </label>
                             </div>
 

@@ -1013,24 +1013,79 @@ export async function sendEventToDiscord({
     title,
     description = '',
     eventDate,
+    eventType = 'reunion',
     author = {},
     forceSend = false
 }) {
     try {
-        const config = await getDiscordEventsWebhookConfig();
+        let config = await getDiscordEventsWebhookConfig();
+
+        // Fallback: If Events webhook is not configured or disabled, check Practices (if practice) or Announcements
+        if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('https://')) {
+            if (eventType === 'practica') {
+                const pracCfg = await getDiscordPracticesWebhookConfig();
+                if (pracCfg.enabled && pracCfg.webhookUrl && pracCfg.webhookUrl.trim().startsWith('https://')) {
+                    config = pracCfg;
+                }
+            }
+            if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('https://')) {
+                const annCfg = await getDiscordWebhookConfig();
+                if (annCfg.enabled && annCfg.webhookUrl && annCfg.webhookUrl.trim().startsWith('https://')) {
+                    config = annCfg;
+                }
+            }
+        }
 
         if (!forceSend) {
             if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('https://')) {
+                console.warn('Webhook de eventos no habilitado o sin URL válida configurada.');
                 return { skipped: true };
             }
         }
 
         const targetUrl = config.webhookUrl.trim();
-        const botAvatar = (config.botAvatar || '').trim() || SCUB_LOGO_URL;
+        const formattedPing = formatRoleMention(config.rolePing);
+
+        // Customize Embed Theme based on eventType
+        let embedColor = 0x3B82F6; // Blue default
+        let embedTitlePrefix = '📅 [EVENTO]';
+        let defaultHeader = 'Nuevo Evento en el Calendario';
+        let typeBadge = 'Reunión / Briefing';
+        let botAvatarDefault = SCUB_LOGO_URL;
+
+        const cleanType = (eventType || 'reunion').toLowerCase();
+        if (cleanType === 'reunion' || cleanType.includes('reunión') || cleanType.includes('briefing')) {
+            embedColor = 0x3B82F6; // Azul
+            embedTitlePrefix = '👥 [REUNIÓN OFICIAL]';
+            defaultHeader = 'Convocatoria de Reunión / Briefing de Unidad';
+            typeBadge = 'Reunión General';
+        } else if (cleanType === 'practica' || cleanType.includes('práctica') || cleanType.includes('formacion') || cleanType.includes('instruccion')) {
+            embedColor = 0xF59E0B; // Dorado / Ámbar
+            embedTitlePrefix = '🎯 [PRÁCTICA / INSTRUCCIÓN]';
+            defaultHeader = 'Convocatoria de Práctica / Instrucción Oficial';
+            typeBadge = 'Práctica DTP / Formación';
+            botAvatarDefault = DTP_LOGO_URL;
+        } else if (cleanType === 'operativo' || cleanType.includes('despliegue') || cleanType.includes('redada')) {
+            embedColor = 0xEF4444; // Rojo
+            embedTitlePrefix = '🚨 [OPERATIVO / DESPLIEGUE]';
+            defaultHeader = 'Convocatoria de Operativo Táctico Especial';
+            typeBadge = 'Operativo Táctico';
+        } else if (cleanType === 'ceremonia' || cleanType.includes('acto') || cleanType.includes('ascenso')) {
+            embedColor = 0x8B5CF6; // Púrpura
+            embedTitlePrefix = '🏆 [ACTO OFICIAL & CONDECORACIONES]';
+            defaultHeader = 'Convocatoria de Acto Oficial & Reconocimientos';
+            typeBadge = 'Ceremonia / Acto';
+        } else {
+            embedColor = 0x10B981; // Verde
+            embedTitlePrefix = '📅 [EVENTO PROGRAMADO]';
+            defaultHeader = 'Nuevo Evento Programado en el Calendario';
+            typeBadge = 'Evento General';
+        }
+
+        const botAvatar = (config.botAvatar || '').trim() || botAvatarDefault;
         const botName = (config.botName || '').trim() || DEFAULT_EVENTS_BOT_NAME;
         const footerText = (config.footerText || '').trim() || DEFAULT_EVENTS_FOOTER_TEXT;
-        const customHeader = (config.customHeader || '').trim() || DEFAULT_EVENTS_HEADER_TEXT;
-        const formattedPing = formatRoleMention(config.rolePing);
+        const customHeader = (config.customHeader || '').trim() || defaultHeader;
 
         const cleanDesc = formatHtmlToDiscordMarkdown(description || '');
         const reminder = (config.reminderText !== undefined ? config.reminderText : DEFAULT_EVENTS_REMINDER_TEXT).trim();
@@ -1060,16 +1115,17 @@ export async function sendEventToDiscord({
         const authorFull = `${authorRank} ${authorName} ${authorBadge}`.trim();
 
         const embed = {
-            title: `📅 [EVENTO PROGRAMADO] ${title || 'Nuevo Evento'}`,
+            title: `${embedTitlePrefix} ${title || 'Sin Título'}`,
             description: finalDescription || '*Sin descripción adicional.*',
-            color: 0x10B981, // Verde esmeralda para eventos de calendario
+            color: embedColor,
             author: {
                 name: authorFull || 'Coordinación de SCUB',
                 icon_url: author?.profile_image || author?.avatar_url || botAvatar
             },
             fields: [
-                { name: '📅 Fecha & Hora del Evento', value: formattedDateStr, inline: true },
-                { name: '👤 Organizado por', value: authorFull || 'Personal Autorizado', inline: true }
+                { name: '📅 Fecha & Hora', value: formattedDateStr, inline: true },
+                { name: '📋 Tipo de Evento', value: typeBadge, inline: true },
+                { name: '👤 Organizado por', value: authorFull || 'Personal Autorizado', inline: false }
             ],
             footer: {
                 text: footerText,
@@ -1080,7 +1136,7 @@ export async function sendEventToDiscord({
 
         let messageContent = undefined;
         if (formattedPing) {
-            messageContent = `${formattedPing} 📅 **${customHeader}**`;
+            messageContent = `${formattedPing} **${customHeader}**`;
         }
 
         const payload = {
