@@ -29,8 +29,8 @@ CREATE POLICY "Allow update for authorized roles"
         rango::text ILIKE '%jefe%' OR
         rango::text ILIKE '%capitan%' OR
         rango::text ILIKE '%sargento%' OR
-        subdivision::text ILIKE '%internal affairs%' OR
-        subdivision::text ILIKE '%ia%'
+        subdivisions::text ILIKE '%internal affairs%' OR
+        subdivisions::text ILIKE '%ia%'
       )
     )
   );

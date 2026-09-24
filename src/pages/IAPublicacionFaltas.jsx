@@ -182,16 +182,8 @@ export default function IAPublicacionFaltas() {
     // Handle Submit New Sanction Publication
     const handleSubmitPublication = async (e) => {
         e.preventDefault();
-        if (!formData.officerName.trim()) {
-            showError('Debe ingresar el nombre del agente sancionado.');
-            return;
-        }
         if (!formData.reason.trim()) {
-            showError('Debe ingresar el motivo de la infracción o sanción.');
-            return;
-        }
-        if (!formData.sanctionApplied.trim()) {
-            showError('Debe especificar la sanción o medida correctiva impuesta.');
+            showError('Debe ingresar el motivo de la falta o infracción.');
             return;
         }
 
@@ -203,15 +195,15 @@ export default function IAPublicacionFaltas() {
             // 1. Save in Database
             const { data: createdId, error: dbError } = await supabase.rpc('create_ia_published_sanction', {
                 p_sanction_type: formData.sanctionType,
-                p_officer_name: formData.officerName.trim(),
-                p_officer_badge: formData.officerBadge.trim(),
-                p_officer_rank: formData.officerRank.trim(),
+                p_officer_name: '',
+                p_officer_badge: '',
+                p_officer_rank: '',
                 p_reason: formData.reason.trim(),
-                p_sanction_applied: formData.sanctionApplied.trim(),
-                p_sanctioner_name: formData.sanctionerName.trim(),
+                p_sanction_applied: '',
+                p_sanctioner_name: '',
                 p_sanction_date: formData.sanctionDate || new Date().toISOString().split('T')[0],
-                p_evidence_url: formData.evidenceUrl.trim(),
-                p_notes: formData.notes.trim(),
+                p_evidence_url: '',
+                p_notes: '',
                 p_banner_url: activeBanner,
                 p_discord_sent: formData.sendToDiscord
             });
@@ -225,15 +217,8 @@ export default function IAPublicacionFaltas() {
             if (formData.sendToDiscord) {
                 discordResult = await sendIASanctionToDiscord({
                     sanctionType: formData.sanctionType,
-                    officerName: formData.officerName.trim(),
-                    officerBadge: formData.officerBadge.trim(),
-                    officerRank: formData.officerRank.trim(),
                     reason: formData.reason.trim(),
-                    sanctionApplied: formData.sanctionApplied.trim(),
-                    sanctionerName: formData.sanctionerName.trim(),
                     sanctionDate: formData.sanctionDate,
-                    evidenceUrl: formData.evidenceUrl.trim(),
-                    notes: formData.notes.trim(),
                     customBannerUrl: activeBanner,
                     author: user,
                     forceSend: false
@@ -242,24 +227,18 @@ export default function IAPublicacionFaltas() {
                 if (discordResult && !discordResult.success && !discordResult.skipped) {
                     showError(`Guardado en base de datos, pero falló el envío a Discord: ${discordResult.error}`);
                 } else if (discordResult && discordResult.skipped) {
-                    showSuccess('Sanción registrada con éxito (Webhook de Discord deshabilitado en ajustes).');
+                    showSuccess('Falta registrada con éxito (Webhook de Discord deshabilitado en ajustes).');
                 } else {
-                    showSuccess('✅ ¡Sanción disciplinaria publicada exitosamente en Discord y registrada en el sistema!');
+                    showSuccess('✅ ¡Falta publicada exitosamente en Discord!');
                 }
             } else {
-                showSuccess('Sanción registrada correctamente en el historial interno.');
+                showSuccess('Falta registrada correctamente en el historial interno.');
             }
 
-            // Reset form (keep sanctioner and date)
+            // Reset form
             setFormData(prev => ({
                 ...prev,
-                officerName: '',
-                officerBadge: '',
-                officerRank: '',
                 reason: '',
-                sanctionApplied: '',
-                evidenceUrl: '',
-                notes: '',
                 customBannerUrl: ''
             }));
 
@@ -554,7 +533,7 @@ export default function IAPublicacionFaltas() {
                 <div>
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'minmax(350px, 1.2fr) minmax(320px, 1fr)',
+                        gridTemplateColumns: 'minmax(340px, 1.1fr) minmax(320px, 1fr)',
                         gap: '1.5rem',
                         alignItems: 'start'
                     }}>
@@ -562,14 +541,14 @@ export default function IAPublicacionFaltas() {
                         <div className="mac-widget-card" style={{ padding: '1.5rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.75rem' }}>
                                 <span style={{ fontSize: '1.2rem' }}>⚖️</span>
-                                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#ffffff' }}>Emitir Notificación de Sanción</h3>
+                                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#ffffff' }}>Emitir Publicación de Falta</h3>
                             </div>
 
                             <form onSubmit={handleSubmitPublication}>
                                 {/* 1. Sanction Type Selector (5 levels) */}
                                 <div className="form-group" style={{ marginBottom: '1.25rem' }}>
                                     <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '700', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                                        Tipo / Gravedad de la Falta *
+                                        Tipo / Calificación de la Falta *
                                     </label>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
                                         {Object.values(IA_SANCTION_TYPES).map(st => {
@@ -601,159 +580,43 @@ export default function IAPublicacionFaltas() {
                                     </div>
                                 </div>
 
-                                {/* 2. Officer Search / Manual input */}
-                                <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '1rem', borderRadius: '10px', marginBottom: '1.25rem', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                        <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem', color: '#cbd5e1', margin: 0 }}>
-                                            👮‍♂️ Agente Sancionado *
-                                        </label>
-                                        <select
-                                            onChange={handleSelectOfficer}
-                                            defaultValue=""
-                                            style={{
-                                                background: 'rgba(30, 41, 59, 0.8)',
-                                                border: '1px solid rgba(255, 255, 255, 0.15)',
-                                                color: '#cbd5e1',
-                                                fontSize: '0.75rem',
-                                                padding: '4px 8px',
-                                                borderRadius: '6px',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            <option value="">-- Seleccionar de la plantilla --</option>
-                                            {officers.map(o => (
-                                                <option key={o.id} value={o.id}>
-                                                    {o.nombre} {o.apellido} {o.no_placa ? `(#${o.no_placa})` : ''} {o.rango ? `[${o.rango}]` : ''}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px' }}>
-                                        <div>
-                                            <input
-                                                type="text"
-                                                className="form-input"
-                                                placeholder="Nombre y Apellidos..."
-                                                value={formData.officerName}
-                                                onChange={e => setFormData({ ...formData, officerName: e.target.value })}
-                                                required
-                                            />
-                                        </div>
-                                        <div>
-                                            <input
-                                                type="text"
-                                                className="form-input"
-                                                placeholder="Nº Placa..."
-                                                value={formData.officerBadge}
-                                                onChange={e => setFormData({ ...formData, officerBadge: e.target.value })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <input
-                                                type="text"
-                                                className="form-input"
-                                                placeholder="Rango..."
-                                                value={formData.officerRank}
-                                                onChange={e => setFormData({ ...formData, officerRank: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* 3. Motivo */}
+                                {/* 2. Motivo */}
                                 <div className="form-group" style={{ marginBottom: '1.25rem' }}>
                                     <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                                        Motivo de la Infracción *
+                                        Motivo de la Falta *
                                     </label>
                                     <input
                                         type="text"
                                         className="form-input"
-                                        placeholder="Ej: ERROR AL PONER UNA SANCIÓN / CONDUCTA ANTIRREGLAMENTARIA..."
+                                        placeholder="Ej: ERROR AL PONER UNA SANCIÓN"
                                         value={formData.reason}
                                         onChange={e => setFormData({ ...formData, reason: e.target.value })}
                                         required
+                                        style={{ fontSize: '0.95rem', fontWeight: '600' }}
                                     />
-                                    <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px', display: 'block' }}>
-                                        Se mostrará como encabezado principal en Discord (Ej: MOTIVO: ERROR AL PONER UNA SANCIÓN).
+                                    <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                                        Aparecerá en Discord como título: <strong>MOTIVO: {formData.reason ? formData.reason.toUpperCase() : 'ERROR AL PONER UNA SANCIÓN'}</strong>
                                     </span>
                                 </div>
 
-                                {/* 4. Sanción Aplicada */}
-                                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                                {/* 3. Fecha de Imposición */}
+                                <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                                     <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                                        Sanción o Medida Correctiva Impuesta *
+                                        📅 Fecha de Imposición *
                                     </label>
-                                    <textarea
-                                        className="eval-textarea"
-                                        rows="2"
-                                        placeholder="Ej: Amonestación por escrito y retirada de 1 punto disciplinario / Suspensión de empleo y sueldo por 3 días..."
-                                        value={formData.sanctionApplied}
-                                        onChange={e => setFormData({ ...formData, sanctionApplied: e.target.value })}
+                                    <input
+                                        type="date"
+                                        className="form-input"
+                                        value={formData.sanctionDate}
+                                        onChange={e => setFormData({ ...formData, sanctionDate: e.target.value })}
                                         required
                                     />
                                 </div>
 
-                                {/* 5. Instructor & Fecha */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '10px', marginBottom: '1.25rem' }}>
-                                    <div>
-                                        <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                                            ✍️ Instructor / Supervisor Responsable
-                                        </label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            placeholder="Ej: [Sargento I] Carlos Ruiz (#102)"
-                                            value={formData.sanctionerName}
-                                            onChange={e => setFormData({ ...formData, sanctionerName: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                                            📅 Fecha
-                                        </label>
-                                        <input
-                                            type="date"
-                                            className="form-input"
-                                            value={formData.sanctionDate}
-                                            onChange={e => setFormData({ ...formData, sanctionDate: e.target.value })}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* 6. Enlace a Evidencias / Expediente (Opcional) */}
-                                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                                    <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                                        📁 Enlace a Pruebas o Expediente IA (Opcional)
-                                    </label>
-                                    <input
-                                        type="url"
-                                        className="form-input"
-                                        placeholder="https://..."
-                                        value={formData.evidenceUrl}
-                                        onChange={e => setFormData({ ...formData, evidenceUrl: e.target.value })}
-                                    />
-                                </div>
-
-                                {/* 7. Observaciones Adicionales (Opcional) */}
-                                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                                    <label className="form-label" style={{ fontWeight: '700', fontSize: '0.85rem', color: '#cbd5e1' }}>
-                                        📝 Observaciones Adicionales (Opcional)
-                                    </label>
-                                    <textarea
-                                        className="eval-textarea"
-                                        rows="2"
-                                        placeholder="Anotaciones para el expediente..."
-                                        value={formData.notes}
-                                        onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                                    />
-                                </div>
-
-                                {/* 8. Discord Toggle */}
+                                {/* 4. Discord Toggle */}
                                 <div style={{
                                     marginBottom: '1.5rem',
-                                    padding: '0.75rem 1rem',
+                                    padding: '0.85rem 1rem',
                                     background: formData.sendToDiscord ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.03)',
                                     border: `1px solid ${formData.sendToDiscord ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.1)'}`,
                                     borderRadius: '10px',
@@ -766,11 +629,11 @@ export default function IAPublicacionFaltas() {
                                         id="ia-send-discord-toggle"
                                         checked={formData.sendToDiscord}
                                         onChange={(e) => setFormData(prev => ({ ...prev, sendToDiscord: e.target.checked }))}
-                                        style={{ width: '17px', height: '17px', accentColor: '#10b981', cursor: 'pointer' }}
+                                        style={{ width: '18px', height: '18px', accentColor: '#10b981', cursor: 'pointer' }}
                                     />
                                     <label htmlFor="ia-send-discord-toggle" style={{ margin: 0, fontSize: '0.85rem', color: '#e2e8f0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <span>📢</span>
-                                        <span style={{ fontWeight: '600' }}>Publicar automáticamente esta sanción en el canal de Discord</span>
+                                        <span style={{ fontWeight: '600' }}>Publicar en el canal de Discord de Asuntos Internos</span>
                                     </label>
                                 </div>
 
@@ -796,7 +659,7 @@ export default function IAPublicacionFaltas() {
                                         gap: '8px'
                                     }}
                                 >
-                                    <span>{submitting ? '⏳ Publicando...' : '🚀 Publicar Sanción Disciplinaria'}</span>
+                                    <span>{submitting ? '⏳ Publicando...' : '🚀 Publicar Falta en Discord'}</span>
                                 </button>
                             </form>
                         </div>
@@ -843,7 +706,7 @@ export default function IAPublicacionFaltas() {
                                             </div>
                                             {webhookConfig.rolePing && (
                                                 <div style={{ marginTop: '4px', fontSize: '0.85rem', color: '#c9cdfb', background: 'rgba(88, 101, 242, 0.15)', padding: '2px 6px', borderRadius: '4px', display: 'inline-block' }}>
-                                                    @{webhookConfig.rolePing.replace(/[<@&>]/g, '')} **NOTIFICACIÓN DISCIPLINARIA OFICIAL**
+                                                    @{webhookConfig.rolePing.replace(/[<@&>]/g, '')}
                                                 </div>
                                             )}
                                         </div>
@@ -870,7 +733,7 @@ export default function IAPublicacionFaltas() {
 
                                         {/* Banner Image */}
                                         {currentPreviewBanner ? (
-                                            <div style={{ marginBottom: '12px', borderRadius: '6px', overflow: 'hidden', maxHeight: '160px', background: '#1e1f22', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <div style={{ marginBottom: '12px', borderRadius: '6px', overflow: 'hidden', background: '#1e1f22', border: '1px solid rgba(255,255,255,0.05)' }}>
                                                 <img
                                                     src={currentPreviewBanner}
                                                     alt="Banner de Falta"
@@ -896,39 +759,17 @@ export default function IAPublicacionFaltas() {
                                             </div>
                                         )}
 
-                                        {/* Fields */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '8px' }}>
+                                        {/* Bottom Fields: Only Calificación & Fecha de Imposición */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
                                             <div>
-                                                <div style={{ fontSize: '0.72rem', color: '#b5bac1', fontWeight: '700', textTransform: 'uppercase' }}>👮‍♂️ Agente Sancionado</div>
-                                                <div style={{ background: '#1e1f22', padding: '4px 6px', borderRadius: '3px', fontSize: '0.8rem', color: '#dbdee1', marginTop: '2px', fontFamily: 'monospace' }}>
-                                                    {formData.officerName ? `${formData.officerRank ? `[${formData.officerRank}] ` : ''}${formData.officerName}${formData.officerBadge ? ` (#${formData.officerBadge})` : ''}` : 'Nombre del Agente'}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div style={{ fontSize: '0.72rem', color: '#b5bac1', fontWeight: '700', textTransform: 'uppercase' }}>⚖️ Calificación</div>
+                                                <div style={{ fontSize: '0.72rem', color: '#b5bac1', fontWeight: '700', textTransform: 'uppercase' }}>⚖️ Calificación de la Falta</div>
                                                 <div style={{ background: '#1e1f22', padding: '4px 6px', borderRadius: '3px', fontSize: '0.8rem', color: activeTypeInfo.hexColor, marginTop: '2px', fontFamily: 'monospace', fontWeight: '700' }}>
                                                     {activeTypeInfo.name}
                                                 </div>
                                             </div>
-                                        </div>
-
-                                        <div style={{ marginBottom: '8px' }}>
-                                            <div style={{ fontSize: '0.72rem', color: '#b5bac1', fontWeight: '700', textTransform: 'uppercase' }}>📜 Sanción Aplicada</div>
-                                            <div style={{ fontSize: '0.82rem', color: '#dbdee1', marginTop: '2px', borderLeft: '3px solid #4e5058', paddingLeft: '8px' }}>
-                                                {formData.sanctionApplied || 'Amonestación verbal y retirada de 1 punto...'}
-                                            </div>
-                                        </div>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '8px' }}>
                                             <div>
-                                                <div style={{ fontSize: '0.72rem', color: '#b5bac1', fontWeight: '700' }}>✍️ Instructor / Supervisor</div>
-                                                <div style={{ fontSize: '0.78rem', color: '#dbdee1', marginTop: '1px' }}>
-                                                    {formData.sanctionerName || 'División de Asuntos Internos'}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div style={{ fontSize: '0.72rem', color: '#b5bac1', fontWeight: '700' }}>📅 Fecha de Imposición</div>
-                                                <div style={{ fontSize: '0.78rem', color: '#dbdee1', marginTop: '1px' }}>
+                                                <div style={{ fontSize: '0.72rem', color: '#b5bac1', fontWeight: '700', textTransform: 'uppercase' }}>📅 Fecha de Imposición</div>
+                                                <div style={{ background: '#1e1f22', padding: '4px 6px', borderRadius: '3px', fontSize: '0.8rem', color: '#dbdee1', marginTop: '2px', fontFamily: 'monospace' }}>
                                                     {formData.sanctionDate || new Date().toLocaleDateString('es-ES')}
                                                 </div>
                                             </div>
@@ -937,7 +778,7 @@ export default function IAPublicacionFaltas() {
                                         {/* Footer */}
                                         <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem', color: '#949ba4' }}>
                                             <img src={webhookConfig.botAvatar || IA_LOGO_URL} alt="" style={{ width: '14px', height: '14px', borderRadius: '50%' }} onError={(e) => { e.target.src = '/logowebp/ialogo.webp'; }} />
-                                            <span>{webhookConfig.footerText || DEFAULT_IA_FOOTER_TEXT} • Hoy a las {new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+                                            <span>{webhookConfig.footerText || DEFAULT_IA_FOOTER_TEXT}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -950,13 +791,13 @@ export default function IAPublicacionFaltas() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '1rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                                 <span style={{ fontSize: '1.2rem' }}>📜</span>
-                                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#ffffff' }}>Historial de Sanciones Publicadas ({filteredPublications.length})</h3>
+                                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#ffffff' }}>Historial de Faltas Publicadas ({filteredPublications.length})</h3>
                             </div>
 
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                 <input
                                     type="text"
-                                    placeholder="Buscar por agente, motivo o placa..."
+                                    placeholder="Buscar por motivo..."
                                     className="form-input"
                                     style={{ width: '240px', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                                     value={historySearch}
@@ -981,7 +822,7 @@ export default function IAPublicacionFaltas() {
                         {filteredPublications.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '2.5rem', color: '#64748b' }}>
                                 <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📭</span>
-                                {historySearch || historyFilter !== 'all' ? 'No se encontraron sanciones con los filtros aplicados.' : 'No hay sanciones publicadas todavía.'}
+                                {historySearch || historyFilter !== 'all' ? 'No se encontraron publicaciones con los filtros aplicados.' : 'No hay faltas publicadas todavía.'}
                             </div>
                         ) : (
                             <div style={{ overflowX: 'auto' }}>
@@ -989,11 +830,9 @@ export default function IAPublicacionFaltas() {
                                     <thead>
                                         <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'left', color: '#94a3b8' }}>
                                             <th style={{ padding: '0.75rem 0.5rem' }}>Tipo</th>
-                                            <th style={{ padding: '0.75rem 0.5rem' }}>Agente Sancionado</th>
-                                            <th style={{ padding: '0.75rem 0.5rem' }}>Motivo</th>
-                                            <th style={{ padding: '0.75rem 0.5rem' }}>Sanción Impuesta</th>
-                                            <th style={{ padding: '0.75rem 0.5rem' }}>Instructor</th>
-                                            <th style={{ padding: '0.75rem 0.5rem' }}>Fecha</th>
+                                            <th style={{ padding: '0.75rem 0.5rem' }}>Motivo de la Falta</th>
+                                            <th style={{ padding: '0.75rem 0.5rem' }}>Fecha Imposición</th>
+                                            <th style={{ padding: '0.75rem 0.5rem' }}>Emitido por</th>
                                             <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right' }}>Acciones</th>
                                         </tr>
                                     </thead>
@@ -1016,20 +855,14 @@ export default function IAPublicacionFaltas() {
                                                             {typeObj.name}
                                                         </span>
                                                     </td>
-                                                    <td style={{ padding: '0.75rem 0.5rem', color: '#ffffff', fontWeight: '600' }}>
-                                                        {item.officer_rank ? `[${item.officer_rank}] ` : ''}{item.officer_name} {item.officer_badge ? `(#${item.officer_badge})` : ''}
+                                                    <td style={{ padding: '0.75rem 0.5rem', color: '#ffffff', fontWeight: '700', textTransform: 'uppercase' }}>
+                                                        {item.reason}
                                                     </td>
-                                                    <td style={{ padding: '0.75rem 0.5rem', color: '#e2e8f0', maxWidth: '220px' }}>
-                                                        <div style={{ fontWeight: '600', textTransform: 'uppercase', fontSize: '0.8rem' }}>{item.reason}</div>
-                                                    </td>
-                                                    <td style={{ padding: '0.75rem 0.5rem', color: '#94a3b8', maxWidth: '250px' }}>
-                                                        <div style={{ fontSize: '0.8rem' }}>{item.sanction_applied}</div>
+                                                    <td style={{ padding: '0.75rem 0.5rem', color: '#94a3b8', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                                                        {item.sanction_date}
                                                     </td>
                                                     <td style={{ padding: '0.75rem 0.5rem', color: '#cbd5e1', fontSize: '0.8rem' }}>
-                                                        {item.sanctioner_name || item.creator_name || 'IA'}
-                                                    </td>
-                                                    <td style={{ padding: '0.75rem 0.5rem', color: '#94a3b8', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
-                                                        {item.sanction_date}
+                                                        {item.creator_name || 'Asuntos Internos'}
                                                     </td>
                                                     <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                         <button

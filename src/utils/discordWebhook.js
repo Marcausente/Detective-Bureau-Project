@@ -1479,28 +1479,9 @@ export async function sendIASanctionToDiscord({
         } catch (e) {}
 
         const fields = [
-            { name: '👮‍♂️ Agente Sancionado', value: `\`\`\`${formattedOfficer}\`\`\``, inline: true },
             { name: '⚖️ Calificación de la Falta', value: `\`\`\`${typeInfo.name}\`\`\``, inline: true },
-            { name: '📜 Sanción Aplicada', value: sanctionApplied ? `>>> ${sanctionApplied}` : '>>> *Sin especificar*', inline: false },
-            { name: '✍️ Instructor / Supervisor', value: formattedSanctioner, inline: true },
-            { name: '📅 Fecha de Imposición', value: formattedDateStr, inline: true }
+            { name: '📅 Fecha de Imposición', value: `\`\`\`${formattedDateStr}\`\`\``, inline: true }
         ];
-
-        if (evidenceUrl && evidenceUrl.trim()) {
-            fields.push({
-                name: '📁 Documentación / Expediente',
-                value: `[Ver Expediente o Pruebas](${evidenceUrl.trim()})`,
-                inline: false
-            });
-        }
-
-        if (notes && notes.trim()) {
-            fields.push({
-                name: '📝 Observaciones',
-                value: formatHtmlToDiscordMarkdown(notes.trim()),
-                inline: false
-            });
-        }
 
         const embed = {
             title: embedHeader,
