@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getProfileImage, compressImage, uploadImageToStorage } from '../utils/imageStorage';
+import AsdRosterDiscord from '../components/AsdRosterDiscord';
 import '../index.css';
 
 // Default Custom Ranks
@@ -1324,6 +1325,27 @@ function AirSupport() {
                     >
                         <span>⚠️</span>
                         <span>Infracciones ({infractions.length})</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('roster_discord')}
+                        style={{
+                            background: activeTab === 'roster_discord' ? 'rgba(2, 132, 199, 0.25)' : 'rgba(15, 23, 42, 0.6)',
+                            color: activeTab === 'roster_discord' ? '#38bdf8' : '#94a3b8',
+                            border: `1px solid ${activeTab === 'roster_discord' ? 'rgba(2, 132, 199, 0.55)' : 'rgba(255, 255, 255, 0.1)'}`,
+                            borderRadius: '8px',
+                            padding: '0.65rem 1.15rem',
+                            fontWeight: 700,
+                            fontSize: '0.88rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}
+                    >
+                        <span>📡</span>
+                        <span>Plantilla Discord</span>
                     </button>
                 </div>
 
@@ -2721,6 +2743,11 @@ function AirSupport() {
                         })}
                     </div>
                 </div>
+            )}
+
+            {/* TAB: PLANTILLA DISCORD ROSTER ASD */}
+            {activeTab === 'roster_discord' && (
+                <AsdRosterDiscord />
             )}
 
             {/* MODAL 1: AÑADIR / EDITAR INTEGRANTE */}

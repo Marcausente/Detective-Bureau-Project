@@ -1832,3 +1832,274 @@ export async function sendCoordinationRosterToDiscord({
     }
 }
 
+// ==============================================================================
+// 6. ASD ROSTER / AIR SUPPORT DIVISION DISCORD BROADCAST INTEGRATION
+// ==============================================================================
+
+const LOCAL_STORAGE_KEY_ASD_ROSTER = 'discord_asd_roster_cfg_v1';
+
+export const DEFAULT_ASD_ROSTER_DATA = [
+    {
+        id: 'asd_com',
+        name: 'COMANDANTE DE ASD',
+        icon: '🎖️',
+        members: []
+    },
+    {
+        id: 'asd_cap',
+        name: 'CAPITÁN DE ESCUADRÓN',
+        icon: '⭐',
+        members: []
+    },
+    {
+        id: 'asd_pti',
+        name: 'PILOTO TÁCTICO INSTRUCTOR',
+        icon: '⚡',
+        members: []
+    },
+    {
+        id: 'asd_poe',
+        name: 'PILOTO DE OPERACIONES ESPECIALES',
+        icon: '🦅',
+        members: []
+    },
+    {
+        id: 'asd_tfo',
+        name: 'OFICIAL DE VUELO TÁCTICO (TFO)',
+        icon: '🎯',
+        members: []
+    },
+    {
+        id: 'asd_prac',
+        name: 'PILOTO EN PRÁCTICAS',
+        icon: '🚁',
+        members: []
+    }
+];
+
+/**
+ * Retrieve ASD Roster configuration & saved agents list
+ */
+export async function getASDRosterConfig() {
+    let config = {
+        webhookUrl: '',
+        enabled: true,
+        rolePing: '',
+        botName: 'ASD • Air Support Division',
+        botAvatar: SCUB_LOGO_URL,
+        title: 'AIR SUPPORT DIVISION • DIVISION ROSTER',
+        bannerUrl: '',
+        rosterData: DEFAULT_ASD_ROSTER_DATA
+    };
+
+    try {
+        const { data, error } = await supabase.rpc('get_asd_roster_config');
+        if (!error && data) {
+            config = {
+                webhookUrl: data.webhook_url || '',
+                enabled: data.enabled !== undefined ? !!data.enabled : true,
+                rolePing: data.role_ping || '',
+                botName: data.bot_name || 'ASD • Air Support Division',
+                botAvatar: data.bot_avatar || SCUB_LOGO_URL,
+                title: data.title || 'AIR SUPPORT DIVISION • DIVISION ROSTER',
+                bannerUrl: data.banner_url || '',
+                rosterData: Array.isArray(data.roster_data) && data.roster_data.length > 0 
+                    ? data.roster_data 
+                    : DEFAULT_ASD_ROSTER_DATA
+            };
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY_ASD_ROSTER, JSON.stringify(config));
+            } catch (e) {}
+            return config;
+        } else if (error) {
+            // fallback direct table read
+            const { data: rows } = await supabase
+                .from('app_settings')
+                .select('key, value')
+                .like('key', 'discord_asd_roster_%');
+            if (rows && rows.length > 0) {
+                const map = {};
+                rows.forEach(r => { map[r.key] = r.value; });
+                let parsedRoster = DEFAULT_ASD_ROSTER_DATA;
+                try {
+                    if (map['discord_asd_roster_data']) {
+                        parsedRoster = JSON.parse(map['discord_asd_roster_data']);
+                    }
+                } catch (e) {}
+
+                config = {
+                    webhookUrl: map['discord_asd_roster_webhook_url'] || '',
+                    enabled: map['discord_asd_roster_webhook_enabled'] !== 'false',
+                    rolePing: map['discord_asd_roster_role_ping'] || '',
+                    botName: map['discord_asd_roster_bot_name'] || 'ASD • Air Support Division',
+                    botAvatar: map['discord_asd_roster_bot_avatar'] || SCUB_LOGO_URL,
+                    title: map['discord_asd_roster_title'] || 'AIR SUPPORT DIVISION • DIVISION ROSTER',
+                    bannerUrl: map['discord_asd_roster_banner_url'] || '',
+                    rosterData: Array.isArray(parsedRoster) && parsedRoster.length > 0 ? parsedRoster : DEFAULT_ASD_ROSTER_DATA
+                };
+                return config;
+            }
+        }
+    } catch (rpcErr) {
+        console.warn('RPC get_asd_roster_config failed, falling back:', rpcErr);
+    }
+
+    try {
+        const local = localStorage.getItem(LOCAL_STORAGE_KEY_ASD_ROSTER);
+        if (local) {
+            const parsed = JSON.parse(local);
+            return { ...config, ...parsed };
+        }
+    } catch (e) {}
+
+    return config;
+}
+
+/**
+ * Save ASD Roster configuration & updated agents list
+ */
+export async function saveASDRosterConfig({
+    rosterData,
+    webhookUrl = '',
+    title = 'AIR SUPPORT DIVISION • DIVISION ROSTER',
+    bannerUrl = '',
+    rolePing = '',
+    botName = 'ASD • Air Support Division',
+    botAvatar = '',
+    enabled = true
+}) {
+    const configToSave = {
+        rosterData: rosterData || DEFAULT_ASD_ROSTER_DATA,
+        webhookUrl: webhookUrl || '',
+        title: title || 'AIR SUPPORT DIVISION • DIVISION ROSTER',
+        bannerUrl: bannerUrl || '',
+        rolePing: rolePing || '',
+        botName: botName || 'ASD • Air Support Division',
+        botAvatar: botAvatar || SCUB_LOGO_URL,
+        enabled: !!enabled
+    };
+
+    try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_ASD_ROSTER, JSON.stringify(configToSave));
+    } catch (e) {}
+
+    try {
+        const { error } = await supabase.rpc('save_asd_roster_config', {
+            p_roster_data: configToSave.rosterData,
+            p_webhook_url: configToSave.webhookUrl,
+            p_title: configToSave.title,
+            p_banner_url: configToSave.bannerUrl,
+            p_role_ping: configToSave.rolePing,
+            p_bot_name: configToSave.botName,
+            p_bot_avatar: configToSave.botAvatar,
+            p_enabled: configToSave.enabled
+        });
+        if (error) {
+            console.warn('RPC save_asd_roster_config failed, fallback to direct upsert:', error);
+            // Fallback direct upsert to app_settings
+            const entries = [
+                { key: 'discord_asd_roster_data', value: JSON.stringify(configToSave.rosterData) },
+                { key: 'discord_asd_roster_webhook_url', value: configToSave.webhookUrl },
+                { key: 'discord_asd_roster_title', value: configToSave.title },
+                { key: 'discord_asd_roster_banner_url', value: configToSave.bannerUrl },
+                { key: 'discord_asd_roster_role_ping', value: configToSave.rolePing },
+                { key: 'discord_asd_roster_bot_name', value: configToSave.botName },
+                { key: 'discord_asd_roster_bot_avatar', value: configToSave.botAvatar },
+                { key: 'discord_asd_roster_webhook_enabled', value: configToSave.enabled ? 'true' : 'false' }
+            ];
+            for (const item of entries) {
+                await supabase.from('app_settings').upsert({ key: item.key, value: item.value, updated_at: new Date().toISOString() });
+            }
+        }
+        return { success: true };
+    } catch (err) {
+        console.error('Failed to persist ASD Roster config to supabase:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Dispatch ASD Roster to Discord Webhook
+ */
+export async function sendASDRosterToDiscord({
+    rosterData,
+    title = 'AIR SUPPORT DIVISION • DIVISION ROSTER',
+    bannerUrl = '',
+    customConfig = null,
+    forceSend = false,
+    author = {}
+}) {
+    try {
+        const config = customConfig || await getASDRosterConfig();
+
+        if (!forceSend) {
+            if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('https://')) {
+                console.warn('Webhook de Plantilla ASD no configurado o inactivo.');
+                return { skipped: true };
+            }
+        }
+
+        const targetUrl = config.webhookUrl.trim();
+        const formattedPing = formatRoleMention(config.rolePing);
+
+        const botAvatar = (config.botAvatar || '').trim() || SCUB_LOGO_URL;
+        const botName = (config.botName || '').trim() || 'ASD • Air Support Division';
+        const embedTitle = `🚁 ${title || 'AIR SUPPORT DIVISION • DIVISION ROSTER'}`;
+
+        const description = buildRosterDiscordMarkdown(rosterData || config.rosterData);
+
+        const embed = {
+            title: embedTitle,
+            description: description,
+            color: 0x0284C7, // ASD Sky / Cyan Blue (2, 132, 199)
+            timestamp: new Date().toISOString()
+        };
+
+        const activeBanner = bannerUrl || config.bannerUrl;
+        if (activeBanner && activeBanner.trim().startsWith('http')) {
+            embed.image = {
+                url: activeBanner.trim()
+            };
+        }
+
+        let messageContent = undefined;
+        if (formattedPing) {
+            messageContent = `${formattedPing}`;
+        }
+
+        const payload = {
+            username: botName,
+            avatar_url: botAvatar,
+            content: messageContent,
+            allowed_mentions: {
+                parse: ['roles', 'users', 'everyone']
+            },
+            embeds: [embed]
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errText = '';
+            try {
+                const errJson = await response.json();
+                errText = errJson.message || JSON.stringify(errJson);
+            } catch (e) {
+                errText = `HTTP Error ${response.status} (${response.statusText})`;
+            }
+            console.error('Failed to send ASD Roster to Discord:', errText);
+            return { success: false, error: errText };
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error in sendASDRosterToDiscord:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+
