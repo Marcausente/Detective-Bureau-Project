@@ -6,6 +6,63 @@ const LOCAL_STORAGE_KEY_PRACTICES = 'discord_practices_webhook_cfg_v2';
 
 export const SCUB_LOGO_URL = 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/scub_logo.png';
 export const DTP_LOGO_URL = 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/dtp_logo.png';
+export const IA_LOGO_URL = 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/ia_logo.png';
+
+export const KNOWN_STORAGE_LOGOS = {
+    'ialssd': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/ialssd.webp',
+    'ialogo': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/ialogo.webp',
+    'scub': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/scub.webp',
+    'dtp': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/dtp_logo.webp',
+    'dblogo': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/dblogo.webp',
+    'lssdlogo': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/lssdlogo.webp',
+    'generalcrimes': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/generalcrimes.webp',
+    'gu': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/gu.webp',
+    'gnd': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/gnd.webp',
+    'mcd': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/mcd.webp',
+    'dojlogo': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/dojlogo.webp',
+    'doj-logo': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/doj-logo.webp',
+    'fondoia': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/fondoia.webp',
+    'fondolssd': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/fondolssd.webp',
+    'indeximage': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/indeximage.webp',
+    'anon': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/anon.webp',
+    'sanandreas': 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/sanandreas.webp'
+};
+
+/**
+ * Normalizes any image or avatar URL to a valid absolute HTTP/HTTPS URL for Discord API.
+ * Converts relative paths (e.g. '/logowebp/IALSSD.webp') into absolute Supabase storage URLs or domain URLs.
+ */
+export function normalizeDiscordImageUrl(url, fallback = null) {
+    if (!url || typeof url !== 'string') {
+        return fallback ? normalizeDiscordImageUrl(fallback) : undefined;
+    }
+    const trimmed = url.trim();
+    if (!trimmed) {
+        return fallback ? normalizeDiscordImageUrl(fallback) : undefined;
+    }
+
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        return trimmed;
+    }
+
+    // Match relative filenames against known supabase storage URLs
+    const lower = trimmed.toLowerCase();
+    for (const [key, storageUrl] of Object.entries(KNOWN_STORAGE_LOGOS)) {
+        if (lower.includes(key)) {
+            return storageUrl;
+        }
+    }
+
+    if (trimmed.startsWith('/') && typeof window !== 'undefined' && window.location?.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1')) {
+        return `${window.location.origin}${trimmed}`;
+    }
+
+    if (trimmed.startsWith('/')) {
+        return `https://detectivebureau.netlify.app${trimmed}`;
+    }
+
+    return fallback ? normalizeDiscordImageUrl(fallback) : undefined;
+}
 
 // Defaults for Announcements
 export const DEFAULT_BOT_NAME = 'SCUB • Sheriff Criminal Unit Bureau';
@@ -274,7 +331,7 @@ export async function testDiscordWebhook({
         throw new Error('La URL del webhook debe ser una URL válida que comience con https://');
     }
 
-    const avatar = (botAvatar || '').trim() || SCUB_LOGO_URL;
+    const avatar = normalizeDiscordImageUrl(botAvatar, SCUB_LOGO_URL);
     const name = (botName || '').trim() || DEFAULT_BOT_NAME;
     const footer = (footerText || '').trim() || DEFAULT_FOOTER_TEXT;
     const header = (customHeader || '').trim() || DEFAULT_HEADER_TEXT;
@@ -360,7 +417,7 @@ export async function sendAnnouncementToDiscord({ title, content, pinned, images
         const embedColor = pinned ? 0xF59E0B : 0x3B82F6;
         const embedTitle = pinned ? `📌 [COMUNICADO OFICIAL FIJADO] ${title}` : `📢 ${title}`;
 
-        const botAvatar = (config.botAvatar || '').trim() || SCUB_LOGO_URL;
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, SCUB_LOGO_URL);
         const botName = (config.botName || '').trim() || DEFAULT_BOT_NAME;
         const footerText = (config.footerText || '').trim() || DEFAULT_FOOTER_TEXT;
         const customHeader = (config.customHeader || '').trim() || DEFAULT_HEADER_TEXT;
@@ -372,7 +429,7 @@ export async function sendAnnouncementToDiscord({ title, content, pinned, images
             color: embedColor,
             author: {
                 name: authorFull || 'Personal de Coordinación / SCUB',
-                icon_url: author?.profile_image || author?.avatar_url || botAvatar
+                icon_url: normalizeDiscordImageUrl(author?.profile_image || author?.avatar_url, botAvatar)
             },
             footer: {
                 text: footerText,
@@ -381,12 +438,15 @@ export async function sendAnnouncementToDiscord({ title, content, pinned, images
             timestamp: new Date().toISOString()
         };
 
-        if (images && images.length > 0 && typeof images[0] === 'string' && images[0].startsWith('http')) {
-            embed.image = { url: images[0] };
+        if (images && images.length > 0 && typeof images[0] === 'string') {
+            const normFirst = normalizeDiscordImageUrl(images[0]);
+            if (normFirst) {
+                embed.image = { url: normFirst };
+            }
         }
 
         if (images && images.length > 1) {
-            const extraImages = images.slice(1).filter(img => typeof img === 'string' && img.startsWith('http'));
+            const extraImages = images.slice(1).map(img => normalizeDiscordImageUrl(img)).filter(Boolean);
             if (extraImages.length > 0) {
                 embed.fields = [
                     {
@@ -597,7 +657,7 @@ export async function testDiscordPracticesWebhook({
         throw new Error('La URL del webhook debe ser una URL válida que comience con https://');
     }
 
-    const avatar = (botAvatar || '').trim() || DTP_LOGO_URL;
+    const avatar = normalizeDiscordImageUrl(botAvatar, DTP_LOGO_URL);
     const name = (botName || '').trim() || DEFAULT_PRACTICES_BOT_NAME;
     const footer = (footerText || '').trim() || DEFAULT_PRACTICES_FOOTER_TEXT;
     const header = (customHeader || '').trim() || DEFAULT_PRACTICES_HEADER_TEXT;
@@ -676,7 +736,7 @@ export async function sendPracticeToDiscord({
         }
 
         const targetUrl = config.webhookUrl.trim();
-        const botAvatar = (config.botAvatar || '').trim() || DTP_LOGO_URL;
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, DTP_LOGO_URL);
         const botName = (config.botName || '').trim() || DEFAULT_PRACTICES_BOT_NAME;
         const footerText = (config.footerText || '').trim() || DEFAULT_PRACTICES_FOOTER_TEXT;
         const customHeader = (config.customHeader || '').trim() || DEFAULT_PRACTICES_HEADER_TEXT;
@@ -744,7 +804,7 @@ export async function sendPracticeToDiscord({
             color: 0xF59E0B, // Color ámbar / dorado de DTP
             author: {
                 name: organizerFull || 'DTP • Detective Training Program',
-                icon_url: organizer?.profile_image || organizer?.avatar_url || botAvatar
+                icon_url: normalizeDiscordImageUrl(organizer?.profile_image || organizer?.avatar_url, botAvatar)
             },
             fields: fields,
             footer: {
@@ -952,7 +1012,7 @@ export async function testDiscordEventsWebhook({
         throw new Error('La URL del webhook debe ser una URL válida que comience con https://');
     }
 
-    const avatar = (botAvatar || '').trim() || SCUB_LOGO_URL;
+    const avatar = normalizeDiscordImageUrl(botAvatar, SCUB_LOGO_URL);
     const name = (botName || '').trim() || DEFAULT_EVENTS_BOT_NAME;
     const footer = (footerText || '').trim() || DEFAULT_EVENTS_FOOTER_TEXT;
     const header = (customHeader || '').trim() || DEFAULT_EVENTS_HEADER_TEXT;
@@ -1082,7 +1142,7 @@ export async function sendEventToDiscord({
             typeBadge = 'Evento General';
         }
 
-        const botAvatar = (config.botAvatar || '').trim() || botAvatarDefault;
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, botAvatarDefault);
         const botName = (config.botName || '').trim() || DEFAULT_EVENTS_BOT_NAME;
         const footerText = (config.footerText || '').trim() || DEFAULT_EVENTS_FOOTER_TEXT;
         const customHeader = (config.customHeader || '').trim() || defaultHeader;
@@ -1120,7 +1180,7 @@ export async function sendEventToDiscord({
             color: embedColor,
             author: {
                 name: authorFull || 'Coordinación de SCUB',
-                icon_url: author?.profile_image || author?.avatar_url || botAvatar
+                icon_url: normalizeDiscordImageUrl(author?.profile_image || author?.avatar_url, botAvatar)
             },
             fields: [
                 { name: '📅 Fecha & Hora', value: formattedDateStr, inline: true },
@@ -1181,7 +1241,6 @@ export async function sendEventToDiscord({
 const LOCAL_STORAGE_KEY_IA_SANCTIONS = 'discord_ia_sanctions_webhook_cfg_v2';
 const LOCAL_STORAGE_KEY_IA_BANNERS = 'discord_ia_banners_cfg_v2';
 
-export const IA_LOGO_URL = 'https://znyleibiazxxmkbzrqqh.supabase.co/storage/v1/object/public/uploads/system/ia_logo.png';
 export const DEFAULT_IA_BOT_NAME = 'INTERNAL AFFAIRS BUREAU';
 export const DEFAULT_IA_FOOTER_TEXT = 'Internal Affairs Bureau • Régimen Disciplinario';
 
@@ -1446,7 +1505,7 @@ export async function sendIASanctionToDiscord({
             bannerImage = allBanners[sanctionType] || '';
         }
 
-        const botAvatar = (config.botAvatar || '').trim() || IA_LOGO_URL;
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, IA_LOGO_URL);
         const botName = (config.botName || '').trim() || DEFAULT_IA_BOT_NAME;
         const footerText = (config.footerText || '').trim() || DEFAULT_IA_FOOTER_TEXT;
 
@@ -1494,10 +1553,11 @@ export async function sendIASanctionToDiscord({
             timestamp: new Date().toISOString()
         };
 
-        if (bannerImage && bannerImage.trim().startsWith('http')) {
-            embed.image = {
-                url: bannerImage.trim()
-            };
+        if (bannerImage && typeof bannerImage === 'string') {
+            const normalizedBanner = normalizeDiscordImageUrl(bannerImage);
+            if (normalizedBanner) {
+                embed.image = { url: normalizedBanner };
+            }
         }
 
         let messageContent = undefined;
@@ -1772,7 +1832,7 @@ export async function sendCoordinationRosterToDiscord({
         const targetUrl = config.webhookUrl.trim();
         const formattedPing = formatRoleMention(config.rolePing);
 
-        const botAvatar = (config.botAvatar || '').trim() || SCUB_LOGO_URL;
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, SCUB_LOGO_URL);
         const botName = (config.botName || '').trim() || 'SCUB • Sheriff Criminal Unit Bureau';
         const embedTitle = `🔍 ${title || 'SHERIFF CRIMINAL UNIT BUREAU'}`;
 
@@ -1786,10 +1846,11 @@ export async function sendCoordinationRosterToDiscord({
         };
 
         const activeBanner = bannerUrl || config.bannerUrl;
-        if (activeBanner && activeBanner.trim().startsWith('http')) {
-            embed.image = {
-                url: activeBanner.trim()
-            };
+        if (activeBanner && typeof activeBanner === 'string') {
+            const normalizedBanner = normalizeDiscordImageUrl(activeBanner);
+            if (normalizedBanner) {
+                embed.image = { url: normalizedBanner };
+            }
         }
 
         let messageContent = undefined;
@@ -2042,7 +2103,7 @@ export async function sendASDRosterToDiscord({
         const targetUrl = config.webhookUrl.trim();
         const formattedPing = formatRoleMention(config.rolePing);
 
-        const botAvatar = (config.botAvatar || '').trim() || SCUB_LOGO_URL;
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, SCUB_LOGO_URL);
         const botName = (config.botName || '').trim() || 'ASD • Air Support Division';
         const embedTitle = `🚁 ${title || 'AIR SUPPORT DIVISION • DIVISION ROSTER'}`;
 
@@ -2056,10 +2117,11 @@ export async function sendASDRosterToDiscord({
         };
 
         const activeBanner = bannerUrl || config.bannerUrl;
-        if (activeBanner && activeBanner.trim().startsWith('http')) {
-            embed.image = {
-                url: activeBanner.trim()
-            };
+        if (activeBanner && typeof activeBanner === 'string') {
+            const normalizedBanner = normalizeDiscordImageUrl(activeBanner);
+            if (normalizedBanner) {
+                embed.image = { url: normalizedBanner };
+            }
         }
 
         let messageContent = undefined;
@@ -2300,7 +2362,7 @@ export async function sendIARosterToDiscord({
         const targetUrl = config.webhookUrl.trim();
         const formattedPing = formatRoleMention(config.rolePing);
 
-        const botAvatar = (config.botAvatar || '').trim() || IA_LOGO_URL;
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, IA_LOGO_URL);
         const botName = (config.botName || '').trim() || 'Internal Affairs Bureau';
         const embedTitle = `⚖️ ${title || 'INTERNAL AFFAIRS BUREAU - MIEMBROS'}`;
 
@@ -2314,10 +2376,11 @@ export async function sendIARosterToDiscord({
         };
 
         const activeBanner = bannerUrl || config.bannerUrl;
-        if (activeBanner && activeBanner.trim().startsWith('http')) {
-            embed.image = {
-                url: activeBanner.trim()
-            };
+        if (activeBanner && typeof activeBanner === 'string') {
+            const normalizedBanner = normalizeDiscordImageUrl(activeBanner);
+            if (normalizedBanner) {
+                embed.image = { url: normalizedBanner };
+            }
         }
 
         let messageContent = undefined;
@@ -2491,7 +2554,7 @@ export async function testIAComplaintsDiscordWebhook(config) {
         const targetUrl = config.webhookUrl.trim();
         const formattedPing = formatRoleMention(config.rolePing);
         const botName = (config.botName || '').trim() || DEFAULT_IA_COMPLAINTS_BOT_NAME;
-        const botAvatar = (config.botAvatar || '').trim() || IA_LOGO_URL;
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, IA_LOGO_URL);
 
         const embed = {
             title: '⚖️ PRUEBA DE CONEXIÓN: NOTIFICACIONES DE DENUNCIAS IA',
@@ -2554,7 +2617,7 @@ export async function sendIAComplaintNotificationToDiscord(complaintData) {
         const targetUrl = config.webhookUrl.trim();
         const formattedPing = formatRoleMention(config.rolePing);
         const botName = (config.botName || '').trim() || DEFAULT_IA_COMPLAINTS_BOT_NAME;
-        const botAvatar = (config.botAvatar || '').trim() || IA_LOGO_URL;
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, IA_LOGO_URL);
 
         const customMsg = config.customMsg || DEFAULT_IA_COMPLAINTS_CUSTOM_MSG;
 
@@ -2626,7 +2689,7 @@ export async function sendIAComplaintNotificationToDiscord(complaintData) {
         if (complaintData.pruebas && typeof complaintData.pruebas === 'string') {
             const matchHttp = complaintData.pruebas.match(/(https?:\/\/[^\s]+\.(?:png|jpg|jpeg|webp|gif))/i);
             if (matchHttp && matchHttp[1]) {
-                embed.image = { url: matchHttp[1] };
+                embed.image = { url: normalizeDiscordImageUrl(matchHttp[1]) };
             }
         }
 
@@ -2801,7 +2864,7 @@ export async function testSCUBComplaintsDiscordWebhook(config) {
         const targetUrl = config.webhookUrl.trim();
         const formattedPing = formatRoleMention(config.rolePing);
         const botName = (config.botName || '').trim() || DEFAULT_SCUB_COMPLAINTS_BOT_NAME;
-        const botAvatar = (config.botAvatar || '').trim() || SCUB_LOGO_URL;
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, SCUB_LOGO_URL);
 
         const embed = {
             title: '📜 PRUEBA DE CONEXIÓN: REGISTRO DE DENUNCIAS SCUB',
@@ -2865,7 +2928,7 @@ export async function sendSCUBComplaintNotificationToDiscord(complaintData) {
         const targetUrl = config.webhookUrl.trim();
         const formattedPing = formatRoleMention(config.rolePing);
         const botName = (config.botName || '').trim() || DEFAULT_SCUB_COMPLAINTS_BOT_NAME;
-        const botAvatar = (config.botAvatar || '').trim() || SCUB_LOGO_URL;
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, SCUB_LOGO_URL);
         const customMsg = config.customMsg || DEFAULT_SCUB_COMPLAINTS_CUSTOM_MSG;
 
         // Format Complainants
@@ -2954,8 +3017,11 @@ export async function sendSCUBComplaintNotificationToDiscord(complaintData) {
             timestamp: new Date().toISOString()
         };
 
-        if (complaintData.image_url && typeof complaintData.image_url === 'string' && complaintData.image_url.startsWith('http')) {
-            embed.image = { url: complaintData.image_url };
+        if (complaintData.image_url && typeof complaintData.image_url === 'string') {
+            const normalizedImg = normalizeDiscordImageUrl(complaintData.image_url);
+            if (normalizedImg) {
+                embed.image = { url: normalizedImg };
+            }
         }
 
         let messageContent = undefined;
