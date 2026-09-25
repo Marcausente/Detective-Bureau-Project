@@ -27,6 +27,7 @@ import IAReceptorDenuncias from './pages/IAReceptorDenuncias';
 import IAPublicacionFaltas from './pages/IAPublicacionFaltas';
 import IAMiembrosDiscord from './pages/IAMiembrosDiscord';
 import PublicIADenuncia from './pages/PublicIADenuncia';
+import PublicSCUBDenuncia from './pages/PublicSCUBDenuncia';
 import DOJ from './pages/DOJ'; // Import
 import DOJCases from './pages/DOJCases';
 import DOJCaseDetail from './pages/DOJCaseDetail';
@@ -61,6 +62,9 @@ function App() {
           {/* Public Routes */}
           <Route path="/" element={<Login />} />
           <Route path="/public-map" element={<PublicGangMap />} />
+          <Route path="/denuncia" element={<PublicSCUBDenuncia />} />
+          <Route path="/denuncia-publica" element={<PublicSCUBDenuncia />} />
+          <Route path="/denuncia-scub" element={<PublicSCUBDenuncia />} />
           <Route path="/denuncia-ia" element={<PublicIADenuncia />} />
           <Route path="/registro-vuelo" element={<PublicASDFlightLog />} />
           <Route path="/flight-log" element={<PublicASDFlightLog />} />

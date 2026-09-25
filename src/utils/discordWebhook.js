@@ -2670,6 +2670,335 @@ export async function sendIAComplaintNotificationToDiscord(complaintData) {
     }
 }
 
+// ==============================================================================
+// 8. SCUB / GENERAL CRIMES COMPLAINTS NOTIFICATIONS WEBHOOK
+// ==============================================================================
+
+const LOCAL_STORAGE_KEY_SCUB_COMPLAINTS = 'discord_scub_complaints_webhook_cfg_v1';
+export const DEFAULT_SCUB_COMPLAINTS_BOT_NAME = 'SCUB • Registro de Denuncias';
+export const DEFAULT_SCUB_COMPLAINTS_CUSTOM_MSG = '📜 **Nueva Denuncia Ciudadana Registrada (SCUB)**. Se ha recibido una nueva denuncia en el sistema. Revisad el registro para iniciar la investigación y asignar detectives.';
+
+export async function getDiscordSCUBComplaintsWebhookConfig() {
+    try {
+        const cached = localStorage.getItem(LOCAL_STORAGE_KEY_SCUB_COMPLAINTS);
+        let config = null;
+        if (cached) {
+            try { config = JSON.parse(cached); } catch (e) { /* ignore */ }
+        }
+
+        const { data, error } = await supabase.rpc('get_discord_scub_complaints_webhook_config');
+        if (!error && data) {
+            const freshConfig = {
+                webhookUrl: data.webhook_url || '',
+                enabled: !!data.enabled,
+                rolePing: data.role_ping || '',
+                botName: data.bot_name || DEFAULT_SCUB_COMPLAINTS_BOT_NAME,
+                botAvatar: data.bot_avatar || '',
+                customMsg: data.custom_msg || DEFAULT_SCUB_COMPLAINTS_CUSTOM_MSG
+            };
+            localStorage.setItem(LOCAL_STORAGE_KEY_SCUB_COMPLAINTS, JSON.stringify(freshConfig));
+            return freshConfig;
+        }
+
+        if (config) return config;
+
+        // Fallback to direct app_settings query
+        const { data: directData } = await supabase
+            .from('app_settings')
+            .select('key, value')
+            .in('key', [
+                'discord_scub_complaints_webhook_url',
+                'discord_scub_complaints_webhook_enabled',
+                'discord_scub_complaints_webhook_role_ping',
+                'discord_scub_complaints_webhook_bot_name',
+                'discord_scub_complaints_webhook_bot_avatar',
+                'discord_scub_complaints_webhook_custom_msg'
+            ]);
+
+        if (directData && directData.length > 0) {
+            const map = {};
+            directData.forEach(r => { map[r.key] = r.value; });
+            const directConfig = {
+                webhookUrl: map['discord_scub_complaints_webhook_url'] || '',
+                enabled: map['discord_scub_complaints_webhook_enabled'] === 'true',
+                rolePing: map['discord_scub_complaints_webhook_role_ping'] || '',
+                botName: map['discord_scub_complaints_webhook_bot_name'] || DEFAULT_SCUB_COMPLAINTS_BOT_NAME,
+                botAvatar: map['discord_scub_complaints_webhook_bot_avatar'] || '',
+                customMsg: map['discord_scub_complaints_webhook_custom_msg'] || DEFAULT_SCUB_COMPLAINTS_CUSTOM_MSG
+            };
+            localStorage.setItem(LOCAL_STORAGE_KEY_SCUB_COMPLAINTS, JSON.stringify(directConfig));
+            return directConfig;
+        }
+
+        return {
+            webhookUrl: '',
+            enabled: false,
+            rolePing: '',
+            botName: DEFAULT_SCUB_COMPLAINTS_BOT_NAME,
+            botAvatar: '',
+            customMsg: DEFAULT_SCUB_COMPLAINTS_CUSTOM_MSG
+        };
+    } catch (err) {
+        console.error('Error in getDiscordSCUBComplaintsWebhookConfig:', err);
+        return {
+            webhookUrl: '',
+            enabled: false,
+            rolePing: '',
+            botName: DEFAULT_SCUB_COMPLAINTS_BOT_NAME,
+            botAvatar: '',
+            customMsg: DEFAULT_SCUB_COMPLAINTS_CUSTOM_MSG
+        };
+    }
+}
+
+export async function saveDiscordSCUBComplaintsWebhookConfig(config) {
+    try {
+        const { data, error } = await supabase.rpc('save_discord_scub_complaints_webhook_config', {
+            p_webhook_url: config.webhookUrl || '',
+            p_enabled: !!config.enabled,
+            p_role_ping: config.rolePing || '',
+            p_bot_name: config.botName || DEFAULT_SCUB_COMPLAINTS_BOT_NAME,
+            p_bot_avatar: config.botAvatar || '',
+            p_custom_msg: config.customMsg || DEFAULT_SCUB_COMPLAINTS_CUSTOM_MSG
+        });
+
+        if (error) {
+            // Direct app_settings fallback
+            const updates = [
+                { key: 'discord_scub_complaints_webhook_url', value: config.webhookUrl || '' },
+                { key: 'discord_scub_complaints_webhook_enabled', value: config.enabled ? 'true' : 'false' },
+                { key: 'discord_scub_complaints_webhook_role_ping', value: config.rolePing || '' },
+                { key: 'discord_scub_complaints_webhook_bot_name', value: config.botName || DEFAULT_SCUB_COMPLAINTS_BOT_NAME },
+                { key: 'discord_scub_complaints_webhook_bot_avatar', value: config.botAvatar || '' },
+                { key: 'discord_scub_complaints_webhook_custom_msg', value: config.customMsg || DEFAULT_SCUB_COMPLAINTS_CUSTOM_MSG }
+            ];
+            const { error: directError } = await supabase.from('app_settings').upsert(updates);
+            if (directError) throw directError;
+        }
+
+        localStorage.setItem(LOCAL_STORAGE_KEY_SCUB_COMPLAINTS, JSON.stringify({
+            webhookUrl: config.webhookUrl || '',
+            enabled: !!config.enabled,
+            rolePing: config.rolePing || '',
+            botName: config.botName || DEFAULT_SCUB_COMPLAINTS_BOT_NAME,
+            botAvatar: config.botAvatar || '',
+            customMsg: config.customMsg || DEFAULT_SCUB_COMPLAINTS_CUSTOM_MSG
+        }));
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error saving SCUB Complaints Webhook config:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+export async function testSCUBComplaintsDiscordWebhook(config) {
+    try {
+        if (!config?.webhookUrl || !config.webhookUrl.trim().startsWith('http')) {
+            throw new Error('La URL del Webhook de Discord no es válida.');
+        }
+
+        const targetUrl = config.webhookUrl.trim();
+        const formattedPing = formatRoleMention(config.rolePing);
+        const botName = (config.botName || '').trim() || DEFAULT_SCUB_COMPLAINTS_BOT_NAME;
+        const botAvatar = (config.botAvatar || '').trim() || SCUB_LOGO_URL;
+
+        const embed = {
+            title: '📜 PRUEBA DE CONEXIÓN: REGISTRO DE DENUNCIAS SCUB',
+            description: '✅ **Webhook configurado correctamente.**\nLas denuncias ciudadanas recibidas desde el formulario externo se notificarán automáticamente en este canal.',
+            color: 0xF59E0B, // Amber / Gold
+            fields: [
+                { name: '📋 Título de Prueba', value: 'Robo a Mano Armada en Little Seoul', inline: true },
+                { name: '⚖️ Delito / Motivo', value: 'Robo con Violencia / Amenazas', inline: true },
+                { name: '👤 Denunciante', value: 'Michael De Santa (📞 555-0143)', inline: true },
+                { name: '🎯 Sospechosos', value: '2 Sujetos encapuchados en Karin Sultan negro', inline: true },
+                { name: '📂 Estado en BBDD', value: '📥 **Abierta (Sin Caso Asignado)**', inline: false }
+            ],
+            footer: {
+                text: 'SCUB • Registro de Denuncias • Alertas Automáticas',
+                icon_url: botAvatar || undefined
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        const payload = {
+            username: botName,
+            avatar_url: botAvatar || undefined,
+            content: formattedPing ? `${formattedPing} 🔔 **Prueba de Conexión de Denuncias**` : undefined,
+            allowed_mentions: {
+                parse: ['roles', 'users', 'everyone']
+            },
+            embeds: [embed]
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errText = '';
+            try {
+                const errJson = await response.json();
+                errText = errJson.message || JSON.stringify(errJson);
+            } catch (e) {
+                errText = `HTTP Error ${response.status} (${response.statusText})`;
+            }
+            return { success: false, error: errText };
+        }
+
+        return { success: true };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+}
+
+export async function sendSCUBComplaintNotificationToDiscord(complaintData) {
+    try {
+        const config = await getDiscordSCUBComplaintsWebhookConfig();
+        if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('http')) {
+            // Disabled or not configured
+            return { success: false, skipped: true };
+        }
+
+        const targetUrl = config.webhookUrl.trim();
+        const formattedPing = formatRoleMention(config.rolePing);
+        const botName = (config.botName || '').trim() || DEFAULT_SCUB_COMPLAINTS_BOT_NAME;
+        const botAvatar = (config.botAvatar || '').trim() || SCUB_LOGO_URL;
+        const customMsg = config.customMsg || DEFAULT_SCUB_COMPLAINTS_CUSTOM_MSG;
+
+        // Format Complainants
+        let complainantsText = 'No especificado';
+        if (Array.isArray(complaintData.complainants) && complaintData.complainants.length > 0) {
+            complainantsText = complaintData.complainants.map((c, i) => {
+                const name = c.nombre_apellido || 'Anónimo';
+                const tel = c.telefono ? `📞 ${c.telefono}` : '';
+                const idDoc = c.id_documento ? `(ID: ${c.id_documento})` : '';
+                return `• **${name}** ${tel} ${idDoc}`.trim();
+            }).join('\n');
+        }
+
+        // Format Accused / Suspects
+        let accusedText = 'Desconocido(s)';
+        if (Array.isArray(complaintData.accused) && complaintData.accused.length > 0) {
+            accusedText = complaintData.accused.map((a, i) => {
+                const name = a.nombre_apellido && a.nombre_apellido !== 'N/A' ? a.nombre_apellido : 'Sujeto sin identificar';
+                const rasgos = a.rasgos_fisicos && a.rasgos_fisicos !== 'N/A' ? `\n  - *Rasgos:* ${a.rasgos_fisicos}` : '';
+                const tel = a.telefono && a.telefono !== 'N/A' ? `\n  - *Tel:* ${a.telefono}` : '';
+                const doc = a.id_documento && a.id_documento !== 'N/A' ? `\n  - *ID:* ${a.id_documento}` : '';
+                const instapic = a.instapic && a.instapic !== 'N/A' ? `\n  - *Instapic / Red:* ${a.instapic}` : '';
+                return `• **${name}**${rasgos}${tel}${doc}${instapic}`;
+            }).join('\n');
+        }
+
+        // Clean HTML in acontecimientos
+        const cleanAcontecimientos = formatHtmlToDiscordMarkdown(complaintData.acontecimientos || '');
+        const acontecimientosText = cleanAcontecimientos 
+            ? (cleanAcontecimientos.length > 850 
+                ? cleanAcontecimientos.substring(0, 850) + '... *(continúa en BBDD)*' 
+                : cleanAcontecimientos)
+            : 'Sin relato detallado.';
+
+        const fields = [
+            {
+                name: '📋 Asunto / Título',
+                value: `**${complaintData.titulo || 'Denuncia Ciudadana'}**`,
+                inline: true
+            },
+            {
+                name: '⚖️ Motivo / Delito',
+                value: `\`${complaintData.motivo || 'General'}\``,
+                inline: true
+            },
+            {
+                name: '👤 Denunciante(s)',
+                value: complainantsText,
+                inline: false
+            },
+            {
+                name: '🎯 Sospechoso(s) / Denunciado(s)',
+                value: accusedText,
+                inline: false
+            },
+            {
+                name: '📝 Declaración / Acontecimientos',
+                value: acontecimientosText,
+                inline: false
+            }
+        ];
+
+        if (complaintData.solicitud) {
+            fields.push({
+                name: '⚖️ Solicitud de la Víctima',
+                value: complaintData.solicitud,
+                inline: false
+            });
+        }
+
+        fields.push({
+            name: '🚨 Acción Requerida',
+            value: '👉 **Acceder al Registro de Denuncias de la SCUB para revisar y vincular con expediente o investigación.**',
+            inline: false
+        });
+
+        const embed = {
+            title: '📜 NUEVA DENUNCIA CIUDADANA REGISTRADA (SCUB / DB)',
+            description: customMsg,
+            color: 0xF59E0B, // Amber / Gold
+            fields: fields,
+            footer: {
+                text: 'SCUB • General Crimes Division • Registro de Denuncias',
+                icon_url: botAvatar || undefined
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        if (complaintData.image_url && typeof complaintData.image_url === 'string' && complaintData.image_url.startsWith('http')) {
+            embed.image = { url: complaintData.image_url };
+        }
+
+        let messageContent = undefined;
+        if (formattedPing) {
+            messageContent = `${formattedPing} 🚨 **Nueva Denuncia Ciudadana Recibida**`;
+        }
+
+        const payload = {
+            username: botName,
+            avatar_url: botAvatar || undefined,
+            content: messageContent,
+            allowed_mentions: {
+                parse: ['roles', 'users', 'everyone']
+            },
+            embeds: [embed]
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errText = '';
+            try {
+                const errJson = await response.json();
+                errText = errJson.message || JSON.stringify(errJson);
+            } catch (e) {
+                errText = `HTTP Error ${response.status} (${response.statusText})`;
+            }
+            console.error('Failed to send SCUB Complaint notification to Discord:', errText);
+            return { success: false, error: errText };
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error in sendSCUBComplaintNotificationToDiscord:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+
 
 
 

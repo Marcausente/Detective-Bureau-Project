@@ -5,6 +5,13 @@ import ComplaintCard from '../components/ComplaintCard';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
+import { 
+    getDiscordSCUBComplaintsWebhookConfig, 
+    saveDiscordSCUBComplaintsWebhookConfig, 
+    testSCUBComplaintsDiscordWebhook,
+    DEFAULT_SCUB_COMPLAINTS_BOT_NAME,
+    DEFAULT_SCUB_COMPLAINTS_CUSTOM_MSG
+} from '../utils/discordWebhook';
 import '../index.css';
 
 function Denuncias() {
@@ -49,10 +56,73 @@ function Denuncias() {
     const [notas, setNotas] = useState('');
     const [imageUrl, setImageUrl] = useState('');
 
+    // Discord Webhook State for SCUB Complaints
+    const [showWebhookModal, setShowWebhookModal] = useState(false);
+    const [scubWebhook, setScubWebhook] = useState({
+        webhookUrl: '',
+        enabled: false,
+        rolePing: '',
+        botName: DEFAULT_SCUB_COMPLAINTS_BOT_NAME,
+        botAvatar: '',
+        customMsg: DEFAULT_SCUB_COMPLAINTS_CUSTOM_MSG
+    });
+    const [savingWebhook, setSavingWebhook] = useState(false);
+    const [testingWebhook, setTestingWebhook] = useState(false);
+    const [webhookNotice, setWebhookNotice] = useState(null);
+    const [webhookError, setWebhookError] = useState(null);
+    const [linkCopied, setLinkCopied] = useState(false);
+
     useEffect(() => {
         loadData();
         fetchOpenCases();
+        getDiscordSCUBComplaintsWebhookConfig().then(cfg => setScubWebhook(cfg));
     }, []);
+
+    const handleCopyPublicLink = () => {
+        const publicUrl = `${window.location.origin}/denuncia`;
+        navigator.clipboard.writeText(publicUrl);
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 3500);
+    };
+
+    const handleSaveWebhook = async (e) => {
+        e.preventDefault();
+        setSavingWebhook(true);
+        setWebhookNotice(null);
+        setWebhookError(null);
+        try {
+            const res = await saveDiscordSCUBComplaintsWebhookConfig(scubWebhook);
+            if (res.success) {
+                setWebhookNotice("Configuración guardada exitosamente.");
+                setTimeout(() => setWebhookNotice(null), 4000);
+            } else {
+                setWebhookError("Error al guardar: " + res.error);
+            }
+        } catch (err) {
+            setWebhookError(err.message);
+        } finally {
+            setSavingWebhook(false);
+        }
+    };
+
+    const handleTestWebhook = async () => {
+        setTestingWebhook(true);
+        setWebhookNotice(null);
+        setWebhookError(null);
+        try {
+            const res = await testSCUBComplaintsDiscordWebhook(scubWebhook);
+            if (res.success) {
+                setWebhookNotice("¡Mensaje de prueba enviado con éxito a Discord!");
+                setTimeout(() => setWebhookNotice(null), 4500);
+            } else {
+                setWebhookError(res.error || "Error al conectar con Discord");
+            }
+        } catch (err) {
+            setWebhookError(err.message);
+        } finally {
+            setTestingWebhook(false);
+        }
+    };
 
     // Scroll to highlighted element after data loads
     useEffect(() => {
@@ -439,6 +509,54 @@ function Denuncias() {
                         </button>
                     )}
 
+                    {/* Public Form Link Button */}
+                    <button
+                        type="button"
+                        onClick={handleCopyPublicLink}
+                        className="login-button btn-secondary"
+                        style={{
+                            width: 'auto',
+                            padding: '0.42rem 0.85rem',
+                            fontSize: '0.8rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: linkCopied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                            borderColor: linkCopied ? 'rgba(16, 185, 129, 0.5)' : 'rgba(255, 255, 255, 0.12)',
+                            color: linkCopied ? '#34d399' : '#cbd5e1',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                        }}
+                        title="Copiar enlace del formulario telemático público"
+                    >
+                        <span>📋</span>
+                        <span>{linkCopied ? '¡Enlace Copiado!' : 'Formulario Público'}</span>
+                    </button>
+
+                    {/* Discord Webhook Config Button */}
+                    <button
+                        type="button"
+                        onClick={() => setShowWebhookModal(true)}
+                        className="login-button btn-secondary"
+                        style={{
+                            width: 'auto',
+                            padding: '0.42rem 0.85rem',
+                            fontSize: '0.8rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            background: scubWebhook.enabled ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.06)',
+                            borderColor: scubWebhook.enabled ? 'rgba(245, 158, 11, 0.4)' : 'rgba(255, 255, 255, 0.12)',
+                            color: scubWebhook.enabled ? '#fbbf24' : '#cbd5e1',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                        }}
+                        title="Configurar notificaciones en Discord para denuncias"
+                    >
+                        <span>🔔</span>
+                        <span>{scubWebhook.enabled ? 'Discord Activo' : 'Webhook Discord'}</span>
+                    </button>
+
                     {/* Create Complaint Button */}
                     <button
                         type="button"
@@ -449,7 +567,7 @@ function Denuncias() {
                             <line x1="12" y1="5" x2="12" y2="19" />
                             <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
-                        {t('logComplaintBtn') || 'Registrar Denuncia'}
+                        {t('logComplaintBtn') || 'Nueva Denuncia'}
                     </button>
                 </div>
             </div>
@@ -1125,6 +1243,172 @@ function Denuncias() {
                         >
                             ✕
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* --- DISCORD WEBHOOK CONFIG MODAL --- */}
+            {showWebhookModal && (
+                <div className="mac-modal-overlay" onClick={() => setShowWebhookModal(false)} style={{ zIndex: 999 }}>
+                    <div 
+                        className="modal-container" 
+                        style={{ maxWidth: '640px', width: '90%', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '1.75rem', maxHeight: '90vh', overflowY: 'auto' }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.75rem' }}>
+                            <div>
+                                <h3 style={{ margin: '0 0 0.25rem 0', color: '#fbbf24', fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>🔔</span> Configurar Webhook Discord (Denuncias SCUB)
+                                </h3>
+                                <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.82rem' }}>
+                                    Notificaciones automáticas en Discord para nuevas denuncias presentadas telemáticamente.
+                                </p>
+                            </div>
+                            <button 
+                                onClick={() => setShowWebhookModal(false)}
+                                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.2rem', cursor: 'pointer' }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSaveWebhook}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.25rem' }}>
+                                {/* Estado Activo */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f8fafc' }}>
+                                        Activar Notificaciones en Discord
+                                    </span>
+                                    <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '46px', height: '26px' }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={scubWebhook.enabled} 
+                                            onChange={e => setScubWebhook({ ...scubWebhook, enabled: e.target.checked })} 
+                                            style={{ opacity: 0, width: 0, height: 0 }}
+                                        />
+                                        <span className="slider round" style={{ 
+                                            position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
+                                            backgroundColor: scubWebhook.enabled ? '#d97706' : '#334155', 
+                                            transition: '.3s', borderRadius: '26px'
+                                        }}>
+                                            <span style={{
+                                                position: 'absolute', content: '""', height: '18px', width: '18px', left: '4px', bottom: '4px',
+                                                backgroundColor: 'white', transition: '.3s', borderRadius: '50%',
+                                                transform: scubWebhook.enabled ? 'translateX(20px)' : 'translateX(0)'
+                                            }}></span>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                {/* Webhook URL */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                                        URL del Webhook de Discord (Canal de Denuncias) <span style={{ color: '#f87171' }}>*</span>
+                                    </label>
+                                    <input
+                                        type="url"
+                                        required={scubWebhook.enabled}
+                                        value={scubWebhook.webhookUrl}
+                                        onChange={e => setScubWebhook({ ...scubWebhook, webhookUrl: e.target.value })}
+                                        placeholder="https://discord.com/api/webhooks/..."
+                                        className="mac-form-input"
+                                        style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                    />
+                                </div>
+
+                                {/* Role Ping */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                                        Mención de Rol / Tag de Notificación
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={scubWebhook.rolePing}
+                                        onChange={e => setScubWebhook({ ...scubWebhook, rolePing: e.target.value })}
+                                        placeholder="Ej: @everyone, @here, o ID de rol de detectives"
+                                        className="mac-form-input"
+                                        style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                    />
+                                </div>
+
+                                {/* Bot Name */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                                        Nombre del Bot en Discord
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={scubWebhook.botName}
+                                        onChange={e => setScubWebhook({ ...scubWebhook, botName: e.target.value })}
+                                        placeholder="Ej: SCUB • Registro de Denuncias"
+                                        className="mac-form-input"
+                                        style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                    />
+                                </div>
+
+                                {/* Bot Avatar */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                                        Logo / Avatar del Bot (URL)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={scubWebhook.botAvatar}
+                                        onChange={e => setScubWebhook({ ...scubWebhook, botAvatar: e.target.value })}
+                                        placeholder="/logowebp/SCUB.webp o URL"
+                                        className="mac-form-input"
+                                        style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                    />
+                                </div>
+
+                                {/* Custom Message */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '0.35rem' }}>
+                                        Mensaje de Aviso en Cabecera
+                                    </label>
+                                    <textarea
+                                        value={scubWebhook.customMsg}
+                                        onChange={e => setScubWebhook({ ...scubWebhook, customMsg: e.target.value })}
+                                        placeholder="Ej: 📜 **Nueva Denuncia Ciudadana Registrada (SCUB)**..."
+                                        className="mac-form-input"
+                                        rows={2}
+                                        style={{ width: '100%', padding: '0.6rem 0.8rem', resize: 'vertical' }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Notices */}
+                            {webhookNotice && (
+                                <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '1rem', color: '#34d399', fontSize: '0.85rem' }}>
+                                    ✅ {webhookNotice}
+                                </div>
+                            )}
+                            {webhookError && (
+                                <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '8px', padding: '0.6rem 0.8rem', marginBottom: '1rem', color: '#f87171', fontSize: '0.85rem' }}>
+                                    ❌ {webhookError}
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={handleTestWebhook}
+                                    disabled={testingWebhook || !scubWebhook.webhookUrl}
+                                    className="login-button btn-secondary"
+                                    style={{ width: 'auto', padding: '0.5rem 1rem', fontSize: '0.82rem' }}
+                                >
+                                    {testingWebhook ? 'Probando...' : '🧪 Probar'}
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={savingWebhook}
+                                    className="login-button"
+                                    style={{ width: 'auto', padding: '0.5rem 1.25rem', fontSize: '0.82rem', background: '#d97706', borderColor: '#b45309' }}
+                                >
+                                    {savingWebhook ? 'Guardando...' : '💾 Guardar'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
