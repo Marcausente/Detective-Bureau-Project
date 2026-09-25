@@ -91,7 +91,7 @@ function Dashboard() {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const { t } = useLanguage();
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
 
     const [activeTab, setActiveTab] = useState('all');
 
@@ -457,7 +457,7 @@ function Dashboard() {
                         <span className="mac-date-badge" style={{ textTransform: 'capitalize' }}>{currentDateFormatted}</span>
                     </div>
                     <h1 className="mac-title-text">
-                        {isLSSD ? 'SHERIFF CRIMINAL UNIT' : 'DETECTIVE BUREAU'}
+                        {branding?.dashboard_title || (isLSSD ? 'SHERIFF CRIMINAL UNIT' : 'DETECTIVE BUREAU')}
                     </h1>
                     <div className="mac-subtitle-text">
                         <span>Bienvenido, <strong>{user?.rango} {user?.apellido}</strong></span>

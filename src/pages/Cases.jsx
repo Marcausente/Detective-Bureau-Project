@@ -13,7 +13,7 @@ function Cases() {
     const [filter, setFilter] = useState('Open'); // Open, Closed, Archived
     const [searchQuery, setSearchQuery] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
     const { t } = useLanguage();
 
     // Form State
@@ -157,19 +157,23 @@ function Cases() {
             <div className="mac-command-banner" style={{ marginBottom: '1.75rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                     <img 
-                        src={isLSSD ? "/logowebp/Generalcrimes.webp" : "/logowebp/mcd.webp"} 
+                        src={branding?.cases_logo || (isLSSD ? "/logowebp/Generalcrimes.webp" : "/logowebp/mcd.webp")} 
                         alt="Division Logo" 
-                        style={{ height: '64px', width: 'auto', filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5))' }} 
+                        style={{ height: '64px', width: 'auto', filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5))' }}
+                        onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = isLSSD ? "/logowebp/Generalcrimes.webp" : "/logowebp/mcd.webp";
+                        }}
                     />
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                             <span className="mac-status-dot"></span>
                             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                {isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau Division"}
+                                {branding?.cases_subtitle || (isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau Division")}
                             </span>
                         </div>
                         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0.2rem 0 0 0', color: '#ffffff', letterSpacing: '-0.02em' }}>
-                            {isLSSD ? "GENERAL CRIMES DIVISION" : "MAJOR CRIMES DIVISION"}
+                            {branding?.cases_title || (isLSSD ? "GENERAL CRIMES DIVISION" : "MAJOR CRIMES DIVISION")}
                         </h1>
                     </div>
                 </div>

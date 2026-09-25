@@ -195,7 +195,7 @@ function MainLayout() {
     const [profile, setProfile] = useState(null);
     const navigate = useNavigate();
     const location = useLocation();
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
     const { t } = useLanguage();
 
     const [activeGame, setActiveGame] = useState(null);
@@ -427,13 +427,17 @@ function MainLayout() {
                         <div className="mac-window-dot max"></div>
                     </div>
                     <img
-                        src={isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/LSSDlogo.webp"}
-                        alt={isLSSD ? "SCUB" : "SAPD"}
+                        src={branding?.topbar_logo || (isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/LSSDlogo.webp")}
+                        alt={branding?.topbar_name || (isLSSD ? "SCUB" : "SAPD")}
                         className="mac-topbar-logo"
                         onClick={handleLogoClick}
                         style={{ cursor: 'pointer' }}
+                        onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/LSSDlogo.webp";
+                        }}
                     />
-                    <span className="mac-topbar-brand">{isLSSD ? t('scub') : t('detectiveBureau')}</span>
+                    <span className="mac-topbar-brand">{branding?.topbar_name || (isLSSD ? t('scub') : t('detectiveBureau'))}</span>
                 </div>
 
                 {/* Center macOS Floating Navigation Dock (100% Perfectly Centered) */}

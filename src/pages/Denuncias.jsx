@@ -3,11 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import ComplaintCard from '../components/ComplaintCard';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
 import '../index.css';
 
 function Denuncias() {
     const { t } = useLanguage();
+    const { isLSSD, branding } = useTheme();
     const [searchParams, setSearchParams] = useSearchParams();
     const highlightedRef = useRef(null);
 
@@ -362,13 +364,17 @@ function Denuncias() {
                 {/* Left: Brand Logo & Title */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                     <img
-                        src="/logowebp/Generalcrimes.webp"
-                        alt="General Crimes Logo"
+                        src={branding?.complaints_logo || (isLSSD ? "/logowebp/Generalcrimes.webp" : "/logowebp/mcd.webp")}
+                        alt="Complaints Logo"
                         style={{ height: '48px', width: 'auto', filter: 'drop-shadow(0 0 10px rgba(96, 165, 250, 0.4))' }}
+                        onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = "/logowebp/Generalcrimes.webp";
+                        }}
                     />
                     <div>
                         <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.015em' }}>
-                            {t('complaintsTitle') || 'Registro de Denuncias'}
+                            {branding?.complaints_title || t('complaintsTitle') || 'Registro de Denuncias'}
                         </h2>
                         <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
                             <span>Abiertas: <strong style={{ color: '#60a5fa' }}>{openComplaints.length}</strong></span>

@@ -12,7 +12,7 @@ function Login() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const navigate = useNavigate();
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
     const { t } = useLanguage();
 
     useEffect(() => {
@@ -58,7 +58,7 @@ function Login() {
             {/* Background Ambient Mesh & Image */}
             <div className="mac-login-bg">
                 <img 
-                    src={isLSSD ? "/logowebp/fondolssd.webp" : "/logowebp/indeximage.webp"} 
+                    src={branding?.login_bg || (isLSSD ? "/logowebp/fondolssd.webp" : "/logowebp/indeximage.webp")} 
                     alt="Department Background" 
                     className="mac-login-bg-img" 
                 />
@@ -68,22 +68,26 @@ function Login() {
             {/* Department Brand Top Header */}
             <div className="mac-login-header">
                 <img 
-                    src={isLSSD ? "/logowebp/LSSDlogo.webp" : "/logowebp/LSSDlogo.webp"} 
+                    src={branding?.topbar_logo || (isLSSD ? "/logowebp/LSSDlogo.webp" : "/logowebp/LSSDlogo.webp")} 
                     alt="Department Logo" 
                     className="mac-login-logo" 
                 />
                 <div className="mac-login-header-titles">
                     <span className="mac-login-dept-title">
-                        {isLSSD ? "Los Santos Sheriff's Department" : "Los Santos Police Department"}
+                        {branding?.login_dept || (isLSSD ? "Los Santos Sheriff's Department" : "Los Santos Police Department")}
                     </span>
                     <span className="mac-login-bureau-title">
-                        {isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau"}
+                        {branding?.login_bureau || (isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau")}
                     </span>
                 </div>
                 <img 
-                    src={isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp"} 
+                    src={branding?.login_logo || (isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp")} 
                     alt="Bureau Crest" 
                     className="mac-login-logo" 
+                    onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp";
+                    }}
                 />
             </div>
 
