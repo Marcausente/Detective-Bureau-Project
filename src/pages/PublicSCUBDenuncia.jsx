@@ -171,7 +171,7 @@ export default function PublicSCUBDenuncia() {
                 const { data: directData, error: directError } = await supabase
                     .from('denuncias')
                     .insert({
-                        status: 'Abierta',
+                        status: 'Open',
                         complainants: complainants,
                         accused: cleanedAccused,
                         motivo: finalMotivo,

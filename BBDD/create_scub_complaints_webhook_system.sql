@@ -52,7 +52,7 @@ BEGIN
     )
     VALUES (
         NULL,
-        'Abierta',
+        'Open',
         p_complainants,
         p_accused,
         p_motivo,
