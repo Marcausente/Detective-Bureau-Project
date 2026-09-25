@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { 
@@ -8,6 +8,7 @@ import {
     DEFAULT_IA_COMPLAINTS_BOT_NAME,
     DEFAULT_IA_COMPLAINTS_CUSTOM_MSG
 } from '../utils/discordWebhook';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import '../index.css';
 
 function IAReceptorDenuncias() {
@@ -27,6 +28,8 @@ function IAReceptorDenuncias() {
 
     // Discord Webhook Modal State
     const [showWebhookModal, setShowWebhookModal] = useState(false);
+    const avatarInputRef = useRef(null);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [complaintWebhook, setComplaintWebhook] = useState({
         webhookUrl: '',
         enabled: false,
@@ -173,6 +176,27 @@ function IAReceptorDenuncias() {
             setWebhookError(err.message);
         } finally {
             setTestingWebhook(false);
+        }
+    };
+
+    const handleAvatarFileChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingAvatar(true);
+        setWebhookError(null);
+        try {
+            const publicUrl = await uploadImageToStorage(file, 'branding');
+            if (publicUrl) {
+                setComplaintWebhook(prev => ({ ...prev, botAvatar: publicUrl }));
+                setWebhookNotice("Imagen subida y asignada como avatar.");
+                setTimeout(() => setWebhookNotice(null), 3500);
+            }
+        } catch (err) {
+            console.error("Error al subir avatar:", err);
+            setWebhookError("Error al subir imagen: " + err.message);
+        } finally {
+            setUploadingAvatar(false);
+            if (avatarInputRef.current) avatarInputRef.current.value = '';
         }
     };
 
@@ -425,20 +449,19 @@ function IAReceptorDenuncias() {
                     <div className="loading-container" style={{ fontSize: '1.2rem', color: 'var(--color-blue)' }}>Cargando Denuncias...</div>
                 </div>
             ) : (
-                /* Kanban flex row */
+                /* Kanban 3-column grid centered & evenly distributed */
                 <div style={{
-                    display: 'flex',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
                     gap: '1.5rem',
-                    overflowX: 'auto',
                     flex: 1,
-                    alignItems: 'stretch',
+                    minHeight: 0,
+                    width: '100%',
                     paddingBottom: '1rem'
                 }}>
                     
                     {/* Column 1: Denuncias Entrantes */}
                     <div style={{
-                        flex: '1 0 320px',
-                        maxWidth: '450px',
                         background: 'rgba(var(--secondary-rgb), 0.25)',
                         border: '1px solid rgba(255,255,255,0.03)',
                         borderRadius: '12px',
@@ -446,7 +469,9 @@ function IAReceptorDenuncias() {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '1rem',
-                        height: '100%'
+                        height: '100%',
+                        minHeight: 0,
+                        overflow: 'hidden'
                     }}>
                         <div style={{
                             display: 'flex',
@@ -477,8 +502,6 @@ function IAReceptorDenuncias() {
 
                     {/* Column 2: Denuncias con Caso */}
                     <div style={{
-                        flex: '1 0 320px',
-                        maxWidth: '450px',
                         background: 'rgba(var(--secondary-rgb), 0.25)',
                         border: '1px solid rgba(255,255,255,0.03)',
                         borderRadius: '12px',
@@ -486,7 +509,9 @@ function IAReceptorDenuncias() {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '1rem',
-                        height: '100%'
+                        height: '100%',
+                        minHeight: 0,
+                        overflow: 'hidden'
                     }}>
                         <div style={{
                             display: 'flex',
@@ -517,8 +542,6 @@ function IAReceptorDenuncias() {
 
                     {/* Column 3: Denuncias Cerradas */}
                     <div style={{
-                        flex: '1 0 320px',
-                        maxWidth: '450px',
                         background: 'rgba(var(--secondary-rgb), 0.25)',
                         border: '1px solid rgba(255,255,255,0.03)',
                         borderRadius: '12px',
@@ -526,7 +549,9 @@ function IAReceptorDenuncias() {
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '1rem',
-                        height: '100%'
+                        height: '100%',
+                        minHeight: 0,
+                        overflow: 'hidden'
                     }}>
                         <div style={{
                             display: 'flex',
@@ -773,16 +798,43 @@ function IAReceptorDenuncias() {
                                 {/* Bot Avatar */}
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '0.35rem' }}>
-                                        Logo / Avatar del Bot (URL)
+                                        Logo / Avatar del Bot (URL o Archivo Local)
                                     </label>
-                                    <input
-                                        type="text"
-                                        value={complaintWebhook.botAvatar}
-                                        onChange={e => setComplaintWebhook({ ...complaintWebhook, botAvatar: e.target.value })}
-                                        placeholder="/logowebp/IALSSD.webp o URL"
-                                        className="form-input"
-                                        style={{ width: '100%', padding: '0.55rem 0.8rem' }}
-                                    />
+                                    <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                                        {complaintWebhook.botAvatar && (
+                                            <img 
+                                                src={complaintWebhook.botAvatar} 
+                                                alt="Avatar" 
+                                                style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.2)', flexShrink: 0, background: 'rgba(0,0,0,0.4)' }} 
+                                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                            />
+                                        )}
+                                        <input
+                                            type="text"
+                                            value={complaintWebhook.botAvatar}
+                                            onChange={e => setComplaintWebhook({ ...complaintWebhook, botAvatar: e.target.value })}
+                                            placeholder="/logowebp/IALSSD.webp o URL"
+                                            className="form-input"
+                                            style={{ flex: 1, padding: '0.55rem 0.8rem' }}
+                                        />
+                                        <input
+                                            type="file"
+                                            ref={avatarInputRef}
+                                            onChange={handleAvatarFileChange}
+                                            accept="image/*"
+                                            style={{ display: 'none' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => avatarInputRef.current?.click()}
+                                            disabled={uploadingAvatar}
+                                            className="login-button btn-secondary"
+                                            style={{ width: 'auto', padding: '0.55rem 0.85rem', fontSize: '0.8rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '5px' }}
+                                        >
+                                            <span>📁</span>
+                                            <span>{uploadingAvatar ? 'Subiendo...' : 'Elegir imagen'}</span>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Custom Message */}

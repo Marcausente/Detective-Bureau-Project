@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
@@ -11,6 +11,7 @@ import {
     DEFAULT_IA_COMPLAINTS_BOT_NAME,
     DEFAULT_IA_COMPLAINTS_CUSTOM_MSG
 } from '../utils/discordWebhook';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import '../index.css';
 
 function InternalAffairs() {
@@ -28,6 +29,8 @@ function InternalAffairs() {
     const [durationSavedNotice, setDurationSavedNotice] = useState(false);
 
     // IA Complaints Discord Webhook State
+    const avatarInputRef = useRef(null);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [complaintWebhook, setComplaintWebhook] = useState({
         webhookUrl: '',
         enabled: false,
@@ -90,6 +93,27 @@ function InternalAffairs() {
             setTimeout(() => setWebhookTestError(null), 6000);
         } finally {
             setTestingWebhook(false);
+        }
+    };
+
+    const handleAvatarFileChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingAvatar(true);
+        setWebhookTestError(null);
+        try {
+            const publicUrl = await uploadImageToStorage(file, 'branding');
+            if (publicUrl) {
+                setComplaintWebhook(prev => ({ ...prev, botAvatar: publicUrl }));
+                setWebhookTestNotice("Avatar subido exitosamente.");
+                setTimeout(() => setWebhookTestNotice(null), 3500);
+            }
+        } catch (err) {
+            console.error("Error al subir avatar:", err);
+            setWebhookTestError("Error al subir imagen: " + err.message);
+        } finally {
+            setUploadingAvatar(false);
+            if (avatarInputRef.current) avatarInputRef.current.value = '';
         }
     };
 
@@ -669,16 +693,43 @@ function InternalAffairs() {
                         {/* Bot Avatar URL */}
                         <div style={{ gridColumn: '1 / -1' }}>
                             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                {language === 'es' ? 'Avatar / Logo del Bot (URL de Imagen Opcional)' : 'Bot Avatar / Logo URL (Optional)'}
+                                {language === 'es' ? 'Avatar / Logo del Bot (URL o Archivo Local)' : 'Bot Avatar / Logo (URL or Local File)'}
                             </label>
-                            <input
-                                type="text"
-                                value={complaintWebhook.botAvatar}
-                                onChange={e => setComplaintWebhook({ ...complaintWebhook, botAvatar: e.target.value })}
-                                placeholder="/logowebp/IALSSD.webp o URL directa"
-                                className="mac-form-input"
-                                style={{ width: '100%', padding: '0.65rem 0.9rem', fontSize: '0.9rem' }}
-                            />
+                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                {complaintWebhook.botAvatar && (
+                                    <img 
+                                        src={complaintWebhook.botAvatar} 
+                                        alt="Bot Avatar" 
+                                        style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.2)', flexShrink: 0, background: 'rgba(0,0,0,0.4)' }}
+                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                    />
+                                )}
+                                <input
+                                    type="text"
+                                    value={complaintWebhook.botAvatar}
+                                    onChange={e => setComplaintWebhook({ ...complaintWebhook, botAvatar: e.target.value })}
+                                    placeholder="/logowebp/IALSSD.webp o URL directa"
+                                    className="mac-form-input"
+                                    style={{ flex: 1, padding: '0.65rem 0.9rem', fontSize: '0.9rem' }}
+                                />
+                                <input
+                                    type="file"
+                                    ref={avatarInputRef}
+                                    onChange={handleAvatarFileChange}
+                                    accept="image/*"
+                                    style={{ display: 'none' }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => avatarInputRef.current?.click()}
+                                    disabled={uploadingAvatar}
+                                    className="mac-btn mac-btn-secondary"
+                                    style={{ padding: '0.65rem 1rem', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                    <span>📁</span>
+                                    <span>{uploadingAvatar ? (language === 'es' ? 'Subiendo...' : 'Uploading...') : (language === 'es' ? 'Elegir archivo' : 'Choose file')}</span>
+                                </button>
+                            </div>
                         </div>
 
                         {/* Custom Msg */}

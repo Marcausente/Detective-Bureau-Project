@@ -58,6 +58,8 @@ function Denuncias() {
 
     // Discord Webhook State for SCUB Complaints
     const [showWebhookModal, setShowWebhookModal] = useState(false);
+    const scubAvatarInputRef = useRef(null);
+    const [uploadingScubAvatar, setUploadingScubAvatar] = useState(false);
     const [scubWebhook, setScubWebhook] = useState({
         webhookUrl: '',
         enabled: false,
@@ -71,6 +73,27 @@ function Denuncias() {
     const [webhookNotice, setWebhookNotice] = useState(null);
     const [webhookError, setWebhookError] = useState(null);
     const [linkCopied, setLinkCopied] = useState(false);
+
+    const handleScubAvatarFileChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingScubAvatar(true);
+        setWebhookError(null);
+        try {
+            const publicUrl = await uploadImageToStorage(file, 'branding');
+            if (publicUrl) {
+                setScubWebhook(prev => ({ ...prev, botAvatar: publicUrl }));
+                setWebhookNotice("Avatar de Discord subido exitosamente.");
+                setTimeout(() => setWebhookNotice(null), 3500);
+            }
+        } catch (err) {
+            console.error("Error al subir avatar:", err);
+            setWebhookError("Error al subir imagen: " + err.message);
+        } finally {
+            setUploadingScubAvatar(false);
+            if (scubAvatarInputRef.current) scubAvatarInputRef.current.value = '';
+        }
+    };
 
     useEffect(() => {
         loadData();
@@ -1349,16 +1372,43 @@ function Denuncias() {
                                 {/* Bot Avatar */}
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '0.35rem' }}>
-                                        Logo / Avatar del Bot (URL)
+                                        Logo / Avatar del Bot (URL o Archivo Local)
                                     </label>
-                                    <input
-                                        type="text"
-                                        value={scubWebhook.botAvatar}
-                                        onChange={e => setScubWebhook({ ...scubWebhook, botAvatar: e.target.value })}
-                                        placeholder="/logowebp/SCUB.webp o URL"
-                                        className="mac-form-input"
-                                        style={{ width: '100%', padding: '0.6rem 0.8rem' }}
-                                    />
+                                    <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                                        {scubWebhook.botAvatar && (
+                                            <img 
+                                                src={scubWebhook.botAvatar} 
+                                                alt="Avatar" 
+                                                style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.2)', flexShrink: 0, background: 'rgba(0,0,0,0.4)' }} 
+                                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                            />
+                                        )}
+                                        <input
+                                            type="text"
+                                            value={scubWebhook.botAvatar}
+                                            onChange={e => setScubWebhook({ ...scubWebhook, botAvatar: e.target.value })}
+                                            placeholder="/logowebp/SCUB.webp o URL"
+                                            className="mac-form-input"
+                                            style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                        />
+                                        <input
+                                            type="file"
+                                            ref={scubAvatarInputRef}
+                                            onChange={handleScubAvatarFileChange}
+                                            accept="image/*"
+                                            style={{ display: 'none' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => scubAvatarInputRef.current?.click()}
+                                            disabled={uploadingScubAvatar}
+                                            className="login-button btn-secondary"
+                                            style={{ width: 'auto', padding: '0.6rem 0.85rem', fontSize: '0.8rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '5px' }}
+                                        >
+                                            <span>📁</span>
+                                            <span>{uploadingScubAvatar ? 'Subiendo...' : 'Elegir imagen'}</span>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Custom Message */}
