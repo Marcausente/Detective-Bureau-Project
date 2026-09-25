@@ -21,7 +21,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 export default function PublicGangMap() {
     const { t } = useLanguage();
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
     const mapContainerRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const layerGroupRef = useRef(null);
@@ -187,13 +187,21 @@ export default function PublicGangMap() {
             {/* TOP BRANDING / PUBLIC ADVISORY HUD */}
             <div className="tactical-public-advisory-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span className="tactical-danger-dot"></span>
+                    {branding?.public_map_logo ? (
+                        <img 
+                            src={branding.public_map_logo} 
+                            alt="Logo" 
+                            style={{ height: '36px', width: 'auto', objectFit: 'contain', borderRadius: '4px' }} 
+                        />
+                    ) : (
+                        <span className="tactical-danger-dot"></span>
+                    )}
                     <div>
                         <h1 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 900, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span>🛡️</span> {t('publicDangerMap') || 'MAPA DE ADVERTENCIA DE RIESGO'}
+                            <span>🛡️</span> {branding?.public_map_title || t('publicDangerMap') || 'MAPA DE ADVERTENCIA DE RIESGO'}
                         </h1>
                         <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: '#94a3b8', fontWeight: 500 }}>
-                            {isLSSD ? "Los Santos County Sheriff's Department" : 'Los Santos Police Department'} • Seguridad Pública
+                            {branding?.public_map_dept || (isLSSD ? "Los Santos County Sheriff's Department" : 'Los Santos Police Department')} • Seguridad Pública
                         </p>
                     </div>
                 </div>

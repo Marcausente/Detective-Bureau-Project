@@ -37,7 +37,7 @@ const COLOR_PRESETS = [
 
 export default function CrimeMap() {
     const { t } = useLanguage();
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
     const mapContainerRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const layerGroupRef = useRef(null);
@@ -499,9 +499,16 @@ export default function CrimeMap() {
             {/* TACTICAL HUD TOP BAR */}
             <header className="tactical-hud-bar">
                 <div className="tactical-hud-left">
+                    {branding?.map_logo && (
+                        <img 
+                            src={branding.map_logo} 
+                            alt="Logo" 
+                            style={{ height: '26px', width: 'auto', objectFit: 'contain', marginRight: '6px', borderRadius: '4px' }} 
+                        />
+                    )}
                     <div className="tactical-sat-badge">
                         <span className="tactical-live-dot"></span>
-                        SATÉLITE INTEL SAN ANDREAS
+                        {branding?.map_badge || 'SATÉLITE INTEL SAN ANDREAS'}
                     </div>
 
                     {cursorCoords && (
@@ -634,7 +641,7 @@ export default function CrimeMap() {
                         <div className="tactical-sidebar-header">
                             <div className="tactical-sidebar-title-row">
                                 <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                    <span style={{ color: '#38bdf8' }}>🗺️</span> Zonas & Jurisdicciones
+                                    <span style={{ color: '#38bdf8' }}>🗺️</span> {branding?.map_title || 'Zonas & Jurisdicciones'}
                                 </h3>
                                 <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(6, 182, 212, 0.15)', border: '1px solid rgba(6, 182, 212, 0.4)', color: '#38bdf8', fontFamily: 'monospace' }}>
                                     {filteredZones.length} / {zones.length}

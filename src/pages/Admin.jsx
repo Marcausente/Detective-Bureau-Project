@@ -1072,6 +1072,254 @@ function Admin() {
                                     </div>
                                 </div>
                             </div>
+                            {/* BLOQUE 12: FORMULARIO PÚBLICO DE DENUNCIAS IA */}
+                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>📋</span>
+                                    <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1rem', fontWeight: 700 }}>
+                                        Formulario Público de Denuncias IA
+                                    </h4>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Nombre del Departamento / Cabecera
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.ia_form_dept || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, ia_form_dept: e.target.value })}
+                                            placeholder="Ej: Los Santos County Sheriff's Department"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Subtítulo en Barra Superior
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.ia_form_subtitle || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, ia_form_subtitle: e.target.value })}
+                                            placeholder="Ej: Asuntos Internos • División Disciplinaria"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Título Principal del Formulario
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.ia_form_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, ia_form_title: e.target.value })}
+                                            placeholder="Ej: Registro de Denuncia Ciudadana"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Badge / Tag Superior del Formulario
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.ia_form_badge || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, ia_form_badge: e.target.value })}
+                                            placeholder="Ej: Formulario de Denuncia Disciplinaria"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Descripción del Formulario
+                                        </label>
+                                        <textarea
+                                            value={brandingForm.ia_form_desc || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, ia_form_desc: e.target.value })}
+                                            placeholder="Ej: Rellene los campos con los datos precisos sobre los hechos ocurridos..."
+                                            className="mac-form-input"
+                                            rows={2}
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem', resize: 'vertical' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo de la Cabecera del Formulario
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.ia_form_logo && (
+                                                <img src={brandingForm.ia_form_logo} alt="Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.ia_form_logo || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, ia_form_logo: e.target.value })}
+                                                placeholder="/logowebp/IALSSD.webp o URL"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['ia_form_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['ia_form_logo'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['ia_form_logo']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('ia_form_logo', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* BLOQUE 13: MAPA TÁCTICO & INTELIGENCIA */}
+                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>🗺️</span>
+                                    <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1rem', fontWeight: 700 }}>
+                                        Mapa Táctico & Satélite Intel
+                                    </h4>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Rótulo del Satélite HUD (Barra Superior)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.map_badge || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, map_badge: e.target.value })}
+                                            placeholder="Ej: SATÉLITE INTEL SAN ANDREAS"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Título del Panel Lateral de Zonas
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.map_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, map_title: e.target.value })}
+                                            placeholder="Ej: Zonas & Jurisdicciones"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo / Insignia en HUD del Mapa
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.map_logo && (
+                                                <img src={brandingForm.map_logo} alt="Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.map_logo || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, map_logo: e.target.value })}
+                                                placeholder="/logowebp/SCUB.webp o URL"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['map_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['map_logo'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['map_logo']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('map_logo', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* BLOQUE 14: MAPA PÚBLICO DE ZONAS DE RIESGO */}
+                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                                    <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1rem', fontWeight: 700 }}>
+                                        Mapa Público de Zonas de Riesgo
+                                    </h4>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Título de la Alerta Pública
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.public_map_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, public_map_title: e.target.value })}
+                                            placeholder="Ej: MAPA DE ADVERTENCIA DE RIESGO"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Departamento Emisor / Subtítulo
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.public_map_dept || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, public_map_dept: e.target.value })}
+                                            placeholder="Ej: Los Santos County Sheriff's Department"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo / Escudo de Seguridad Pública
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.public_map_logo && (
+                                                <img src={brandingForm.public_map_logo} alt="Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.public_map_logo || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, public_map_logo: e.target.value })}
+                                                placeholder="/logowebp/IALSSD.webp o URL"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['public_map_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['public_map_logo'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['public_map_logo']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('public_map_logo', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Actions & Save Button */}

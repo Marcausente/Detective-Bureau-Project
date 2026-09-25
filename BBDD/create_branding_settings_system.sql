@@ -75,7 +75,19 @@ VALUES
   ('branding_undercover_nav_label', 'Undercover'),
   ('branding_undercover_title', 'SCUB Undercover Division'),
   ('branding_undercover_subtitle', 'Gestión de identidades encubiertas, leyendas de infiltración y aportes a Gang Unit'),
-  ('branding_undercover_logo', '')
+  ('branding_undercover_logo', ''),
+  ('branding_ia_form_dept', 'LOS SANTOS COUNTY SHERIFF'),
+  ('branding_ia_form_title', 'Registro de Denuncia Ciudadana'),
+  ('branding_ia_form_badge', 'OFICIAL'),
+  ('branding_ia_form_subtitle', 'Buzón Ciudadano de Quejas y Denuncias'),
+  ('branding_ia_form_desc', 'Rellene los campos con los datos precisos sobre los hechos ocurridos. Todos los envíos son procesados de forma reservada.'),
+  ('branding_ia_form_logo', '/logowebp/IALSSD.webp'),
+  ('branding_map_title', 'SATÉLITE INTEL SAN ANDREAS'),
+  ('branding_map_badge', 'SATÉLITE INTEL SAN ANDREAS'),
+  ('branding_map_logo', ''),
+  ('branding_public_map_title', 'MAPA DE ADVERTENCIA DE RIESGO'),
+  ('branding_public_map_dept', 'Los Santos County Sheriff''s Department • Seguridad Pública'),
+  ('branding_public_map_logo', '')
 ON CONFLICT (key) DO NOTHING;
 
 -- 3. RPC to get Branding Settings
@@ -122,6 +134,18 @@ DECLARE
     v_undercover_title TEXT;
     v_undercover_subtitle TEXT;
     v_undercover_logo TEXT;
+    v_ia_form_dept TEXT;
+    v_ia_form_title TEXT;
+    v_ia_form_badge TEXT;
+    v_ia_form_subtitle TEXT;
+    v_ia_form_desc TEXT;
+    v_ia_form_logo TEXT;
+    v_map_title TEXT;
+    v_map_badge TEXT;
+    v_map_logo TEXT;
+    v_public_map_title TEXT;
+    v_public_map_dept TEXT;
+    v_public_map_logo TEXT;
 BEGIN
     SELECT value INTO v_topbar_name FROM public.app_settings WHERE key = 'branding_topbar_name';
     SELECT value INTO v_topbar_logo FROM public.app_settings WHERE key = 'branding_topbar_logo';
@@ -162,6 +186,18 @@ BEGIN
     SELECT value INTO v_undercover_title FROM public.app_settings WHERE key = 'branding_undercover_title';
     SELECT value INTO v_undercover_subtitle FROM public.app_settings WHERE key = 'branding_undercover_subtitle';
     SELECT value INTO v_undercover_logo FROM public.app_settings WHERE key = 'branding_undercover_logo';
+    SELECT value INTO v_ia_form_dept FROM public.app_settings WHERE key = 'branding_ia_form_dept';
+    SELECT value INTO v_ia_form_title FROM public.app_settings WHERE key = 'branding_ia_form_title';
+    SELECT value INTO v_ia_form_badge FROM public.app_settings WHERE key = 'branding_ia_form_badge';
+    SELECT value INTO v_ia_form_subtitle FROM public.app_settings WHERE key = 'branding_ia_form_subtitle';
+    SELECT value INTO v_ia_form_desc FROM public.app_settings WHERE key = 'branding_ia_form_desc';
+    SELECT value INTO v_ia_form_logo FROM public.app_settings WHERE key = 'branding_ia_form_logo';
+    SELECT value INTO v_map_title FROM public.app_settings WHERE key = 'branding_map_title';
+    SELECT value INTO v_map_badge FROM public.app_settings WHERE key = 'branding_map_badge';
+    SELECT value INTO v_map_logo FROM public.app_settings WHERE key = 'branding_map_logo';
+    SELECT value INTO v_public_map_title FROM public.app_settings WHERE key = 'branding_public_map_title';
+    SELECT value INTO v_public_map_dept FROM public.app_settings WHERE key = 'branding_public_map_dept';
+    SELECT value INTO v_public_map_logo FROM public.app_settings WHERE key = 'branding_public_map_logo';
 
     RETURN jsonb_build_object(
         'topbar_name', COALESCE(v_topbar_name, 'SCUB'),
@@ -202,7 +238,19 @@ BEGIN
         'undercover_nav_label', COALESCE(v_undercover_nav_label, 'Undercover'),
         'undercover_title', COALESCE(v_undercover_title, 'SCUB Undercover Division'),
         'undercover_subtitle', COALESCE(v_undercover_subtitle, 'Gestión de identidades encubiertas, leyendas de infiltración y aportes a Gang Unit'),
-        'undercover_logo', COALESCE(v_undercover_logo, '')
+        'undercover_logo', COALESCE(v_undercover_logo, ''),
+        'ia_form_dept', COALESCE(v_ia_form_dept, 'LOS SANTOS COUNTY SHERIFF'),
+        'ia_form_title', COALESCE(v_ia_form_title, 'Registro de Denuncia Ciudadana'),
+        'ia_form_badge', COALESCE(v_ia_form_badge, 'OFICIAL'),
+        'ia_form_subtitle', COALESCE(v_ia_form_subtitle, 'Buzón Ciudadano de Quejas y Denuncias'),
+        'ia_form_desc', COALESCE(v_ia_form_desc, 'Rellene los campos con los datos precisos sobre los hechos ocurridos. Todos los envíos son procesados de forma reservada.'),
+        'ia_form_logo', COALESCE(v_ia_form_logo, '/logowebp/IALSSD.webp'),
+        'map_title', COALESCE(v_map_title, 'SATÉLITE INTEL SAN ANDREAS'),
+        'map_badge', COALESCE(v_map_badge, 'SATÉLITE INTEL SAN ANDREAS'),
+        'map_logo', COALESCE(v_map_logo, ''),
+        'public_map_title', COALESCE(v_public_map_title, 'MAPA DE ADVERTENCIA DE RIESGO'),
+        'public_map_dept', COALESCE(v_public_map_dept, 'Los Santos County Sheriff''s Department • Seguridad Pública'),
+        'public_map_logo', COALESCE(v_public_map_logo, '')
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

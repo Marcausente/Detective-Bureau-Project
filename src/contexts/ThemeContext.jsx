@@ -43,7 +43,19 @@ export const BRANDING_PRESETS = {
         undercover_nav_label: 'Undercover',
         undercover_title: 'SCUB Undercover Division',
         undercover_subtitle: 'Gestión de identidades encubiertas, leyendas de infiltración y aportes a Gang Unit',
-        undercover_logo: ''
+        undercover_logo: '',
+        ia_form_dept: 'LOS SANTOS COUNTY SHERIFF',
+        ia_form_title: 'Registro de Denuncia Ciudadana',
+        ia_form_badge: 'OFICIAL',
+        ia_form_subtitle: 'Buzón Ciudadano de Quejas y Denuncias',
+        ia_form_desc: 'Rellene los campos con los datos precisos sobre los hechos ocurridos. Todos los envíos son procesados de forma reservada.',
+        ia_form_logo: '/logowebp/IALSSD.webp',
+        map_title: 'SATÉLITE INTEL SAN ANDREAS',
+        map_badge: 'SATÉLITE INTEL SAN ANDREAS',
+        map_logo: '',
+        public_map_title: 'MAPA DE ADVERTENCIA DE RIESGO',
+        public_map_dept: "Los Santos County Sheriff's Department • Seguridad Pública",
+        public_map_logo: ''
     },
     DB: {
         topbar_name: 'DB',
@@ -84,7 +96,19 @@ export const BRANDING_PRESETS = {
         undercover_nav_label: 'Undercover',
         undercover_title: 'Undercover Division (UD)',
         undercover_subtitle: 'Operaciones de infiltración y recolección de inteligencia confidencial',
-        undercover_logo: ''
+        undercover_logo: '',
+        ia_form_dept: 'LOS SANTOS POLICE DEPARTMENT',
+        ia_form_title: 'Registro de Denuncia Disciplinaria',
+        ia_form_badge: 'OFICIAL',
+        ia_form_subtitle: 'Buzón de Asuntos Internos (IAB)',
+        ia_form_desc: 'Rellene los campos con los datos precisos sobre los hechos ocurridos. Todos los envíos son procesados de forma reservada.',
+        ia_form_logo: '/logowebp/ialogo.webp',
+        map_title: 'SISTEMA DE MAPEO DE INTELIGENCIA',
+        map_badge: 'LSPD INTEL SATELLITE',
+        map_logo: '',
+        public_map_title: 'MAPA DE ADVERTENCIA DE RIESGO',
+        public_map_dept: 'Los Santos Police Department • Seguridad Pública',
+        public_map_logo: ''
     },
     LSSD: {
         topbar_name: 'LSSD',
@@ -125,7 +149,19 @@ export const BRANDING_PRESETS = {
         undercover_nav_label: 'Infiltraciones',
         undercover_title: 'Sheriff Undercover Unit',
         undercover_subtitle: 'Gestión de identidades encubiertas y operaciones especiales del Sheriff',
-        undercover_logo: ''
+        undercover_logo: '',
+        ia_form_dept: 'LOS SANTOS COUNTY SHERIFF',
+        ia_form_title: 'Registro de Denuncia Ciudadana',
+        ia_form_badge: 'OFICIAL',
+        ia_form_subtitle: 'Buzón Ciudadano de Quejas y Denuncias',
+        ia_form_desc: 'Rellene los campos con los datos precisos sobre los hechos ocurridos. Todos los envíos son procesados de forma reservada.',
+        ia_form_logo: '/logowebp/IALSSD.webp',
+        map_title: 'SHERIFF AERO & SATELITE INTEL',
+        map_badge: 'LSSD INTEL MAPPING',
+        map_logo: '/logowebp/LSSDlogo.webp',
+        public_map_title: 'MAPA DE ADVERTENCIA DE RIESGO',
+        public_map_dept: "Los Santos County Sheriff's Department • Seguridad Pública",
+        public_map_logo: '/logowebp/LSSDlogo.webp'
     },
     SAPD: {
         topbar_name: 'SAPD',
@@ -166,7 +202,19 @@ export const BRANDING_PRESETS = {
         undercover_nav_label: 'Infiltrados',
         undercover_title: 'State Undercover Operations',
         undercover_subtitle: 'Inteligencia de infiltración estatal y operaciones secretas',
-        undercover_logo: '/logowebp/sanandreas.webp'
+        undercover_logo: '/logowebp/sanandreas.webp',
+        ia_form_dept: 'SAN ANDREAS POLICE DEPARTMENT',
+        ia_form_title: 'Registro Estatal de Denuncias',
+        ia_form_badge: 'ESTATAL',
+        ia_form_subtitle: 'Oficina de Asuntos Internos Estatal',
+        ia_form_desc: 'Rellene los campos con los datos precisos sobre los hechos ocurridos. Todos los envíos son procesados de forma reservada.',
+        ia_form_logo: '/logowebp/sanandreas.webp',
+        map_title: 'SISTEMA SATELITAL ESTATAL',
+        map_badge: 'STATE POLICE INTEL',
+        map_logo: '/logowebp/sanandreas.webp',
+        public_map_title: 'MAPA DE SEGURIDAD PÚBLICA ESTATAL',
+        public_map_dept: 'San Andreas Police Department • Seguridad Pública',
+        public_map_logo: '/logowebp/sanandreas.webp'
     }
 };
 

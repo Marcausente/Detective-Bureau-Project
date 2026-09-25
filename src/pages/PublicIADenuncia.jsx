@@ -7,7 +7,7 @@ import '../index.css';
 
 function PublicIADenuncia() {
     const navigate = useNavigate();
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
 
     // Ensure body allows scroll when this page is open
     useEffect(() => {
@@ -224,13 +224,17 @@ function PublicIADenuncia() {
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
                     <img
-                        src={isLSSD ? "/logowebp/IALSSD.webp" : "/logowebp/ialogo.webp"}
+                        src={branding?.ia_form_logo || (isLSSD ? "/logowebp/IALSSD.webp" : "/logowebp/ialogo.webp")}
                         alt="Logo"
                         style={{ width: '38px', height: '38px', objectFit: 'contain' }}
+                        onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = isLSSD ? "/logowebp/IALSSD.webp" : "/logowebp/ialogo.webp";
+                        }}
                     />
                     <div>
                         <div style={{ fontSize: '0.98rem', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {isLSSD ? "LOS SANTOS COUNTY SHERIFF" : "ASUNTOS INTERNOS"}
+                            {branding?.ia_form_dept || (isLSSD ? "LOS SANTOS COUNTY SHERIFF" : "ASUNTOS INTERNOS")}
                             <span style={{
                                 fontSize: '0.65rem',
                                 padding: '1px 6px',
@@ -241,11 +245,11 @@ function PublicIADenuncia() {
                                 fontWeight: 700,
                                 letterSpacing: '0.04em'
                             }}>
-                                OFICIAL
+                                {branding?.ia_form_badge || "OFICIAL"}
                             </span>
                         </div>
                         <div style={{ fontSize: '0.72rem', color: '#94a3b8', letterSpacing: '0.03em' }}>
-                            Buzón Ciudadano de Quejas y Denuncias
+                            {branding?.ia_form_subtitle || "Buzón Ciudadano de Quejas y Denuncias"}
                         </div>
                     </div>
                 </div>
@@ -382,13 +386,13 @@ function PublicIADenuncia() {
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                                 </svg>
-                                <span>Formulario de Denuncia Disciplinaria</span>
+                                <span>{branding?.ia_form_badge || 'Formulario de Denuncia Disciplinaria'}</span>
                             </div>
                             <h1 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#ffffff', margin: '0 0 0.5rem 0' }}>
-                                Registro de Denuncia Ciudadana
+                                {branding?.ia_form_title || 'Registro de Denuncia Ciudadana'}
                             </h1>
                             <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: 0, lineHeight: '1.5' }}>
-                                Rellene los campos con los datos precisos sobre los hechos ocurridos. Todos los envíos son procesados de forma reservada.
+                                {branding?.ia_form_desc || 'Rellene los campos con los datos precisos sobre los hechos ocurridos. Todos los envíos son procesados de forma reservada.'}
                             </p>
                         </div>
 
