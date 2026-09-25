@@ -702,8 +702,8 @@ export default function CoordinationRosterDiscord() {
                                         </div>
                                     ) : (
                                         rankMembers.map((member, mIdx) => {
-                                            const memberName = member.name || (member.discordId && !/^\d{15,22}$/.test(member.discordId) ? member.discordId.replace(/^[<@!&>]+/, '') : '');
-                                            const memberDiscordId = member.discordId || '';
+                                            const memberDiscordId = member.discordId || (member.name && /^\d{15,22}$/.test(member.name) ? member.name : '');
+                                            const memberInternalName = member.name && !/^\d{15,22}$/.test(member.name) ? member.name : '';
 
                                             return (
                                                 <div
@@ -723,25 +723,23 @@ export default function CoordinationRosterDiscord() {
                                                         <span style={{ color: '#5865F2', fontWeight: 'bold' }}>•</span>
                                                         <span style={{
                                                             fontSize: '0.85rem',
-                                                            color: '#e2e8f0',
+                                                            color: '#c9cdfb',
+                                                            fontFamily: 'monospace',
                                                             fontWeight: 600,
                                                             background: 'rgba(88, 101, 242, 0.15)',
                                                             padding: '2px 8px',
                                                             borderRadius: '5px',
                                                             border: '1px solid rgba(88, 101, 242, 0.25)'
                                                         }}>
-                                                            {memberName ? (memberName.startsWith('@') ? memberName : `@${memberName}`) : (memberDiscordId ? `<@${memberDiscordId}>` : 'N/A')}
+                                                            {memberDiscordId ? (memberDiscordId.startsWith('<@') ? memberDiscordId : `@${memberDiscordId.replace(/[<@!&>]/g, '')}`) : (memberInternalName ? `@${memberInternalName}` : 'N/A')}
                                                         </span>
-                                                        {memberDiscordId && /^\d{15,22}$/.test(memberDiscordId) && (
+                                                        {memberInternalName && (
                                                             <span style={{
-                                                                fontSize: '0.72rem',
+                                                                fontSize: '0.8rem',
                                                                 color: '#94a3b8',
-                                                                fontFamily: 'monospace',
-                                                                background: 'rgba(0, 0, 0, 0.3)',
-                                                                padding: '2px 6px',
-                                                                borderRadius: '4px'
+                                                                fontWeight: 500
                                                             }}>
-                                                                ID: {memberDiscordId}
+                                                                ({memberInternalName})
                                                             </span>
                                                         )}
                                                     </div>
@@ -759,7 +757,7 @@ export default function CoordinationRosterDiscord() {
                                                                 fontSize: '0.72rem',
                                                                 padding: '3px 6px'
                                                             }}
-                                                            title="Editar nombre o ID del agente"
+                                                            title="Editar ID o nombre del agente"
                                                         >
                                                             ✏️
                                                         </button>
@@ -821,7 +819,7 @@ export default function CoordinationRosterDiscord() {
                                     )}
                                 </div>
 
-                                {/* Add Member Form */}
+                                {/* Add Member Form: 1st ID Discord, 2nd Nombre Agente */}
                                 <div style={{
                                     display: 'flex',
                                     gap: '8px',
@@ -832,31 +830,11 @@ export default function CoordinationRosterDiscord() {
                                     borderRadius: '8px',
                                     border: '1px solid rgba(255, 255, 255, 0.05)'
                                 }}>
+                                    {/* 1. ID DE DISCORD */}
                                     <input
                                         type="text"
                                         className="form-input"
-                                        placeholder="Nombre del agente (Ej: M. Kleiner | 701 | Marcausente)..."
-                                        value={memberInputs[rank.id]?.name || ''}
-                                        onChange={(e) => setMemberInputs({
-                                            ...memberInputs,
-                                            [rank.id]: {
-                                                ...(memberInputs[rank.id] || {}),
-                                                name: e.target.value
-                                            }
-                                        })}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                handleAddMember(rank.id);
-                                            }
-                                        }}
-                                        style={{ flex: 2, minWidth: '170px', padding: '0.45rem 0.65rem', fontSize: '0.8rem' }}
-                                    />
-
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        placeholder="ID Discord (Opcional, ej: 1306619...)"
+                                        placeholder="ID de Discord (Ej: 1306619156052967471 o @Tag)..."
                                         value={memberInputs[rank.id]?.discordId || ''}
                                         onChange={(e) => setMemberInputs({
                                             ...memberInputs,
@@ -871,7 +849,29 @@ export default function CoordinationRosterDiscord() {
                                                 handleAddMember(rank.id);
                                             }
                                         }}
-                                        style={{ flex: 1.2, minWidth: '140px', padding: '0.45rem 0.65rem', fontSize: '0.8rem' }}
+                                        style={{ flex: 1.5, minWidth: '180px', padding: '0.45rem 0.65rem', fontSize: '0.8rem' }}
+                                    />
+
+                                    {/* 2. NOMBRE DEL AGENTE */}
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="Nombre del Agente (EJ: Matthew Kleiner)"
+                                        value={memberInputs[rank.id]?.name || ''}
+                                        onChange={(e) => setMemberInputs({
+                                            ...memberInputs,
+                                            [rank.id]: {
+                                                ...(memberInputs[rank.id] || {}),
+                                                name: e.target.value
+                                            }
+                                        })}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleAddMember(rank.id);
+                                            }
+                                        }}
+                                        style={{ flex: 1.5, minWidth: '180px', padding: '0.45rem 0.65rem', fontSize: '0.8rem' }}
                                     />
 
                                     <button
@@ -983,9 +983,12 @@ export default function CoordinationRosterDiscord() {
                                                         <div style={{ color: '#949ba4', fontSize: '0.82rem' }}>• N/A</div>
                                                     ) : (
                                                         rankMembers.map((m, idx) => {
-                                                            const displayName = m.name 
-                                                                ? (m.name.startsWith('@') ? m.name : `@${m.name}`) 
-                                                                : (m.discordId ? (m.discordId.startsWith('<@') ? m.discordId : `@${m.discordId.replace(/[<@!&>]/g, '')}`) : 'N/A');
+                                                            // In Discord view: show strictly the Discord mention
+                                                            const rawId = (m.discordId || '').trim();
+                                                            const rawName = (m.name || '').trim();
+                                                            const discordDisplay = rawId 
+                                                                ? (rawId.startsWith('<@') ? rawId : `@${rawId.replace(/[<@!&>]/g, '')}`) 
+                                                                : (rawName ? `@${rawName.replace(/^@/, '')}` : 'N/A');
 
                                                             return (
                                                                 <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -997,7 +1000,7 @@ export default function CoordinationRosterDiscord() {
                                                                         borderRadius: '3px',
                                                                         fontSize: '0.82rem'
                                                                     }}>
-                                                                        {displayName}
+                                                                        {discordDisplay}
                                                                     </span>
                                                                 </div>
                                                             );
@@ -1203,29 +1206,31 @@ export default function CoordinationRosterDiscord() {
 
                         <form onSubmit={handleSaveEditedMember} style={{ padding: '1.5rem' }}>
                             <div className="form-group" style={{ marginBottom: '1rem' }}>
-                                <label className="form-label">Nombre del Agente *</label>
+                                <label className="form-label">ID de Discord *</label>
                                 <input
                                     type="text"
                                     className="form-input"
-                                    placeholder="Ej: M. Kleiner | 701 | Marcausente..."
-                                    value={editingMember.name}
-                                    onChange={e => setEditingMember({ ...editingMember, name: e.target.value })}
-                                    required
+                                    placeholder="Ej: 1306619156052967471 o @Tag"
+                                    value={editingMember.discordId}
+                                    onChange={e => setEditingMember({ ...editingMember, discordId: e.target.value })}
                                     autoFocus
                                 />
+                                <span style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
+                                    Es lo que se enviará y mencionará en Discord (@ID o @Tag).
+                                </span>
                             </div>
 
                             <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                                <label className="form-label">ID de Discord (Opcional)</label>
+                                <label className="form-label">Nombre del Agente (Referencia interna)</label>
                                 <input
                                     type="text"
                                     className="form-input"
-                                    placeholder="Ej: 1306619156052967471"
-                                    value={editingMember.discordId}
-                                    onChange={e => setEditingMember({ ...editingMember, discordId: e.target.value })}
+                                    placeholder="Nombre del Agente (EJ: Matthew Kleiner)"
+                                    value={editingMember.name}
+                                    onChange={e => setEditingMember({ ...editingMember, name: e.target.value })}
                                 />
                                 <span style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
-                                    Si introduces la ID numérica de Discord, el bot lo mencionará interactivamente.
+                                    Solo sirve para tenerlo localizado en el panel web, no altera la vista de Discord.
                                 </span>
                             </div>
 

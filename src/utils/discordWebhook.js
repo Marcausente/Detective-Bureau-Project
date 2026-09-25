@@ -1702,24 +1702,24 @@ export function formatMemberMention(member) {
     const discordId = (member.discordId || '').trim();
     const name = (member.name || '').trim();
 
-    // If discordId is numeric snowflake, use it for native discord tag
-    if (discordId && (/^\d{15,22}$/.test(discordId) || /^<@!?\d+>$/.test(discordId))) {
+    // Use Discord ID for Discord mention
+    if (discordId) {
         if (/^\d{15,22}$/.test(discordId)) {
             return `• <@${discordId}>`;
         }
-        return `• ${discordId}`;
+        if (/^<@!?\d+>$/.test(discordId)) {
+            return `• ${discordId}`;
+        }
+        if (discordId.startsWith('@')) {
+            return `• ${discordId}`;
+        }
+        return `• @${discordId}`;
     }
 
-    // If name is present, use name
+    // Fallback if no Discord ID was provided
     if (name) {
         if (name.startsWith('@')) return `• ${name}`;
         return `• @${name}`;
-    }
-
-    // Fallback to discordId as text if name is empty
-    if (discordId) {
-        if (discordId.startsWith('@')) return `• ${discordId}`;
-        return `• @${discordId}`;
     }
 
     return '• N/A';
