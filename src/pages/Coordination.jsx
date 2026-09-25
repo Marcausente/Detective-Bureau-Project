@@ -5,11 +5,12 @@ import CoordinationTodoList from '../components/CoordinationTodoList';
 import CoordinationSanctions from '../components/CoordinationSanctions';
 import CoordinationRolesConfig from '../components/CoordinationRolesConfig';
 import CoordinationWebhookConfig from '../components/CoordinationWebhookConfig';
+import CoordinationRosterDiscord from '../components/CoordinationRosterDiscord';
 import '../index.css';
 
 function Coordination() {
     const { t } = useLanguage();
-    const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'sanctions' | 'roles_config' | 'webhooks'
+    const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'sanctions' | 'roles_config' | 'webhooks' | 'roster'
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -268,6 +269,33 @@ function Coordination() {
                 </button>
 
                 <button
+                    onClick={() => setActiveTab('roster')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        padding: '0.65rem 1.4rem',
+                        borderRadius: '12px',
+                        fontSize: '0.88rem',
+                        fontWeight: 700,
+                        border: activeTab === 'roster' ? '1px solid rgba(245, 158, 11, 0.5)' : '1px solid transparent',
+                        background: activeTab === 'roster' ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(217, 119, 6, 0.2))' : 'transparent',
+                        color: activeTab === 'roster' ? '#fbbf24' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        boxShadow: activeTab === 'roster' ? '0 4px 14px rgba(245, 158, 11, 0.3)' : 'none'
+                    }}
+                >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={activeTab === 'roster' ? '#fbbf24' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <span>Plantilla Discord</span>
+                </button>
+
+                <button
                     onClick={() => setActiveTab('webhooks')}
                     style={{
                         display: 'flex',
@@ -297,6 +325,7 @@ function Coordination() {
                 {activeTab === 'todos' && <CoordinationTodoList />}
                 {activeTab === 'sanctions' && <CoordinationSanctions />}
                 {activeTab === 'roles_config' && <CoordinationRolesConfig />}
+                {activeTab === 'roster' && <CoordinationRosterDiscord />}
                 {activeTab === 'webhooks' && <CoordinationWebhookConfig />}
             </div>
         </div>

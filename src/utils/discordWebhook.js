@@ -1540,3 +1540,278 @@ export async function sendIASanctionToDiscord({
     }
 }
 
+// ==============================================================================
+// 5. COORDINATION ROSTER / MEMBERS DISCORD BROADCAST INTEGRATION
+// ==============================================================================
+
+const LOCAL_STORAGE_KEY_COORDINATION_ROSTER = 'discord_coordination_roster_cfg_v2';
+
+export const DEFAULT_COORDINATION_ROSTER_DATA = [
+    {
+        id: 'coord',
+        name: 'COORDINADOR',
+        icon: '⚜️',
+        members: []
+    },
+    {
+        id: 'subcoord',
+        name: 'SUBCOORDINADORA',
+        icon: '⚡',
+        members: []
+    },
+    {
+        id: 'detective',
+        name: 'DETECTIVE',
+        icon: '🕵️',
+        members: []
+    },
+    {
+        id: 'field_agent',
+        name: 'FIELD AGENT',
+        icon: '⭐',
+        members: []
+    },
+    {
+        id: 'crim_analyst',
+        name: 'CRIMINAL ANALYST',
+        icon: '🧬',
+        members: []
+    },
+    {
+        id: 'contender',
+        name: 'CONTENDER',
+        icon: '📋',
+        members: []
+    }
+];
+
+/**
+ * Retrieve Coordination Roster configuration & saved agents list
+ */
+export async function getCoordinationRosterConfig() {
+    let config = {
+        webhookUrl: '',
+        enabled: true,
+        rolePing: '',
+        botName: 'SCUB • Sheriff Criminal Unit Bureau',
+        botAvatar: SCUB_LOGO_URL,
+        title: 'SHERIFF CRIMINAL UNIT BUREAU',
+        bannerUrl: '',
+        rosterData: DEFAULT_COORDINATION_ROSTER_DATA
+    };
+
+    try {
+        const { data, error } = await supabase.rpc('get_coordination_roster_config');
+        if (!error && data) {
+            config = {
+                webhookUrl: data.webhook_url || '',
+                enabled: data.enabled !== undefined ? !!data.enabled : true,
+                rolePing: data.role_ping || '',
+                botName: data.bot_name || 'SCUB • Sheriff Criminal Unit Bureau',
+                botAvatar: data.bot_avatar || SCUB_LOGO_URL,
+                title: data.title || 'SHERIFF CRIMINAL UNIT BUREAU',
+                bannerUrl: data.banner_url || '',
+                rosterData: Array.isArray(data.roster_data) && data.roster_data.length > 0 
+                    ? data.roster_data 
+                    : DEFAULT_COORDINATION_ROSTER_DATA
+            };
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY_COORDINATION_ROSTER, JSON.stringify(config));
+            } catch (e) {}
+            return config;
+        }
+    } catch (rpcErr) {
+        console.warn('RPC get_coordination_roster_config failed, falling back:', rpcErr);
+    }
+
+    try {
+        const local = localStorage.getItem(LOCAL_STORAGE_KEY_COORDINATION_ROSTER);
+        if (local) {
+            const parsed = JSON.parse(local);
+            return { ...config, ...parsed };
+        }
+    } catch (e) {}
+
+    return config;
+}
+
+/**
+ * Save Coordination Roster configuration & updated agents list
+ */
+export async function saveCoordinationRosterConfig({
+    rosterData,
+    webhookUrl = '',
+    title = 'SHERIFF CRIMINAL UNIT BUREAU',
+    bannerUrl = '',
+    rolePing = '',
+    botName = 'SCUB • Sheriff Criminal Unit Bureau',
+    botAvatar = '',
+    enabled = true
+}) {
+    const configToSave = {
+        rosterData: rosterData || DEFAULT_COORDINATION_ROSTER_DATA,
+        webhookUrl: webhookUrl || '',
+        title: title || 'SHERIFF CRIMINAL UNIT BUREAU',
+        bannerUrl: bannerUrl || '',
+        rolePing: rolePing || '',
+        botName: botName || 'SCUB • Sheriff Criminal Unit Bureau',
+        botAvatar: botAvatar || SCUB_LOGO_URL,
+        enabled: !!enabled
+    };
+
+    try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_COORDINATION_ROSTER, JSON.stringify(configToSave));
+    } catch (e) {}
+
+    try {
+        const { error } = await supabase.rpc('save_coordination_roster_config', {
+            p_roster_data: configToSave.rosterData,
+            p_webhook_url: configToSave.webhookUrl,
+            p_title: configToSave.title,
+            p_banner_url: configToSave.bannerUrl,
+            p_role_ping: configToSave.rolePing,
+            p_bot_name: configToSave.botName,
+            p_bot_avatar: configToSave.botAvatar,
+            p_enabled: configToSave.enabled
+        });
+        if (error) {
+            console.error('Error saving Coordination Roster config to database:', error);
+            throw error;
+        }
+        return { success: true };
+    } catch (err) {
+        console.error('Failed to persist Coordination Roster config to supabase:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Format a member item into Discord Mention string
+ */
+export function formatMemberMention(member) {
+    if (!member) return '• N/A';
+    const tag = (member.discordId || member.tag || member.name || '').trim();
+    if (!tag) return '• N/A';
+
+    // If it's pure digits (Snowflake ID)
+    if (/^\d{15,22}$/.test(tag)) {
+        return `• <@${tag}>`;
+    }
+    // If it already has <@123456> format
+    if (/^<@!?\d+>$/.test(tag)) {
+        return `• ${tag}`;
+    }
+    // If it's custom text starting with @
+    if (tag.startsWith('@')) {
+        return `• ${tag}`;
+    }
+    return `• @${tag}`;
+}
+
+/**
+ * Build Discord description text from Roster Data
+ */
+export function buildRosterDiscordMarkdown(rosterData) {
+    if (!Array.isArray(rosterData) || rosterData.length === 0) {
+        return '*No hay rangos configurados en la plantilla.*';
+    }
+
+    const sections = rosterData.map(rank => {
+        const icon = rank.icon ? `${rank.icon} ` : '';
+        const rankName = (rank.name || 'RANGO').toUpperCase();
+        const header = `${icon}**__${rankName}__**`;
+
+        const membersList = Array.isArray(rank.members) && rank.members.length > 0
+            ? rank.members.map(m => formatMemberMention(m)).join('\n')
+            : '• N/A';
+
+        return `${header}\n\n${membersList}`;
+    });
+
+    return sections.join('\n\n');
+}
+
+/**
+ * Dispatch Coordination Roster to Discord Webhook
+ */
+export async function sendCoordinationRosterToDiscord({
+    rosterData,
+    title = 'SHERIFF CRIMINAL UNIT BUREAU',
+    bannerUrl = '',
+    customConfig = null,
+    forceSend = false,
+    author = {}
+}) {
+    try {
+        const config = customConfig || await getCoordinationRosterConfig();
+
+        if (!forceSend) {
+            if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('https://')) {
+                console.warn('Webhook de Plantilla de Coordinación no configurado o inactivo.');
+                return { skipped: true };
+            }
+        }
+
+        const targetUrl = config.webhookUrl.trim();
+        const formattedPing = formatRoleMention(config.rolePing);
+
+        const botAvatar = (config.botAvatar || '').trim() || SCUB_LOGO_URL;
+        const botName = (config.botName || '').trim() || 'SCUB • Sheriff Criminal Unit Bureau';
+        const embedTitle = `🔍 ${title || 'SHERIFF CRIMINAL UNIT BUREAU'}`;
+
+        const description = buildRosterDiscordMarkdown(rosterData || config.rosterData);
+
+        const embed = {
+            title: embedTitle,
+            description: description,
+            color: 0xC5A059, // Gold SCUB
+            timestamp: new Date().toISOString()
+        };
+
+        const activeBanner = bannerUrl || config.bannerUrl;
+        if (activeBanner && activeBanner.trim().startsWith('http')) {
+            embed.image = {
+                url: activeBanner.trim()
+            };
+        }
+
+        let messageContent = undefined;
+        if (formattedPing) {
+            messageContent = `${formattedPing}`;
+        }
+
+        const payload = {
+            username: botName,
+            avatar_url: botAvatar,
+            content: messageContent,
+            allowed_mentions: {
+                parse: ['roles', 'users', 'everyone']
+            },
+            embeds: [embed]
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errText = '';
+            try {
+                const errJson = await response.json();
+                errText = errJson.message || JSON.stringify(errJson);
+            } catch (e) {
+                errText = `HTTP Error ${response.status} (${response.statusText})`;
+            }
+            console.error('Failed to send Coordination Roster to Discord:', errText);
+            return { success: false, error: errText };
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error in sendCoordinationRosterToDiscord:', err);
+        return { success: false, error: err.message };
+    }
+}
+
