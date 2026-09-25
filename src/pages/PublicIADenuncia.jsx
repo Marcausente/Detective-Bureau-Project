@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { uploadImageToStorage } from '../utils/imageStorage';
 import { useTheme } from '../contexts/ThemeContext';
+import { sendIAComplaintNotificationToDiscord } from '../utils/discordWebhook';
 import '../index.css';
 
 function PublicIADenuncia() {
@@ -154,6 +155,17 @@ function PublicIADenuncia() {
             });
 
             if (error) throw error;
+
+            // Trigger Discord Webhook Notification asynchronously
+            sendIAComplaintNotificationToDiscord({
+                denunciante_nombre: nombreDenunciante.trim(),
+                denunciante_telefono: telefonoDenunciante.trim(),
+                denunciado_nombre_placa: denunciadoNombrePlaca.trim(),
+                fecha_hechos: fechaHechos,
+                motivo: finalMotivo,
+                declaracion: declaracion.trim(),
+                pruebas: finalPruebas || null
+            }).catch(discordErr => console.error("Error enviando alerta Discord de IA:", discordErr));
 
             setSubmitted(true);
             const container = document.getElementById('public-denuncia-scroll-container');

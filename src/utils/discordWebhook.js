@@ -2360,5 +2360,316 @@ export async function sendIARosterToDiscord({
     }
 }
 
+// ==============================================================================
+// 7. IA COMPLAINTS / DENUNCIAS NOTIFICATIONS WEBHOOK
+// ==============================================================================
+
+const LOCAL_STORAGE_KEY_IA_COMPLAINTS = 'discord_ia_complaints_webhook_cfg_v1';
+export const DEFAULT_IA_COMPLAINTS_BOT_NAME = 'IA • Notificaciones de Denuncias';
+export const DEFAULT_IA_COMPLAINTS_CUSTOM_MSG = '⚠️ **Nueva Denuncia Ciudadana Recibida**. Por favor, revisad la Base de Datos para verificarla y asignarla.';
+
+export async function getDiscordIAComplaintsWebhookConfig() {
+    try {
+        const cached = localStorage.getItem(LOCAL_STORAGE_KEY_IA_COMPLAINTS);
+        let config = null;
+        if (cached) {
+            try { config = JSON.parse(cached); } catch (e) { /* ignore */ }
+        }
+
+        const { data, error } = await supabase.rpc('get_discord_ia_complaints_webhook_config');
+        if (!error && data) {
+            const freshConfig = {
+                webhookUrl: data.webhook_url || '',
+                enabled: !!data.enabled,
+                rolePing: data.role_ping || '',
+                botName: data.bot_name || DEFAULT_IA_COMPLAINTS_BOT_NAME,
+                botAvatar: data.bot_avatar || '',
+                customMsg: data.custom_msg || DEFAULT_IA_COMPLAINTS_CUSTOM_MSG
+            };
+            localStorage.setItem(LOCAL_STORAGE_KEY_IA_COMPLAINTS, JSON.stringify(freshConfig));
+            return freshConfig;
+        }
+
+        if (config) return config;
+
+        // Fallback to direct app_settings query
+        const { data: directData } = await supabase
+            .from('app_settings')
+            .select('key, value')
+            .in('key', [
+                'discord_ia_complaints_webhook_url',
+                'discord_ia_complaints_webhook_enabled',
+                'discord_ia_complaints_webhook_role_ping',
+                'discord_ia_complaints_webhook_bot_name',
+                'discord_ia_complaints_webhook_bot_avatar',
+                'discord_ia_complaints_webhook_custom_msg'
+            ]);
+
+        if (directData && directData.length > 0) {
+            const map = {};
+            directData.forEach(r => { map[r.key] = r.value; });
+            const directConfig = {
+                webhookUrl: map['discord_ia_complaints_webhook_url'] || '',
+                enabled: map['discord_ia_complaints_webhook_enabled'] === 'true',
+                rolePing: map['discord_ia_complaints_webhook_role_ping'] || '',
+                botName: map['discord_ia_complaints_webhook_bot_name'] || DEFAULT_IA_COMPLAINTS_BOT_NAME,
+                botAvatar: map['discord_ia_complaints_webhook_bot_avatar'] || '',
+                customMsg: map['discord_ia_complaints_webhook_custom_msg'] || DEFAULT_IA_COMPLAINTS_CUSTOM_MSG
+            };
+            localStorage.setItem(LOCAL_STORAGE_KEY_IA_COMPLAINTS, JSON.stringify(directConfig));
+            return directConfig;
+        }
+
+        return {
+            webhookUrl: '',
+            enabled: false,
+            rolePing: '',
+            botName: DEFAULT_IA_COMPLAINTS_BOT_NAME,
+            botAvatar: '',
+            customMsg: DEFAULT_IA_COMPLAINTS_CUSTOM_MSG
+        };
+    } catch (err) {
+        console.error('Error in getDiscordIAComplaintsWebhookConfig:', err);
+        return {
+            webhookUrl: '',
+            enabled: false,
+            rolePing: '',
+            botName: DEFAULT_IA_COMPLAINTS_BOT_NAME,
+            botAvatar: '',
+            customMsg: DEFAULT_IA_COMPLAINTS_CUSTOM_MSG
+        };
+    }
+}
+
+export async function saveDiscordIAComplaintsWebhookConfig(config) {
+    try {
+        const { data, error } = await supabase.rpc('save_discord_ia_complaints_webhook_config', {
+            p_webhook_url: config.webhookUrl || '',
+            p_enabled: !!config.enabled,
+            p_role_ping: config.rolePing || '',
+            p_bot_name: config.botName || DEFAULT_IA_COMPLAINTS_BOT_NAME,
+            p_bot_avatar: config.botAvatar || '',
+            p_custom_msg: config.customMsg || DEFAULT_IA_COMPLAINTS_CUSTOM_MSG
+        });
+
+        if (error) {
+            // Direct app_settings fallback
+            const updates = [
+                { key: 'discord_ia_complaints_webhook_url', value: config.webhookUrl || '' },
+                { key: 'discord_ia_complaints_webhook_enabled', value: config.enabled ? 'true' : 'false' },
+                { key: 'discord_ia_complaints_webhook_role_ping', value: config.rolePing || '' },
+                { key: 'discord_ia_complaints_webhook_bot_name', value: config.botName || DEFAULT_IA_COMPLAINTS_BOT_NAME },
+                { key: 'discord_ia_complaints_webhook_bot_avatar', value: config.botAvatar || '' },
+                { key: 'discord_ia_complaints_webhook_custom_msg', value: config.customMsg || DEFAULT_IA_COMPLAINTS_CUSTOM_MSG }
+            ];
+            const { error: directError } = await supabase.from('app_settings').upsert(updates);
+            if (directError) throw directError;
+        }
+
+        localStorage.setItem(LOCAL_STORAGE_KEY_IA_COMPLAINTS, JSON.stringify({
+            webhookUrl: config.webhookUrl || '',
+            enabled: !!config.enabled,
+            rolePing: config.rolePing || '',
+            botName: config.botName || DEFAULT_IA_COMPLAINTS_BOT_NAME,
+            botAvatar: config.botAvatar || '',
+            customMsg: config.customMsg || DEFAULT_IA_COMPLAINTS_CUSTOM_MSG
+        }));
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error saving IA Complaints Webhook config:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+export async function testIAComplaintsDiscordWebhook(config) {
+    try {
+        if (!config?.webhookUrl || !config.webhookUrl.trim().startsWith('http')) {
+            throw new Error('La URL del Webhook de Discord no es válida.');
+        }
+
+        const targetUrl = config.webhookUrl.trim();
+        const formattedPing = formatRoleMention(config.rolePing);
+        const botName = (config.botName || '').trim() || DEFAULT_IA_COMPLAINTS_BOT_NAME;
+        const botAvatar = (config.botAvatar || '').trim() || IA_LOGO_URL;
+
+        const embed = {
+            title: '⚖️ PRUEBA DE CONEXIÓN: NOTIFICACIONES DE DENUNCIAS IA',
+            description: '✅ **Webhook configurado correctamente.**\nLas nuevas denuncias recibidas a través del formulario de Asuntos Internos se enviarán a este canal.',
+            color: 0x10B981,
+            fields: [
+                { name: '👤 Denunciante de Prueba', value: 'John Doe (📞 555-0192)', inline: true },
+                { name: '🎯 Denunciado / Agente', value: 'Oficial Marcus Wright [#104]', inline: true },
+                { name: '⚖️ Motivo', value: 'Uso Excesivo de la Fuerza / Abuso', inline: true },
+                { name: '📋 Estado en Base de Datos', value: '📥 **Pendiente de Revisión y Asignación**', inline: false }
+            ],
+            footer: {
+                text: 'Asuntos Internos • Sistema de Alertas Automáticas',
+                icon_url: botAvatar || undefined
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        const payload = {
+            username: botName,
+            avatar_url: botAvatar || undefined,
+            content: formattedPing ? `${formattedPing} 🔔 **Alerta de Prueba**` : undefined,
+            allowed_mentions: {
+                parse: ['roles', 'users', 'everyone']
+            },
+            embeds: [embed]
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errText = '';
+            try {
+                const errJson = await response.json();
+                errText = errJson.message || JSON.stringify(errJson);
+            } catch (e) {
+                errText = `HTTP Error ${response.status} (${response.statusText})`;
+            }
+            return { success: false, error: errText };
+        }
+
+        return { success: true };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+}
+
+export async function sendIAComplaintNotificationToDiscord(complaintData) {
+    try {
+        const config = await getDiscordIAComplaintsWebhookConfig();
+        if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('http')) {
+            // Disabled or not configured
+            return { success: false, skipped: true };
+        }
+
+        const targetUrl = config.webhookUrl.trim();
+        const formattedPing = formatRoleMention(config.rolePing);
+        const botName = (config.botName || '').trim() || DEFAULT_IA_COMPLAINTS_BOT_NAME;
+        const botAvatar = (config.botAvatar || '').trim() || IA_LOGO_URL;
+
+        const customMsg = config.customMsg || DEFAULT_IA_COMPLAINTS_CUSTOM_MSG;
+
+        // Truncate declaration to prevent Discord 1024 char limits per field
+        const declaracionText = complaintData.declaracion 
+            ? (complaintData.declaracion.length > 900 
+                ? complaintData.declaracion.substring(0, 900) + '... *(continúa en BBDD)*' 
+                : complaintData.declaracion)
+            : 'Sin declaración escrita.';
+
+        const fields = [
+            {
+                name: '👤 Denunciante',
+                value: `**${complaintData.denunciante_nombre || 'Anónimo'}**\n📞 ${complaintData.denunciante_telefono || 'No indicado'}`,
+                inline: true
+            },
+            {
+                name: '🎯 Denunciado / Agente',
+                value: `**${complaintData.denunciado_nombre_placa || 'No especificado'}**`,
+                inline: true
+            },
+            {
+                name: '📅 Fecha de los Hechos',
+                value: `${complaintData.fecha_hechos || 'No indicada'}`,
+                inline: true
+            },
+            {
+                name: '⚖️ Motivo de la Denuncia',
+                value: `\`${complaintData.motivo || 'General'}\``,
+                inline: false
+            },
+            {
+                name: '📝 Declaración de los Hechos',
+                value: declaracionText,
+                inline: false
+            }
+        ];
+
+        if (complaintData.pruebas) {
+            const pruebasText = complaintData.pruebas.length > 900
+                ? complaintData.pruebas.substring(0, 900) + '...'
+                : complaintData.pruebas;
+            fields.push({
+                name: '📎 Pruebas y Enlaces Adjuntos',
+                value: pruebasText,
+                inline: false
+            });
+        }
+
+        fields.push({
+            name: '🚨 Acción Requerida',
+            value: '👉 **Revisar en el Receptor de Denuncias de la BBDD y asignar caso de investigación.**',
+            inline: false
+        });
+
+        const embed = {
+            title: '⚖️ NUEVA DENUNCIA REGISTRADA (ASUNTOS INTERNOS)',
+            description: customMsg,
+            color: 0xDC2626, // Red / Crimson alert
+            fields: fields,
+            footer: {
+                text: 'Asuntos Internos • Receptor de Denuncias',
+                icon_url: botAvatar || undefined
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        // Extract image URL from pruebas if any to show thumbnail/image
+        if (complaintData.pruebas && typeof complaintData.pruebas === 'string') {
+            const matchHttp = complaintData.pruebas.match(/(https?:\/\/[^\s]+\.(?:png|jpg|jpeg|webp|gif))/i);
+            if (matchHttp && matchHttp[1]) {
+                embed.image = { url: matchHttp[1] };
+            }
+        }
+
+        let messageContent = undefined;
+        if (formattedPing) {
+            messageContent = `${formattedPing} 🚨 **Nueva Denuncia Recibida**`;
+        }
+
+        const payload = {
+            username: botName,
+            avatar_url: botAvatar || undefined,
+            content: messageContent,
+            allowed_mentions: {
+                parse: ['roles', 'users', 'everyone']
+            },
+            embeds: [embed]
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errText = '';
+            try {
+                const errJson = await response.json();
+                errText = errJson.message || JSON.stringify(errJson);
+            } catch (e) {
+                errText = `HTTP Error ${response.status} (${response.statusText})`;
+            }
+            console.error('Failed to send IA Complaint notification to Discord:', errText);
+            return { success: false, error: errText };
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error in sendIAComplaintNotificationToDiscord:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+
 
 
