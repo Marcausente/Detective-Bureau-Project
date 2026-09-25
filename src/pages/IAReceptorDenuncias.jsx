@@ -28,6 +28,7 @@ function IAReceptorDenuncias() {
 
     // Discord Webhook Modal State
     const [showWebhookModal, setShowWebhookModal] = useState(false);
+    const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const avatarInputRef = useRef(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [complaintWebhook, setComplaintWebhook] = useState({
@@ -43,8 +44,33 @@ function IAReceptorDenuncias() {
     const [webhookNotice, setWebhookNotice] = useState(null);
     const [webhookError, setWebhookError] = useState(null);
 
+    const loadUserProfile = async () => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                const { data } = await supabase
+                    .from('users')
+                    .select('id, rol, rango')
+                    .eq('id', session.user.id)
+                    .single();
+                setCurrentUserProfile(data);
+            }
+        } catch (e) {
+            console.error("Error loading profile:", e);
+        }
+    };
+
+    const canManageWebhook = () => {
+        if (!currentUserProfile) return false;
+        const role = (currentUserProfile.rol || '').toLowerCase().trim();
+        const rank = (currentUserProfile.rango || '').toLowerCase().trim();
+        const allowed = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'admin'];
+        return allowed.some(a => role.includes(a)) || allowed.some(a => rank.includes(a));
+    };
+
     useEffect(() => {
         loadData();
+        loadUserProfile();
     }, []);
 
     const loadData = async () => {
@@ -413,24 +439,26 @@ function IAReceptorDenuncias() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <button
-                        onClick={() => setShowWebhookModal(true)}
-                        className="login-button btn-secondary"
-                        style={{
-                            width: 'auto',
-                            padding: '0.45rem 0.9rem',
-                            fontSize: '0.82rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            background: complaintWebhook.enabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                            borderColor: complaintWebhook.enabled ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255, 255, 255, 0.1)',
-                            color: complaintWebhook.enabled ? '#34d399' : '#cbd5e1'
-                        }}
-                    >
-                        <span>🔔</span>
-                        <span>{complaintWebhook.enabled ? 'Discord Conectado' : 'Configurar Discord'}</span>
-                    </button>
+                    {canManageWebhook() && (
+                        <button
+                            onClick={() => setShowWebhookModal(true)}
+                            className="login-button btn-secondary"
+                            style={{
+                                width: 'auto',
+                                padding: '0.45rem 0.9rem',
+                                fontSize: '0.82rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: complaintWebhook.enabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                                borderColor: complaintWebhook.enabled ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255, 255, 255, 0.1)',
+                                color: complaintWebhook.enabled ? '#34d399' : '#cbd5e1'
+                            }}
+                        >
+                            <span>🔔</span>
+                            <span>{complaintWebhook.enabled ? 'Discord Conectado' : 'Configurar Discord'}</span>
+                        </button>
+                    )}
                     <div style={{ width: '260px' }}>
                         <input
                             type="text"

@@ -29,6 +29,7 @@ function InternalAffairs() {
     const [durationSavedNotice, setDurationSavedNotice] = useState(false);
 
     // IA Complaints Discord Webhook State
+    const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const avatarInputRef = useRef(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [complaintWebhook, setComplaintWebhook] = useState({
@@ -45,6 +46,30 @@ function InternalAffairs() {
     const [webhookTestNotice, setWebhookTestNotice] = useState(null);
     const [webhookTestError, setWebhookTestError] = useState(null);
 
+    const loadUserProfile = async () => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                const { data } = await supabase
+                    .from('users')
+                    .select('id, rol, rango')
+                    .eq('id', session.user.id)
+                    .single();
+                setCurrentUserProfile(data);
+            }
+        } catch (e) {
+            console.error("Error loading profile:", e);
+        }
+    };
+
+    const canManageWebhook = () => {
+        if (!currentUserProfile) return false;
+        const role = (currentUserProfile.rol || '').toLowerCase().trim();
+        const rank = (currentUserProfile.rango || '').toLowerCase().trim();
+        const allowed = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'admin'];
+        return allowed.some(a => role.includes(a)) || allowed.some(a => rank.includes(a));
+    };
+
     useEffect(() => {
         const loadConfigs = async () => {
             const loadedDurations = await fetchSanctionDurations();
@@ -54,6 +79,7 @@ function InternalAffairs() {
             setComplaintWebhook(webhookCfg);
         };
         loadConfigs();
+        loadUserProfile();
     }, []);
 
     const handleSaveComplaintWebhook = async (e) => {
@@ -582,227 +608,229 @@ function InternalAffairs() {
                 </form>
             </div>
 
-            {/* Configuración Discord Webhook para Denuncias Ciudadanas */}
-            <div className="coordination-card" style={{
-                marginTop: '2rem',
-                background: 'rgba(15, 23, 42, 0.85)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '16px',
-                padding: '2rem',
-                backdropFilter: 'blur(20px)',
-                boxShadow: '0 12px 32px rgba(0,0,0,0.3)'
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '1rem' }}>
-                    <div>
-                        <h3 style={{
-                            margin: '0 0 0.4rem 0',
-                            fontSize: '1.15rem',
-                            fontWeight: 800,
-                            color: '#38bdf8',
-                            letterSpacing: '0.04em',
-                            textTransform: 'uppercase',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}>
-                            <span>🔔</span>
-                            <span>{language === 'es' ? 'NOTIFICACIONES DISCORD DE NUEVAS DENUNCIAS (FORMULARIO IA)' : 'DISCORD NOTIFICATIONS FOR NEW IA COMPLAINTS'}</span>
-                        </h3>
-                        <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.88rem' }}>
-                            {language === 'es' 
-                                ? 'Al recibir una nueva denuncia desde el formulario, se enviará una notificación automática al canal de Discord con los datos del caso para que el equipo de IA la revise y asigne en la BBDD.' 
-                                : 'Automatically notifies the configured Discord channel when a citizen submits a complaint, prompting IA staff to review and assign it in the database.'}
-                        </p>
-                    </div>
-
-                    {/* Enabled Switch */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'rgba(0,0,0,0.4)', padding: '0.5rem 1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: complaintWebhook.enabled ? '#34d399' : '#94a3b8' }}>
-                            {complaintWebhook.enabled ? (language === 'es' ? 'Webhook Activo' : 'Webhook Active') : (language === 'es' ? 'Webhook Inactivo' : 'Webhook Inactive')}
-                        </span>
-                        <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '28px' }}>
-                            <input 
-                                type="checkbox" 
-                                checked={complaintWebhook.enabled} 
-                                onChange={e => setComplaintWebhook({ ...complaintWebhook, enabled: e.target.checked })} 
-                                style={{ opacity: 0, width: 0, height: 0 }}
-                            />
-                            <span className="slider round" style={{ 
-                                position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
-                                backgroundColor: complaintWebhook.enabled ? '#059669' : '#334155', 
-                                transition: '.3s', borderRadius: '28px'
+            {/* Configuración Discord Webhook para Denuncias Ciudadanas (Only for Coordinador, Comisionado, Administrador) */}
+            {canManageWebhook() && (
+                <div className="coordination-card" style={{
+                    marginTop: '2rem',
+                    background: 'rgba(15, 23, 42, 0.85)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '16px',
+                    padding: '2rem',
+                    backdropFilter: 'blur(20px)',
+                    boxShadow: '0 12px 32px rgba(0,0,0,0.3)'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '1rem' }}>
+                        <div>
+                            <h3 style={{
+                                margin: '0 0 0.4rem 0',
+                                fontSize: '1.15rem',
+                                fontWeight: 800,
+                                color: '#38bdf8',
+                                letterSpacing: '0.04em',
+                                textTransform: 'uppercase',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
                             }}>
-                                <span style={{
-                                    position: 'absolute', content: '""', height: '20px', width: '20px', left: '4px', bottom: '4px',
-                                    backgroundColor: 'white', transition: '.3s', borderRadius: '50%',
-                                    transform: complaintWebhook.enabled ? 'translateX(22px)' : 'translateX(0)'
-                                }}></span>
+                                <span>🔔</span>
+                                <span>{language === 'es' ? 'NOTIFICACIONES DISCORD DE NUEVAS DENUNCIAS (FORMULARIO IA)' : 'DISCORD NOTIFICATIONS FOR NEW IA COMPLAINTS'}</span>
+                            </h3>
+                            <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.88rem' }}>
+                                {language === 'es' 
+                                    ? 'Al recibir una nueva denuncia desde el formulario, se enviará una notificación automática al canal de Discord con los datos del caso para que el equipo de IA la revise y asigne en la BBDD.' 
+                                    : 'Automatically notifies the configured Discord channel when a citizen submits a complaint, prompting IA staff to review and assign it in the database.'}
+                            </p>
+                        </div>
+
+                        {/* Enabled Switch */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'rgba(0,0,0,0.4)', padding: '0.5rem 1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: complaintWebhook.enabled ? '#34d399' : '#94a3b8' }}>
+                                {complaintWebhook.enabled ? (language === 'es' ? 'Webhook Activo' : 'Webhook Active') : (language === 'es' ? 'Webhook Inactivo' : 'Webhook Inactive')}
                             </span>
-                        </label>
+                            <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '28px' }}>
+                                <input 
+                                    type="checkbox" 
+                                    checked={complaintWebhook.enabled} 
+                                    onChange={e => setComplaintWebhook({ ...complaintWebhook, enabled: e.target.checked })} 
+                                    style={{ opacity: 0, width: 0, height: 0 }}
+                                />
+                                <span className="slider round" style={{ 
+                                    position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
+                                    backgroundColor: complaintWebhook.enabled ? '#059669' : '#334155', 
+                                    transition: '.3s', borderRadius: '28px'
+                                }}>
+                                    <span style={{
+                                        position: 'absolute', content: '""', height: '20px', width: '20px', left: '4px', bottom: '4px',
+                                        backgroundColor: 'white', transition: '.3s', borderRadius: '50%',
+                                        transform: complaintWebhook.enabled ? 'translateX(22px)' : 'translateX(0)'
+                                    }}></span>
+                                </span>
+                            </label>
+                        </div>
                     </div>
-                </div>
 
-                <form onSubmit={handleSaveComplaintWebhook}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
-                        {/* Webhook URL */}
-                        <div style={{ gridColumn: '1 / -1' }}>
-                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                {language === 'es' ? 'URL del Webhook de Discord (Canal de Notificaciones de IA)' : 'Discord Webhook URL (IA Notifications Channel)'} <span style={{ color: '#f87171' }}>*</span>
-                            </label>
-                            <input
-                                type="url"
-                                required={complaintWebhook.enabled}
-                                value={complaintWebhook.webhookUrl}
-                                onChange={e => setComplaintWebhook({ ...complaintWebhook, webhookUrl: e.target.value })}
-                                placeholder="https://discord.com/api/webhooks/1234567890/abcdef..."
-                                className="mac-form-input"
-                                style={{ width: '100%', padding: '0.65rem 0.9rem', fontSize: '0.9rem' }}
-                            />
-                        </div>
+                    <form onSubmit={handleSaveComplaintWebhook}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
+                            {/* Webhook URL */}
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
+                                    {language === 'es' ? 'URL del Webhook de Discord (Canal de Notificaciones de IA)' : 'Discord Webhook URL (IA Notifications Channel)'} <span style={{ color: '#f87171' }}>*</span>
+                                </label>
+                                <input
+                                    type="url"
+                                    required={complaintWebhook.enabled}
+                                    value={complaintWebhook.webhookUrl}
+                                    onChange={e => setComplaintWebhook({ ...complaintWebhook, webhookUrl: e.target.value })}
+                                    placeholder="https://discord.com/api/webhooks/1234567890/abcdef..."
+                                    className="mac-form-input"
+                                    style={{ width: '100%', padding: '0.65rem 0.9rem', fontSize: '0.9rem' }}
+                                />
+                            </div>
 
-                        {/* Role Ping */}
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                {language === 'es' ? 'Mención de Rol / Notificación' : 'Role Mention / Ping'}
-                            </label>
-                            <input
-                                type="text"
-                                value={complaintWebhook.rolePing}
-                                onChange={e => setComplaintWebhook({ ...complaintWebhook, rolePing: e.target.value })}
-                                placeholder="Ej: @everyone, @here, o ID de rol"
-                                className="mac-form-input"
-                                style={{ width: '100%', padding: '0.65rem 0.9rem', fontSize: '0.9rem' }}
-                            />
-                        </div>
-
-                        {/* Bot Name */}
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                {language === 'es' ? 'Nombre del Bot en Discord' : 'Discord Bot Name'}
-                            </label>
-                            <input
-                                type="text"
-                                value={complaintWebhook.botName}
-                                onChange={e => setComplaintWebhook({ ...complaintWebhook, botName: e.target.value })}
-                                placeholder="Ej: IA • Notificaciones de Denuncias"
-                                className="mac-form-input"
-                                style={{ width: '100%', padding: '0.65rem 0.9rem', fontSize: '0.9rem' }}
-                            />
-                        </div>
-
-                        {/* Bot Avatar URL */}
-                        <div style={{ gridColumn: '1 / -1' }}>
-                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                {language === 'es' ? 'Avatar / Logo del Bot (URL o Archivo Local)' : 'Bot Avatar / Logo (URL or Local File)'}
-                            </label>
-                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                {complaintWebhook.botAvatar && (
-                                    <img 
-                                        src={complaintWebhook.botAvatar} 
-                                        alt="Bot Avatar" 
-                                        style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.2)', flexShrink: 0, background: 'rgba(0,0,0,0.4)' }}
-                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                    />
-                                )}
+                            {/* Role Ping */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
+                                    {language === 'es' ? 'Mención de Rol / Notificación' : 'Role Mention / Ping'}
+                                </label>
                                 <input
                                     type="text"
-                                    value={complaintWebhook.botAvatar}
-                                    onChange={e => setComplaintWebhook({ ...complaintWebhook, botAvatar: e.target.value })}
-                                    placeholder="/logowebp/IALSSD.webp o URL directa"
+                                    value={complaintWebhook.rolePing}
+                                    onChange={e => setComplaintWebhook({ ...complaintWebhook, rolePing: e.target.value })}
+                                    placeholder="Ej: @everyone, @here, o ID de rol"
                                     className="mac-form-input"
-                                    style={{ flex: 1, padding: '0.65rem 0.9rem', fontSize: '0.9rem' }}
+                                    style={{ width: '100%', padding: '0.65rem 0.9rem', fontSize: '0.9rem' }}
                                 />
+                            </div>
+
+                            {/* Bot Name */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
+                                    {language === 'es' ? 'Nombre del Bot en Discord' : 'Discord Bot Name'}
+                                </label>
                                 <input
-                                    type="file"
-                                    ref={avatarInputRef}
-                                    onChange={handleAvatarFileChange}
-                                    accept="image/*"
-                                    style={{ display: 'none' }}
+                                    type="text"
+                                    value={complaintWebhook.botName}
+                                    onChange={e => setComplaintWebhook({ ...complaintWebhook, botName: e.target.value })}
+                                    placeholder="Ej: IA • Notificaciones de Denuncias"
+                                    className="mac-form-input"
+                                    style={{ width: '100%', padding: '0.65rem 0.9rem', fontSize: '0.9rem' }}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => avatarInputRef.current?.click()}
-                                    disabled={uploadingAvatar}
-                                    className="mac-btn mac-btn-secondary"
-                                    style={{ padding: '0.65rem 1rem', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
-                                >
-                                    <span>📁</span>
-                                    <span>{uploadingAvatar ? (language === 'es' ? 'Subiendo...' : 'Uploading...') : (language === 'es' ? 'Elegir archivo' : 'Choose file')}</span>
-                                </button>
+                            </div>
+
+                            {/* Bot Avatar URL */}
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
+                                    {language === 'es' ? 'Avatar / Logo del Bot (URL o Archivo Local)' : 'Bot Avatar / Logo (URL or Local File)'}
+                                </label>
+                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                    {complaintWebhook.botAvatar && (
+                                        <img 
+                                            src={complaintWebhook.botAvatar} 
+                                            alt="Bot Avatar" 
+                                            style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.2)', flexShrink: 0, background: 'rgba(0,0,0,0.4)' }}
+                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                        />
+                                    )}
+                                    <input
+                                        type="text"
+                                        value={complaintWebhook.botAvatar}
+                                        onChange={e => setComplaintWebhook({ ...complaintWebhook, botAvatar: e.target.value })}
+                                        placeholder="/logowebp/IALSSD.webp o URL directa"
+                                        className="mac-form-input"
+                                        style={{ flex: 1, padding: '0.65rem 0.9rem', fontSize: '0.9rem' }}
+                                    />
+                                    <input
+                                        type="file"
+                                        ref={avatarInputRef}
+                                        onChange={handleAvatarFileChange}
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => avatarInputRef.current?.click()}
+                                        disabled={uploadingAvatar}
+                                        className="mac-btn mac-btn-secondary"
+                                        style={{ padding: '0.65rem 1rem', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    >
+                                        <span>📁</span>
+                                        <span>{uploadingAvatar ? (language === 'es' ? 'Subiendo...' : 'Uploading...') : (language === 'es' ? 'Elegir archivo' : 'Choose file')}</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Custom Msg */}
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
+                                    {language === 'es' ? 'Mensaje de Aviso en Cabecera' : 'Header Notification Message'}
+                                </label>
+                                <textarea
+                                    value={complaintWebhook.customMsg}
+                                    onChange={e => setComplaintWebhook({ ...complaintWebhook, customMsg: e.target.value })}
+                                    placeholder="Ej: ⚠️ **Nueva Denuncia Ciudadana Recibida**. Por favor, revisad la Base de Datos para verificarla y asignarla."
+                                    className="mac-form-input"
+                                    rows={2}
+                                    style={{ width: '100%', padding: '0.65rem 0.9rem', fontSize: '0.9rem', resize: 'vertical' }}
+                                />
                             </div>
                         </div>
 
-                        {/* Custom Msg */}
-                        <div style={{ gridColumn: '1 / -1' }}>
-                            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.4rem' }}>
-                                {language === 'es' ? 'Mensaje de Aviso en Cabecera' : 'Header Notification Message'}
-                            </label>
-                            <textarea
-                                value={complaintWebhook.customMsg}
-                                onChange={e => setComplaintWebhook({ ...complaintWebhook, customMsg: e.target.value })}
-                                placeholder="Ej: ⚠️ **Nueva Denuncia Ciudadana Recibida**. Por favor, revisad la Base de Datos para verificarla y asignarla."
-                                className="mac-form-input"
-                                rows={2}
-                                style={{ width: '100%', padding: '0.65rem 0.9rem', fontSize: '0.9rem', resize: 'vertical' }}
-                            />
-                        </div>
-                    </div>
+                        {/* Feedback notices */}
+                        {webhookTestNotice && (
+                            <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#34d399', fontSize: '0.88rem', fontWeight: 600 }}>
+                                ✅ {webhookTestNotice}
+                            </div>
+                        )}
+                        {webhookTestError && (
+                            <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#f87171', fontSize: '0.88rem', fontWeight: 600 }}>
+                                ❌ {webhookTestError}
+                            </div>
+                        )}
+                        {webhookSavedNotice && (
+                            <div style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.4)', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#38bdf8', fontSize: '0.88rem', fontWeight: 600 }}>
+                                ✅ {language === 'es' ? '¡Configuración de Webhook guardada exitosamente!' : 'Webhook configuration saved successfully!'}
+                            </div>
+                        )}
 
-                    {/* Feedback notices */}
-                    {webhookTestNotice && (
-                        <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#34d399', fontSize: '0.88rem', fontWeight: 600 }}>
-                            ✅ {webhookTestNotice}
+                        {/* Buttons */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1.25rem' }}>
+                            <button
+                                type="button"
+                                onClick={handleTestComplaintWebhook}
+                                disabled={testingWebhook || !complaintWebhook.webhookUrl}
+                                className="mac-btn mac-btn-secondary"
+                                style={{
+                                    padding: '0.6rem 1.25rem',
+                                    fontSize: '0.88rem',
+                                    fontWeight: 700,
+                                    opacity: !complaintWebhook.webhookUrl ? 0.5 : 1
+                                }}
+                            >
+                                {testingWebhook 
+                                    ? (language === 'es' ? 'Enviando prueba...' : 'Testing...') 
+                                    : (language === 'es' ? '🧪 Enviar Mensaje de Prueba' : '🧪 Send Test Message')}
+                            </button>
+                            <button
+                                type="submit"
+                                className="mac-btn mac-btn-primary"
+                                disabled={savingWebhook}
+                                style={{
+                                    padding: '0.6rem 1.5rem',
+                                    fontSize: '0.88rem',
+                                    fontWeight: 700,
+                                    background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                                    borderColor: '#0284c7',
+                                    cursor: savingWebhook ? 'wait' : 'pointer'
+                                }}
+                            >
+                                {savingWebhook 
+                                    ? (language === 'es' ? 'Guardando...' : 'Saving...') 
+                                    : (language === 'es' ? '💾 Guardar Configuración Discord' : '💾 Save Discord Config')}
+                            </button>
                         </div>
-                    )}
-                    {webhookTestError && (
-                        <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#f87171', fontSize: '0.88rem', fontWeight: 600 }}>
-                            ❌ {webhookTestError}
-                        </div>
-                    )}
-                    {webhookSavedNotice && (
-                        <div style={{ background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.4)', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#38bdf8', fontSize: '0.88rem', fontWeight: 600 }}>
-                            ✅ {language === 'es' ? '¡Configuración de Webhook guardada exitosamente!' : 'Webhook configuration saved successfully!'}
-                        </div>
-                    )}
-
-                    {/* Buttons */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1.25rem' }}>
-                        <button
-                            type="button"
-                            onClick={handleTestComplaintWebhook}
-                            disabled={testingWebhook || !complaintWebhook.webhookUrl}
-                            className="mac-btn mac-btn-secondary"
-                            style={{
-                                padding: '0.6rem 1.25rem',
-                                fontSize: '0.88rem',
-                                fontWeight: 700,
-                                opacity: !complaintWebhook.webhookUrl ? 0.5 : 1
-                            }}
-                        >
-                            {testingWebhook 
-                                ? (language === 'es' ? 'Enviando prueba...' : 'Testing...') 
-                                : (language === 'es' ? '🧪 Enviar Mensaje de Prueba' : '🧪 Send Test Message')}
-                        </button>
-                        <button
-                            type="submit"
-                            className="mac-btn mac-btn-primary"
-                            disabled={savingWebhook}
-                            style={{
-                                padding: '0.6rem 1.5rem',
-                                fontSize: '0.88rem',
-                                fontWeight: 700,
-                                background: 'linear-gradient(135deg, #0284c7, #0369a1)',
-                                borderColor: '#0284c7',
-                                cursor: savingWebhook ? 'wait' : 'pointer'
-                            }}
-                        >
-                            {savingWebhook 
-                                ? (language === 'es' ? 'Guardando...' : 'Saving...') 
-                                : (language === 'es' ? '💾 Guardar Configuración Discord' : '💾 Save Discord Config')}
-                        </button>
-                    </div>
-                </form>
-            </div>
+                    </form>
+                </div>
+            )}
         </div>
     );
 }

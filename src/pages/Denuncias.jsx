@@ -58,6 +58,7 @@ function Denuncias() {
 
     // Discord Webhook State for SCUB Complaints
     const [showWebhookModal, setShowWebhookModal] = useState(false);
+    const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const scubAvatarInputRef = useRef(null);
     const [uploadingScubAvatar, setUploadingScubAvatar] = useState(false);
     const [scubWebhook, setScubWebhook] = useState({
@@ -95,10 +96,35 @@ function Denuncias() {
         }
     };
 
+    const loadUserProfile = async () => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                const { data } = await supabase
+                    .from('users')
+                    .select('id, rol, rango')
+                    .eq('id', session.user.id)
+                    .single();
+                setCurrentUserProfile(data);
+            }
+        } catch (e) {
+            console.error("Error loading profile:", e);
+        }
+    };
+
+    const canManageWebhook = () => {
+        if (!currentUserProfile) return false;
+        const role = (currentUserProfile.rol || '').toLowerCase().trim();
+        const rank = (currentUserProfile.rango || '').toLowerCase().trim();
+        const allowed = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'admin'];
+        return allowed.some(a => role.includes(a)) || allowed.some(a => rank.includes(a));
+    };
+
     useEffect(() => {
         loadData();
         fetchOpenCases();
         getDiscordSCUBComplaintsWebhookConfig().then(cfg => setScubWebhook(cfg));
+        loadUserProfile();
     }, []);
 
     const handleCopyPublicLink = () => {
@@ -556,29 +582,31 @@ function Denuncias() {
                         <span>{linkCopied ? '¡Enlace Copiado!' : 'Formulario Público'}</span>
                     </button>
 
-                    {/* Discord Webhook Config Button */}
-                    <button
-                        type="button"
-                        onClick={() => setShowWebhookModal(true)}
-                        className="login-button btn-secondary"
-                        style={{
-                            width: 'auto',
-                            padding: '0.42rem 0.85rem',
-                            fontSize: '0.8rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            background: scubWebhook.enabled ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.06)',
-                            borderColor: scubWebhook.enabled ? 'rgba(245, 158, 11, 0.4)' : 'rgba(255, 255, 255, 0.12)',
-                            color: scubWebhook.enabled ? '#fbbf24' : '#cbd5e1',
-                            borderRadius: '8px',
-                            cursor: 'pointer'
-                        }}
-                        title="Configurar notificaciones en Discord para denuncias"
-                    >
-                        <span>🔔</span>
-                        <span>{scubWebhook.enabled ? 'Discord Activo' : 'Webhook Discord'}</span>
-                    </button>
+                    {/* Discord Webhook Config Button (Only for Coordinador, Comisionado, Administrador) */}
+                    {canManageWebhook() && (
+                        <button
+                            type="button"
+                            onClick={() => setShowWebhookModal(true)}
+                            className="login-button btn-secondary"
+                            style={{
+                                width: 'auto',
+                                padding: '0.42rem 0.85rem',
+                                fontSize: '0.8rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: scubWebhook.enabled ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.06)',
+                                borderColor: scubWebhook.enabled ? 'rgba(245, 158, 11, 0.4)' : 'rgba(255, 255, 255, 0.12)',
+                                color: scubWebhook.enabled ? '#fbbf24' : '#cbd5e1',
+                                borderRadius: '8px',
+                                cursor: 'pointer'
+                            }}
+                            title="Configurar notificaciones en Discord para denuncias"
+                        >
+                            <span>🔔</span>
+                            <span>{scubWebhook.enabled ? 'Discord Activo' : 'Webhook Discord'}</span>
+                        </button>
+                    )}
 
                     {/* Create Complaint Button */}
                     <button
