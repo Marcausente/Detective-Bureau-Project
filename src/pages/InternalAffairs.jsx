@@ -8,7 +8,7 @@ import '../index.css';
 
 function InternalAffairs() {
     const navigate = useNavigate();
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
     const { language } = useLanguage();
 
     // Sanction Durations State
@@ -181,23 +181,27 @@ function InternalAffairs() {
             <div className="mac-command-banner" style={{ marginBottom: '2.5rem', background: 'linear-gradient(135deg, rgba(30, 27, 38, 0.75), rgba(15, 23, 42, 0.85))' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                     <img
-                        src={isLSSD ? "/logowebp/IALSSD.webp" : "/logowebp/ialogo.webp"}
+                        src={branding?.ia_logo || (isLSSD ? "/logowebp/IALSSD.webp" : "/logowebp/ialogo.webp")}
                         alt="IA Division Logo"
                         style={{
                             height: '75px',
                             width: 'auto',
                             filter: `drop-shadow(0 4px 16px ${isLSSD ? 'rgba(74, 222, 128, 0.4)' : 'rgba(239, 68, 68, 0.45)'})`
                         }}
+                        onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = isLSSD ? "/logowebp/IALSSD.webp" : "/logowebp/ialogo.webp";
+                        }}
                     />
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                             <span className="mac-status-dot" style={{ backgroundColor: '#ef4444', boxShadow: '0 0 10px #ef4444' }}></span>
                             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                {isLSSD ? "Sheriff Internal Affairs Division" : "Internal Affairs Bureau"}
+                                {branding?.ia_badge || (isLSSD ? "Sheriff Internal Affairs Division" : "Internal Affairs Bureau")}
                             </span>
                         </div>
                         <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0.2rem 0 0.4rem 0', color: '#ffffff', letterSpacing: '-0.02em' }}>
-                            {language === 'es' ? 'ASUNTOS INTERNOS' : 'INTERNAL AFFAIRS'}
+                            {branding?.ia_title || (language === 'es' ? 'ASUNTOS INTERNOS' : 'INTERNAL AFFAIRS')}
                         </h1>
                     </div>
                 </div>

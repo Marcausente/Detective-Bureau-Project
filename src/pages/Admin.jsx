@@ -558,6 +558,518 @@ function Admin() {
                                             </label>
                                         </div>
                                     </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Fondo de Pantalla de Login (Wallpaper)
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.login_bg && (
+                                                <img src={brandingForm.login_bg} alt="Preview" style={{ width: '48px', height: '32px', objectFit: 'cover', background: 'rgba(0,0,0,0.5)', borderRadius: '6px' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.login_bg || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, login_bg: e.target.value })}
+                                                placeholder="/logowebp/fondolssd.webp o URL"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['login_bg'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['login_bg'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['login_bg']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('login_bg', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* BLOQUE 6: BANDAS / GANGS */}
+                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>👥</span>
+                                    <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1rem', fontWeight: 700 }}>
+                                        Apartado de Bandas / Gangs
+                                    </h4>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Nombre en Pestaña / Barra de Navegación
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.gangs_nav_label || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, gangs_nav_label: e.target.value })}
+                                            placeholder="Ej: Bandas, Gang Unit, Grupos Criminales..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Título Superior dentro del Apartado
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.gangs_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, gangs_title: e.target.value })}
+                                            placeholder="Ej: Gangs & Narcotics Division, Gang Intelligence Unit..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* BLOQUE 7: SEB / SWAT (ALTO RIESGO) */}
+                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>🛡️</span>
+                                    <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1rem', fontWeight: 700 }}>
+                                        Apartado de SEB / SWAT (Alto Riesgo)
+                                    </h4>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Nombre de la Pestaña en Barra de Navegación
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.seb_nav_label || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, seb_nav_label: e.target.value })}
+                                            placeholder="Ej: SEB, SWAT, GEO, Táctico..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Texto Superior del Badge / Rótulo
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.seb_badge || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, seb_badge: e.target.value })}
+                                            placeholder="Ej: Special Enforcement Bureau, SWAT Tactical..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Título Principal del Tablón
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.seb_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, seb_title: e.target.value })}
+                                            placeholder="Ej: División Operativa de Alto Riesgo"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Subtítulo Descriptivo
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.seb_subtitle || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, seb_subtitle: e.target.value })}
+                                            placeholder="Ej: Tablón de operaciones y planificación táctica interactiva."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo / Escudo Personalizado (Opcional)
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.seb_logo && (
+                                                <img src={brandingForm.seb_logo} alt="Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.seb_logo || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, seb_logo: e.target.value })}
+                                                placeholder="URL del logo o subir archivo"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['seb_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['seb_logo'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['seb_logo']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('seb_logo', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* BLOQUE 8: FORMACIÓN / DTP / ACADEMIA */}
+                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>🎓</span>
+                                    <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1rem', fontWeight: 700 }}>
+                                        Apartado de Formación / DTP / Academia
+                                    </h4>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Nombre en Pestaña / Barra de Navegación
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.training_nav_label || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, training_nav_label: e.target.value })}
+                                            placeholder="Ej: Formación, Academia, DTP, FTO..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Título Principal dentro del Módulo
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.training_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, training_title: e.target.value })}
+                                            placeholder="Ej: Detective Training Program, Academia de Instrucción..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Subtítulo Descriptivo
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.training_subtitle || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, training_subtitle: e.target.value })}
+                                            placeholder="Ej: Departamento de Instrucción y Capacitación Continua"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo / Escudo de Formación
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.training_logo && (
+                                                <img src={brandingForm.training_logo} alt="Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.training_logo || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, training_logo: e.target.value })}
+                                                placeholder="/logowebp/DTP logo.webp o URL"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['training_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['training_logo'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['training_logo']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('training_logo', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* BLOQUE 9: ASUNTOS INTERNOS (IA) */}
+                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>⚖️</span>
+                                    <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1rem', fontWeight: 700 }}>
+                                        Apartado de Asuntos Internos (IA)
+                                    </h4>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Nombre en Pestaña / Barra de Navegación
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.ia_nav_label || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, ia_nav_label: e.target.value })}
+                                            placeholder="Ej: Asuntos Internos, Internal Affairs, IA..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Texto Superior / Badge
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.ia_badge || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, ia_badge: e.target.value })}
+                                            placeholder="Ej: Sheriff Internal Affairs Division, Internal Affairs Bureau..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Título Principal dentro de IA
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.ia_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, ia_title: e.target.value })}
+                                            placeholder="Ej: ASUNTOS INTERNOS, INTERNAL AFFAIRS..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo / Escudo de Asuntos Internos
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.ia_logo && (
+                                                <img src={brandingForm.ia_logo} alt="Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.ia_logo || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, ia_logo: e.target.value })}
+                                                placeholder="/logowebp/IALSSD.webp o URL"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['ia_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['ia_logo'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['ia_logo']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('ia_logo', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* BLOQUE 10: AIR SUPPORT DIVISION (ASD) */}
+                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>🚁</span>
+                                    <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1rem', fontWeight: 700 }}>
+                                        Apartado de Air Support (ASD)
+                                    </h4>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Nombre en Pestaña / Barra de Navegación
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.asd_nav_label || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, asd_nav_label: e.target.value })}
+                                            placeholder="Ej: Air Support, ASD, División Aérea..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Título Principal dentro de ASD
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.asd_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, asd_title: e.target.value })}
+                                            placeholder="Ej: AIR SUPPORT DIVISION, SHERIFF AERO BUREAU..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Badge / Tag Superior
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.asd_badge || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, asd_badge: e.target.value })}
+                                            placeholder="Ej: ASD • S.C.U.B. / SAPD"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Subtítulo Descriptivo
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.asd_subtitle || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, asd_subtitle: e.target.value })}
+                                            placeholder="Ej: Cuadrilla y Gestión Jerárquica de Vuelo..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo / Escudo de ASD (Opcional)
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.asd_logo && (
+                                                <img src={brandingForm.asd_logo} alt="Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.asd_logo || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, asd_logo: e.target.value })}
+                                                placeholder="URL del logo o subir archivo"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['asd_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['asd_logo'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['asd_logo']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('asd_logo', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* BLOQUE 11: UNDERCOVER (UD / INFILTRACIONES) */}
+                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>🕶️</span>
+                                    <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1rem', fontWeight: 700 }}>
+                                        Apartado de Undercover (UD / Infiltraciones)
+                                    </h4>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Nombre en Pestaña / Barra de Navegación
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.undercover_nav_label || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, undercover_nav_label: e.target.value })}
+                                            placeholder="Ej: Undercover, Infiltraciones, UD..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Título Principal dentro del Apartado
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.undercover_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, undercover_title: e.target.value })}
+                                            placeholder="Ej: SCUB Undercover Division, Undercover Unit..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Subtítulo Descriptivo
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.undercover_subtitle || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, undercover_subtitle: e.target.value })}
+                                            placeholder="Ej: Gestión de identidades encubiertas, leyendas de infiltración..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo / Insignia de Undercover (Opcional)
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.undercover_logo && (
+                                                <img src={brandingForm.undercover_logo} alt="Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.undercover_logo || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, undercover_logo: e.target.value })}
+                                                placeholder="URL del logo o subir archivo"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['undercover_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['undercover_logo'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['undercover_logo']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('undercover_logo', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

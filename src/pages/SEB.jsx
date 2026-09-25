@@ -2,12 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { getProfileImage, uploadImageToStorage } from '../utils/imageStorage';
 import '../index.css';
 
 function SEB() {
     const navigate = useNavigate();
     const { language } = useLanguage();
+    const { branding } = useTheme();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     
@@ -1141,7 +1143,7 @@ function SEB() {
                         {language === 'es' ? 'Acceso Restringido' : 'Restricted Access'}
                     </h2>
                     <h3 style={{ fontSize: '0.85rem', color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1.25rem', fontWeight: 600 }}>
-                        Special Enforcement Bureau (SEB)
+                        {branding?.seb_badge || 'Special Enforcement Bureau (SEB)'}
                     </h3>
                     <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '2rem' }}>
                         {language === 'es' 
@@ -1217,12 +1219,17 @@ function SEB() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 0 20px rgba(234, 179, 8, 0.1)'
+                        boxShadow: '0 0 20px rgba(234, 179, 8, 0.1)',
+                        overflow: 'hidden'
                     }}>
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                            <path d="m9 12 2 2 4-4"/>
-                        </svg>
+                        {branding?.seb_logo ? (
+                            <img src={branding.seb_logo} alt="SEB Logo" style={{ width: '44px', height: '44px', objectFit: 'contain' }} />
+                        ) : (
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                <path d="m9 12 2 2 4-4"/>
+                            </svg>
+                        )}
                     </div>
 
                     <div>
@@ -1236,14 +1243,14 @@ function SEB() {
                                 boxShadow: '0 0 6px #eab308' 
                             }}></span>
                             <span style={{ fontSize: '0.76rem', fontWeight: 600, color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                                Special Enforcement Bureau
+                                {branding?.seb_badge || 'Special Enforcement Bureau'}
                             </span>
                         </div>
                         <h1 style={{ fontSize: '1.8rem', fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' }}>
-                            {language === 'es' ? 'División Operativa de Alto Riesgo' : 'High Risk Tactical Division'}
+                            {branding?.seb_title || (language === 'es' ? 'División Operativa de Alto Riesgo' : 'High Risk Tactical Division')}
                         </h1>
                         <p style={{ margin: '0.2rem 0 0 0', color: '#94a3b8', fontSize: '0.85rem' }}>
-                            {language === 'es' ? 'Tablón de operaciones y planificación táctica interactiva.' : 'Operations board and interactive tactical planning.'}
+                            {branding?.seb_subtitle || (language === 'es' ? 'Tablón de operaciones y planificación táctica interactiva.' : 'Operations board and interactive tactical planning.')}
                         </p>
                     </div>
                 </div>

@@ -24,7 +24,7 @@ function Gangs() {
     const [accessDenied, setAccessDenied] = useState(false);
     const [userRole, setUserRole] = useState(null);
     const [feedbackNotice, setFeedbackNotice] = useState(null);
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
     const { t } = useLanguage();
 
     // --- VIEW STATE ---
@@ -1740,7 +1740,7 @@ function Gangs() {
             {/* Inner Header Navbar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', padding: '0.3rem 0.8rem', gap: '1rem', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box', flexShrink: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-                        <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.015em' }}>{isLSSD ? t('gndTitle') : t('giuTitle')}</h2>
+                        <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.015em' }}>{branding?.gangs_title || (isLSSD ? t('gndTitle') : t('giuTitle'))}</h2>
 
                         {/* Segmented Pill Tabs */}
                         <div className="mac-doc-tabs" style={{ padding: '0.25rem' }}>

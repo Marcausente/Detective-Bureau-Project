@@ -51,7 +51,31 @@ VALUES
   ('branding_login_dept', 'Los Santos Sheriff''s Department'),
   ('branding_login_bureau', 'Sheriff Criminal Unit Bureau'),
   ('branding_login_logo', '/logowebp/SCUB.webp'),
-  ('branding_login_bg', '/logowebp/fondolssd.webp')
+  ('branding_login_bg', '/logowebp/fondolssd.webp'),
+  ('branding_gangs_nav_label', 'Bandas'),
+  ('branding_gangs_title', 'Gangs & Narcotics Division'),
+  ('branding_seb_nav_label', 'SEB'),
+  ('branding_seb_badge', 'Special Enforcement Bureau'),
+  ('branding_seb_title', 'División Operativa de Alto Riesgo'),
+  ('branding_seb_subtitle', 'Tablón de operaciones y planificación táctica interactiva.'),
+  ('branding_seb_logo', ''),
+  ('branding_training_nav_label', 'Formación'),
+  ('branding_training_title', 'Detective Training Program'),
+  ('branding_training_subtitle', 'Departamento de Instrucción y Capacitación Continua'),
+  ('branding_training_logo', '/logowebp/DTP logo.webp'),
+  ('branding_ia_nav_label', 'Asuntos Internos'),
+  ('branding_ia_badge', 'Sheriff Internal Affairs Division'),
+  ('branding_ia_title', 'ASUNTOS INTERNOS'),
+  ('branding_ia_logo', '/logowebp/IALSSD.webp'),
+  ('branding_asd_nav_label', 'Air Support'),
+  ('branding_asd_badge', 'ASD • S.C.U.B. / SAPD'),
+  ('branding_asd_title', 'AIR SUPPORT DIVISION'),
+  ('branding_asd_subtitle', 'Cuadrilla y Gestión Jerárquica de Vuelo, Habilitaciones e Infracciones de la División'),
+  ('branding_asd_logo', ''),
+  ('branding_undercover_nav_label', 'Undercover'),
+  ('branding_undercover_title', 'SCUB Undercover Division'),
+  ('branding_undercover_subtitle', 'Gestión de identidades encubiertas, leyendas de infiltración y aportes a Gang Unit'),
+  ('branding_undercover_logo', '')
 ON CONFLICT (key) DO NOTHING;
 
 -- 3. RPC to get Branding Settings
@@ -74,6 +98,30 @@ DECLARE
     v_login_bureau TEXT;
     v_login_logo TEXT;
     v_login_bg TEXT;
+    v_gangs_nav_label TEXT;
+    v_gangs_title TEXT;
+    v_seb_nav_label TEXT;
+    v_seb_badge TEXT;
+    v_seb_title TEXT;
+    v_seb_subtitle TEXT;
+    v_seb_logo TEXT;
+    v_training_nav_label TEXT;
+    v_training_title TEXT;
+    v_training_subtitle TEXT;
+    v_training_logo TEXT;
+    v_ia_nav_label TEXT;
+    v_ia_badge TEXT;
+    v_ia_title TEXT;
+    v_ia_logo TEXT;
+    v_asd_nav_label TEXT;
+    v_asd_badge TEXT;
+    v_asd_title TEXT;
+    v_asd_subtitle TEXT;
+    v_asd_logo TEXT;
+    v_undercover_nav_label TEXT;
+    v_undercover_title TEXT;
+    v_undercover_subtitle TEXT;
+    v_undercover_logo TEXT;
 BEGIN
     SELECT value INTO v_topbar_name FROM public.app_settings WHERE key = 'branding_topbar_name';
     SELECT value INTO v_topbar_logo FROM public.app_settings WHERE key = 'branding_topbar_logo';
@@ -90,6 +138,30 @@ BEGIN
     SELECT value INTO v_login_bureau FROM public.app_settings WHERE key = 'branding_login_bureau';
     SELECT value INTO v_login_logo FROM public.app_settings WHERE key = 'branding_login_logo';
     SELECT value INTO v_login_bg FROM public.app_settings WHERE key = 'branding_login_bg';
+    SELECT value INTO v_gangs_nav_label FROM public.app_settings WHERE key = 'branding_gangs_nav_label';
+    SELECT value INTO v_gangs_title FROM public.app_settings WHERE key = 'branding_gangs_title';
+    SELECT value INTO v_seb_nav_label FROM public.app_settings WHERE key = 'branding_seb_nav_label';
+    SELECT value INTO v_seb_badge FROM public.app_settings WHERE key = 'branding_seb_badge';
+    SELECT value INTO v_seb_title FROM public.app_settings WHERE key = 'branding_seb_title';
+    SELECT value INTO v_seb_subtitle FROM public.app_settings WHERE key = 'branding_seb_subtitle';
+    SELECT value INTO v_seb_logo FROM public.app_settings WHERE key = 'branding_seb_logo';
+    SELECT value INTO v_training_nav_label FROM public.app_settings WHERE key = 'branding_training_nav_label';
+    SELECT value INTO v_training_title FROM public.app_settings WHERE key = 'branding_training_title';
+    SELECT value INTO v_training_subtitle FROM public.app_settings WHERE key = 'branding_training_subtitle';
+    SELECT value INTO v_training_logo FROM public.app_settings WHERE key = 'branding_training_logo';
+    SELECT value INTO v_ia_nav_label FROM public.app_settings WHERE key = 'branding_ia_nav_label';
+    SELECT value INTO v_ia_badge FROM public.app_settings WHERE key = 'branding_ia_badge';
+    SELECT value INTO v_ia_title FROM public.app_settings WHERE key = 'branding_ia_title';
+    SELECT value INTO v_ia_logo FROM public.app_settings WHERE key = 'branding_ia_logo';
+    SELECT value INTO v_asd_nav_label FROM public.app_settings WHERE key = 'branding_asd_nav_label';
+    SELECT value INTO v_asd_badge FROM public.app_settings WHERE key = 'branding_asd_badge';
+    SELECT value INTO v_asd_title FROM public.app_settings WHERE key = 'branding_asd_title';
+    SELECT value INTO v_asd_subtitle FROM public.app_settings WHERE key = 'branding_asd_subtitle';
+    SELECT value INTO v_asd_logo FROM public.app_settings WHERE key = 'branding_asd_logo';
+    SELECT value INTO v_undercover_nav_label FROM public.app_settings WHERE key = 'branding_undercover_nav_label';
+    SELECT value INTO v_undercover_title FROM public.app_settings WHERE key = 'branding_undercover_title';
+    SELECT value INTO v_undercover_subtitle FROM public.app_settings WHERE key = 'branding_undercover_subtitle';
+    SELECT value INTO v_undercover_logo FROM public.app_settings WHERE key = 'branding_undercover_logo';
 
     RETURN jsonb_build_object(
         'topbar_name', COALESCE(v_topbar_name, 'SCUB'),
@@ -106,7 +178,31 @@ BEGIN
         'login_dept', COALESCE(v_login_dept, 'Los Santos Sheriff''s Department'),
         'login_bureau', COALESCE(v_login_bureau, 'Sheriff Criminal Unit Bureau'),
         'login_logo', COALESCE(v_login_logo, '/logowebp/SCUB.webp'),
-        'login_bg', COALESCE(v_login_bg, '/logowebp/fondolssd.webp')
+        'login_bg', COALESCE(v_login_bg, '/logowebp/fondolssd.webp'),
+        'gangs_nav_label', COALESCE(v_gangs_nav_label, 'Bandas'),
+        'gangs_title', COALESCE(v_gangs_title, 'Gangs & Narcotics Division'),
+        'seb_nav_label', COALESCE(v_seb_nav_label, 'SEB'),
+        'seb_badge', COALESCE(v_seb_badge, 'Special Enforcement Bureau'),
+        'seb_title', COALESCE(v_seb_title, 'División Operativa de Alto Riesgo'),
+        'seb_subtitle', COALESCE(v_seb_subtitle, 'Tablón de operaciones y planificación táctica interactiva.'),
+        'seb_logo', COALESCE(v_seb_logo, ''),
+        'training_nav_label', COALESCE(v_training_nav_label, 'Formación'),
+        'training_title', COALESCE(v_training_title, 'Detective Training Program'),
+        'training_subtitle', COALESCE(v_training_subtitle, 'Departamento de Instrucción y Capacitación Continua'),
+        'training_logo', COALESCE(v_training_logo, '/logowebp/DTP logo.webp'),
+        'ia_nav_label', COALESCE(v_ia_nav_label, 'Asuntos Internos'),
+        'ia_badge', COALESCE(v_ia_badge, 'Sheriff Internal Affairs Division'),
+        'ia_title', COALESCE(v_ia_title, 'ASUNTOS INTERNOS'),
+        'ia_logo', COALESCE(v_ia_logo, '/logowebp/IALSSD.webp'),
+        'asd_nav_label', COALESCE(v_asd_nav_label, 'Air Support'),
+        'asd_badge', COALESCE(v_asd_badge, 'ASD • S.C.U.B. / SAPD'),
+        'asd_title', COALESCE(v_asd_title, 'AIR SUPPORT DIVISION'),
+        'asd_subtitle', COALESCE(v_asd_subtitle, 'Cuadrilla y Gestión Jerárquica de Vuelo, Habilitaciones e Infracciones de la División'),
+        'asd_logo', COALESCE(v_asd_logo, ''),
+        'undercover_nav_label', COALESCE(v_undercover_nav_label, 'Undercover'),
+        'undercover_title', COALESCE(v_undercover_title, 'SCUB Undercover Division'),
+        'undercover_subtitle', COALESCE(v_undercover_subtitle, 'Gestión de identidades encubiertas, leyendas de infiltración y aportes a Gang Unit'),
+        'undercover_logo', COALESCE(v_undercover_logo, '')
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

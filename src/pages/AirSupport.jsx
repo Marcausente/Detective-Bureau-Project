@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { getProfileImage, compressImage, uploadImageToStorage } from '../utils/imageStorage';
 import AsdRosterDiscord from '../components/AsdRosterDiscord';
 import '../index.css';
@@ -144,6 +145,7 @@ const DEFAULT_ASD_MODELS = [
 function AirSupport() {
     const navigate = useNavigate();
     const { language } = useLanguage();
+    const { branding } = useTheme();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -1115,14 +1117,19 @@ function AirSupport() {
                         justifyContent: 'center',
                         fontSize: '2.2rem',
                         boxShadow: '0 8px 24px rgba(2, 132, 199, 0.45)',
-                        border: '1px solid rgba(255, 255, 255, 0.25)'
+                        border: '1px solid rgba(255, 255, 255, 0.25)',
+                        overflow: 'hidden'
                     }}>
-                        🚁
+                        {branding?.asd_logo ? (
+                            <img src={branding.asd_logo} alt="ASD Logo" style={{ width: '50px', height: '50px', objectFit: 'contain' }} />
+                        ) : (
+                            '🚁'
+                        )}
                     </div>
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
                             <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f8fafc', margin: 0, letterSpacing: '0.5px' }}>
-                                AIR SUPPORT DIVISION
+                                {branding?.asd_title || 'AIR SUPPORT DIVISION'}
                             </h1>
                             <span style={{
                                 background: 'rgba(2, 132, 199, 0.3)',
@@ -1134,11 +1141,11 @@ function AirSupport() {
                                 fontWeight: 800,
                                 textTransform: 'uppercase'
                             }}>
-                                ASD • S.C.U.B. / SAPD
+                                {branding?.asd_badge || 'ASD • S.C.U.B. / SAPD'}
                             </span>
                         </div>
                         <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.92rem' }}>
-                            Cuadrilla y Gestión Jerárquica de Vuelo, Habilitaciones e Infracciones de la División
+                            {branding?.asd_subtitle || 'Cuadrilla y Gestión Jerárquica de Vuelo, Habilitaciones e Infracciones de la División'}
                         </p>
                     </div>
                 </div>

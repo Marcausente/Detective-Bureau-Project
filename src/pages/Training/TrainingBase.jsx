@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
+import { useTheme } from '../../contexts/ThemeContext';
 import PracticeArchive from '../../components/Training/PracticeArchive';
 import PracticeSchedule from '../../components/Training/PracticeSchedule';
 import PracticeCount from '../../components/Training/PracticeCount';
 import './Training.css';
 
 function TrainingBase() {
+    const { branding } = useTheme();
     const [activeTab, setActiveTab] = useState('archive');
     const [isAuthorized, setIsAuthorized] = useState(null);
     const [userProfile, setUserProfile] = useState(null);
@@ -94,11 +96,19 @@ function TrainingBase() {
             {/* Header Title Bar with Apple Status LED Banner */}
             <header className="dtp-header">
                 <div className="dtp-brand">
-                    <span className="dtp-status-led" title="Sistema DTP Activo" />
-                    <img src="/logowebp/DTP logo.webp" alt="DTP Logo" className="dtp-logo" />
+                    <span className="dtp-status-led" title="Sistema Activo" />
+                    <img
+                        src={branding?.training_logo || "/logowebp/DTP logo.webp"}
+                        alt="Training Logo"
+                        className="dtp-logo"
+                        onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = "/logowebp/DTP logo.webp";
+                        }}
+                    />
                     <div className="dtp-title-wrapper">
-                        <h1>Detective Training Program</h1>
-                        <p>Departamento de Instrucción y Capacitación Continua</p>
+                        <h1>{branding?.training_title || 'Detective Training Program'}</h1>
+                        <p>{branding?.training_subtitle || 'Departamento de Instrucción y Capacitación Continua'}</p>
                     </div>
                 </div>
             </header>

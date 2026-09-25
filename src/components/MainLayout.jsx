@@ -165,12 +165,12 @@ const getNavIcon = (path) => {
     }
 };
 
-const getShortLabel = (path, fullName) => {
+const getShortLabel = (path, fullName, branding = {}, isLSSD = false) => {
     switch (path) {
         case '/dashboard': return 'Inicio';
         case '/documentation': return 'Documentos';
         case '/cases': return 'Casos';
-        case '/gangs': return 'Bandas';
+        case '/gangs': return branding?.gangs_nav_label || (isLSSD ? 'Gang Unit' : 'Bandas');
         case '/incidents': return 'Incidentes';
         case '/complaints': return 'Denuncias';
         case '/crimemap': return 'Mapa';
@@ -178,13 +178,13 @@ const getShortLabel = (path, fullName) => {
         case '/interrogations': return 'Interrogatorios';
         case '/ballistics': return 'Balística';
         case '/personnel': return 'Personal';
-        case '/training': return 'Formación';
-        case '/internal-affairs': return 'Asuntos Internos';
-        case '/internal-affairs/publicacion-faltas': return 'Publicación Faltas (IA)';
+        case '/training': return branding?.training_nav_label || 'Formación';
+        case '/internal-affairs': return branding?.ia_nav_label || 'Asuntos Internos';
+        case '/internal-affairs/publicacion-faltas': return `Publicación Faltas (${branding?.ia_nav_label || 'IA'})`;
         case '/doj': return 'DOJ';
-        case '/seb': return 'SEB';
-        case '/air-support': return 'Air Support';
-        case '/undercover': return 'Undercover';
+        case '/seb': return branding?.seb_nav_label || 'SEB';
+        case '/air-support': return branding?.asd_nav_label || 'Air Support';
+        case '/undercover': return branding?.undercover_nav_label || 'Undercover';
         case '/coordination': return 'Coordinación';
         case '/admin': return 'Panel Admin';
         default: return fullName;
@@ -451,7 +451,7 @@ function MainLayout() {
                             onClick={() => setShowMoreMenu(false)}
                         >
                             <span className="mac-dock-icon">{getNavIcon(item.path)}</span>
-                            <span className="mac-dock-label">{getShortLabel(item.path, item.name)}</span>
+                            <span className="mac-dock-label">{getShortLabel(item.path, item.name, branding, isLSSD)}</span>
                         </Link>
                     ))}
 
@@ -475,7 +475,7 @@ function MainLayout() {
                                     </svg>
                                 </span>
                                 <span className="mac-dock-label">
-                                    {isMoreActive && activeMoreItem ? getShortLabel(activeMoreItem.path, activeMoreItem.name) : 'Más'} ▾
+                                    {isMoreActive && activeMoreItem ? getShortLabel(activeMoreItem.path, activeMoreItem.name, branding, isLSSD) : 'Más'} ▾
                                 </span>
                             </button>
 
@@ -497,7 +497,7 @@ function MainLayout() {
                                                 onClick={() => setShowMoreMenu(false)}
                                             >
                                                 <span className="mac-dock-icon">{getNavIcon(item.path)}</span>
-                                                <span>{getShortLabel(item.path, item.name)}</span>
+                                                <span>{getShortLabel(item.path, item.name, branding, isLSSD)}</span>
                                             </Link>
                                         ))}
                                     </div>

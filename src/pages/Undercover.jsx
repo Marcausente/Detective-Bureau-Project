@@ -39,7 +39,7 @@ const THREAT_CONFIG = {
 export default function Undercover() {
     const navigate = useNavigate();
     const { t } = useLanguage();
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
 
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -636,16 +636,20 @@ export default function Undercover() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <span style={{ fontSize: '1.8rem' }}>🕶️</span>
+                        {branding?.undercover_logo ? (
+                            <img src={branding.undercover_logo} alt="Undercover Logo" style={{ width: '38px', height: '38px', objectFit: 'contain' }} />
+                        ) : (
+                            <span style={{ fontSize: '1.8rem' }}>🕶️</span>
+                        )}
                         <div>
                             <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <span>{isLSSD ? 'SCUB Undercover Division' : 'Undercover Division (UD)'}</span>
+                                <span>{branding?.undercover_title || (isLSSD ? 'SCUB Undercover Division' : 'Undercover Division (UD)')}</span>
                                 <span style={{ fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: '9999px', background: 'rgba(239, 68, 68, 0.18)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.35)' }}>
                                     TOP SECRET
                                 </span>
                             </h1>
                             <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                                Gestión de identidades encubiertas, leyendas de infiltración y aportes a Gang Unit
+                                {branding?.undercover_subtitle || 'Gestión de identidades encubiertas, leyendas de infiltración y aportes a Gang Unit'}
                             </div>
                         </div>
                     </div>
