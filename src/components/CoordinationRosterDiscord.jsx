@@ -20,12 +20,8 @@ export default function CoordinationRosterDiscord() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [publishing, setPublishing] = useState(false);
-    const [testing, setTesting] = useState(false);
     const [feedback, setFeedback] = useState(null);
     const [errorMsg, setErrorMsg] = useState(null);
-
-    // Database users list for autocomplete
-    const [dbUsers, setDbUsers] = useState([]);
 
     // Roster Config State
     const [rosterData, setRosterData] = useState(DEFAULT_COORDINATION_ROSTER_DATA);
@@ -42,9 +38,19 @@ export default function CoordinationRosterDiscord() {
     const [newRankName, setNewRankName] = useState('');
     const [newRankIcon, setNewRankIcon] = useState('📌');
     const [showAddRankModal, setShowAddRankModal] = useState(false);
-    const [uploadingBanner, setUploadingBanner] = useState(false);
+    
+    // Edit Rank Modal State
+    const [editingRank, setEditingRank] = useState(null); // { id, name, icon }
+    const [showEditRankModal, setShowEditRankModal] = useState(false);
 
-    // Temporary inputs per rank for adding member
+    // Edit Member Modal State
+    const [editingMember, setEditingMember] = useState(null); // { rankId, memberIdx, name, discordId }
+    const [showEditMemberModal, setShowEditMemberModal] = useState(false);
+
+    const [uploadingBanner, setUploadingBanner] = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+    // Temporary inputs per rank for adding member: { [rankId]: { name: '', discordId: '' } }
     const [memberInputs, setMemberInputs] = useState({});
 
     useEffect(() => {
@@ -66,14 +72,7 @@ export default function CoordinationRosterDiscord() {
     const loadData = async () => {
         setLoading(true);
         try {
-            // 1. Load users for autocomplete
-            const { data: usersData } = await supabase
-                .from('users')
-                .select('id, nombre, apellido, no_placa, rango, rol, discord_id')
-                .order('nombre', { ascending: true });
-            setDbUsers(usersData || []);
-
-            // 2. Load latest saved roster from Supabase
+            // Load latest saved roster from Supabase
             const config = await getCoordinationRosterConfig();
             setRosterData(config.rosterData || DEFAULT_COORDINATION_ROSTER_DATA);
             setTitle(config.title || 'SHERIFF CRIMINAL UNIT BUREAU');
@@ -182,40 +181,103 @@ export default function CoordinationRosterDiscord() {
         }
     };
 
+    // Upload Bot Avatar Image
+    const handleAvatarUpload = async (file) => {
+        if (!file) return;
+        try {
+            setUploadingAvatar(true);
+            const url = await uploadImageToStorage(file, 'coordination');
+            setBotAvatar(url);
+            showSuccess('Avatar del bot subido con éxito.');
+        } catch (err) {
+            showError('Error al subir avatar del bot: ' + err.message);
+        } finally {
+            setUploadingAvatar(false);
+        }
+    };
+
     // Add Member to a Rank
     const handleAddMember = (rankId) => {
-        const inputVal = (memberInputs[rankId] || '').trim();
-        if (!inputVal) return;
+        const current = memberInputs[rankId] || {};
+        const name = (current.name || '').trim();
+        const discordId = (current.discordId || '').trim();
+
+        if (!name && !discordId) {
+            showError('Escribe el nombre del agente o su ID de Discord para añadirlo.');
+            return;
+        }
+
+        const newMember = {
+            id: `${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            name: name,
+            discordId: discordId
+        };
 
         const updated = rosterData.map(r => {
             if (r.id === rankId) {
                 const members = r.members || [];
                 return {
                     ...r,
-                    members: [...members, { id: `${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, discordId: inputVal }]
+                    members: [...members, newMember]
                 };
             }
             return r;
         });
 
         setRosterData(updated);
-        setMemberInputs(prev => ({ ...prev, [rankId]: '' }));
+        setMemberInputs(prev => ({
+            ...prev,
+            [rankId]: { name: '', discordId: '' }
+        }));
     };
 
-    // Add Member from DB Dropdown
-    const handleSelectDbUser = (rankId, userId) => {
-        if (!userId) return;
-        const found = dbUsers.find(u => String(u.id) === String(userId));
-        if (found) {
-            const formatted = found.discord_id 
-                ? found.discord_id 
-                : `${found.nombre} ${found.apellido} | ${found.no_placa || '700'}`;
+    // Open Edit Member Modal
+    const handleOpenEditMember = (rankId, memberIdx, member) => {
+        const name = member.name || (member.discordId && !/^\d{15,22}$/.test(member.discordId) ? member.discordId.replace(/^[<@!&>]+/, '') : '');
+        const discordId = member.discordId && /^\d{15,22}$/.test(member.discordId) ? member.discordId : (member.discordId || '');
 
-            setMemberInputs(prev => ({
-                ...prev,
-                [rankId]: formatted
-            }));
+        setEditingMember({
+            rankId,
+            memberIdx,
+            name: name,
+            discordId: discordId
+        });
+        setShowEditMemberModal(true);
+    };
+
+    // Save Edited Member
+    const handleSaveEditedMember = (e) => {
+        e.preventDefault();
+        if (!editingMember) return;
+
+        const { rankId, memberIdx, name, discordId } = editingMember;
+        const cleanName = (name || '').trim();
+        const cleanDiscordId = (discordId || '').trim();
+
+        if (!cleanName && !cleanDiscordId) {
+            showError('El agente debe tener al menos un nombre o ID de Discord.');
+            return;
         }
+
+        const updated = rosterData.map(r => {
+            if (r.id === rankId) {
+                const members = [...(r.members || [])];
+                if (members[memberIdx]) {
+                    members[memberIdx] = {
+                        ...members[memberIdx],
+                        name: cleanName,
+                        discordId: cleanDiscordId
+                    };
+                }
+                return { ...r, members };
+            }
+            return r;
+        });
+
+        setRosterData(updated);
+        setShowEditMemberModal(false);
+        setEditingMember(null);
+        showSuccess('Agente actualizado correctamente.');
     };
 
     // Remove Member
@@ -278,6 +340,38 @@ export default function CoordinationRosterDiscord() {
         setNewRankIcon('📌');
         setShowAddRankModal(false);
         showSuccess(`Rango "${newRank.name}" añadido.`);
+    };
+
+    // Open Edit Rank Modal
+    const handleOpenEditRank = (rank) => {
+        setEditingRank({
+            id: rank.id,
+            name: rank.name,
+            icon: rank.icon || '📌'
+        });
+        setShowEditRankModal(true);
+    };
+
+    // Save Edited Rank
+    const handleSaveEditedRank = (e) => {
+        e.preventDefault();
+        if (!editingRank || !editingRank.name.trim()) return;
+
+        const updated = rosterData.map(r => {
+            if (r.id === editingRank.id) {
+                return {
+                    ...r,
+                    name: editingRank.name.trim().toUpperCase(),
+                    icon: editingRank.icon.trim() || '📌'
+                };
+            }
+            return r;
+        });
+
+        setRosterData(updated);
+        setShowEditRankModal(false);
+        showSuccess(`Rango actualizado a "${editingRank.name.trim().toUpperCase()}".`);
+        setEditingRank(null);
     };
 
     // Delete Rank
@@ -466,40 +560,100 @@ export default function CoordinationRosterDiscord() {
                                 }}
                             >
                                 {/* Rank Header */}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', borderBottom: '1px solid rgba(255, 255, 255, 0.06)', paddingBottom: '0.6rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: '1.2rem' }}>{rank.icon || '📌'}</span>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginBottom: '0.85rem',
+                                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                                    paddingBottom: '0.6rem',
+                                    flexWrap: 'wrap',
+                                    gap: '8px'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '220px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleOpenEditRank(rank)}
+                                            style={{
+                                                background: 'rgba(255, 255, 255, 0.06)',
+                                                border: '1px solid rgba(255, 255, 255, 0.12)',
+                                                borderRadius: '8px',
+                                                padding: '4px 8px',
+                                                fontSize: '1.25rem',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}
+                                            title="Cambiar emoji o editar rango"
+                                        >
+                                            {rank.icon || '📌'}
+                                        </button>
                                         <input
                                             type="text"
                                             value={rank.name}
+                                            title="Haz clic para editar el nombre del rango directamente"
                                             onChange={(e) => {
                                                 const updated = [...rosterData];
-                                                updated[rankIdx].name = e.target.value;
+                                                updated[rankIdx].name = e.target.value.toUpperCase();
                                                 setRosterData(updated);
                                             }}
                                             style={{
-                                                background: 'transparent',
-                                                border: 'none',
+                                                background: 'rgba(0, 0, 0, 0.25)',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '6px',
+                                                padding: '4px 10px',
                                                 color: '#f1f5f9',
                                                 fontWeight: '800',
                                                 fontSize: '0.95rem',
                                                 letterSpacing: '0.04em',
                                                 outline: 'none',
-                                                width: '180px'
+                                                minWidth: '180px',
+                                                flex: 1
                                             }}
                                         />
-                                        <span style={{ fontSize: '0.72rem', background: 'rgba(255, 255, 255, 0.08)', color: '#94a3b8', padding: '2px 6px', borderRadius: '4px', fontWeight: '700' }}>
+                                        <span style={{ fontSize: '0.72rem', background: 'rgba(255, 255, 255, 0.08)', color: '#94a3b8', padding: '3px 8px', borderRadius: '6px', fontWeight: '700', whiteSpace: 'nowrap' }}>
                                             {rankMembers.length} {rankMembers.length === 1 ? 'miembro' : 'miembros'}
                                         </span>
                                     </div>
 
-                                    {/* Rank Reorder & Delete */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    {/* Rank Actions: Edit Modal, Reorder & Delete */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleOpenEditRank(rank)}
+                                            style={{
+                                                background: 'rgba(59, 130, 246, 0.15)',
+                                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                                color: '#60a5fa',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                padding: '4px 8px',
+                                                fontSize: '0.78rem',
+                                                fontWeight: '600',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}
+                                            title="Editar nombre y emoji en ventana emergente"
+                                        >
+                                            <span>✏️</span>
+                                            <span>Editar</span>
+                                        </button>
                                         <button
                                             type="button"
                                             disabled={rankIdx === 0}
                                             onClick={() => handleMoveRank(rankIdx, -1)}
-                                            style={{ background: 'none', border: 'none', color: rankIdx === 0 ? '#475569' : '#94a3b8', cursor: rankIdx === 0 ? 'default' : 'pointer', padding: '2px 5px' }}
+                                            style={{
+                                                background: 'rgba(255, 255, 255, 0.05)',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '6px',
+                                                color: rankIdx === 0 ? '#475569' : '#94a3b8',
+                                                cursor: rankIdx === 0 ? 'default' : 'pointer',
+                                                padding: '4px 8px',
+                                                fontSize: '0.75rem'
+                                            }}
                                             title="Subir rango"
                                         >
                                             ▲
@@ -508,7 +662,15 @@ export default function CoordinationRosterDiscord() {
                                             type="button"
                                             disabled={rankIdx === rosterData.length - 1}
                                             onClick={() => handleMoveRank(rankIdx, 1)}
-                                            style={{ background: 'none', border: 'none', color: rankIdx === rosterData.length - 1 ? '#475569' : '#94a3b8', cursor: rankIdx === rosterData.length - 1 ? 'default' : 'pointer', padding: '2px 5px' }}
+                                            style={{
+                                                background: 'rgba(255, 255, 255, 0.05)',
+                                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                borderRadius: '6px',
+                                                color: rankIdx === rosterData.length - 1 ? '#475569' : '#94a3b8',
+                                                cursor: rankIdx === rosterData.length - 1 ? 'default' : 'pointer',
+                                                padding: '4px 8px',
+                                                fontSize: '0.75rem'
+                                            }}
                                             title="Bajar rango"
                                         >
                                             ▼
@@ -516,7 +678,15 @@ export default function CoordinationRosterDiscord() {
                                         <button
                                             type="button"
                                             onClick={() => handleDeleteRank(rank.id, rank.name)}
-                                            style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#f87171', borderRadius: '4px', cursor: 'pointer', padding: '3px 6px', fontSize: '0.75rem', marginLeft: '4px' }}
+                                            style={{
+                                                background: 'rgba(239, 68, 68, 0.12)',
+                                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                color: '#f87171',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                padding: '4px 8px',
+                                                fontSize: '0.75rem'
+                                            }}
                                             title="Eliminar rango"
                                         >
                                             ✕
@@ -528,121 +698,189 @@ export default function CoordinationRosterDiscord() {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '0.85rem' }}>
                                     {rankMembers.length === 0 ? (
                                         <div style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic', padding: '4px 0' }}>
-                                            • N/A (Sin miembros asignados)
+                                            • N/A (Sin agentes asignados a este rango)
                                         </div>
                                     ) : (
-                                        rankMembers.map((member, mIdx) => (
-                                            <div
-                                                key={member.id || mIdx}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    padding: '5px 10px',
-                                                    background: 'rgba(255, 255, 255, 0.03)',
-                                                    borderRadius: '6px',
-                                                    border: '1px solid rgba(255, 255, 255, 0.05)'
-                                                }}
-                                            >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span style={{ color: '#5865F2', fontWeight: 'bold' }}>•</span>
-                                                    <span style={{
-                                                        fontSize: '0.82rem',
-                                                        color: '#e2e8f0',
-                                                        fontFamily: 'monospace',
-                                                        background: 'rgba(88, 101, 242, 0.15)',
-                                                        padding: '2px 6px',
-                                                        borderRadius: '4px'
-                                                    }}>
-                                                        {member.discordId ? (member.discordId.startsWith('<@') ? member.discordId : `@${member.discordId.replace(/[<@!&>]/g, '')}`) : 'N/A'}
-                                                    </span>
-                                                </div>
+                                        rankMembers.map((member, mIdx) => {
+                                            const memberName = member.name || (member.discordId && !/^\d{15,22}$/.test(member.discordId) ? member.discordId.replace(/^[<@!&>]+/, '') : '');
+                                            const memberDiscordId = member.discordId || '';
 
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <button
-                                                        type="button"
-                                                        disabled={mIdx === 0}
-                                                        onClick={() => handleMoveMember(rank.id, mIdx, -1)}
-                                                        style={{ background: 'none', border: 'none', color: mIdx === 0 ? '#334155' : '#94a3b8', cursor: mIdx === 0 ? 'default' : 'pointer', fontSize: '0.7rem' }}
-                                                    >
-                                                        ▲
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        disabled={mIdx === rankMembers.length - 1}
-                                                        onClick={() => handleMoveMember(rank.id, mIdx, 1)}
-                                                        style={{ background: 'none', border: 'none', color: mIdx === rankMembers.length - 1 ? '#334155' : '#94a3b8', cursor: mIdx === rankMembers.length - 1 ? 'default' : 'pointer', fontSize: '0.7rem' }}
-                                                    >
-                                                        ▼
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemoveMember(rank.id, mIdx)}
-                                                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.78rem', marginLeft: '4px' }}
-                                                        title="Quitar de este rango"
-                                                    >
-                                                        ✕
-                                                    </button>
+                                            return (
+                                                <div
+                                                    key={member.id || mIdx}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        padding: '6px 12px',
+                                                        background: 'rgba(255, 255, 255, 0.03)',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid rgba(255, 255, 255, 0.06)',
+                                                        gap: '8px'
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+                                                        <span style={{ color: '#5865F2', fontWeight: 'bold' }}>•</span>
+                                                        <span style={{
+                                                            fontSize: '0.85rem',
+                                                            color: '#e2e8f0',
+                                                            fontWeight: 600,
+                                                            background: 'rgba(88, 101, 242, 0.15)',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '5px',
+                                                            border: '1px solid rgba(88, 101, 242, 0.25)'
+                                                        }}>
+                                                            {memberName ? (memberName.startsWith('@') ? memberName : `@${memberName}`) : (memberDiscordId ? `<@${memberDiscordId}>` : 'N/A')}
+                                                        </span>
+                                                        {memberDiscordId && /^\d{15,22}$/.test(memberDiscordId) && (
+                                                            <span style={{
+                                                                fontSize: '0.72rem',
+                                                                color: '#94a3b8',
+                                                                fontFamily: 'monospace',
+                                                                background: 'rgba(0, 0, 0, 0.3)',
+                                                                padding: '2px 6px',
+                                                                borderRadius: '4px'
+                                                            }}>
+                                                                ID: {memberDiscordId}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenEditMember(rank.id, mIdx, member)}
+                                                            style={{
+                                                                background: 'rgba(59, 130, 246, 0.12)',
+                                                                border: '1px solid rgba(59, 130, 246, 0.25)',
+                                                                color: '#60a5fa',
+                                                                borderRadius: '4px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.72rem',
+                                                                padding: '3px 6px'
+                                                            }}
+                                                            title="Editar nombre o ID del agente"
+                                                        >
+                                                            ✏️
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={mIdx === 0}
+                                                            onClick={() => handleMoveMember(rank.id, mIdx, -1)}
+                                                            style={{
+                                                                background: 'rgba(255, 255, 255, 0.05)',
+                                                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                                borderRadius: '4px',
+                                                                color: mIdx === 0 ? '#334155' : '#94a3b8',
+                                                                cursor: mIdx === 0 ? 'default' : 'pointer',
+                                                                fontSize: '0.7rem',
+                                                                padding: '3px 6px'
+                                                            }}
+                                                            title="Subir agente"
+                                                        >
+                                                            ▲
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={mIdx === rankMembers.length - 1}
+                                                            onClick={() => handleMoveMember(rank.id, mIdx, 1)}
+                                                            style={{
+                                                                background: 'rgba(255, 255, 255, 0.05)',
+                                                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                                borderRadius: '4px',
+                                                                color: mIdx === rankMembers.length - 1 ? '#334155' : '#94a3b8',
+                                                                cursor: mIdx === rankMembers.length - 1 ? 'default' : 'pointer',
+                                                                fontSize: '0.7rem',
+                                                                padding: '3px 6px'
+                                                            }}
+                                                            title="Bajar agente"
+                                                        >
+                                                            ▼
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveMember(rank.id, mIdx)}
+                                                            style={{
+                                                                background: 'rgba(239, 68, 68, 0.12)',
+                                                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                                color: '#f87171',
+                                                                borderRadius: '4px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.72rem',
+                                                                padding: '3px 6px',
+                                                                marginLeft: '2px'
+                                                            }}
+                                                            title="Quitar agente de este rango"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </div>
 
-                                {/* Add Member Controls */}
-                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                {/* Add Member Form */}
+                                <div style={{
+                                    display: 'flex',
+                                    gap: '8px',
+                                    alignItems: 'center',
+                                    flexWrap: 'wrap',
+                                    background: 'rgba(0, 0, 0, 0.2)',
+                                    padding: '8px 10px',
+                                    borderRadius: '8px',
+                                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                                }}>
                                     <input
                                         type="text"
                                         className="form-input"
-                                        placeholder="ID de Discord (Ej: 1306619156052967471 o @Nombre)..."
-                                        value={currentInput}
-                                        onChange={(e) => setMemberInputs({ ...memberInputs, [rank.id]: e.target.value })}
+                                        placeholder="Nombre del agente (Ej: M. Kleiner | 701 | Marcausente)..."
+                                        value={memberInputs[rank.id]?.name || ''}
+                                        onChange={(e) => setMemberInputs({
+                                            ...memberInputs,
+                                            [rank.id]: {
+                                                ...(memberInputs[rank.id] || {}),
+                                                name: e.target.value
+                                            }
+                                        })}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
                                                 e.preventDefault();
                                                 handleAddMember(rank.id);
                                             }
                                         }}
-                                        style={{ flex: 1, minWidth: '160px', padding: '0.4rem 0.6rem', fontSize: '0.78rem' }}
+                                        style={{ flex: 2, minWidth: '170px', padding: '0.45rem 0.65rem', fontSize: '0.8rem' }}
                                     />
 
-                                    <select
-                                        onChange={(e) => handleSelectDbUser(rank.id, e.target.value)}
-                                        value=""
-                                        style={{
-                                            background: 'rgba(30, 41, 59, 0.8)',
-                                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                                            color: '#cbd5e1',
-                                            fontSize: '0.75rem',
-                                            padding: '5px 8px',
-                                            borderRadius: '6px',
-                                            cursor: 'pointer'
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="ID Discord (Opcional, ej: 1306619...)"
+                                        value={memberInputs[rank.id]?.discordId || ''}
+                                        onChange={(e) => setMemberInputs({
+                                            ...memberInputs,
+                                            [rank.id]: {
+                                                ...(memberInputs[rank.id] || {}),
+                                                discordId: e.target.value
+                                            }
+                                        })}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleAddMember(rank.id);
+                                            }
                                         }}
-                                    >
-                                        <option value="">👤 Seleccionar Agente...</option>
-                                        {dbUsers.map(u => (
-                                            <option key={u.id} value={u.id}>
-                                                {u.nombre} {u.apellido} {u.no_placa ? `(#${u.no_placa})` : ''}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        style={{ flex: 1.2, minWidth: '140px', padding: '0.45rem 0.65rem', fontSize: '0.8rem' }}
+                                    />
 
                                     <button
                                         type="button"
+                                        className="mac-btn mac-btn-primary"
                                         onClick={() => handleAddMember(rank.id)}
-                                        disabled={!currentInput}
-                                        style={{
-                                            padding: '0.4rem 0.8rem',
-                                            borderRadius: '6px',
-                                            border: 'none',
-                                            background: currentInput ? '#3b82f6' : 'rgba(255, 255, 255, 0.05)',
-                                            color: currentInput ? '#ffffff' : '#64748b',
-                                            fontWeight: '700',
-                                            fontSize: '0.78rem',
-                                            cursor: currentInput ? 'pointer' : 'not-allowed'
-                                        }}
+                                        style={{ padding: '0.45rem 0.9rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
                                     >
-                                        + Añadir
+                                        + Añadir Agente
                                     </button>
                                 </div>
                             </div>
@@ -744,20 +982,26 @@ export default function CoordinationRosterDiscord() {
                                                     {rankMembers.length === 0 ? (
                                                         <div style={{ color: '#949ba4', fontSize: '0.82rem' }}>• N/A</div>
                                                     ) : (
-                                                        rankMembers.map((m, idx) => (
-                                                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                <span style={{ color: '#949ba4' }}>•</span>
-                                                                <span style={{
-                                                                    color: '#c9cdfb',
-                                                                    background: 'rgba(88, 101, 242, 0.18)',
-                                                                    padding: '1px 5px',
-                                                                    borderRadius: '3px',
-                                                                    fontSize: '0.82rem'
-                                                                }}>
-                                                                    {m.discordId ? (m.discordId.startsWith('<@') ? m.discordId : `@${m.discordId.replace(/[<@!&>]/g, '')}`) : 'N/A'}
-                                                                </span>
-                                                            </div>
-                                                        ))
+                                                        rankMembers.map((m, idx) => {
+                                                            const displayName = m.name 
+                                                                ? (m.name.startsWith('@') ? m.name : `@${m.name}`) 
+                                                                : (m.discordId ? (m.discordId.startsWith('<@') ? m.discordId : `@${m.discordId.replace(/[<@!&>]/g, '')}`) : 'N/A');
+
+                                                            return (
+                                                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <span style={{ color: '#949ba4' }}>•</span>
+                                                                    <span style={{
+                                                                        color: '#c9cdfb',
+                                                                        background: 'rgba(88, 101, 242, 0.18)',
+                                                                        padding: '1px 5px',
+                                                                        borderRadius: '3px',
+                                                                        fontSize: '0.82rem'
+                                                                    }}>
+                                                                        {displayName}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })
                                                     )}
                                                 </div>
                                             </div>
@@ -863,6 +1107,141 @@ export default function CoordinationRosterDiscord() {
                 </div>
             )}
 
+            {/* MODAL: EDIT RANK */}
+            {showEditRankModal && editingRank && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content mac-modal-dialog" style={{ maxWidth: '440px', padding: 0 }}>
+                        <div className="mac-window-titlebar">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowEditRankModal(false)} style={{ cursor: 'pointer' }}></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span style={{ marginLeft: '1rem', fontSize: '0.9rem', fontWeight: '600', color: '#f1f5f9' }}>
+                                ✏️ Editar Rango de la Plantilla
+                            </span>
+                        </div>
+
+                        <form onSubmit={handleSaveEditedRank} style={{ padding: '1.5rem' }}>
+                            <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                <label className="form-label">Nombre del Rango *</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Ej: COORDINADOR / DETECTIVE / SARGENTO..."
+                                    value={editingRank.name}
+                                    onChange={e => setEditingRank({ ...editingRank, name: e.target.value })}
+                                    required
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                <label className="form-label">Icono / Emoji *</label>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={editingRank.icon}
+                                        onChange={e => setEditingRank({ ...editingRank, icon: e.target.value })}
+                                        style={{ width: '70px', textAlign: 'center', fontSize: '1.3rem' }}
+                                        required
+                                    />
+                                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                                        Escribe o elige un emoji de la lista:
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', background: 'rgba(0,0,0,0.2)', padding: '8px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    {['⚜️', '⚡', '🕵️', '⭐', '🧬', '📋', '🎖️', '🔰', '🛡️', '🎯', '🦅', '💼', '👔', '🔍', '🚔', '⚖️', '🏅', '🔹'].map(emoji => (
+                                        <button
+                                            key={emoji}
+                                            type="button"
+                                            onClick={() => setEditingRank({ ...editingRank, icon: emoji })}
+                                            style={{
+                                                background: editingRank.icon === emoji ? 'rgba(59, 130, 246, 0.4)' : 'rgba(255,255,255,0.06)',
+                                                border: editingRank.icon === emoji ? '1px solid #3b82f6' : '1px solid transparent',
+                                                borderRadius: '6px',
+                                                padding: '4px 7px',
+                                                fontSize: '1.1rem',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s'
+                                            }}
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                                <button type="button" className="mac-btn mac-btn-secondary" onClick={() => setShowEditRankModal(false)}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="mac-btn mac-btn-primary" style={{ background: '#3b82f6', borderColor: '#2563eb' }}>
+                                    Guardar Cambios
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL: EDIT MEMBER */}
+            {showEditMemberModal && editingMember && (
+                <div className="cropper-modal-overlay">
+                    <div className="cropper-modal-content mac-modal-dialog" style={{ maxWidth: '440px', padding: 0 }}>
+                        <div className="mac-window-titlebar">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowEditMemberModal(false)} style={{ cursor: 'pointer' }}></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span style={{ marginLeft: '1rem', fontSize: '0.9rem', fontWeight: '600', color: '#f1f5f9' }}>
+                                ✏️ Editar Agente de la Plantilla
+                            </span>
+                        </div>
+
+                        <form onSubmit={handleSaveEditedMember} style={{ padding: '1.5rem' }}>
+                            <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                <label className="form-label">Nombre del Agente *</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Ej: M. Kleiner | 701 | Marcausente..."
+                                    value={editingMember.name}
+                                    onChange={e => setEditingMember({ ...editingMember, name: e.target.value })}
+                                    required
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                <label className="form-label">ID de Discord (Opcional)</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Ej: 1306619156052967471"
+                                    value={editingMember.discordId}
+                                    onChange={e => setEditingMember({ ...editingMember, discordId: e.target.value })}
+                                />
+                                <span style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
+                                    Si introduces la ID numérica de Discord, el bot lo mencionará interactivamente.
+                                </span>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                                <button type="button" className="mac-btn mac-btn-secondary" onClick={() => setShowEditMemberModal(false)}>
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="mac-btn mac-btn-primary" style={{ background: '#3b82f6', borderColor: '#2563eb' }}>
+                                    Guardar Cambios
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* MODAL 2: WEBHOOK & BANNER SETTINGS */}
             {showSettingsModal && (
                 <div className="cropper-modal-overlay">
@@ -938,6 +1317,54 @@ export default function CoordinationRosterDiscord() {
                                 </div>
                             </div>
 
+                            {/* Bot Avatar Section with PC Upload */}
+                            <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: '1rem', borderRadius: '10px', marginBottom: '1.25rem', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                <label className="form-label" style={{ fontWeight: '700', marginBottom: '0.5rem', display: 'block' }}>
+                                    🤖 Avatar del Bot de Discord
+                                </label>
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                    <img
+                                        src={botAvatar || SCUB_LOGO_URL}
+                                        alt="Bot Avatar"
+                                        style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.2)', flexShrink: 0 }}
+                                        onError={(e) => { e.target.src = '/logowebp/SCUB.webp'; }}
+                                    />
+                                    <div style={{ flex: 1, display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <input
+                                            type="url"
+                                            className="form-input"
+                                            placeholder="URL del avatar del bot..."
+                                            value={botAvatar}
+                                            onChange={e => setBotAvatar(e.target.value)}
+                                            style={{ flex: 1, fontSize: '0.8rem' }}
+                                        />
+                                        <label style={{
+                                            padding: '0.45rem 0.8rem',
+                                            borderRadius: '6px',
+                                            background: 'rgba(255, 255, 255, 0.08)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            color: '#cbd5e1',
+                                            fontSize: '0.78rem',
+                                            cursor: uploadingAvatar ? 'not-allowed' : 'pointer',
+                                            fontWeight: '600',
+                                            whiteSpace: 'nowrap'
+                                        }}>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                style={{ display: 'none' }}
+                                                disabled={uploadingAvatar}
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) handleAvatarUpload(file);
+                                                }}
+                                            />
+                                            <span>{uploadingAvatar ? '⏳ Subiendo...' : '📁 Subir Avatar'}</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Webhook URL */}
                             <div className="form-group" style={{ marginBottom: '1.25rem' }}>
                                 <label className="form-label">URL del Webhook de Discord *</label>
@@ -963,26 +1390,16 @@ export default function CoordinationRosterDiscord() {
                                 />
                             </div>
 
-                            {/* Bot Name & Avatar */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '1.5rem' }}>
-                                <div>
-                                    <label className="form-label">Nombre del Bot</label>
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        value={botName}
-                                        onChange={e => setBotName(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="form-label">Avatar del Bot (URL)</label>
-                                    <input
-                                        type="url"
-                                        className="form-input"
-                                        value={botAvatar}
-                                        onChange={e => setBotAvatar(e.target.value)}
-                                    />
-                                </div>
+                            {/* Bot Name */}
+                            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                <label className="form-label">Nombre del Bot</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={botName}
+                                    onChange={e => setBotName(e.target.value)}
+                                    placeholder="SCUB • Sheriff Criminal Unit Bureau"
+                                />
                             </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>

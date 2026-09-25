@@ -1690,22 +1690,39 @@ export async function saveCoordinationRosterConfig({
  */
 export function formatMemberMention(member) {
     if (!member) return '• N/A';
-    const tag = (member.discordId || member.tag || member.name || '').trim();
-    if (!tag) return '• N/A';
+    if (typeof member === 'string') {
+        const tag = member.trim();
+        if (!tag) return '• N/A';
+        if (/^\d{15,22}$/.test(tag)) return `• <@${tag}>`;
+        if (/^<@!?\d+>$/.test(tag)) return `• ${tag}`;
+        if (tag.startsWith('@')) return `• ${tag}`;
+        return `• @${tag}`;
+    }
 
-    // If it's pure digits (Snowflake ID)
-    if (/^\d{15,22}$/.test(tag)) {
-        return `• <@${tag}>`;
+    const discordId = (member.discordId || '').trim();
+    const name = (member.name || '').trim();
+
+    // If discordId is numeric snowflake, use it for native discord tag
+    if (discordId && (/^\d{15,22}$/.test(discordId) || /^<@!?\d+>$/.test(discordId))) {
+        if (/^\d{15,22}$/.test(discordId)) {
+            return `• <@${discordId}>`;
+        }
+        return `• ${discordId}`;
     }
-    // If it already has <@123456> format
-    if (/^<@!?\d+>$/.test(tag)) {
-        return `• ${tag}`;
+
+    // If name is present, use name
+    if (name) {
+        if (name.startsWith('@')) return `• ${name}`;
+        return `• @${name}`;
     }
-    // If it's custom text starting with @
-    if (tag.startsWith('@')) {
-        return `• ${tag}`;
+
+    // Fallback to discordId as text if name is empty
+    if (discordId) {
+        if (discordId.startsWith('@')) return `• ${discordId}`;
+        return `• @${discordId}`;
     }
-    return `• @${tag}`;
+
+    return '• N/A';
 }
 
 /**
