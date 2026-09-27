@@ -174,14 +174,23 @@ export default function Undercover() {
                         officer_rank: p.officer?.rango || 'Detective',
                         officer_badge: p.officer?.no_placa || '-',
                         officer_avatar: p.officer?.profile_image,
-                        target_gang_name: p.gang?.name || p.target_gang_name,
-                        target_gang_color: p.gang?.color
+                        target_gang_name: p.target_gang_id ? (p.gang?.name || p.target_gang_name) : null,
+                        target_gang_color: p.target_gang_id ? p.gang?.color : null
                     }));
                     setPersonas(mapped);
                     return;
                 }
             }
-            setPersonas(data || []);
+            if (data) {
+                const mapped = data.map(p => ({
+                    ...p,
+                    target_gang_name: p.target_gang_id ? p.target_gang_name : null,
+                    target_gang_color: p.target_gang_id ? p.target_gang_color : null
+                }));
+                setPersonas(mapped);
+                return;
+            }
+            setPersonas([]);
         } catch (err) {
             console.error("Error loading personas:", err);
         }
@@ -231,7 +240,7 @@ export default function Undercover() {
 
     const fetchGangs = async () => {
         try {
-            const { data } = await supabase.from('gangs').select('id, name, color').eq('is_archived', false).order('name');
+            const { data } = await supabase.from('gangs').select('id, name, color, is_archived').order('name');
             setGangs(data || []);
         } catch (err) {
             console.error("Error fetching gangs:", err);
@@ -288,6 +297,9 @@ export default function Undercover() {
 
         setSubmitting(true);
         try {
+            const selectedGang = pTargetGangId ? gangs.find(g => g.id === pTargetGangId) : null;
+            const targetGangName = selectedGang ? selectedGang.name : null;
+
             const payload = {
                 p_id: editingPersona ? editingPersona.id : null,
                 p_officer_id: pOfficerId,
@@ -297,7 +309,7 @@ export default function Undercover() {
                 p_phone: pPhone.trim(),
                 p_status: pStatus,
                 p_target_gang_id: pTargetGangId || null,
-                p_target_gang_name: pTargetGangId ? gangs.find(g => g.id === pTargetGangId)?.name : '',
+                p_target_gang_name: targetGangName,
                 p_backstory: pBackstory.trim(),
                 p_appearance_notes: pAppearance.trim(),
                 p_social_media: pSocialMedia,
@@ -318,7 +330,7 @@ export default function Undercover() {
                     phone: pPhone.trim(),
                     status: pStatus,
                     target_gang_id: pTargetGangId || null,
-                    target_gang_name: pTargetGangId ? gangs.find(g => g.id === pTargetGangId)?.name : '',
+                    target_gang_name: targetGangName,
                     backstory: pBackstory.trim(),
                     appearance_notes: pAppearance.trim(),
                     social_media: pSocialMedia,
@@ -338,7 +350,7 @@ export default function Undercover() {
             }
 
             setShowPersonaModal(false);
-            loadPersonas();
+            await loadPersonas();
             setFeedbackNotice(editingPersona ? "✅ Identidad encubierta actualizada con éxito 🕶️" : "✅ Nuevo personaje encubierto registrado 🕶️");
             setTimeout(() => setFeedbackNotice(null), 5000);
         } catch (err) {
@@ -796,7 +808,9 @@ export default function Undercover() {
                         >
                             <option value="all">Todas las bandas</option>
                             {gangs.map(g => (
-                                <option key={g.id} value={g.id}>{g.name}</option>
+                                <option key={g.id} value={g.id}>
+                                    {g.name} {g.is_archived ? '(Archivada)' : ''}
+                                </option>
                             ))}
                         </select>
                     </div>
@@ -1315,12 +1329,14 @@ export default function Undercover() {
                                     <label>Banda / Grupo Objetivo (Gang Unit)</label>
                                     <select
                                         className="form-input"
-                                        value={pTargetGangId}
+                                        value={pTargetGangId || ''}
                                         onChange={e => setPTargetGangId(e.target.value)}
                                     >
                                         <option value="">-- Sin Banda Específica --</option>
                                         {gangs.map(g => (
-                                            <option key={g.id} value={g.id}>{g.name}</option>
+                                            <option key={g.id} value={g.id}>
+                                                {g.name} {g.is_archived ? '(Archivada)' : ''}
+                                            </option>
                                         ))}
                                     </select>
                                 </div>
@@ -1482,13 +1498,15 @@ export default function Undercover() {
                                     <label style={{ color: '#fbbf24', fontWeight: 700 }}>Banda Objetivo *</label>
                                     <select
                                         className="form-input"
-                                        value={iGangId}
+                                        value={iGangId || ''}
                                         onChange={e => setIGangId(e.target.value)}
                                         required
                                     >
                                         <option value="">-- Seleccionar Banda --</option>
                                         {gangs.map(g => (
-                                            <option key={g.id} value={g.id}>{g.name}</option>
+                                            <option key={g.id} value={g.id}>
+                                                {g.name} {g.is_archived ? '(Archivada)' : ''}
+                                            </option>
                                         ))}
                                     </select>
                                 </div>

@@ -162,8 +162,8 @@ BEGIN
         p.phone,
         p.status,
         p.target_gang_id,
-        COALESCE(g.name, p.target_gang_name) AS target_gang_name,
-        g.color AS target_gang_color,
+        CASE WHEN p.target_gang_id IS NOT NULL THEN COALESCE(g.name, p.target_gang_name) ELSE NULL END AS target_gang_name,
+        CASE WHEN p.target_gang_id IS NOT NULL THEN g.color ELSE NULL END AS target_gang_color,
         p.backstory,
         p.appearance_notes,
         COALESCE(p.social_media, '[]'::jsonb),
@@ -190,7 +190,7 @@ CREATE OR REPLACE FUNCTION save_undercover_persona(
     p_phone TEXT DEFAULT '',
     p_status TEXT DEFAULT 'active',
     p_target_gang_id UUID DEFAULT NULL,
-    p_target_gang_name TEXT DEFAULT '',
+    p_target_gang_name TEXT DEFAULT NULL,
     p_backstory TEXT DEFAULT '',
     p_appearance_notes TEXT DEFAULT '',
     p_social_media JSONB DEFAULT '[]'::jsonb,
@@ -205,7 +205,7 @@ SET search_path = public
 AS $$
 DECLARE
     v_id UUID;
-    v_target_name TEXT;
+    v_target_name TEXT := NULL;
 BEGIN
     IF NOT auth_is_undercover_authorized() THEN
         RAISE EXCEPTION 'Access Denied: No tienes permisos para gestionar la división Undercover';
@@ -213,9 +213,11 @@ BEGIN
 
     IF p_target_gang_id IS NOT NULL THEN
         SELECT name INTO v_target_name FROM public.gangs WHERE id = p_target_gang_id;
-    END IF;
-    IF v_target_name IS NULL OR v_target_name = '' THEN
-        v_target_name := p_target_gang_name;
+        IF v_target_name IS NULL OR v_target_name = '' THEN
+            v_target_name := p_target_gang_name;
+        END IF;
+    ELSE
+        v_target_name := NULL;
     END IF;
 
     IF p_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.undercover_personas WHERE id = p_id) THEN
