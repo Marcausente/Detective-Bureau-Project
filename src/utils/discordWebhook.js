@@ -3064,7 +3064,383 @@ export async function sendSCUBComplaintNotificationToDiscord(complaintData) {
     }
 }
 
+// ==============================================================================
+// 9. SEB ROSTER / SPECIAL ENFORCEMENT BUREAU DISCORD BROADCAST INTEGRATION
+// ==============================================================================
 
+const LOCAL_STORAGE_KEY_SEB_ROSTER = 'discord_seb_roster_cfg_v1';
 
+export const DEFAULT_SEB_ROSTER_DATA = [
+    {
+        id: 'team-seb',
+        teamName: 'Equipo S.E.B.',
+        teamIcon: '🦇',
+        groups: [
+            {
+                id: 'grp-seb-supervision',
+                name: 'SUPERVISION SEB',
+                icon: '',
+                members: [
+                    { id: 'm-1', callsign: 'SIERRA-10', name: 'Leah Bailey', discordId: '', badge: '700' }
+                ]
+            },
+            {
+                id: 'grp-sierra-20',
+                name: 'GRUPO SIERRA - 20',
+                icon: '🦇',
+                members: [
+                    { id: 'm-2', callsign: 'SIERRA-20', name: 'Ryan Daniels', discordId: '', badge: '715' },
+                    { id: 'm-3', callsign: 'SIERRA-21', name: 'William Kleiner', discordId: '', badge: '713 | Mr.Kai_tv' },
+                    { id: 'm-4', callsign: 'SIERRA-22', name: 'Deacon McCoy', discordId: '', badge: '710' },
+                    { id: 'm-5', callsign: 'SIERRA-23', name: 'Liam Crawford', discordId: '', badge: '711' },
+                    { id: 'm-6', callsign: 'SIERRA-24', name: 'alexdop', discordId: '', badge: '' }
+                ]
+            }
+        ]
+    },
+    {
+        id: 'team-trt',
+        teamName: 'Equipo T.R.T.',
+        teamIcon: '🦅',
+        groups: [
+            {
+                id: 'grp-roger-10',
+                name: 'GRUPO ROGER - 10',
+                icon: '🦅',
+                members: [
+                    { id: 'm-7', callsign: 'ROGER - 10', name: 'Ryder Crawford', discordId: '', badge: '786' },
+                    { id: 'm-8', callsign: 'ROGER - 11', name: 'Alejandro Diaz', discordId: '', badge: '730 | jyissus15' },
+                    { id: 'm-9', callsign: 'ROGER - 12', name: 'Axel Alfaro', discordId: '', badge: '771' },
+                    { id: 'm-10', callsign: 'ROGER - 13', name: 'David Pearson', discordId: '', badge: '740' }
+                ]
+            },
+            {
+                id: 'grp-roger-20',
+                name: 'GRUPO ROGER - 20',
+                icon: '🦅',
+                members: [
+                    { id: 'm-11', callsign: 'ROGER - 20', name: 'Maverick Rose', discordId: '', badge: '743' },
+                    { id: 'm-12', callsign: 'ROGER - 21', name: 'Nyla Parker', discordId: '', badge: '746' },
+                    { id: 'm-13', callsign: 'ROGER - 22', name: 'Val Sttaford', discordId: '', badge: '784' },
+                    { id: 'm-14', callsign: 'ROGER - 23', name: 'Ethan Alfaro', discordId: '', badge: '781' }
+                ]
+            }
+        ]
+    }
+];
 
+/**
+ * Format an individual SEB member line for Discord markdown with callsign, mention, and badge
+ */
+export function formatSEBMemberLine(member) {
+    if (!member) return '• N/A';
+    if (typeof member === 'string') return `• ${member}`;
+
+    const callsign = (member.callsign || '').trim();
+    const name = (member.name || '').trim();
+    const discordId = (member.discordId || '').trim();
+    const badge = (member.badge || member.no_placa || '').trim();
+
+    // Determine mention string
+    let mentionStr = '';
+    if (discordId) {
+        if (/^\d{15,22}$/.test(discordId)) {
+            mentionStr = `<@${discordId}>`;
+        } else if (/^<@!?\d+>$/.test(discordId)) {
+            mentionStr = discordId;
+        } else if (discordId.startsWith('@')) {
+            mentionStr = discordId;
+        } else {
+            mentionStr = `@${discordId}`;
+        }
+    } else if (name) {
+        if (name.startsWith('@')) {
+            mentionStr = name;
+        } else {
+            mentionStr = `@${name}`;
+        }
+    } else {
+        mentionStr = 'Agente';
+    }
+
+    let detailStr = mentionStr;
+    if (badge) {
+        detailStr = `${mentionStr} | ${badge}`;
+    }
+
+    if (callsign) {
+        return `• ${callsign} - ${detailStr}`;
+    } else {
+        return `• ${detailStr}`;
+    }
+}
+
+/**
+ * Build Discord markdown description text from nested SEB Teams and Groups
+ */
+export function buildSEBRosterDiscordMarkdown(rosterData) {
+    if (!Array.isArray(rosterData) || rosterData.length === 0) {
+        return '*No hay equipos configurados en la plantilla SEB.*';
+    }
+
+    const teamBlocks = [];
+
+    rosterData.forEach(team => {
+        const teamIcon = team.teamIcon ? ` ${team.teamIcon}` : '';
+        const teamHeader = `**${(team.teamName || 'EQUIPO').trim()}**${teamIcon}`.trim();
+
+        const groupBlocks = [];
+
+        if (Array.isArray(team.groups) && team.groups.length > 0) {
+            team.groups.forEach(grp => {
+                const grpIcon = grp.icon ? ` ${grp.icon}` : '';
+                const grpHeader = `**${(grp.name || 'GRUPO').trim().toUpperCase()}**${grpIcon}`.trim();
+
+                let membersList = '• *Sin miembros asignados*';
+                if (Array.isArray(grp.members) && grp.members.length > 0) {
+                    membersList = grp.members.map(m => formatSEBMemberLine(m)).join('\n');
+                }
+
+                groupBlocks.push(`${grpHeader}\n\n${membersList}`);
+            });
+        }
+
+        if (groupBlocks.length > 0) {
+            teamBlocks.push(`${teamHeader}\n\n${groupBlocks.join('\n\n')}`);
+        } else {
+            teamBlocks.push(`${teamHeader}\n\n• *Sin grupos asignados*`);
+        }
+    });
+
+    return teamBlocks.join('\n\n');
+}
+
+/**
+ * Retrieve SEB Roster configuration & saved structure
+ */
+export async function getSEBRosterConfig() {
+    let config = {
+        webhookUrl: '',
+        enabled: true,
+        rolePing: '',
+        botName: 'SEB • Special Enforcement Bureau',
+        botAvatar: SCUB_LOGO_URL,
+        title: 'Miembros e indicativos.',
+        bannerUrl: '',
+        rosterData: DEFAULT_SEB_ROSTER_DATA
+    };
+
+    try {
+        const { data, error } = await supabase.rpc('get_seb_roster_config');
+        if (!error && data) {
+            config = {
+                webhookUrl: data.webhook_url || '',
+                enabled: data.enabled !== undefined ? !!data.enabled : true,
+                rolePing: data.role_ping || '',
+                botName: data.bot_name || 'SEB • Special Enforcement Bureau',
+                botAvatar: data.bot_avatar || SCUB_LOGO_URL,
+                title: data.title || 'Miembros e indicativos.',
+                bannerUrl: data.banner_url || '',
+                rosterData: Array.isArray(data.roster_data) && data.roster_data.length > 0 
+                    ? data.roster_data 
+                    : DEFAULT_SEB_ROSTER_DATA
+            };
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY_SEB_ROSTER, JSON.stringify(config));
+            } catch (e) {}
+            return config;
+        } else if (error) {
+            // Fallback direct app_settings query
+            const { data: rows } = await supabase
+                .from('app_settings')
+                .select('key, value')
+                .like('key', 'discord_seb_roster_%');
+            if (rows && rows.length > 0) {
+                const map = {};
+                rows.forEach(r => { map[r.key] = r.value; });
+                let parsedRoster = DEFAULT_SEB_ROSTER_DATA;
+                try {
+                    if (map['discord_seb_roster_data']) {
+                        parsedRoster = JSON.parse(map['discord_seb_roster_data']);
+                    }
+                } catch (e) {}
+
+                config = {
+                    webhookUrl: map['discord_seb_roster_webhook_url'] || '',
+                    enabled: map['discord_seb_roster_webhook_enabled'] !== 'false',
+                    rolePing: map['discord_seb_roster_role_ping'] || '',
+                    botName: map['discord_seb_roster_bot_name'] || 'SEB • Special Enforcement Bureau',
+                    botAvatar: map['discord_seb_roster_bot_avatar'] || SCUB_LOGO_URL,
+                    title: map['discord_seb_roster_title'] || 'Miembros e indicativos.',
+                    bannerUrl: map['discord_seb_roster_banner_url'] || '',
+                    rosterData: Array.isArray(parsedRoster) && parsedRoster.length > 0 ? parsedRoster : DEFAULT_SEB_ROSTER_DATA
+                };
+                return config;
+            }
+        }
+    } catch (rpcErr) {
+        console.warn('RPC get_seb_roster_config failed, falling back to local storage:', rpcErr);
+    }
+
+    try {
+        const local = localStorage.getItem(LOCAL_STORAGE_KEY_SEB_ROSTER);
+        if (local) {
+            const parsed = JSON.parse(local);
+            return { ...config, ...parsed };
+        }
+    } catch (e) {}
+
+    return config;
+}
+
+/**
+ * Save SEB Roster configuration & updated teams/groups structure
+ */
+export async function saveSEBRosterConfig({
+    rosterData,
+    webhookUrl = '',
+    title = 'Miembros e indicativos.',
+    bannerUrl = '',
+    rolePing = '',
+    botName = 'SEB • Special Enforcement Bureau',
+    botAvatar = '',
+    enabled = true
+}) {
+    const configToSave = {
+        rosterData: rosterData || DEFAULT_SEB_ROSTER_DATA,
+        webhookUrl: webhookUrl || '',
+        title: title || 'Miembros e indicativos.',
+        bannerUrl: bannerUrl || '',
+        rolePing: rolePing || '',
+        botName: botName || 'SEB • Special Enforcement Bureau',
+        botAvatar: botAvatar || SCUB_LOGO_URL,
+        enabled: !!enabled
+    };
+
+    try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_SEB_ROSTER, JSON.stringify(configToSave));
+    } catch (e) {}
+
+    try {
+        const { error } = await supabase.rpc('save_seb_roster_config', {
+            p_roster_data: configToSave.rosterData,
+            p_webhook_url: configToSave.webhookUrl,
+            p_title: configToSave.title,
+            p_banner_url: configToSave.bannerUrl,
+            p_role_ping: configToSave.rolePing,
+            p_bot_name: configToSave.botName,
+            p_bot_avatar: configToSave.botAvatar,
+            p_enabled: configToSave.enabled
+        });
+        if (error) {
+            console.warn('RPC save_seb_roster_config failed, fallback to direct upsert:', error);
+            const entries = [
+                { key: 'discord_seb_roster_data', value: JSON.stringify(configToSave.rosterData) },
+                { key: 'discord_seb_roster_webhook_url', value: configToSave.webhookUrl },
+                { key: 'discord_seb_roster_title', value: configToSave.title },
+                { key: 'discord_seb_roster_banner_url', value: configToSave.bannerUrl },
+                { key: 'discord_seb_roster_role_ping', value: configToSave.rolePing },
+                { key: 'discord_seb_roster_bot_name', value: configToSave.botName },
+                { key: 'discord_seb_roster_bot_avatar', value: configToSave.botAvatar },
+                { key: 'discord_seb_roster_webhook_enabled', value: configToSave.enabled ? 'true' : 'false' }
+            ];
+            for (const item of entries) {
+                await supabase.from('app_settings').upsert({ key: item.key, value: item.value, updated_at: new Date().toISOString() });
+            }
+        }
+        return { success: true };
+    } catch (err) {
+        console.error('Failed to persist SEB Roster config to supabase:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Dispatch SEB Roster to Discord Webhook
+ */
+export async function sendSEBRosterToDiscord({
+    rosterData,
+    title = 'Miembros e indicativos.',
+    bannerUrl = '',
+    customConfig = null,
+    forceSend = false,
+    author = {}
+}) {
+    try {
+        const config = customConfig || await getSEBRosterConfig();
+
+        if (!forceSend) {
+            if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('https://')) {
+                console.warn('Webhook de Plantilla SEB no configurado o inactivo.');
+                return { skipped: true };
+            }
+        }
+
+        const targetUrl = config.webhookUrl.trim();
+        const formattedPing = formatRoleMention(config.rolePing);
+
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, SCUB_LOGO_URL);
+        const botName = (config.botName || '').trim() || 'SEB • Special Enforcement Bureau';
+        const embedTitle = `🦇 ${title || 'Miembros e indicativos.'}`;
+
+        const description = buildSEBRosterDiscordMarkdown(rosterData || config.rosterData);
+
+        const embed = {
+            title: embedTitle,
+            description: description,
+            color: 0xEAB308, // SEB Tactical Gold / Amber (234, 179, 8)
+            footer: {
+                text: 'Special Enforcement Bureau • Tactical Callboard',
+                icon_url: botAvatar || undefined
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        const activeBanner = bannerUrl || config.bannerUrl;
+        if (activeBanner && typeof activeBanner === 'string') {
+            const normalizedBanner = normalizeDiscordImageUrl(activeBanner);
+            if (normalizedBanner) {
+                embed.image = { url: normalizedBanner };
+            }
+        }
+
+        let messageContent = undefined;
+        if (formattedPing) {
+            messageContent = `${formattedPing}`;
+        }
+
+        const payload = {
+            username: botName,
+            avatar_url: botAvatar || undefined,
+            content: messageContent,
+            allowed_mentions: {
+                parse: ['roles', 'users', 'everyone']
+            },
+            embeds: [embed]
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errText = '';
+            try {
+                const errJson = await response.json();
+                errText = errJson.message || JSON.stringify(errJson);
+            } catch (e) {
+                errText = `HTTP Error ${response.status} (${response.statusText})`;
+            }
+            console.error('Failed to send SEB Roster to Discord:', errText);
+            return { success: false, error: errText };
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error in sendSEBRosterToDiscord:', err);
+        return { success: false, error: err.message };
+    }
+}
 

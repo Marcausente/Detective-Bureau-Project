@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { getProfileImage, uploadImageToStorage } from '../utils/imageStorage';
+import SebRosterDiscord from '../components/SebRosterDiscord';
 import '../index.css';
 
 function SEB() {
@@ -1254,10 +1255,66 @@ function SEB() {
                         </p>
                     </div>
                 </div>
+
+                {/* Main Navigation Tabs */}
+                {!selectedOp && (
+                    <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('ops')}
+                            style={{
+                                background: activeTab === 'ops' ? 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)' : 'rgba(255, 255, 255, 0.06)',
+                                color: activeTab === 'ops' ? '#0f172a' : '#cbd5e1',
+                                border: `1px solid ${activeTab === 'ops' ? '#eab308' : 'rgba(255, 255, 255, 0.12)'}`,
+                                borderRadius: '12px',
+                                padding: '0.65rem 1.25rem',
+                                fontWeight: 800,
+                                fontSize: '0.88rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                transition: 'all 0.2s ease',
+                                boxShadow: activeTab === 'ops' ? '0 4px 14px rgba(234, 179, 8, 0.3)' : 'none'
+                            }}
+                        >
+                            <span>⚡</span>
+                            <span>{language === 'es' ? 'Tablón de Operaciones' : 'Operations Board'}</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('roster_discord')}
+                            style={{
+                                background: activeTab === 'roster_discord' ? 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)' : 'rgba(255, 255, 255, 0.06)',
+                                color: activeTab === 'roster_discord' ? '#0f172a' : '#cbd5e1',
+                                border: `1px solid ${activeTab === 'roster_discord' ? '#eab308' : 'rgba(255, 255, 255, 0.12)'}`,
+                                borderRadius: '12px',
+                                padding: '0.65rem 1.25rem',
+                                fontWeight: 800,
+                                fontSize: '0.88rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                transition: 'all 0.2s ease',
+                                boxShadow: activeTab === 'roster_discord' ? '0 4px 14px rgba(234, 179, 8, 0.3)' : 'none'
+                            }}
+                        >
+                            <span>🦇</span>
+                            <span>{language === 'es' ? 'Miembros e Indicativos (Discord)' : 'Members & Callsigns (Discord)'}</span>
+                        </button>
+                    </div>
+                )}
             </div>
 
+            {/* TAB: MIEMBROS E INDICATIVOS (DISCORD) */}
+            {activeTab === 'roster_discord' && !selectedOp && (
+                <SebRosterDiscord />
+            )}
+
             {/* TABLÓN DE OPERACIONES */}
-            {!selectedOp && (
+            {activeTab === 'ops' && !selectedOp && (
                 <div>
                     {/* Search & New Operation Row */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
