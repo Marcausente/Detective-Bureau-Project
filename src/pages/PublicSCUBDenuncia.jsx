@@ -833,13 +833,13 @@ export default function PublicSCUBDenuncia() {
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
                                     <span style={{ fontSize: '0.72rem', fontWeight: 700, color: brandColor, background: brandBadgeBg, padding: '2px 6px', borderRadius: '4px', border: `1px solid ${brandBadgeBorder}` }}>4</span>
-                                    <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#ffffff' }}>Pruebas y Documentación Adjunta</h2>
+                                    <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#ffffff' }}>Pruebas y Documentación Adjunta (Opcional)</h2>
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '0.35rem', fontWeight: 500 }}>
-                                            Adjuntar Fotografía / Captura (Imagen)
+                                            Adjuntar Fotografía / Captura (Imagen) (Opcional)
                                         </label>
                                         <input
                                             type="file"
@@ -871,7 +871,7 @@ export default function PublicSCUBDenuncia() {
 
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '0.35rem', fontWeight: 500 }}>
-                                            Enlace a Pruebas Externas (Vídeo, Grabación, Nube)
+                                            Enlace a Pruebas Externas (Vídeo, Grabación, Nube) (Opcional)
                                         </label>
                                         <input
                                             type="url"

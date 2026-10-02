@@ -969,7 +969,7 @@ function Denuncias() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
-                                        {t('uploadImageBtn') || 'Evidencia Fotográfica'}
+                                        {t('uploadImageBtn') || 'Evidencia Fotográfica (Opcional)'}
                                     </label>
                                     <label htmlFor="complaint-file-upload" className="login-button btn-secondary" style={{ width: '100%', cursor: 'pointer', textAlign: 'center', padding: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                         📷 {t('uploadImageBtn') || 'Adjuntar Imagen'}
@@ -1207,7 +1207,7 @@ function Denuncias() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                                 <div className="form-group" style={{ marginBottom: 0 }}>
                                     <label className="form-label" style={{ display: 'block', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.35rem' }}>
-                                        {t('uploadImageBtn') || 'Evidencia Fotográfica'}
+                                        {t('uploadImageBtn') || 'Evidencia Fotográfica (Opcional)'}
                                     </label>
                                     <label htmlFor="complaint-edit-upload" className="login-button btn-secondary" style={{ width: '100%', cursor: 'pointer', textAlign: 'center', padding: '0.5rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                         📷 {t('uploadImageBtn') || 'Adjuntar Imagen'}
