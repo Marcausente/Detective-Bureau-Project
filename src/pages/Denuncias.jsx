@@ -869,7 +869,7 @@ function Denuncias() {
                                                 <input className="form-input" required value={c.telefono} onChange={e => handleComplainantChange(index, 'telefono', e.target.value)} />
                                             </div>
                                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                                <label className="form-label" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{t('complainantId') || 'ID / DNI'}</label>
+                                                <label className="form-label" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{t('complainantId') || 'ID'}</label>
                                                 <input className="form-input" required value={c.id_documento} onChange={e => handleComplainantChange(index, 'id_documento', e.target.value)} />
                                             </div>
                                         </div>
@@ -931,7 +931,7 @@ function Denuncias() {
                                                 <input className="form-input" required value={a.telefono} onChange={e => handleAccusedChange(index, 'telefono', e.target.value)} />
                                             </div>
                                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                                <label className="form-label" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{t('accusedId') || 'ID / DNI'}</label>
+                                                <label className="form-label" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{t('accusedId') || 'ID'}</label>
                                                 <input className="form-input" required value={a.id_documento} onChange={e => handleAccusedChange(index, 'id_documento', e.target.value)} />
                                             </div>
                                             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -1107,7 +1107,7 @@ function Denuncias() {
                                                 <input className="form-input" required value={c.telefono} onChange={e => handleComplainantChange(index, 'telefono', e.target.value)} />
                                             </div>
                                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                                <label className="form-label" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{t('complainantId') || 'ID / DNI'}</label>
+                                                <label className="form-label" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{t('complainantId') || 'ID'}</label>
                                                 <input className="form-input" required value={c.id_documento} onChange={e => handleComplainantChange(index, 'id_documento', e.target.value)} />
                                             </div>
                                         </div>
@@ -1169,7 +1169,7 @@ function Denuncias() {
                                                 <input className="form-input" required value={a.telefono} onChange={e => handleAccusedChange(index, 'telefono', e.target.value)} />
                                             </div>
                                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                                <label className="form-label" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{t('accusedId') || 'ID / DNI'}</label>
+                                                <label className="form-label" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{t('accusedId') || 'ID'}</label>
                                                 <input className="form-input" required value={a.id_documento} onChange={e => handleAccusedChange(index, 'id_documento', e.target.value)} />
                                             </div>
                                             <div className="form-group" style={{ marginBottom: 0 }}>

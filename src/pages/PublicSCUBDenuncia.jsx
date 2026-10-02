@@ -524,7 +524,7 @@ export default function PublicSCUBDenuncia() {
 
                                         <div>
                                             <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '0.35rem', fontWeight: 500 }}>
-                                                Documento de Identidad / DNI (Opcional)
+                                                Documento de Identidad / ID (Opcional)
                                             </label>
                                             <div style={{ display: 'flex', gap: '6px' }}>
                                                 <input
