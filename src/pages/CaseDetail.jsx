@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
+import { uploadImageToStorage, uploadDocumentToStorage, processHtmlImages } from '../utils/imageStorage';
 import '../index.css';
 import CaseTodoList from '../components/CaseTodoList';
 import CaseWhiteboard from '../components/cases/CaseWhiteboard';
@@ -24,6 +24,7 @@ function CaseDetail() {
     // New Update State
     const [newUpdateContent, setNewUpdateContent] = useState('');
     const [newUpdateImages, setNewUpdateImages] = useState([]);
+    const [newUpdateDocuments, setNewUpdateDocuments] = useState([]);
     const [submittingUpdate, setSubmittingUpdate] = useState(false);
     const [feedbackNotice, setFeedbackNotice] = useState(null);
 
@@ -65,6 +66,7 @@ function CaseDetail() {
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState("");
     const [editImages, setEditImages] = useState([]);
+    const [editDocuments, setEditDocuments] = useState([]);
     const [submittingEdit, setSubmittingEdit] = useState(false);
 
     // Case Info Edit State
@@ -74,6 +76,7 @@ function CaseDetail() {
     const [editOccurredAt, setEditOccurredAt] = useState("");
     const [editDescription, setEditDescription] = useState("");
     const [editInitialImage, setEditInitialImage] = useState(null);
+    const [editCaseDocuments, setEditCaseDocuments] = useState([]);
 
     // Full-screen Whiteboard Modal State
     const [showBoardModal, setShowBoardModal] = useState(false);
@@ -593,11 +596,44 @@ function CaseDetail() {
         }
     };
 
+    const handleDocumentUpload = (e, setState) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        const MAX_SIZE_MB = 50;
+        const MAX_BYTES = MAX_SIZE_MB * 1024 * 1024;
+        const validDocs = [];
+        const oversized = [];
+
+        files.forEach(file => {
+            if (file.size > MAX_BYTES) {
+                oversized.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
+            } else {
+                validDocs.push({
+                    file: file,
+                    name: file.name,
+                    size: file.size,
+                    type: file.type || 'application/pdf',
+                    isNew: true
+                });
+            }
+        });
+
+        if (oversized.length > 0) {
+            alert(`Los siguientes archivos superan el límite máximo de ${MAX_SIZE_MB}MB:\n\n${oversized.join('\n')}\n\nPor favor, comprime el archivo o selecciona uno de menor tamaño.`);
+        }
+
+        if (validDocs.length > 0) {
+            setState(prev => [...prev, ...validDocs]);
+        }
+        e.target.value = '';
+    };
+
     const handlePostUpdate = async (e) => {
         e.preventDefault();
         const isTextEmpty = newUpdateContent.replace(/<[^>]*>/g, '').trim() === '';
-        if (isTextEmpty && newUpdateImages.length === 0) {
-            alert(language === 'es' ? "Por favor ingrese texto o adjunte una imagen para publicar la actualización." : "Please enter text or attach an image to post an update.");
+        if (isTextEmpty && newUpdateImages.length === 0 && newUpdateDocuments.length === 0) {
+            alert(language === 'es' ? "Por favor ingrese texto, adjunte una imagen o un archivo para publicar la actualización." : "Please enter text, attach an image, or attach a file to post an update.");
             return;
         }
 
@@ -616,18 +652,44 @@ function CaseDetail() {
                 );
             }
 
+            let uploadedDocuments = [];
+            if (newUpdateDocuments.length > 0) {
+                uploadedDocuments = await Promise.all(
+                    newUpdateDocuments.map(async doc => {
+                        if (doc.isNew && doc.file) {
+                            return await uploadDocumentToStorage(doc.file, 'cases');
+                        }
+                        return doc;
+                    })
+                );
+                uploadedDocuments = uploadedDocuments.filter(d => d && d.url);
+            }
+
             const finalContent = await processHtmlImages(newUpdateContent, 'cases');
 
             const { error } = await supabase.rpc('add_case_update', {
                 p_case_id: id,
                 p_content: finalContent,
-                p_images: uploadedImages
+                p_images: uploadedImages,
+                p_documents: uploadedDocuments
             });
 
-            if (error) throw error;
+            if (error) {
+                if (error.message?.includes('add_case_update') || error.code === 'PGRST202') {
+                    const fallbackRes = await supabase.rpc('add_case_update', {
+                        p_case_id: id,
+                        p_content: finalContent,
+                        p_images: uploadedImages
+                    });
+                    if (fallbackRes.error) throw fallbackRes.error;
+                } else {
+                    throw error;
+                }
+            }
 
             setNewUpdateContent('');
             setNewUpdateImages([]);
+            setNewUpdateDocuments([]);
             setFeedbackNotice(language === 'es' ? '✓ Actualización registrada correctamente.' : '✓ Update logged successfully.');
             setTimeout(() => setFeedbackNotice(null), 3000);
 
@@ -701,6 +763,7 @@ function CaseDetail() {
         if (update.images && update.images.length > 0) existingImgs = [...update.images];
         else if (update.image) existingImgs = [update.image];
         setEditImages(existingImgs);
+        setEditDocuments(Array.isArray(update.documents) ? [...update.documents] : []);
     };
 
     const handleSaveEdit = async (updateId) => {
@@ -716,16 +779,42 @@ function CaseDetail() {
                 );
             }
 
+            let finalDocuments = [];
+            if (editDocuments.length > 0) {
+                finalDocuments = await Promise.all(
+                    editDocuments.map(async doc => {
+                        if (doc.isNew && doc.file) {
+                            return await uploadDocumentToStorage(doc.file, 'cases');
+                        }
+                        return doc;
+                    })
+                );
+                finalDocuments = finalDocuments.filter(d => d && d.url);
+            }
+
             const { error } = await supabase.rpc('update_case_update_content', {
                 p_update_id: updateId,
                 p_content: finalContent,
-                p_images: finalImages
+                p_images: finalImages,
+                p_documents: finalDocuments
             });
-            if (error) throw error;
+            if (error) {
+                if (error.message?.includes('update_case_update_content') || error.code === 'PGRST202') {
+                    const fallbackRes = await supabase.rpc('update_case_update_content', {
+                        p_update_id: updateId,
+                        p_content: finalContent,
+                        p_images: finalImages
+                    });
+                    if (fallbackRes.error) throw fallbackRes.error;
+                } else {
+                    throw error;
+                }
+            }
 
             setEditingId(null);
             setEditContent("");
             setEditImages([]);
+            setEditDocuments([]);
             loadCaseDetails(false);
         } catch (err) {
             alert("Error saving edit: " + err.message);
@@ -758,31 +847,75 @@ function CaseDetail() {
         }
     };
 
+    const startEditingInfo = () => {
+        setEditTitle(info.title);
+        setEditLocation(info.location || '');
+        const dt = new Date(info.occurred_at);
+        dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+        setEditOccurredAt(dt.toISOString().slice(0, 16));
+        setEditDescription(info.description || '');
+        setEditInitialImage(null);
+        setEditCaseDocuments(Array.isArray(info.documents) ? [...info.documents] : []);
+        setIsEditingInfo(true);
+    };
+
     const handleSaveInfo = async () => {
         try {
             const finalDescription = await processHtmlImages(editDescription, 'cases');
+            let uploadedCaseDocs = [];
+            if (editCaseDocuments.length > 0) {
+                uploadedCaseDocs = await Promise.all(
+                    editCaseDocuments.map(async doc => {
+                        if (doc.isNew && doc.file) {
+                            return await uploadDocumentToStorage(doc.file, 'cases');
+                        }
+                        return doc;
+                    })
+                );
+                uploadedCaseDocs = uploadedCaseDocs.filter(d => d && d.url);
+            }
+
             const { error } = await supabase.rpc('update_case_details', {
                 p_case_id: id,
                 p_title: editTitle,
                 p_location: editLocation,
                 p_occurred_at: editOccurredAt,
-                p_description: finalDescription
+                p_description: finalDescription,
+                p_documents: uploadedCaseDocs
             });
-            if (error) throw error;
+            if (error) {
+                if (error.message?.includes('update_case_details') || error.code === 'PGRST202') {
+                    const fallbackRes = await supabase.rpc('update_case_details', {
+                        p_case_id: id,
+                        p_title: editTitle,
+                        p_location: editLocation,
+                        p_occurred_at: editOccurredAt,
+                        p_description: finalDescription
+                    });
+                    if (fallbackRes.error) throw fallbackRes.error;
+                } else {
+                    throw error;
+                }
+            }
 
-            if (editInitialImage !== null) {
-                let finalInitialImage = editInitialImage;
+            let finalInitialImage = editInitialImage;
+            if (finalInitialImage !== null) {
                 if (finalInitialImage && finalInitialImage.startsWith('data:')) {
                     finalInitialImage = await uploadImageToStorage(finalInitialImage, 'cases');
                 }
-                await supabase
-                    .from('cases')
-                    .update({ initial_image_url: finalInitialImage || null })
-                    .eq('id', id);
             }
+
+            await supabase
+                .from('cases')
+                .update({ 
+                    documents: uploadedCaseDocs,
+                    ...(finalInitialImage !== null ? { initial_image_url: finalInitialImage || null } : {})
+                })
+                .eq('id', id);
 
             setIsEditingInfo(false);
             setEditInitialImage(null);
+            setEditCaseDocuments([]);
             loadCaseDetails();
         } catch (err) {
             alert('Error updating case details: ' + err.message);
@@ -1048,6 +1181,97 @@ function CaseDetail() {
                                 style={{ marginBottom: '0.5rem' }}
                             />
                         </div>
+
+                        {/* Case Documents in Edit Mode */}
+                        <div className="mac-form-group">
+                            <label className="mac-form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>{t('attachedDocuments') || 'Documentos / Archivos Adjuntos'}</span>
+                                {editCaseDocuments.length > 0 && (
+                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{editCaseDocuments.length} adjunto(s)</span>
+                                )}
+                            </label>
+                            <label style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                padding: '0.4rem 0.85rem',
+                                background: 'rgba(255,255,255,0.06)',
+                                border: '1px solid rgba(255,255,255,0.12)',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.78rem',
+                                color: '#cbd5e1'
+                            }}>
+                                <input 
+                                    type="file" 
+                                    multiple 
+                                    accept=".pdf,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.zip,.rar,.csv,.png,.jpg,.jpeg" 
+                                    onChange={(e) => handleDocumentUpload(e, setEditCaseDocuments)} 
+                                    style={{ display: 'none' }} 
+                                />
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                </svg>
+                                <span>{t('uploadDocumentsBtn') || '+ Adjuntar Archivos / PDF'}</span>
+                            </label>
+
+                            {editCaseDocuments.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+                                    {editCaseDocuments.map((doc, i) => {
+                                        const isPdf = (doc.name && doc.name.toLowerCase().endsWith('.pdf')) || (doc.type && doc.type.includes('pdf'));
+                                        const sizeText = doc.size ? (doc.size < 1024 * 1024 ? `${(doc.size / 1024).toFixed(0)} KB` : `${(doc.size / (1024 * 1024)).toFixed(1)} MB`) : '';
+                                        return (
+                                            <div
+                                                key={i}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    padding: '6px 10px',
+                                                    background: 'rgba(0,0,0,0.35)',
+                                                    borderRadius: '6px',
+                                                    border: isPdf ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.1)',
+                                                    fontSize: '0.82rem'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, marginRight: '10px' }}>
+                                                    <span style={{ fontSize: '1rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                                    <span style={{ color: '#e2e8f0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.name}>
+                                                        {doc.name || `Documento ${i + 1}`}
+                                                    </span>
+                                                    {sizeText && (
+                                                        <span style={{ fontSize: '0.72rem', color: '#94a3b8', flexShrink: 0 }}>
+                                                            ({sizeText})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditCaseDocuments(prev => prev.filter((_, idx) => idx !== i))}
+                                                    style={{
+                                                        background: 'rgba(239, 68, 68, 0.15)',
+                                                        color: '#f87171',
+                                                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                        borderRadius: '4px',
+                                                        width: '22px',
+                                                        height: '22px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '12px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}
+                                                    title="Eliminar documento"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <div className="mac-modal-actions" style={{ marginTop: '0.75rem' }}>
                         <button className="mac-btn mac-btn-secondary" onClick={() => setIsEditingInfo(false)}>{t('cancelBtn')}</button>
@@ -1075,8 +1299,66 @@ function CaseDetail() {
                         style={{ color: '#cbd5e1', fontSize: '0.84rem', lineHeight: '1.5' }}
                         dangerouslySetInnerHTML={{ __html: info.description }}
                     />
-                </div>
-            )}
+                    {info.documents && info.documents.length > 0 && (
+                        <div style={{ marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                            <strong style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '0.4rem' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                </svg>
+                                {t('attachedDocuments') || 'Documentos del Expediente'} ({info.documents.length}):
+                            </strong>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                                {info.documents.map((doc, idx) => {
+                                    const isPdf = (doc.name && doc.name.toLowerCase().endsWith('.pdf')) || (doc.type && doc.type.includes('pdf'));
+                                    const sizeText = doc.size ? (doc.size < 1024 * 1024 ? `${(doc.size / 1024).toFixed(0)} KB` : `${(doc.size / (1024 * 1024)).toFixed(1)} MB`) : '';
+                                    return (
+                                        <a
+                                            key={idx}
+                                            href={doc.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            title={`Abrir ${doc.name || 'Documento'}`}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                padding: '4px 10px',
+                                                borderRadius: '8px',
+                                                background: isPdf ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.07)',
+                                                border: isPdf ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(255, 255, 255, 0.15)',
+                                                color: isPdf ? '#fca5a5' : '#e2e8f0',
+                                                textDecoration: 'none',
+                                                fontSize: '0.78rem',
+                                                fontWeight: 600,
+                                                transition: 'all 0.2s ease',
+                                                maxWidth: '100%'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.background = isPdf ? 'rgba(239, 68, 68, 0.22)' : 'rgba(255, 255, 255, 0.14)';
+                                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.background = isPdf ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.07)';
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '0.9rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px' }}>
+                                                {doc.name || `Documento ${idx + 1}`}
+                                            </span>
+                                            {sizeText && (
+                                                <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'normal' }}>
+                                                    ({sizeText})
+                                                </span>
+                                            )}
+                                            <span style={{ fontSize: '0.72rem', color: '#38bdf8' }}>↗</span>
+                                        </a>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
             {/* Layout Grid: Main Tabs Content + Compact Sidebar */}
             <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '1.25rem' }}>
@@ -1181,26 +1463,111 @@ function CaseDetail() {
                                             </div>
                                         )}
 
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <label style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.35rem',
-                                                padding: '0.35rem 0.75rem',
-                                                background: 'rgba(255,255,255,0.06)',
-                                                border: '1px solid rgba(255,255,255,0.12)',
-                                                borderRadius: '6px',
-                                                cursor: 'pointer',
-                                                fontSize: '0.78rem',
-                                                color: '#cbd5e1'
-                                            }}>
-                                                <input type="file" accept="image/*" multiple onChange={handleImageUpload} style={{ display: 'none' }} />
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                                                    <circle cx="12" cy="13" r="4" />
-                                                </svg>
-                                                <span>Adjuntar Fotografías</span>
-                                            </label>
+                                        {/* Document Previews */}
+                                        {newUpdateDocuments.length > 0 && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '0.75rem' }}>
+                                                {newUpdateDocuments.map((doc, i) => {
+                                                    const isPdf = (doc.name && doc.name.toLowerCase().endsWith('.pdf')) || (doc.type && doc.type.includes('pdf'));
+                                                    const sizeText = doc.size ? (doc.size < 1024 * 1024 ? `${(doc.size / 1024).toFixed(0)} KB` : `${(doc.size / (1024 * 1024)).toFixed(1)} MB`) : '';
+                                                    return (
+                                                        <div
+                                                            key={i}
+                                                            style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                padding: '6px 10px',
+                                                                background: 'rgba(0,0,0,0.35)',
+                                                                borderRadius: '6px',
+                                                                border: isPdf ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.1)',
+                                                                fontSize: '0.82rem'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, marginRight: '10px' }}>
+                                                                <span style={{ fontSize: '1rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                                                <span style={{ color: '#e2e8f0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.name}>
+                                                                    {doc.name || `Documento ${i + 1}`}
+                                                                </span>
+                                                                {sizeText && (
+                                                                    <span style={{ fontSize: '0.72rem', color: '#94a3b8', flexShrink: 0 }}>
+                                                                        ({sizeText})
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setNewUpdateDocuments(prev => prev.filter((_, idx) => idx !== i))}
+                                                                style={{
+                                                                    background: 'rgba(239, 68, 68, 0.15)',
+                                                                    color: '#f87171',
+                                                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                                    borderRadius: '4px',
+                                                                    width: '22px',
+                                                                    height: '22px',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '12px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center'
+                                                                }}
+                                                                title="Eliminar archivo"
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                <label style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.35rem',
+                                                    padding: '0.35rem 0.75rem',
+                                                    background: 'rgba(255,255,255,0.06)',
+                                                    border: '1px solid rgba(255,255,255,0.12)',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.78rem',
+                                                    color: '#cbd5e1'
+                                                }}>
+                                                    <input type="file" accept="image/*" multiple onChange={handleImageUpload} style={{ display: 'none' }} />
+                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                                        <circle cx="12" cy="13" r="4" />
+                                                    </svg>
+                                                    <span>Adjuntar Fotografías</span>
+                                                </label>
+
+                                                <label style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.35rem',
+                                                    padding: '0.35rem 0.75rem',
+                                                    background: 'rgba(255,255,255,0.06)',
+                                                    border: '1px solid rgba(255,255,255,0.12)',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.78rem',
+                                                    color: '#cbd5e1'
+                                                }}>
+                                                    <input 
+                                                        type="file" 
+                                                        multiple 
+                                                        accept=".pdf,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.zip,.rar,.csv,.png,.jpg,.jpeg" 
+                                                        onChange={(e) => handleDocumentUpload(e, setNewUpdateDocuments)} 
+                                                        style={{ display: 'none' }} 
+                                                    />
+                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                        <polyline points="14 2 14 8 20 8" />
+                                                    </svg>
+                                                    <span>📎 {t('uploadDocumentsBtn') || 'Adjuntar Archivo / PDF'}</span>
+                                                </label>
+                                            </div>
 
                                             <button type="submit" className="mac-btn mac-btn-primary" style={{ padding: '0.38rem 0.9rem', fontSize: '0.78rem' }} disabled={submittingUpdate}>
                                                 {submittingUpdate ? 'Publicando...' : 'Publicar Actualización'}
@@ -1297,29 +1664,102 @@ function CaseDetail() {
                                                             </div>
                                                         )}
 
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                                                            <label style={{
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '0.35rem',
-                                                                padding: '0.35rem 0.75rem',
-                                                                background: 'rgba(255,255,255,0.06)',
-                                                                border: '1px solid rgba(255,255,255,0.12)',
-                                                                borderRadius: '6px',
-                                                                cursor: 'pointer',
-                                                                fontSize: '0.78rem',
-                                                                color: '#cbd5e1'
-                                                            }}>
-                                                                <input type="file" accept="image/*" multiple onChange={handleEditImageUpload} style={{ display: 'none' }} />
-                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                                                                    <circle cx="12" cy="13" r="4" />
-                                                                </svg>
-                                                                <span>Adjuntar Fotografías</span>
-                                                            </label>
+                                                        {/* Edit Document Previews & Deletion */}
+                                                        {editDocuments.length > 0 && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '0.75rem', marginTop: '0.5rem' }}>
+                                                                {editDocuments.map((doc, idx) => {
+                                                                    const isPdf = (doc.name && doc.name.toLowerCase().endsWith('.pdf')) || (doc.type && doc.type.includes('pdf'));
+                                                                    const sizeText = doc.size ? (doc.size < 1024 * 1024 ? `${(doc.size / 1024).toFixed(0)} KB` : `${(doc.size / (1024 * 1024)).toFixed(1)} MB`) : '';
+                                                                    return (
+                                                                        <div
+                                                                            key={idx}
+                                                                            style={{
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'space-between',
+                                                                                padding: '5px 8px',
+                                                                                background: 'rgba(0,0,0,0.35)',
+                                                                                borderRadius: '6px',
+                                                                                border: isPdf ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.1)',
+                                                                                fontSize: '0.8rem'
+                                                                            }}
+                                                                        >
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1, marginRight: '8px' }}>
+                                                                                <span>{isPdf ? '📕' : '📄'}</span>
+                                                                                <span style={{ color: '#e2e8f0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                                    {doc.name || `Documento ${idx + 1}`}
+                                                                                </span>
+                                                                                {sizeText && (
+                                                                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8', flexShrink: 0 }}>
+                                                                                        ({sizeText})
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setEditDocuments(prev => prev.filter((_, i) => i !== idx))}
+                                                                                style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '4px', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}
+                                                                                title="Eliminar archivo"
+                                                                            >
+                                                                                ✕
+                                                                            </button>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                                <label style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '0.35rem',
+                                                                    padding: '0.35rem 0.75rem',
+                                                                    background: 'rgba(255,255,255,0.06)',
+                                                                    border: '1px solid rgba(255,255,255,0.12)',
+                                                                    borderRadius: '6px',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '0.78rem',
+                                                                    color: '#cbd5e1'
+                                                                }}>
+                                                                    <input type="file" accept="image/*" multiple onChange={handleEditImageUpload} style={{ display: 'none' }} />
+                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                                                        <circle cx="12" cy="13" r="4" />
+                                                                    </svg>
+                                                                    <span>Adjuntar Fotografías</span>
+                                                                </label>
+
+                                                                <label style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '0.35rem',
+                                                                    padding: '0.35rem 0.75rem',
+                                                                    background: 'rgba(255,255,255,0.06)',
+                                                                    border: '1px solid rgba(255,255,255,0.12)',
+                                                                    borderRadius: '6px',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '0.78rem',
+                                                                    color: '#cbd5e1'
+                                                                }}>
+                                                                    <input 
+                                                                        type="file" 
+                                                                        multiple 
+                                                                        accept=".pdf,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.zip,.rar,.csv,.png,.jpg,.jpeg" 
+                                                                        onChange={(e) => handleDocumentUpload(e, setEditDocuments)} 
+                                                                        style={{ display: 'none' }} 
+                                                                    />
+                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                                        <polyline points="14 2 14 8 20 8" />
+                                                                    </svg>
+                                                                    <span>📎 Adjuntar Archivos</span>
+                                                                </label>
+                                                            </div>
 
                                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                                <button className="mac-btn mac-btn-secondary" onClick={() => { setEditingId(null); setEditImages([]); }} style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}>
+                                                                <button className="mac-btn mac-btn-secondary" onClick={() => { setEditingId(null); setEditImages([]); setEditDocuments([]); }} style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }}>
                                                                     Cancelar
                                                                 </button>
                                                                 <button className="mac-btn mac-btn-primary" onClick={() => handleSaveEdit(update.id)} style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }} disabled={submittingEdit}>
@@ -1349,6 +1789,59 @@ function CaseDetail() {
                                                                         <img src={imgSrc} alt="Evidence" style={{ display: 'block', maxHeight: '200px', maxWidth: '100%', objectFit: 'contain' }} />
                                                                     </div>
                                                                 ))}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Attached Documents in Updates Feed */}
+                                                        {update.documents && update.documents.length > 0 && (
+                                                            <div style={{ marginTop: '0.65rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                                                                {update.documents.map((doc, idx) => {
+                                                                    const isPdf = (doc.name && doc.name.toLowerCase().endsWith('.pdf')) || (doc.type && doc.type.includes('pdf'));
+                                                                    const sizeText = doc.size ? (doc.size < 1024 * 1024 ? `${(doc.size / 1024).toFixed(0)} KB` : `${(doc.size / (1024 * 1024)).toFixed(1)} MB`) : '';
+                                                                    return (
+                                                                        <a
+                                                                            key={idx}
+                                                                            href={doc.url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            title={`Abrir ${doc.name || 'Documento'}`}
+                                                                            style={{
+                                                                                display: 'inline-flex',
+                                                                                alignItems: 'center',
+                                                                                gap: '6px',
+                                                                                padding: '4px 10px',
+                                                                                borderRadius: '8px',
+                                                                                background: isPdf ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.07)',
+                                                                                border: isPdf ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(255, 255, 255, 0.15)',
+                                                                                color: isPdf ? '#fca5a5' : '#e2e8f0',
+                                                                                textDecoration: 'none',
+                                                                                fontSize: '0.78rem',
+                                                                                fontWeight: 600,
+                                                                                transition: 'all 0.2s ease',
+                                                                                maxWidth: '100%'
+                                                                            }}
+                                                                            onMouseEnter={(e) => {
+                                                                                e.currentTarget.style.background = isPdf ? 'rgba(239, 68, 68, 0.22)' : 'rgba(255, 255, 255, 0.14)';
+                                                                                e.currentTarget.style.transform = 'translateY(-1px)';
+                                                                            }}
+                                                                            onMouseLeave={(e) => {
+                                                                                e.currentTarget.style.background = isPdf ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255, 255, 255, 0.07)';
+                                                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                                            }}
+                                                                        >
+                                                                            <span style={{ fontSize: '0.9rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px' }}>
+                                                                                {doc.name || `Documento ${idx + 1}`}
+                                                                            </span>
+                                                                            {sizeText && (
+                                                                                <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'normal' }}>
+                                                                                    ({sizeText})
+                                                                                </span>
+                                                                            )}
+                                                                            <span style={{ fontSize: '0.72rem', color: '#38bdf8' }}>↗</span>
+                                                                        </a>
+                                                                    );
+                                                                })}
                                                             </div>
                                                         )}
                                                     </>

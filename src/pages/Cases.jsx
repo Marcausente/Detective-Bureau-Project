@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { uploadImageToStorage, processHtmlImages } from '../utils/imageStorage';
+import { uploadImageToStorage, uploadDocumentToStorage, processHtmlImages } from '../utils/imageStorage';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import '../index.css';
@@ -23,7 +23,8 @@ function Cases() {
         occurred_at: '',
         description: '',
         assignments: [], // Array of user IDs
-        initialImage: null
+        initialImage: null,
+        documents: []
     });
     const [users, setUsers] = useState([]); // For assignment selection
     const [submitting, setSubmitting] = useState(false);
@@ -66,18 +67,57 @@ function Cases() {
                 imageUrl = await uploadImageToStorage(imageUrl, 'cases');
             }
 
+            let uploadedDocuments = [];
+            if (newCase.documents && newCase.documents.length > 0) {
+                uploadedDocuments = await Promise.all(
+                    newCase.documents.map(async (doc) => {
+                        if (doc.isNew && doc.file) {
+                            return await uploadDocumentToStorage(doc.file, 'cases');
+                        }
+                        return doc;
+                    })
+                );
+                uploadedDocuments = uploadedDocuments.filter(d => d && d.url);
+            }
+
             const finalDescription = await processHtmlImages(newCase.description, 'cases');
 
-            const { data: newId, error } = await supabase.rpc('create_new_case', {
+            let newId = null;
+            const { data, error } = await supabase.rpc('create_new_case', {
                 p_title: newCase.title,
                 p_location: newCase.location,
                 p_occurred_at: timestamp,
                 p_description: finalDescription,
                 p_assigned_ids: newCase.assignments,
-                p_image: imageUrl
+                p_image: imageUrl,
+                p_documents: uploadedDocuments
             });
 
-            if (error) throw error;
+            if (error) {
+                if (error.message?.includes('create_new_case') || error.code === 'PGRST202') {
+                    const fallbackRes = await supabase.rpc('create_new_case', {
+                        p_title: newCase.title,
+                        p_location: newCase.location,
+                        p_occurred_at: timestamp,
+                        p_description: finalDescription,
+                        p_assigned_ids: newCase.assignments,
+                        p_image: imageUrl
+                    });
+                    if (fallbackRes.error) throw fallbackRes.error;
+                    newId = fallbackRes.data;
+
+                    if (newId && uploadedDocuments.length > 0) {
+                        await supabase
+                            .from('cases')
+                            .update({ documents: uploadedDocuments })
+                            .eq('id', newId);
+                    }
+                } else {
+                    throw error;
+                }
+            } else {
+                newId = data;
+            }
 
             setShowCreateModal(false);
             navigate(`/cases/${newId}`);
@@ -134,9 +174,45 @@ function Cases() {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-                setNewCase({ ...newCase, initialImage: dataUrl });
+                setNewCase(prev => ({ ...prev, initialImage: dataUrl }));
             };
         };
+    };
+
+    const handleDocumentUpload = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        const MAX_SIZE_MB = 50;
+        const MAX_BYTES = MAX_SIZE_MB * 1024 * 1024;
+        const validDocs = [];
+        const oversized = [];
+
+        files.forEach(file => {
+            if (file.size > MAX_BYTES) {
+                oversized.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
+            } else {
+                validDocs.push({
+                    file: file,
+                    name: file.name,
+                    size: file.size,
+                    type: file.type || 'application/pdf',
+                    isNew: true
+                });
+            }
+        });
+
+        if (oversized.length > 0) {
+            alert(`Los siguientes archivos superan el límite máximo de ${MAX_SIZE_MB}MB:\n\n${oversized.join('\n')}\n\nPor favor, comprime el archivo o selecciona uno de menor tamaño.`);
+        }
+
+        if (validDocs.length > 0) {
+            setNewCase(prev => ({
+                ...prev,
+                documents: [...(prev.documents || []), ...validDocs]
+            }));
+        }
+        e.target.value = '';
     };
 
     // Filter cases based on search query
@@ -527,6 +603,101 @@ function Cases() {
                                             >
                                                 ✕
                                             </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="mac-form-group">
+                                    <label className="mac-form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span>{t('attachedDocuments') || 'Documentos / Archivos Adjuntos'}</span>
+                                        {newCase.documents?.length > 0 && (
+                                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{newCase.documents.length} adjunto(s)</span>
+                                        )}
+                                    </label>
+                                    <label style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.5rem',
+                                        padding: '0.85rem',
+                                        background: 'rgba(0, 0, 0, 0.3)',
+                                        border: '1px dashed rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '12px',
+                                        cursor: 'pointer',
+                                        color: '#cbd5e1',
+                                        fontSize: '0.85rem',
+                                        transition: 'border-color 0.2s ease, background 0.2s ease'
+                                    }}>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                            <polyline points="14 2 14 8 20 8" />
+                                        </svg>
+                                        <span>📎 {t('uploadDocumentsBtn') || 'Adjuntar Documentos / Archivos (PDF, DOC, etc.)'}</span>
+                                        <input 
+                                            type="file" 
+                                            multiple 
+                                            accept=".pdf,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.zip,.rar,.csv,.png,.jpg,.jpeg" 
+                                            onChange={handleDocumentUpload} 
+                                            style={{ display: 'none' }} 
+                                        />
+                                    </label>
+
+                                    {newCase.documents?.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '0.75rem' }}>
+                                            {newCase.documents.map((doc, i) => {
+                                                const isPdf = (doc.name && doc.name.toLowerCase().endsWith('.pdf')) || (doc.type && doc.type.includes('pdf'));
+                                                const sizeText = doc.size ? (doc.size < 1024 * 1024 ? `${(doc.size / 1024).toFixed(0)} KB` : `${(doc.size / (1024 * 1024)).toFixed(1)} MB`) : '';
+                                                return (
+                                                    <div
+                                                        key={i}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            padding: '6px 10px',
+                                                            background: 'rgba(0,0,0,0.35)',
+                                                            borderRadius: '8px',
+                                                            border: isPdf ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.1)',
+                                                            fontSize: '0.82rem'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, marginRight: '10px' }}>
+                                                            <span style={{ fontSize: '1rem' }}>{isPdf ? '📕' : '📄'}</span>
+                                                            <span style={{ color: '#e2e8f0', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.name}>
+                                                                {doc.name || `Documento ${i + 1}`}
+                                                            </span>
+                                                            {sizeText && (
+                                                                <span style={{ fontSize: '0.72rem', color: '#94a3b8', flexShrink: 0 }}>
+                                                                    ({sizeText})
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setNewCase(prev => ({
+                                                                ...prev,
+                                                                documents: prev.documents.filter((_, idx) => idx !== i)
+                                                            }))}
+                                                            style={{
+                                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                                color: '#f87171',
+                                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                                borderRadius: '4px',
+                                                                width: '22px',
+                                                                height: '22px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '12px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center'
+                                                            }}
+                                                            title="Eliminar archivo"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
