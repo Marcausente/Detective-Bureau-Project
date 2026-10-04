@@ -183,14 +183,14 @@ function Cases() {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
 
-        const MAX_SIZE_MB = 50;
+        const MAX_SIZE_MB = 1;
         const MAX_BYTES = MAX_SIZE_MB * 1024 * 1024;
         const validDocs = [];
         const oversized = [];
 
         files.forEach(file => {
             if (file.size > MAX_BYTES) {
-                oversized.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
+                oversized.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
             } else {
                 validDocs.push({
                     file: file,
@@ -203,7 +203,7 @@ function Cases() {
         });
 
         if (oversized.length > 0) {
-            alert(`Los siguientes archivos superan el límite máximo de ${MAX_SIZE_MB}MB:\n\n${oversized.join('\n')}\n\nPor favor, comprime el archivo o selecciona uno de menor tamaño.`);
+            alert(`Los siguientes archivos superan el límite máximo de ${MAX_SIZE_MB}MB:\n\n${oversized.join('\n')}\n\nPor favor, comprime el archivo o selecciona un documento menor a 1MB.`);
         }
 
         if (validDocs.length > 0) {

@@ -24,6 +24,8 @@ DROP FUNCTION IF EXISTS public.update_case_update_content(uuid, text, jsonb, jso
 DROP FUNCTION IF EXISTS public.update_case_details(uuid, text, text, timestamp with time zone, text);
 DROP FUNCTION IF EXISTS public.update_case_details(uuid, text, text, timestamp with time zone, text, jsonb);
 
+DROP FUNCTION IF EXISTS public.get_case_details(uuid);
+
 -- 3. Re-create create_new_case with documents support
 CREATE OR REPLACE FUNCTION public.create_new_case(
   p_title TEXT,
@@ -195,7 +197,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION public.update_case_details(UUID, TEXT, TEXT, TIMESTAMP WITH TIME ZONE, TEXT, JSONB) TO authenticated, service_role;
 
--- 7. Update get_case_details to return documents in info and updates
+-- 7. Update get_case_details (fully aligned with database schema and document support)
 CREATE OR REPLACE FUNCTION public.get_case_details(p_case_id UUID)
 RETURNS JSON AS $$
 DECLARE
@@ -247,7 +249,7 @@ BEGIN
   JOIN public.users u ON ca.user_id = u.id
   WHERE ca.case_id = p_case_id;
 
-  -- 4. Fetch Updates (with documents)
+  -- 4. Fetch Updates (with documents and images)
   SELECT json_agg(json_build_object(
     'id', cu.id,
     'content', cu.content,
@@ -325,11 +327,30 @@ BEGIN
     'numero_serie', w.numero_serie,
     'weapon_model', w.modelo,
     'modelo', w.modelo,
-    'matched_at', m.created_at,
-    'match_type', m.match_type,
-    'details', m.detalles,
-    'status', COALESCE(m.status, 'Con caso')
-  ) ORDER BY m.created_at DESC) INTO v_ballistics_coincidences
+    'weapon_owner', w.propietario,
+    'propietario', w.propietario,
+    'weapon_incident', w.incidente_relacionado,
+    'status', m.status,
+    'motivo_rechazo', m.motivo_rechazo,
+    'updated_at', m.updated_at,
+    'bullets_count', (
+        SELECT COUNT(*)
+        FROM public.ballistics_bullets b
+        WHERE LOWER(TRIM(b.numero_serie)) = LOWER(TRIM(w.numero_serie))
+    ),
+    'bullets', (
+        SELECT json_agg(json_build_object(
+            'id', b.id,
+            'incidente', b.incidente_relacionado,
+            'calibre', b.calibre,
+            'modelo_arma', b.modelo_arma,
+            'descripcion_incidente', b.descripcion_incidente,
+            'created_at', b.created_at
+        ))
+        FROM public.ballistics_bullets b
+        WHERE LOWER(TRIM(b.numero_serie)) = LOWER(TRIM(w.numero_serie))
+    )
+  ) ORDER BY m.updated_at DESC) INTO v_ballistics_coincidences
   FROM public.ballistics_matches m
   JOIN public.ballistics_weapons w ON m.weapon_id = w.id
   WHERE m.case_id = p_case_id;
@@ -337,11 +358,10 @@ BEGIN
   -- 11. Fetch Linked Ballistics Weapons
   SELECT json_agg(json_build_object(
     'id', w.id,
-    'serial_number', w.numero_serie,
-    'numero_serie', w.numero_serie,
-    'model', w.modelo,
     'modelo', w.modelo,
-    'status', w.estado,
+    'numero_serie', w.numero_serie,
+    'propietario', w.propietario,
+    'incidente_relacionado', w.incidente_relacionado,
     'created_at', w.created_at
   ) ORDER BY w.created_at DESC) INTO v_ballistics_weapons
   FROM public.ballistics_weapons w
@@ -350,35 +370,19 @@ BEGIN
   -- 12. Fetch Linked Ballistics Bullets
   SELECT json_agg(json_build_object(
     'id', b.id,
-    'bullet_type', b.tipo_municion,
-    'tipo_municion', b.tipo_municion,
-    'caliber', b.calibre,
     'calibre', b.calibre,
-    'location', b.ubicacion,
-    'ubicacion', b.ubicacion,
-    'description', b.descripcion,
-    'descripcion', b.descripcion,
+    'numero_serie', b.numero_serie,
+    'modelo_arma', b.modelo_arma,
+    'incidente_relacionado', b.incidente_relacionado,
+    'descripcion_incidente', b.descripcion_incidente,
     'created_at', b.created_at
   ) ORDER BY b.created_at DESC) INTO v_ballistics_bullets
   FROM public.ballistics_bullets b
   WHERE b.case_id = p_case_id;
 
-  -- Final Response Object
+  -- Final Response Object (v_case contains all columns including documents)
   RETURN json_build_object(
-    'info', json_build_object(
-      'id', v_case.id,
-      'case_number', v_case.case_number,
-      'title', v_case.title,
-      'status', v_case.status,
-      'location', v_case.location,
-      'occurred_at', v_case.occurred_at,
-      'description', v_case.description,
-      'created_at', v_case.created_at,
-      'created_by', v_case.created_by,
-      'is_pinned', COALESCE(v_case.is_pinned, false),
-      'initial_image_url', v_case.initial_image_url,
-      'documents', COALESCE(v_case.documents, '[]'::jsonb)
-    ),
+    'info', v_case,
     'assignments', COALESCE(v_assignments, '[]'::json),
     'updates', COALESCE(v_updates, '[]'::json),
     'interrogations', COALESCE(v_interrogations, '[]'::json),

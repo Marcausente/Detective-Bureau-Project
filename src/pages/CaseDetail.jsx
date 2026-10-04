@@ -600,14 +600,14 @@ function CaseDetail() {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
 
-        const MAX_SIZE_MB = 50;
+        const MAX_SIZE_MB = 1;
         const MAX_BYTES = MAX_SIZE_MB * 1024 * 1024;
         const validDocs = [];
         const oversized = [];
 
         files.forEach(file => {
             if (file.size > MAX_BYTES) {
-                oversized.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
+                oversized.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
             } else {
                 validDocs.push({
                     file: file,
@@ -620,7 +620,7 @@ function CaseDetail() {
         });
 
         if (oversized.length > 0) {
-            alert(`Los siguientes archivos superan el límite máximo de ${MAX_SIZE_MB}MB:\n\n${oversized.join('\n')}\n\nPor favor, comprime el archivo o selecciona uno de menor tamaño.`);
+            alert(`Los siguientes archivos superan el límite máximo de ${MAX_SIZE_MB}MB:\n\n${oversized.join('\n')}\n\nPor favor, comprime el archivo o selecciona un documento menor a 1MB.`);
         }
 
         if (validDocs.length > 0) {
@@ -961,17 +961,6 @@ function CaseDetail() {
     );
 
     const isCaseOpen = !info || !info.status || info.status.toLowerCase() === 'open' || info.status.toLowerCase() === 'abierto';
-
-    const startEditingInfo = () => {
-        setEditTitle(info.title);
-        setEditLocation(info.location || '');
-        const dt = new Date(info.occurred_at);
-        dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
-        setEditOccurredAt(dt.toISOString().slice(0, 16));
-        setEditDescription(info.description || '');
-        setEditInitialImage(null);
-        setIsEditingInfo(true);
-    };
 
     const statusColor = isCaseOpen ? '#10b981' : info.status === 'Closed' || info.status === 'Cerrado' ? '#ef4444' : '#64748b';
     const statusText = isCaseOpen ? 'ABIERTO' : info.status === 'Closed' || info.status === 'Cerrado' ? 'CERRADO' : 'ARCHIVADO';
@@ -1359,6 +1348,8 @@ function CaseDetail() {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
 
             {/* Layout Grid: Main Tabs Content + Compact Sidebar */}
             <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '1.25rem' }}>
@@ -1565,7 +1556,7 @@ function CaseDetail() {
                                                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                                                         <polyline points="14 2 14 8 20 8" />
                                                     </svg>
-                                                    <span>📎 {t('uploadDocumentsBtn') || 'Adjuntar Archivo / PDF'}</span>
+                                                    <span>{language === 'es' ? 'Adjuntar Documento / PDF' : 'Attach Document / PDF'}</span>
                                                 </label>
                                             </div>
 
