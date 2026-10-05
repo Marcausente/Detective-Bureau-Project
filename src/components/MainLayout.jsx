@@ -185,7 +185,7 @@ const getShortLabel = (path, fullName, branding = {}, isLSSD = false) => {
         case '/seb': return branding?.seb_nav_label || 'SEB';
         case '/air-support': return branding?.asd_nav_label || 'Air Support';
         case '/undercover': return branding?.undercover_nav_label || 'Undercover';
-        case '/coordination': return 'Coordinación';
+        case '/coordination': return branding?.coordination_nav_label || 'Coordinación';
         case '/admin': return 'Panel Admin';
         default: return fullName;
     }
@@ -328,7 +328,7 @@ function MainLayout() {
         { name: t('seb'), path: '/seb', divisions: ['SEB'] },
         { name: t('airSupport') || 'Air Support', path: '/air-support', divisions: ['ASD'] },
         { name: t('undercover') || 'Undercover', path: '/undercover', divisions: ['Undercover', 'Undercover Division', 'UD'] },
-        { name: t('coordination'), path: '/coordination', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'Undercover'], roles: ['coordinador', 'comisionado', 'administrador', 'superadmin'] },
+        { name: branding?.coordination_nav_label || t('coordination'), path: '/coordination', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'Undercover'], roles: ['coordinador', 'comisionado', 'administrador', 'superadmin'] },
         { name: t('adminPanel'), path: '/admin', divisions: ['SysAdmin'] },
     ];
 

@@ -1072,7 +1072,105 @@ function Admin() {
                                     </div>
                                 </div>
                             </div>
-                            {/* BLOQUE 12: FORMULARIO PÚBLICO DE DENUNCIAS IA */}
+
+                            {/* BLOQUE 12: COORDINACIÓN Y JEFATURA (SCUB, DB, LSSD...) */}
+                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>⚜️</span>
+                                    <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1rem', fontWeight: 700 }}>
+                                        Apartado de Coordinación y Jefatura (SCUB, DB, LSSD...)
+                                    </h4>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Nombre en Barra de Navegación / Menú
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.coordination_nav_label || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, coordination_nav_label: e.target.value })}
+                                            placeholder="Ej: Coordinación, Jefatura, Mando Central, DB Command..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Texto Superior / Badge de Coordinación
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.coordination_badge || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, coordination_badge: e.target.value })}
+                                            placeholder="Ej: SCUB • Executive Command, High Command, LSSD..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Título Principal del Panel
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.coordination_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, coordination_title: e.target.value })}
+                                            placeholder="Ej: PANEL DE COORDINACIÓN Y JEFATURA, COMANDO CENTRAL..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Subtítulo Descriptivo del Panel
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.coordination_subtitle || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, coordination_subtitle: e.target.value })}
+                                            placeholder="Ej: Gestión interna de tareas semanales, planificación de departamento y registro disciplinario."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo / Escudo de Coordinación
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.coordination_logo && (
+                                                <img src={brandingForm.coordination_logo} alt="Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.coordination_logo || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, coordination_logo: e.target.value })}
+                                                placeholder="/logowebp/SCUB.webp, /logowebp/dblogo.webp o URL"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['coordination_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['coordination_logo'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['coordination_logo']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('coordination_logo', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* BLOQUE 13: FORMULARIO PÚBLICO DE DENUNCIAS IA */}
                             <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
                                     <span style={{ fontSize: '1.2rem' }}>📋</span>

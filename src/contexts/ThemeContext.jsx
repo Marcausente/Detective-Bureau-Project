@@ -55,7 +55,12 @@ export const BRANDING_PRESETS = {
         map_logo: '',
         public_map_title: 'MAPA DE ADVERTENCIA DE RIESGO',
         public_map_dept: "Los Santos County Sheriff's Department • Seguridad Pública",
-        public_map_logo: ''
+        public_map_logo: '',
+        coordination_nav_label: 'Coordinación',
+        coordination_badge: 'SCUB • Executive Command',
+        coordination_title: 'PANEL DE COORDINACIÓN Y JEFATURA',
+        coordination_subtitle: 'Gestión interna de tareas semanales, planificación de departamento y registro disciplinario.',
+        coordination_logo: '/logowebp/SCUB.webp'
     },
     DB: {
         topbar_name: 'DB',
@@ -108,7 +113,12 @@ export const BRANDING_PRESETS = {
         map_logo: '',
         public_map_title: 'MAPA DE ADVERTENCIA DE RIESGO',
         public_map_dept: 'Los Santos Police Department • Seguridad Pública',
-        public_map_logo: ''
+        public_map_logo: '',
+        coordination_nav_label: 'Coordinación',
+        coordination_badge: 'DB • Executive Leadership',
+        coordination_title: 'COMANDO CENTRAL DETECTIVE BUREAU',
+        coordination_subtitle: 'Jefatura y supervisión operativa de la división de detectives.',
+        coordination_logo: '/logowebp/dblogo.webp'
     },
     LSSD: {
         topbar_name: 'LSSD',
@@ -161,7 +171,12 @@ export const BRANDING_PRESETS = {
         map_logo: '/logowebp/LSSDlogo.webp',
         public_map_title: 'MAPA DE ADVERTENCIA DE RIESGO',
         public_map_dept: "Los Santos County Sheriff's Department • Seguridad Pública",
-        public_map_logo: '/logowebp/LSSDlogo.webp'
+        public_map_logo: '/logowebp/LSSDlogo.webp',
+        coordination_nav_label: 'Jefatura',
+        coordination_badge: 'LSSD • High Command',
+        coordination_title: 'JEFATURA Y COORDINACIÓN LSSD',
+        coordination_subtitle: "Mando y supervisión general del Los Santos County Sheriff's Department.",
+        coordination_logo: '/logowebp/LSSDlogo.webp'
     },
     SAPD: {
         topbar_name: 'SAPD',
@@ -214,7 +229,12 @@ export const BRANDING_PRESETS = {
         map_logo: '/logowebp/sanandreas.webp',
         public_map_title: 'MAPA DE SEGURIDAD PÚBLICA ESTATAL',
         public_map_dept: 'San Andreas Police Department • Seguridad Pública',
-        public_map_logo: '/logowebp/sanandreas.webp'
+        public_map_logo: '/logowebp/sanandreas.webp',
+        coordination_nav_label: 'Coordinación',
+        coordination_badge: 'SAPD • State Command',
+        coordination_title: 'MANDO Y COORDINACIÓN ESTATAL',
+        coordination_subtitle: 'Dirección general y coordinación de divisiones del SAPD.',
+        coordination_logo: '/logowebp/sanandreas.webp'
     }
 };
 

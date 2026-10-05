@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import CoordinationTodoList from '../components/CoordinationTodoList';
 import CoordinationSanctions from '../components/CoordinationSanctions';
 import CoordinationRolesConfig from '../components/CoordinationRolesConfig';
@@ -11,6 +12,7 @@ import '../index.css';
 
 function Coordination() {
     const { t } = useLanguage();
+    const { branding } = useTheme();
     const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'sanctions' | 'roles_config' | 'webhooks' | 'roster' | 'presentation'
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -123,36 +125,53 @@ function Coordination() {
                 overflow: 'hidden'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', position: 'relative', zIndex: 2 }}>
-                    <div style={{
-                        width: '56px',
-                        height: '56px',
-                        borderRadius: '16px',
-                        background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.1))',
-                        border: '1px solid rgba(245, 158, 11, 0.4)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fbbf24',
-                        boxShadow: '0 8px 24px rgba(245, 158, 11, 0.25)'
-                    }}>
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                        </svg>
-                    </div>
+                    {branding?.coordination_logo ? (
+                        <img
+                            src={branding.coordination_logo}
+                            alt="Logo Coordinación"
+                            style={{
+                                width: '56px',
+                                height: '56px',
+                                borderRadius: '16px',
+                                objectFit: 'contain',
+                                background: 'rgba(15, 23, 42, 0.6)',
+                                border: '1px solid rgba(245, 158, 11, 0.4)',
+                                padding: '4px',
+                                boxShadow: '0 8px 24px rgba(245, 158, 11, 0.25)'
+                            }}
+                        />
+                    ) : (
+                        <div style={{
+                            width: '56px',
+                            height: '56px',
+                            borderRadius: '16px',
+                            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.1))',
+                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fbbf24',
+                            boxShadow: '0 8px 24px rgba(245, 158, 11, 0.25)'
+                        }}>
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                            </svg>
+                        </div>
+                    )}
 
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span className="mac-status-dot" style={{ backgroundColor: '#f59e0b', boxShadow: '0 0 10px #f59e0b' }}></span>
                             <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                Executive Command & Leadership
+                                {branding?.coordination_badge || 'Executive Command & Leadership'}
                             </span>
                         </div>
                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '0.2rem 0 0.25rem 0', color: '#ffffff', letterSpacing: '-0.02em' }}>
-                            PANEL DE COORDINACIÓN Y JEFATURA
+                            {branding?.coordination_title || 'PANEL DE COORDINACIÓN Y JEFATURA'}
                         </h1>
                         <p style={{ margin: 0, fontSize: '0.88rem', color: '#94a3b8', fontWeight: 500 }}>
-                            Gestión interna de tareas semanales, planificación de departamento y registro disciplinario.
+                            {branding?.coordination_subtitle || 'Gestión interna de tareas semanales, planificación de departamento y registro disciplinario.'}
                         </p>
                     </div>
                 </div>
@@ -318,7 +337,7 @@ function Coordination() {
                         <path d="M12 20h9"/>
                         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
                     </svg>
-                    <span>Presentación SCUB</span>
+                    <span>{branding?.topbar_name ? `Presentación ${branding.topbar_name}` : 'Presentación SCUB'}</span>
                 </button>
 
                 <button
