@@ -17,7 +17,7 @@ import {
 import '../index.css';
 
 const DIVISION_OPTIONS = [
-    { key: 'coordination', label: 'Coordinación (SCUB)', icon: '⚜️', color: '#C5A059' },
+    { key: 'coordination', label: 'Coordinación', icon: '⚜️', color: '#C5A059' },
     { key: 'seb', label: 'SEB', icon: '🦇', color: '#EAB308' },
     { key: 'asd', label: 'ASD', icon: '🚁', color: '#0284C7' },
     { key: 'ia', label: 'Asuntos Internos (IA)', icon: '⚖️', color: '#E11D48' }
@@ -386,7 +386,15 @@ export default function DivisionPresentationDiscord({ division = 'coordination',
         return parts.length > 0 ? parts : str;
     };
 
-    const currentDivMeta = DIVISION_OPTIONS.find(d => d.key === selectedDivision) || DIVISION_OPTIONS[0];
+    const baseMeta = DIVISION_OPTIONS.find(d => d.key === selectedDivision) || DIVISION_OPTIONS[0];
+    const currentDivMeta = {
+        ...baseMeta,
+        label: selectedDivision === 'coordination'
+            ? (branding?.coordination_nav_label || 'Coordinación')
+            : (selectedDivision === 'seb' ? (branding?.seb_nav_label || 'SEB')
+            : (selectedDivision === 'asd' ? (branding?.asd_nav_label || 'ASD')
+            : (selectedDivision === 'ia' ? (branding?.ia_nav_label || 'Asuntos Internos') : baseMeta.label)))
+    };
 
     return (
         <div style={{ maxWidth: '1440px', margin: '0 auto', paddingBottom: '3rem' }}>
