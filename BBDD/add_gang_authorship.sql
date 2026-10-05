@@ -78,22 +78,29 @@ DECLARE v_id UUID; BEGIN
 END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
--- 3. UPDATE get_gangs_data() TO INCLUDE AUTHOR NAMES
+-- 3. REBUILD get_gangs_data() PRESERVING ALL EXISTING FIELDS
+--    + added_by_name for vehicles, homes and members
 
 DROP FUNCTION IF EXISTS get_gangs_data();
+
 CREATE OR REPLACE FUNCTION get_gangs_data()
 RETURNS TABLE (
-    gang_id        UUID,
-    name           TEXT,
-    color          TEXT,
-    zones_image    TEXT,
-    is_archived    BOOLEAN,
-    vehicles       JSONB,
-    homes          JSONB,
-    members        JSONB,
-    info           JSONB,
-    incident_count BIGINT,
-    outing_count   BIGINT
+    gang_id                    UUID,
+    name                       TEXT,
+    color                      TEXT,
+    zones_image                TEXT,
+    is_archived                BOOLEAN,
+    detective_in_charge_1      UUID,
+    detective_in_charge_1_name TEXT,
+    detective_in_charge_2      UUID,
+    detective_in_charge_2_name TEXT,
+    vehicles                   JSONB,
+    homes                      JSONB,
+    members                    JSONB,
+    info                       JSONB,
+    incident_count             BIGINT,
+    outing_count               BIGINT,
+    graffiti                   JSONB
 ) AS $$
 BEGIN
     IF NOT auth_is_gang_authorized() THEN
@@ -108,7 +115,13 @@ BEGIN
         g.zones_image,
         g.is_archived,
 
-        -- Vehicles (includes added_by_name)
+        -- Detectives in charge (preserved from add_gang_detectives_in_charge.sql)
+        g.detective_in_charge_1,
+        (SELECT u.nombre || ' ' || u.apellido FROM public.users u WHERE u.id = g.detective_in_charge_1),
+        g.detective_in_charge_2,
+        (SELECT u.nombre || ' ' || u.apellido FROM public.users u WHERE u.id = g.detective_in_charge_2),
+
+        -- Vehicles (now includes added_by_name)
         COALESCE((
             SELECT jsonb_agg(
                 jsonb_build_object(
@@ -127,7 +140,7 @@ BEGIN
             FROM public.gang_vehicles v WHERE v.gang_id = g.id
         ), '[]'::jsonb),
 
-        -- Homes (includes added_by_name)
+        -- Homes (now includes added_by_name)
         COALESCE((
             SELECT jsonb_agg(
                 jsonb_build_object(
@@ -144,7 +157,7 @@ BEGIN
             FROM public.gang_homes h WHERE h.gang_id = g.id
         ), '[]'::jsonb),
 
-        -- Members (includes added_by_name)
+        -- Members (now includes added_by_name)
         COALESCE((
             SELECT jsonb_agg(
                 jsonb_build_object(
@@ -163,7 +176,7 @@ BEGIN
             FROM public.gang_members m WHERE m.gang_id = g.id
         ), '[]'::jsonb),
 
-        -- Info (already has author via author_id)
+        -- Info (author field preserved as before)
         COALESCE((
             SELECT jsonb_agg(
                 jsonb_build_object(
@@ -180,11 +193,27 @@ BEGIN
             FROM public.gang_info i WHERE i.gang_id = g.id
         ), '[]'::jsonb),
 
-        -- Counts
-        (SELECT COUNT(*) FROM public.incidents inc WHERE inc.gang_id = g.id),
-        (SELECT COUNT(*) FROM public.outings   out WHERE out.gang_id = g.id)
+        -- Counts (using junction tables, as in add_gang_detectives_in_charge.sql)
+        (SELECT COUNT(*) FROM public.incident_gangs ig WHERE ig.gang_id = g.id),
+        (SELECT COUNT(*) FROM public.outing_gangs   og WHERE og.gang_id = g.id),
+
+        -- Graffiti collection (preserved from add_gang_detectives_in_charge.sql)
+        COALESCE((
+            SELECT jsonb_agg(
+                jsonb_build_object(
+                    'id',            gr.id,
+                    'graffiti_image',gr.graffiti_image,
+                    'gps_image',     gr.gps_image,
+                    'notes',         gr.notes,
+                    'created_at',    gr.created_at
+                )
+            )
+            FROM public.gang_graffitis gr WHERE gr.gang_id = g.id
+        ), '[]'::jsonb)
 
     FROM public.gangs g
     ORDER BY g.created_at ASC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION get_gangs_data TO authenticated;
