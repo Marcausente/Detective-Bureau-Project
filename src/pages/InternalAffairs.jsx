@@ -287,6 +287,20 @@ function InternalAffairs() {
                     <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
             )
+        },
+        {
+            id: 'presentacion-iab',
+            path: '/internal-affairs/presentacion',
+            title: language === 'es' ? 'Presentación División Discord' : 'IA Division Presentation',
+            desc: language === 'es' ? 'Configurar y emitir la presentación oficial de Asuntos Internos a Discord con foto y formato institucional.' : 'Configure and broadcast official IA presentation on Discord with photo.',
+            color: '#e11d48',
+            bgGlow: 'rgba(225, 29, 72, 0.16)',
+            icon: (
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+            )
         }
     ];
 

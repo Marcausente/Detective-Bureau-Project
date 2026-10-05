@@ -5,6 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { getProfileImage, uploadImageToStorage } from '../utils/imageStorage';
 import SebRosterDiscord from '../components/SebRosterDiscord';
+import DivisionPresentationDiscord from '../components/DivisionPresentationDiscord';
 import '../index.css';
 
 function SEB() {
@@ -1304,6 +1305,29 @@ function SEB() {
                             <span>🦇</span>
                             <span>{language === 'es' ? 'Miembros e Indicativos (Discord)' : 'Members & Callsigns (Discord)'}</span>
                         </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('presentation_discord')}
+                            style={{
+                                background: activeTab === 'presentation_discord' ? 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)' : 'rgba(255, 255, 255, 0.06)',
+                                color: activeTab === 'presentation_discord' ? '#0f172a' : '#cbd5e1',
+                                border: `1px solid ${activeTab === 'presentation_discord' ? '#eab308' : 'rgba(255, 255, 255, 0.12)'}`,
+                                borderRadius: '12px',
+                                padding: '0.65rem 1.25rem',
+                                fontWeight: 800,
+                                fontSize: '0.88rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                transition: 'all 0.2s ease',
+                                boxShadow: activeTab === 'presentation_discord' ? '0 4px 14px rgba(234, 179, 8, 0.3)' : 'none'
+                            }}
+                        >
+                            <span>📢</span>
+                            <span>{language === 'es' ? 'Presentación SEB (Discord)' : 'SEB Presentation (Discord)'}</span>
+                        </button>
                     </div>
                 )}
             </div>
@@ -1311,6 +1335,11 @@ function SEB() {
             {/* TAB: MIEMBROS E INDICATIVOS (DISCORD) */}
             {activeTab === 'roster_discord' && !selectedOp && (
                 <SebRosterDiscord />
+            )}
+
+            {/* TAB: PRESENTACIÓN SEB (DISCORD) */}
+            {activeTab === 'presentation_discord' && !selectedOp && (
+                <DivisionPresentationDiscord division="seb" />
             )}
 
             {/* TABLÓN DE OPERACIONES */}

@@ -3444,3 +3444,457 @@ export async function sendSEBRosterToDiscord({
     }
 }
 
+// ==============================================================================
+// 10. DIVISION PRESENTATION (SEB, ASD, IA, COORDINATION) DISCORD WEBHOOKS
+// ==============================================================================
+
+export const DEFAULT_DIVISION_PRESENTATIONS = {
+    coordination: {
+        divisionKey: 'coordination',
+        divisionName: 'Coordinación & Jefatura (SCUB)',
+        badge: 'SCUB',
+        webhookUrl: '',
+        enabled: true,
+        rolePing: '',
+        botName: 'Sheriff Criminal Unit Bureau',
+        botAvatar: SCUB_LOGO_URL,
+        title: '🕵️ SHERIFF CRIMINAL UNIT BUREAU',
+        color: '#C5A059',
+        imageUrl: '',
+        footer: "Los Santos County Sheriff's Department • División de Investigaciones",
+        description: `La Sheriff Criminal Unit Bureau (SCUB) es la división especializada de investigaciones y operaciones encubiertas del Los Santos County Sheriff Department.
+
+Integrada por detectives altamente capacitados, la SCUB coordina la investigación de delitos complejos, la gestión de escenas de crimen y la infiltración estratégica para desarticular redes criminales.
+
+> La SCUB opera a través de dos unidades clave:
+> • FOXTROT 📋 Agentes encargados de investigaciones visibles y patrullaje estratégico.
+> • MIKE 🥸 Agentes en labores encubiertas, infiltración y operaciones críticas de alto riesgo.
+
+*Nuestro objetivo es garantizar la justicia mediante el análisis exhaustivo, el cumplimiento de protocolos y el uso de tácticas avanzadas para mantener la seguridad en el condado.*
+
+🔎 ACCESO A LA DIVISIÓN
+
+El acceso a la SCUB es restringido y se realiza únicamente por invitación, basándose en los más altos estándares de mérito y compromiso.
+
+> Requisitos generales:
+> • Ostentar el rango de Deputy Sheriff o superior.
+> • Poseer un historial impecable, sin investigaciones o sanciones activas del IAB.
+> • Demostrar un alto nivel de compañerismo y habilidades de trabajo en equipo.
+
+*En la SCUB, cada miembro es seleccionado para marcar la diferencia en la protección del condado y el cumplimiento de la ley.*`
+    },
+    seb: {
+        divisionKey: 'seb',
+        divisionName: 'Special Enforcement Bureau (SEB)',
+        badge: 'SEB',
+        webhookUrl: '',
+        enabled: true,
+        rolePing: '',
+        botName: 'SEB • Special Enforcement Bureau',
+        botAvatar: SCUB_LOGO_URL,
+        title: '🦇 SPECIAL ENFORCEMENT BUREAU',
+        color: '#EAB308',
+        imageUrl: '',
+        footer: "Los Santos County Sheriff's Department • Tactical Enforcement",
+        description: `El Special Enforcement Bureau (SEB) es la unidad táctica de intervención especial del Los Santos County Sheriff Department, diseñada para responder ante incidentes de máxima peligrosidad, barricadas, rescates de rehenes y operaciones de alto impacto.
+
+Compuesta por operadores de élite, el SEB provee soporte táctico decisivo cuando las fuerzas ordinarias de patrullaje se ven superadas por situaciones hostiles.
+
+> Unidades y escuadrones operativos de SEB:
+> • CIRT ⚡ Critical Incident Response Team para asalto táctico coordinado.
+> • K-9 🐕 Unidad canina especializada en rastreo, neutralización y detección de explosivos.
+> • SNIPER 🎯 Operadores de precisión para reconocimiento y fuego de cobertura a larga distancia.
+
+*Nuestra doctrina se fundamenta en la disciplina absoluta, la precisión táctica y la preservación prioritaria de la vida humana.*
+
+🔎 ACCESO A LA DIVISIÓN
+
+El ingreso al SEB es de máxima exigencia física, psicológica y operativa, reservado a los agentes con mayor templanza y capacitación.
+
+> Requisitos generales:
+> • Rango mínimo de Deputy Sheriff o superior en servicio activo.
+> • Superar las pruebas de aptitud física, tiro de combate y estrés táctico.
+> • Hoja de servicios sin sanciones disciplinarias activas ni investigaciones en curso.
+
+*Fuerza, honor y resolución en la primera línea de defensa del condado.*`
+    },
+    asd: {
+        divisionKey: 'asd',
+        divisionName: 'Air Support Division (ASD)',
+        badge: 'ASD',
+        webhookUrl: '',
+        enabled: true,
+        rolePing: '',
+        botName: 'ASD • Air Support Division',
+        botAvatar: SCUB_LOGO_URL,
+        title: '🚁 AIR SUPPORT DIVISION',
+        color: '#0284C7',
+        imageUrl: '',
+        footer: "Los Santos County Sheriff's Department • Tactical Airborne Law Enforcement",
+        description: `La Air Support Division (ASD) es la división aeropolicial del Los Santos County Sheriff Department encargada de proporcionar soporte aéreo táctico, persecución visual, patrullaje preventivo y misiones de rescate en toda la geografía del condado.
+
+Operando con helicópteros y aeronaves de última generación, la ASD actúa como el observador avanzado y multiplicador de fuerza para las unidades terrestres.
+
+> Especialidades operativas de la ASD:
+> • PATRULLAJE Y SEGUIMIENTO AÉREO 📡 Rastreo térmico nocturno (FLIR), localización y control de persecuciones.
+> • APOYO TÁCTICO AIRBORNE 🪢 Despliegue e inserción rápida por rápel (Fast-Rope) y tiradores aéreos.
+> • BÚSQUEDA Y RESCATE (SAR) 🌊 Operaciones de salvamento marítimo, rescates en montaña y evacuaciones médicas.
+
+*Desde las alturas garantizamos una visión global para la seguridad y protección de cada oficial en el terreno.*
+
+🔎 ACCESO A LA DIVISIÓN
+
+El acceso a la ASD requiere superación del programa de habilitación aeronáutica y entrenamiento en cabina de mando.
+
+> Requisitos generales:
+> • Rango de Deputy Sheriff o superior en activo.
+> • Obtener las licencias aeronáuticas oficiales requeridas y test de vuelo evaluado.
+> • Excelente comunicación radial y conocimiento exhaustivo de la cuadrícula del condado.
+
+*Ojos en el cielo, protección en la tierra.*`
+    },
+    ia: {
+        divisionKey: 'ia',
+        divisionName: 'Internal Affairs Bureau (IAB)',
+        badge: 'IAB',
+        webhookUrl: '',
+        enabled: true,
+        rolePing: '',
+        botName: 'Internal Affairs Bureau',
+        botAvatar: IA_LOGO_URL,
+        title: '⚖️ INTERNAL AFFAIRS BUREAU',
+        color: '#E11D48',
+        imageUrl: '',
+        footer: "Los Santos County Sheriff's Department • Integridad Institucional",
+        description: `El Internal Affairs Bureau (IAB) es el órgano independiente responsable de velar por la integridad, profesionalidad y ética de todos los integrantes del Los Santos County Sheriff Department.
+
+Su encomienda es investigar de manera imparcial las denuncias ciudadanas, las faltas al código disciplinario y el uso irregular de la fuerza policial, salvaguardando la confianza pública.
+
+> Áreas de investigación y supervisión:
+> • DENUNCIAS Y QUEJAS PÚBLICAS 📂 Tramitación de denuncias externas e internas con estricta reserva.
+> • AUDITORÍA Y PROCEDIMIENTOS 🔍 Inspección continuada de armamento, grabaciones y procedimientos operativos.
+> • TRIBUNAL DISCIPLINARIO ⚖️ Tipificación de faltas leves, medias o graves y aplicación rigurosa de sanciones.
+
+*Garantizamos que la ley y el respeto a los derechos se apliquen con la misma firmeza dentro del departamento que fuera de él.*
+
+🔎 ACCESO A LA DIVISIÓN
+
+La incorporación a Asuntos Internos es altamente restringida y se realiza únicamente mediante designación directa por Jefatura.
+
+> Requisitos generales:
+> • Trayectoria impecable y madurez profesional demostrada dentro del cuerpo.
+> • Compromiso inquebrantable con la confidencialidad, la imparcialidad y la ética.
+> • Evaluación favorable por parte de la Coordinación y Dirección del departamento.
+
+*Integridad, rectitud y justicia sin concesiones.*`
+    }
+};
+
+/**
+ * Retrieve Division Presentation Webhook configuration
+ * @param {'coordination' | 'seb' | 'asd' | 'ia'} divisionKey 
+ */
+export async function getDivisionPresentationConfig(divisionKey = 'coordination') {
+    const key = (divisionKey || 'coordination').toLowerCase();
+    const defaultData = DEFAULT_DIVISION_PRESENTATIONS[key] || DEFAULT_DIVISION_PRESENTATIONS.coordination;
+    const localStorageKey = `discord_presentation_${key}_cfg_v1`;
+
+    let config = { ...defaultData };
+
+    // 1. Try RPC get_division_presentation_config
+    try {
+        const { data, error } = await supabase.rpc('get_division_presentation_config', {
+            p_division: key
+        });
+        if (!error && data) {
+            config = {
+                divisionKey: key,
+                divisionName: defaultData.divisionName,
+                badge: defaultData.badge,
+                webhookUrl: data.webhook_url || '',
+                enabled: data.enabled !== undefined ? !!data.enabled : defaultData.enabled,
+                rolePing: data.role_ping || '',
+                botName: data.bot_name || defaultData.botName,
+                botAvatar: data.bot_avatar || defaultData.botAvatar,
+                title: data.title || defaultData.title,
+                description: data.description || defaultData.description,
+                imageUrl: data.image_url || defaultData.imageUrl,
+                color: data.color || defaultData.color,
+                footer: data.footer !== undefined ? data.footer : defaultData.footer
+            };
+            try {
+                localStorage.setItem(localStorageKey, JSON.stringify(config));
+            } catch (e) {}
+            return config;
+        }
+    } catch (rpcErr) {
+        // Fallback to direct app_settings query below
+    }
+
+    // 2. Fallback to direct app_settings table query
+    try {
+        const { data: rows, error: tblErr } = await supabase
+            .from('app_settings')
+            .select('key, value')
+            .like('key', `discord_presentation_${key}_%`);
+
+        if (!tblErr && rows && rows.length > 0) {
+            const map = {};
+            rows.forEach(r => { map[r.key] = r.value; });
+
+            config = {
+                divisionKey: key,
+                divisionName: defaultData.divisionName,
+                badge: defaultData.badge,
+                webhookUrl: map[`discord_presentation_${key}_webhook_url`] || '',
+                enabled: map[`discord_presentation_${key}_webhook_enabled`] !== 'false',
+                rolePing: map[`discord_presentation_${key}_role_ping`] || '',
+                botName: map[`discord_presentation_${key}_bot_name`] || defaultData.botName,
+                botAvatar: map[`discord_presentation_${key}_bot_avatar`] || defaultData.botAvatar,
+                title: map[`discord_presentation_${key}_title`] || defaultData.title,
+                description: map[`discord_presentation_${key}_description`] || defaultData.description,
+                imageUrl: map[`discord_presentation_${key}_image_url`] || defaultData.imageUrl,
+                color: map[`discord_presentation_${key}_color`] || defaultData.color,
+                footer: map[`discord_presentation_${key}_footer`] !== undefined ? map[`discord_presentation_${key}_footer`] : defaultData.footer
+            };
+
+            try {
+                localStorage.setItem(localStorageKey, JSON.stringify(config));
+            } catch (e) {}
+            return config;
+        }
+    } catch (tblErr) {
+        console.warn(`Could not load presentation config from app_settings for ${key}:`, tblErr);
+    }
+
+    // 3. Fallback to localStorage
+    try {
+        const local = localStorage.getItem(localStorageKey);
+        if (local) {
+            const parsed = JSON.parse(local);
+            return { ...config, ...parsed };
+        }
+    } catch (e) {}
+
+    return config;
+}
+
+/**
+ * Save Division Presentation configuration
+ * @param {'coordination' | 'seb' | 'asd' | 'ia'} divisionKey 
+ * @param {object} updatedConfig 
+ */
+export async function saveDivisionPresentationConfig(divisionKey, updatedConfig = {}) {
+    const key = (divisionKey || 'coordination').toLowerCase();
+    const defaultData = DEFAULT_DIVISION_PRESENTATIONS[key] || DEFAULT_DIVISION_PRESENTATIONS.coordination;
+    const localStorageKey = `discord_presentation_${key}_cfg_v1`;
+
+    const configToSave = {
+        divisionKey: key,
+        divisionName: defaultData.divisionName,
+        badge: defaultData.badge,
+        webhookUrl: (updatedConfig.webhookUrl || '').trim(),
+        enabled: updatedConfig.enabled !== undefined ? !!updatedConfig.enabled : true,
+        rolePing: (updatedConfig.rolePing || '').trim(),
+        botName: (updatedConfig.botName || defaultData.botName).trim(),
+        botAvatar: (updatedConfig.botAvatar || defaultData.botAvatar).trim(),
+        title: (updatedConfig.title || defaultData.title).trim(),
+        description: updatedConfig.description !== undefined ? updatedConfig.description : defaultData.description,
+        imageUrl: (updatedConfig.imageUrl || '').trim(),
+        color: (updatedConfig.color || defaultData.color).trim(),
+        footer: updatedConfig.footer !== undefined ? updatedConfig.footer : defaultData.footer
+    };
+
+    // Save in localStorage immediately
+    try {
+        localStorage.setItem(localStorageKey, JSON.stringify(configToSave));
+    } catch (e) {}
+
+    // Save to Supabase (RPC first, then direct upsert)
+    try {
+        const { error } = await supabase.rpc('save_division_presentation_config', {
+            p_division: key,
+            p_webhook_url: configToSave.webhookUrl,
+            p_title: configToSave.title,
+            p_description: configToSave.description,
+            p_image_url: configToSave.imageUrl,
+            p_role_ping: configToSave.rolePing,
+            p_bot_name: configToSave.botName,
+            p_bot_avatar: configToSave.botAvatar,
+            p_color: configToSave.color,
+            p_footer: configToSave.footer,
+            p_enabled: configToSave.enabled
+        });
+
+        if (error) {
+            console.warn('RPC save_division_presentation_config failed, using direct upsert fallback:', error);
+            const entries = [
+                { key: `discord_presentation_${key}_webhook_url`, value: configToSave.webhookUrl },
+                { key: `discord_presentation_${key}_webhook_enabled`, value: configToSave.enabled ? 'true' : 'false' },
+                { key: `discord_presentation_${key}_role_ping`, value: configToSave.rolePing },
+                { key: `discord_presentation_${key}_bot_name`, value: configToSave.botName },
+                { key: `discord_presentation_${key}_bot_avatar`, value: configToSave.botAvatar },
+                { key: `discord_presentation_${key}_title`, value: configToSave.title },
+                { key: `discord_presentation_${key}_description`, value: configToSave.description },
+                { key: `discord_presentation_${key}_image_url`, value: configToSave.imageUrl },
+                { key: `discord_presentation_${key}_color`, value: configToSave.color },
+                { key: `discord_presentation_${key}_footer`, value: configToSave.footer || '' }
+            ];
+
+            for (const item of entries) {
+                await supabase.from('app_settings').upsert({
+                    key: item.key,
+                    value: item.value,
+                    updated_at: new Date().toISOString()
+                });
+            }
+        }
+        return { success: true };
+    } catch (err) {
+        console.error(`Failed to persist Division Presentation config for ${key}:`, err);
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Test Division Presentation Webhook connection
+ */
+export async function testDivisionPresentationWebhook(divisionKey, customConfig = null) {
+    const config = customConfig || await getDivisionPresentationConfig(divisionKey);
+    const targetUrl = (config.webhookUrl || '').trim();
+
+    if (!targetUrl || !targetUrl.startsWith('https://')) {
+        throw new Error('La URL del webhook debe ser una URL válida que comience con https://');
+    }
+
+    const defaultData = DEFAULT_DIVISION_PRESENTATIONS[divisionKey] || DEFAULT_DIVISION_PRESENTATIONS.coordination;
+    const botName = config.botName || defaultData.botName;
+    const botAvatar = normalizeDiscordImageUrl(config.botAvatar, defaultData.botAvatar);
+    const hexColor = (config.color || defaultData.color).replace('#', '');
+    const intColor = parseInt(hexColor, 16) || 0xC5A059;
+
+    const payload = {
+        username: botName,
+        avatar_url: botAvatar,
+        embeds: [
+            {
+                title: '🧪 Prueba de Conexión de Presentación de División',
+                description: `¡Conexión establecida con éxito para **${defaultData.divisionName}**!\n\nEste canal está configurado para recibir la presentación oficial de la división.`,
+                color: intColor,
+                fields: [
+                    { name: 'División', value: defaultData.divisionName, inline: true },
+                    { name: 'Estado', value: '🟢 Operativo', inline: true },
+                    { name: 'Fecha y Hora', value: new Date().toLocaleString(), inline: false }
+                ],
+                footer: { text: "Sheriff's Department Webhook Test • Conexión Exitosa" },
+                timestamp: new Date().toISOString()
+            }
+        ]
+    };
+
+    const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        let errText = '';
+        try {
+            const errJson = await response.json();
+            errText = errJson.message || JSON.stringify(errJson);
+        } catch (e) {
+            errText = `HTTP Error ${response.status} (${response.statusText})`;
+        }
+        throw new Error(`Discord rechazó el webhook (${response.status}): ${errText}`);
+    }
+
+    return { success: true };
+}
+
+/**
+ * Dispatch Division Presentation to Discord Webhook
+ */
+export async function sendDivisionPresentationToDiscord(divisionKey, customConfig = null, forceSend = false) {
+    try {
+        const config = customConfig || await getDivisionPresentationConfig(divisionKey);
+        const defaultData = DEFAULT_DIVISION_PRESENTATIONS[divisionKey] || DEFAULT_DIVISION_PRESENTATIONS.coordination;
+
+        if (!forceSend) {
+            if (!config.enabled || !config.webhookUrl || !config.webhookUrl.trim().startsWith('https://')) {
+                console.warn(`Webhook de Presentación de ${divisionKey} no configurado o inactivo.`);
+                return { skipped: true, error: 'Webhook inactivo o no configurado' };
+            }
+        }
+
+        const targetUrl = (config.webhookUrl || '').trim();
+        const formattedPing = formatRoleMention(config.rolePing);
+
+        const botAvatar = normalizeDiscordImageUrl(config.botAvatar, defaultData.botAvatar);
+        const botName = (config.botName || '').trim() || defaultData.botName;
+        const embedTitle = (config.title || '').trim() || defaultData.title;
+        const description = config.description !== undefined ? config.description : defaultData.description;
+
+        const hexColor = (config.color || defaultData.color || '#C5A059').replace('#', '');
+        const intColor = parseInt(hexColor, 16) || 0xC5A059;
+
+        const embed = {
+            title: embedTitle,
+            description: description,
+            color: intColor,
+            timestamp: new Date().toISOString()
+        };
+
+        if (config.footer && typeof config.footer === 'string' && config.footer.trim()) {
+            embed.footer = { text: config.footer.trim() };
+        }
+
+        const activeImage = config.imageUrl;
+        if (activeImage && typeof activeImage === 'string' && activeImage.trim()) {
+            const normalizedImage = normalizeDiscordImageUrl(activeImage);
+            if (normalizedImage) {
+                embed.image = { url: normalizedImage };
+            }
+        }
+
+        let messageContent = undefined;
+        if (formattedPing) {
+            messageContent = `${formattedPing}`;
+        }
+
+        const payload = {
+            username: botName,
+            avatar_url: botAvatar || undefined,
+            content: messageContent,
+            allowed_mentions: {
+                parse: ['roles', 'users', 'everyone']
+            },
+            embeds: [embed]
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errText = '';
+            try {
+                const errJson = await response.json();
+                errText = errJson.message || JSON.stringify(errJson);
+            } catch (e) {
+                errText = `HTTP Error ${response.status} (${response.statusText})`;
+            }
+            console.error(`Failed to send Presentation to Discord (${divisionKey}):`, errText);
+            return { success: false, error: errText };
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error(`Error in sendDivisionPresentationToDiscord (${divisionKey}):`, err);
+        return { success: false, error: err.message };
+    }
+}
+
+

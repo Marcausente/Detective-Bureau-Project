@@ -6,11 +6,12 @@ import CoordinationSanctions from '../components/CoordinationSanctions';
 import CoordinationRolesConfig from '../components/CoordinationRolesConfig';
 import CoordinationWebhookConfig from '../components/CoordinationWebhookConfig';
 import CoordinationRosterDiscord from '../components/CoordinationRosterDiscord';
+import DivisionPresentationDiscord from '../components/DivisionPresentationDiscord';
 import '../index.css';
 
 function Coordination() {
     const { t } = useLanguage();
-    const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'sanctions' | 'roles_config' | 'webhooks' | 'roster'
+    const [activeTab, setActiveTab] = useState('todos'); // 'todos' | 'sanctions' | 'roles_config' | 'webhooks' | 'roster' | 'presentation'
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -296,6 +297,31 @@ function Coordination() {
                 </button>
 
                 <button
+                    onClick={() => setActiveTab('presentation')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        padding: '0.65rem 1.4rem',
+                        borderRadius: '12px',
+                        fontSize: '0.88rem',
+                        fontWeight: 700,
+                        border: activeTab === 'presentation' ? '1px solid rgba(197, 160, 89, 0.5)' : '1px solid transparent',
+                        background: activeTab === 'presentation' ? 'linear-gradient(135deg, rgba(197, 160, 89, 0.3), rgba(160, 120, 50, 0.2))' : 'transparent',
+                        color: activeTab === 'presentation' ? '#C5A059' : '#94a3b8',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        boxShadow: activeTab === 'presentation' ? '0 4px 14px rgba(197, 160, 89, 0.3)' : 'none'
+                    }}
+                >
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={activeTab === 'presentation' ? '#C5A059' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9"/>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                    </svg>
+                    <span>Presentación División</span>
+                </button>
+
+                <button
                     onClick={() => setActiveTab('webhooks')}
                     style={{
                         display: 'flex',
@@ -326,6 +352,7 @@ function Coordination() {
                 {activeTab === 'sanctions' && <CoordinationSanctions />}
                 {activeTab === 'roles_config' && <CoordinationRolesConfig />}
                 {activeTab === 'roster' && <CoordinationRosterDiscord />}
+                {activeTab === 'presentation' && <DivisionPresentationDiscord division="coordination" />}
                 {activeTab === 'webhooks' && <CoordinationWebhookConfig />}
             </div>
         </div>

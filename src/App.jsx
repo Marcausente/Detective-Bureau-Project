@@ -26,6 +26,7 @@ import IASanctionProfile from './pages/IASanctionProfile';
 import IAReceptorDenuncias from './pages/IAReceptorDenuncias';
 import IAPublicacionFaltas from './pages/IAPublicacionFaltas';
 import IAMiembrosDiscord from './pages/IAMiembrosDiscord';
+import DivisionPresentationDiscord from './components/DivisionPresentationDiscord';
 import PublicIADenuncia from './pages/PublicIADenuncia';
 import PublicSCUBDenuncia from './pages/PublicSCUBDenuncia';
 import DOJ from './pages/DOJ'; // Import
@@ -98,6 +99,7 @@ function App() {
             <Route path="/internal-affairs/publicacion-faltas" element={<IAPublicacionFaltas />} />
             <Route path="/internal-affairs/miembros" element={<IAMiembrosDiscord />} />
             <Route path="/internal-affairs/roster" element={<IAMiembrosDiscord />} />
+            <Route path="/internal-affairs/presentacion" element={<DivisionPresentationDiscord division="ia" standalone />} />
             <Route path="/doj" element={<DOJ />} />
             <Route path="/doj/cases" element={<DOJCases />} />
             <Route path="/doj/cases/:id" element={<DOJCaseDetail />} />
