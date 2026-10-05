@@ -3654,9 +3654,9 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                 {v.owner && <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '3px' }}>{t('ownerLabelText')} {v.owner}</div>}
                                 {v.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{v.notes}</div>}
                                 {v.added_by_name && (
-                                    <div style={{ fontSize: '0.68rem', color: '#4b5563', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <div style={{ fontSize: '0.68rem', color: '#374151', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                                         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                                        <span>Añadido por <span style={{ color: '#6b7280', fontWeight: 600 }}>{v.added_by_name}</span></span>
+                                        <span>Añadido por <span style={{ color: v.added_by_name === 'Sin registro' ? '#4b5563' : '#7c9cbf', fontWeight: 600, fontStyle: v.added_by_name === 'Sin registro' ? 'italic' : 'normal' }}>{v.added_by_name}</span></span>
                                     </div>
                                 )}
                                 {v.images && v.images.length > 0 && (
@@ -3700,9 +3700,9 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                 </div>
                                 {h.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{h.notes}</div>}
                                 {h.added_by_name && (
-                                    <div style={{ fontSize: '0.68rem', color: '#4b5563', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <div style={{ fontSize: '0.68rem', color: '#374151', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                                         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                                        <span>Añadido por <span style={{ color: '#6b7280', fontWeight: 600 }}>{h.added_by_name}</span></span>
+                                        <span>Añadido por <span style={{ color: h.added_by_name === 'Sin registro' ? '#4b5563' : '#7c9cbf', fontWeight: 600, fontStyle: h.added_by_name === 'Sin registro' ? 'italic' : 'normal' }}>{h.added_by_name}</span></span>
                                     </div>
                                 )}
                                 {h.images && h.images.length > 0 && (
@@ -3898,7 +3898,7 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                     {m.added_by_name && (
                                         <div style={{ fontSize: '0.58rem', color: '#374151', marginTop: '3px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }} title={`Añadido por ${m.added_by_name}`}>
                                             <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                                            <span style={{ color: '#4b5563', fontWeight: 600 }}>{m.added_by_name}</span>
+                                            <span style={{ color: m.added_by_name === 'Sin registro' ? '#4b5563' : '#7c9cbf', fontWeight: 600, fontStyle: m.added_by_name === 'Sin registro' ? 'italic' : 'normal' }}>{m.added_by_name}</span>
                                         </div>
                                     )}
                                     <div style={{ marginTop: '5px', display: 'flex', justifyContent: 'center', gap: '5px' }} onClick={e => e.stopPropagation()}>

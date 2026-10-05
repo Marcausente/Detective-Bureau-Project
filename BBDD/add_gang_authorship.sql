@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- GANG AUTHORSHIP MIGRATION
 -- Adds 'added_by' column to gang_vehicles, gang_homes
 -- and gang_members so every piece of intelligence shows
@@ -121,7 +121,7 @@ BEGIN
         g.detective_in_charge_2,
         (SELECT u.nombre || ' ' || u.apellido FROM public.users u WHERE u.id = g.detective_in_charge_2),
 
-        -- Vehicles (now includes added_by_name)
+        -- Vehicles (now includes added_by_name, fallback 'Sin registro' for old data)
         COALESCE((
             SELECT jsonb_agg(
                 jsonb_build_object(
@@ -131,16 +131,17 @@ BEGIN
                     'owner',        v.owner_name,
                     'notes',        v.notes,
                     'images',       v.images,
-                    'added_by_name',(
-                        SELECT u.nombre || ' ' || u.apellido
-                        FROM public.users u WHERE u.id = v.added_by
+                    'added_by_name', COALESCE(
+                        (SELECT u.nombre || ' ' || u.apellido
+                         FROM public.users u WHERE u.id = v.added_by),
+                        'Sin registro'
                     )
                 )
             )
             FROM public.gang_vehicles v WHERE v.gang_id = g.id
         ), '[]'::jsonb),
 
-        -- Homes (now includes added_by_name)
+        -- Homes (now includes added_by_name, fallback 'Sin registro' for old data)
         COALESCE((
             SELECT jsonb_agg(
                 jsonb_build_object(
@@ -148,16 +149,17 @@ BEGIN
                     'owner',        h.owner_name,
                     'notes',        h.address_notes,
                     'images',       h.images,
-                    'added_by_name',(
-                        SELECT u.nombre || ' ' || u.apellido
-                        FROM public.users u WHERE u.id = h.added_by
+                    'added_by_name', COALESCE(
+                        (SELECT u.nombre || ' ' || u.apellido
+                         FROM public.users u WHERE u.id = h.added_by),
+                        'Sin registro'
                     )
                 )
             )
             FROM public.gang_homes h WHERE h.gang_id = g.id
         ), '[]'::jsonb),
 
-        -- Members (now includes added_by_name)
+        -- Members (now includes added_by_name, fallback 'Sin registro' for old data)
         COALESCE((
             SELECT jsonb_agg(
                 jsonb_build_object(
@@ -167,9 +169,10 @@ BEGIN
                     'photo',        m.photo,
                     'notes',        m.notes,
                     'status',       m.status,
-                    'added_by_name',(
-                        SELECT u.nombre || ' ' || u.apellido
-                        FROM public.users u WHERE u.id = m.added_by
+                    'added_by_name', COALESCE(
+                        (SELECT u.nombre || ' ' || u.apellido
+                         FROM public.users u WHERE u.id = m.added_by),
+                        'Sin registro'
                     )
                 )
             )
