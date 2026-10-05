@@ -28,7 +28,7 @@ export default function DivisionPresentationDiscord({ division = 'coordination',
     const { language } = useLanguage();
     const { isLSSD, branding } = useTheme();
 
-    const [selectedDivision, setSelectedDivision] = useState(division || 'coordination');
+    const selectedDivision = division || 'coordination';
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
@@ -57,14 +57,7 @@ export default function DivisionPresentationDiscord({ division = 'coordination',
     const avatarInputRef = useRef(null);
     const textareaRef = useRef(null);
 
-    // Sync if prop changes
-    useEffect(() => {
-        if (division && division !== selectedDivision) {
-            setSelectedDivision(division);
-        }
-    }, [division]);
-
-    // Load data when selected division changes
+    // Load data on mount or when division prop changes
     useEffect(() => {
         loadData(selectedDivision);
     }, [selectedDivision]);
@@ -462,11 +455,11 @@ export default function DivisionPresentationDiscord({ division = 'coordination',
                                     boxShadow: enabled && webhookUrl ? '0 0 10px #22c55e' : '0 0 8px #ef4444'
                                 }}></span>
                                 <span style={{ fontSize: '0.72rem', fontWeight: 800, color: currentDivMeta.color, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                    WEBHOOK DE PRESENTACIÓN INSTITUCIONAL • {currentDivMeta.label}
+                                    WEBHOOK DE PRESENTACIÓN INSTITUCIONAL
                                 </span>
                             </div>
                             <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: '0 0 0.25rem 0', color: '#ffffff', letterSpacing: '-0.02em' }}>
-                                PRESENTACIÓN DE LA DIVISIÓN (DISCORD)
+                                PRESENTACIÓN • {currentDivMeta.label.toUpperCase()}
                             </h1>
                             <p style={{ margin: 0, fontSize: '0.86rem', color: '#94a3b8' }}>
                                 Emisión del comunicado oficial de la división hacia Discord con formato enriquecido, cita de unidades, requisitos y fotografía.
@@ -474,44 +467,26 @@ export default function DivisionPresentationDiscord({ division = 'coordination',
                         </div>
                     </div>
 
-                    {/* Quick Division Switcher */}
+                    {/* Division Institutional Badge (Locked to this section) */}
                     <div style={{
                         display: 'flex',
-                        background: 'rgba(15, 23, 42, 0.75)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        padding: '0.3rem',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        background: `${currentDivMeta.color}18`,
+                        border: `1px solid ${currentDivMeta.color}44`,
+                        padding: '0.65rem 1.25rem',
                         borderRadius: '14px',
-                        gap: '0.35rem',
-                        flexWrap: 'wrap'
+                        boxShadow: `0 4px 16px ${currentDivMeta.color}22`
                     }}>
-                        {DIVISION_OPTIONS.map(opt => {
-                            const isSelected = selectedDivision === opt.key;
-                            return (
-                                <button
-                                    key={opt.key}
-                                    type="button"
-                                    onClick={() => setSelectedDivision(opt.key)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.45rem',
-                                        padding: '0.5rem 0.95rem',
-                                        borderRadius: '10px',
-                                        fontSize: '0.82rem',
-                                        fontWeight: 700,
-                                        border: isSelected ? `1px solid ${opt.color}66` : '1px solid transparent',
-                                        background: isSelected ? `${opt.color}25` : 'transparent',
-                                        color: isSelected ? '#ffffff' : '#94a3b8',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                                        boxShadow: isSelected ? `0 4px 12px ${opt.color}33` : 'none'
-                                    }}
-                                >
-                                    <span>{opt.icon}</span>
-                                    <span>{opt.label}</span>
-                                </button>
-                            );
-                        })}
+                        <span style={{ fontSize: '1.4rem' }}>{currentDivMeta.icon}</span>
+                        <div>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 800, color: currentDivMeta.color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                Canal Oficial
+                            </div>
+                            <div style={{ fontSize: '0.94rem', fontWeight: 800, color: '#ffffff' }}>
+                                {currentDivMeta.label}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -734,17 +709,10 @@ export default function DivisionPresentationDiscord({ division = 'coordination',
                             <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                                 <button
                                     type="button"
-                                    onClick={() => setBotAvatar(SCUB_LOGO_URL)}
+                                    onClick={() => setBotAvatar(selectedDivision === 'ia' ? IA_LOGO_URL : SCUB_LOGO_URL)}
                                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.72rem', cursor: 'pointer' }}
                                 >
-                                    🛡️ Logo SCUB
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setBotAvatar(IA_LOGO_URL)}
-                                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.72rem', cursor: 'pointer' }}
-                                >
-                                    ⚖️ Logo IA
+                                    {selectedDivision === 'ia' ? '⚖️ Logo Oficial IA' : `🛡️ Logo Oficial ${currentDivMeta.label}`}
                                 </button>
                             </div>
                         </div>
@@ -799,36 +767,38 @@ export default function DivisionPresentationDiscord({ division = 'coordination',
                                     type="button"
                                     onClick={handleLoadDefaultTemplate}
                                     style={{
-                                        background: 'rgba(255, 255, 255, 0.06)',
-                                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                                        color: '#cbd5e1',
-                                        borderRadius: '8px',
-                                        padding: '0.35rem 0.75rem',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 600,
-                                        cursor: 'pointer'
-                                    }}
-                                    title="Carga la plantilla por defecto de la división seleccionada"
-                                >
-                                    🔄 Plantilla de {currentDivMeta.label}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleLoadScubExample}
-                                    style={{
-                                        background: 'rgba(197, 160, 89, 0.15)',
-                                        border: '1px solid rgba(197, 160, 89, 0.4)',
-                                        color: '#C5A059',
+                                        background: `${currentDivMeta.color}15`,
+                                        border: `1px solid ${currentDivMeta.color}44`,
+                                        color: currentDivMeta.color,
                                         borderRadius: '8px',
                                         padding: '0.35rem 0.75rem',
                                         fontSize: '0.75rem',
                                         fontWeight: 700,
                                         cursor: 'pointer'
                                     }}
-                                    title="Carga exactamente el ejemplo del Sheriff Criminal Unit Bureau de la imagen"
+                                    title={`Restaura la plantilla oficial recomendada de ${currentDivMeta.label}`}
                                 >
-                                    ✨ Ejemplo de la foto (SCUB)
+                                    🔄 Restaurar Plantilla de {currentDivMeta.label}
                                 </button>
+                                {selectedDivision === 'coordination' && (
+                                    <button
+                                        type="button"
+                                        onClick={handleLoadScubExample}
+                                        style={{
+                                            background: 'rgba(197, 160, 89, 0.15)',
+                                            border: '1px solid rgba(197, 160, 89, 0.4)',
+                                            color: '#C5A059',
+                                            borderRadius: '8px',
+                                            padding: '0.35rem 0.75rem',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer'
+                                        }}
+                                        title="Carga exactamente el ejemplo del Sheriff Criminal Unit Bureau de la imagen"
+                                    >
+                                        ✨ Ejemplo de la foto (SCUB)
+                                    </button>
+                                )}
                             </div>
                         </div>
 
