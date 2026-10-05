@@ -3461,6 +3461,12 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                         ))}
                                     </div>
                                 )}
+                                {i.author && (
+                                    <div style={{ fontSize: '0.68rem', color: '#4b5563', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        <span>Añadido por <span style={{ color: '#6b7280', fontWeight: 600 }}>{i.author}</span></span>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -3647,6 +3653,12 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                 </div>
                                 {v.owner && <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '3px' }}>{t('ownerLabelText')} {v.owner}</div>}
                                 {v.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{v.notes}</div>}
+                                {v.added_by_name && (
+                                    <div style={{ fontSize: '0.68rem', color: '#4b5563', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        <span>Añadido por <span style={{ color: '#6b7280', fontWeight: 600 }}>{v.added_by_name}</span></span>
+                                    </div>
+                                )}
                                 {v.images && v.images.length > 0 && (
                                     <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
                                         {v.images.map((img, idx) => (
@@ -3687,6 +3699,12 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                     <ActionButtons type="home" item={h} />
                                 </div>
                                 {h.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{h.notes}</div>}
+                                {h.added_by_name && (
+                                    <div style={{ fontSize: '0.68rem', color: '#4b5563', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        <span>Añadido por <span style={{ color: '#6b7280', fontWeight: 600 }}>{h.added_by_name}</span></span>
+                                    </div>
+                                )}
                                 {h.images && h.images.length > 0 && (
                                     <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
                                         {h.images.map((img, idx) => (
@@ -3875,6 +3893,12 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                         <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }} title={m.notes}>
                                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                                             <span>{t('hasNotes')}</span>
+                                        </div>
+                                    )}
+                                    {m.added_by_name && (
+                                        <div style={{ fontSize: '0.58rem', color: '#374151', marginTop: '3px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }} title={`Añadido por ${m.added_by_name}`}>
+                                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                            <span style={{ color: '#4b5563', fontWeight: 600 }}>{m.added_by_name}</span>
                                         </div>
                                     )}
                                     <div style={{ marginTop: '5px', display: 'flex', justifyContent: 'center', gap: '5px' }} onClick={e => e.stopPropagation()}>
