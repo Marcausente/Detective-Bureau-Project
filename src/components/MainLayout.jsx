@@ -181,6 +181,7 @@ const getShortLabel = (path, fullName, branding = {}, isLSSD = false) => {
         case '/training': return branding?.training_nav_label || 'Formación';
         case '/internal-affairs': return branding?.ia_nav_label || 'Asuntos Internos';
         case '/internal-affairs/publicacion-faltas': return `Publicación Faltas (${branding?.ia_nav_label || 'IA'})`;
+        case '/internal-affairs/configuracion': return `Configuración (${branding?.ia_nav_label || 'IA'})`;
         case '/doj': return 'DOJ';
         case '/seb': return branding?.seb_nav_label || 'SEB';
         case '/air-support': return branding?.asd_nav_label || 'Air Support';
