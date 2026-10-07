@@ -70,7 +70,9 @@ function Documentation() {
 
         try {
             let docUrl = formData.url;
-            if (docUrl && docUrl.startsWith('data:')) {
+            if (targetCategory === 'information') {
+                docUrl = null;
+            } else if (docUrl && docUrl.startsWith('data:')) {
                 docUrl = await uploadImageToStorage(docUrl, 'documentation');
             }
 
@@ -83,7 +85,28 @@ function Documentation() {
                 p_category: targetCategory
             });
 
-            if (error) throw error;
+            if (error) {
+                // Direct fallback in case RPC constraint or signature requires direct update
+                const { data: { user } } = await supabase.auth.getUser();
+                if (modalMode === 'create') {
+                    const { error: insErr } = await supabase.from('documentation_posts').insert({
+                        title: formData.title,
+                        description: formData.description,
+                        url: docUrl,
+                        category: targetCategory,
+                        author_id: user ? user.id : null
+                    });
+                    if (insErr) throw insErr;
+                } else if (modalMode === 'update') {
+                    const { error: updErr } = await supabase.from('documentation_posts').update({
+                        title: formData.title,
+                        description: formData.description,
+                        url: docUrl,
+                        category: targetCategory
+                    }).eq('id', editingId);
+                    if (updErr) throw updErr;
+                }
+            }
 
             setShowModal(false);
             loadData();
@@ -356,7 +379,7 @@ function Documentation() {
                         className={`mac-segment-btn ${activeTab === 'information' ? 'active' : ''}`}
                         onClick={() => setActiveTab('information')}
                     >
-                        📝 Información ({information.length})
+                        📝 {t('informationTitle') || 'Plantillas'} ({information.length})
                     </button>
                 </div>
             </div>
@@ -383,7 +406,18 @@ function Documentation() {
                                     </svg>
                                     {t('documentation')}
                                 </h2>
-                                <span className="mac-doc-section-count">{docs.length} elementos</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                    <span className="mac-doc-section-count">{docs.length} elementos</span>
+                                    {canManage && (
+                                        <button 
+                                            className="mac-btn mac-btn-secondary" 
+                                            style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px' }}
+                                            onClick={() => openCreate('documentation')}
+                                        >
+                                            + Añadir Documento
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             {renderCardGrid(docs, t('noDocs'), 'doc')}
                         </div>
@@ -400,7 +434,18 @@ function Documentation() {
                                     </svg>
                                     {t('resourcesTitle')}
                                 </h2>
-                                <span className="mac-doc-section-count">{resources.length} elementos</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                    <span className="mac-doc-section-count">{resources.length} elementos</span>
+                                    {canManage && (
+                                        <button 
+                                            className="mac-btn mac-btn-secondary" 
+                                            style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px' }}
+                                            onClick={() => openCreate('resource')}
+                                        >
+                                            + Añadir Recurso
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             {renderCardGrid(resources, t('noResources'), 'resource')}
                         </div>
@@ -417,9 +462,20 @@ function Documentation() {
                                         <line x1="16" y1="13" x2="8" y2="13" />
                                         <line x1="16" y1="17" x2="8" y2="17" />
                                     </svg>
-                                    {t('informationTitle')}
+                                    {t('informationTitle') || 'Plantillas'}
                                 </h2>
-                                <span className="mac-doc-section-count">{information.length} elementos</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                    <span className="mac-doc-section-count">{information.length} elementos</span>
+                                    {canManage && (
+                                        <button 
+                                            className="mac-btn mac-btn-secondary" 
+                                            style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px' }}
+                                            onClick={() => openCreate('information')}
+                                        >
+                                            + Añadir Plantilla
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             {renderCardGrid(information, t('noInfo'), 'info')}
                         </div>
@@ -503,49 +559,131 @@ function Documentation() {
             {showModal && (
                 <div className="mac-modal-backdrop" onClick={() => setShowModal(false)}>
                     <div className="mac-modal-container" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="mac-modal-title">
+                        <h3 className="mac-modal-title" style={{ marginBottom: '1rem' }}>
                             {modalMode === 'create' ? (
-                                targetCategory === 'resource' ? t('newResourceTitle') :
-                                targetCategory === 'information' ? t('newInfoTitle') :
-                                t('newDocTitle')
-                            ) : t('editItemTitle')}
+                                targetCategory === 'resource' ? (t('newResourceTitle') || 'Nuevo Recurso') :
+                                targetCategory === 'information' ? (t('newInfoTitle') || 'Nueva Plantilla') :
+                                (t('newDocTitle') || 'Nuevo Documento')
+                            ) : (t('editItemTitle') || 'Editar Elemento')}
                         </h3>
+
+                        {/* Interactive Category Selector */}
+                        <div style={{ marginBottom: '1.25rem' }}>
+                            <label className="mac-form-label" style={{ marginBottom: '0.45rem', display: 'block', fontSize: '0.8rem', color: '#94a3b8' }}>
+                                Tipo de publicación:
+                            </label>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
+                                <button
+                                    type="button"
+                                    className={`mac-btn ${targetCategory === 'documentation' ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        padding: '0.65rem 0.3rem',
+                                        borderRadius: '10px',
+                                        fontSize: '0.82rem',
+                                        fontWeight: targetCategory === 'documentation' ? 700 : 500,
+                                        borderColor: targetCategory === 'documentation' ? 'var(--accent-primary, #38bdf8)' : 'rgba(255,255,255,0.1)'
+                                    }}
+                                    onClick={() => setTargetCategory('documentation')}
+                                >
+                                    <span style={{ fontSize: '1.2rem' }}>📄</span>
+                                    <span>Documentación</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className={`mac-btn ${targetCategory === 'resource' ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        padding: '0.65rem 0.3rem',
+                                        borderRadius: '10px',
+                                        fontSize: '0.82rem',
+                                        fontWeight: targetCategory === 'resource' ? 700 : 500,
+                                        borderColor: targetCategory === 'resource' ? 'var(--accent-primary, #38bdf8)' : 'rgba(255,255,255,0.1)'
+                                    }}
+                                    onClick={() => setTargetCategory('resource')}
+                                >
+                                    <span style={{ fontSize: '1.2rem' }}>🔗</span>
+                                    <span>Recurso</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className={`mac-btn ${targetCategory === 'information' ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        padding: '0.65rem 0.3rem',
+                                        borderRadius: '10px',
+                                        fontSize: '0.82rem',
+                                        fontWeight: targetCategory === 'information' ? 700 : 500,
+                                        borderColor: targetCategory === 'information' ? 'var(--accent-primary, #38bdf8)' : 'rgba(255,255,255,0.1)'
+                                    }}
+                                    onClick={() => setTargetCategory('information')}
+                                >
+                                    <span style={{ fontSize: '1.2rem' }}>📝</span>
+                                    <span>Plantilla</span>
+                                </button>
+                            </div>
+                            <div style={{ marginTop: '0.45rem', fontSize: '0.74rem', color: '#64748b' }}>
+                                {targetCategory === 'documentation' && 'Manuales, guías y documentos departamentales.'}
+                                {targetCategory === 'resource' && 'Logos, enlaces externos, imágenes y utilidades operativas.'}
+                                {targetCategory === 'information' && 'Plantillas de texto reutilizables para copiar al portapapeles con un clic.'}
+                            </div>
+                        </div>
+
                         <form onSubmit={handleAction}>
-                            {targetCategory === 'resource' && (
+                            {(targetCategory === 'resource' || targetCategory === 'documentation') && (
                                 <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
                                     <button
                                         type="button"
                                         className={`mac-btn ${inputType === 'url' ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
-                                        style={{ flex: 1, padding: '0.5rem' }}
+                                        style={{ flex: 1, padding: '0.5rem', fontSize: '0.82rem' }}
                                         onClick={() => setInputType('url')}
                                     >
-                                        {t('externalUrlBtn')}
+                                        {t('externalUrlBtn') || 'URL Externa / Enlace'}
                                     </button>
                                     <button
                                         type="button"
                                         className={`mac-btn ${inputType === 'file' ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
-                                        style={{ flex: 1, padding: '0.5rem' }}
+                                        style={{ flex: 1, padding: '0.5rem', fontSize: '0.82rem' }}
                                         onClick={() => setInputType('file')}
                                     >
-                                        {t('uploadImageBtn')}
+                                        {t('uploadImageBtn') || 'Subir Imagen / Archivo'}
                                     </button>
                                 </div>
                             )}
 
                             <div className="mac-form-group">
-                                <label className="mac-form-label">{t('titleLabel')}</label>
+                                <label className="mac-form-label">{t('titleLabel') || 'Título'}</label>
                                 <input
                                     className="mac-form-input"
                                     required
                                     value={formData.title}
                                     onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                    placeholder="Título de la publicación..."
+                                    placeholder={
+                                        targetCategory === 'information'
+                                            ? "Ej: Formato de Notificación de Allanamiento..."
+                                            : targetCategory === 'resource'
+                                            ? "Ej: Logo SCUB / Roster Operativo..."
+                                            : "Ej: Manual Balística / Guía de Procedimientos..."
+                                    }
                                 />
                             </div>
 
                             <div className="mac-form-group">
                                 <label className="mac-form-label">
-                                    {targetCategory === 'information' ? t('descRequired') : t('descOptional')}
+                                    {targetCategory === 'information' 
+                                        ? (t('descRequired') || 'Contenido de la Plantilla (Obligatorio)') 
+                                        : (t('descOptional') || 'Descripción (Opcional)')}
                                 </label>
                                 <textarea
                                     className="mac-form-textarea"
@@ -553,24 +691,28 @@ function Documentation() {
                                     required={targetCategory === 'information'}
                                     value={formData.description}
                                     onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                    placeholder="Descripción o contenido en texto..."
+                                    placeholder={
+                                        targetCategory === 'information'
+                                            ? "Escribe aquí la plantilla de texto que los agentes podrán leer y copiar con un clic..."
+                                            : "Breve resumen o notas sobre este elemento..."
+                                    }
                                 />
                             </div>
 
                             {targetCategory !== 'information' && (
                                 <div className="mac-form-group">
                                     <label className="mac-form-label">
-                                        {inputType === 'file' ? t('imageFileLabel') : t('extUrlLabel')}
+                                        {inputType === 'file' ? (t('imageFileLabel') || 'Archivo / Imagen') : (t('extUrlLabel') || 'URL Externa')}
                                     </label>
                                     {inputType === 'file' ? (
                                         <div>
                                             <label className="mac-btn mac-btn-secondary" style={{ display: 'inline-flex', cursor: 'pointer' }}>
                                                 <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
-                                                📁 {formData.url && formData.url.startsWith('data:') ? t('changeImage') : t('selectImage')}
+                                                📁 {formData.url && formData.url.startsWith('data:') ? (t('changeImage') || 'Cambiar Imagen') : (t('selectImage') || 'Seleccionar Imagen')}
                                             </label>
                                             {formData.url && formData.url.startsWith('data:') && (
                                                 <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#34d399' }}>
-                                                    ✓ {t('imageSelected')}
+                                                    ✓ {t('imageSelected') || 'Imagen Seleccionada'}
                                                 </div>
                                             )}
                                         </div>
@@ -589,10 +731,10 @@ function Documentation() {
 
                             <div className="mac-modal-actions">
                                 <button type="button" className="mac-btn mac-btn-secondary" onClick={() => setShowModal(false)}>
-                                    {t('cancelBtn')}
+                                    {t('cancelBtn') || 'Cancelar'}
                                 </button>
                                 <button type="submit" className="mac-btn mac-btn-primary" disabled={submitLoading}>
-                                    {submitLoading ? t('savingBtn') : t('saveBtn')}
+                                    {submitLoading ? (t('savingBtn') || 'Guardando...') : (t('saveBtn') || 'Guardar')}
                                 </button>
                             </div>
                         </form>
