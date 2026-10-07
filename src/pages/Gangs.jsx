@@ -339,14 +339,14 @@ function Gangs() {
 
         // Populate inputs based on type
         if (type === 'vehicle') {
-            setVehModel(item.model || ''); 
-            setVehPlate(item.plate || ''); 
-            setVehOwner(item.owner || ''); 
-            setVehNotes(item.notes || ''); 
+            setVehModel(item.model || '');
+            setVehPlate(item.plate || '');
+            setVehOwner(item.owner || '');
+            setVehNotes(item.notes || '');
             setVehImages(item.images || []);
         } else if (type === 'home') {
-            setHomeOwner(item.owner || ''); 
-            setHomeNotes(item.notes || ''); 
+            setHomeOwner(item.owner || '');
+            setHomeNotes(item.notes || '');
             setHomeImages(item.images || []);
         } else if (type === 'member') {
             const name = item.name || '';
@@ -360,12 +360,12 @@ function Gangs() {
                 setMemName(name);
                 setMemId('');
             }
-            setMemRole(item.role || 'Sospechoso'); 
-            setMemNotes(item.notes || ''); 
+            setMemRole(item.role || 'Sospechoso');
+            setMemNotes(item.notes || '');
             setMemPhoto(item.photo || null);
         } else if (type === 'info') {
-            setInfoType(item.type || 'info'); 
-            setInfoContent(item.content || ''); 
+            setInfoType(item.type || 'info');
+            setInfoContent(item.content || '');
             setInfoImages(item.images || []);
         } else if (type === 'graffiti') {
             setGraffitiImage(item.graffiti_image || null);
@@ -385,9 +385,9 @@ function Gangs() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const { error } = await supabase.rpc('create_gang', { 
-                p_name: newName, 
-                p_color: newColor, 
+            const { error } = await supabase.rpc('create_gang', {
+                p_name: newName,
+                p_color: newColor,
                 p_zones_image: zonesImage,
                 p_detective_in_charge_1: detective1 || null,
                 p_detective_in_charge_2: detective2 || null
@@ -400,7 +400,7 @@ function Gangs() {
 
     const handleAddVehicle = async (e) => {
         e.preventDefault();
-        
+
         // strict trim values
         const model = vehModel.trim();
         const plate = vehPlate.trim();
@@ -691,7 +691,7 @@ function Gangs() {
 
     const handleAddInfo = async (e) => {
         e.preventDefault();
-        
+
         const content = infoContent.trim();
         if (!content) {
             alert("Content cannot be empty.");
@@ -789,7 +789,7 @@ function Gangs() {
 
     const handleAddGraffiti = async (e) => {
         e.preventDefault();
-        
+
         if (!graffitiImage) {
             alert("Please upload a photo of the graffiti.");
             return;
@@ -993,8 +993,8 @@ function Gangs() {
 
     const handleToggleConflictStatus = async (conflictId, currentStatus) => {
         const isResolved = currentStatus === 'resolved';
-        const confirmMsg = isResolved 
-            ? "¿Deseas reabrir este conflicto y marcarlo como ACTIVO?" 
+        const confirmMsg = isResolved
+            ? "¿Deseas reabrir este conflicto y marcarlo como ACTIVO?"
             : "¿Deseas dar por FINALIZADO este conflicto?";
         if (!confirm(confirmMsg)) return;
 
@@ -1086,10 +1086,10 @@ function Gangs() {
                 return;
             }
 
-            const rpcName = type === 'incidents' 
-                ? 'get_gang_incidents' 
-                : type === 'cases' 
-                    ? 'get_gang_cases' 
+            const rpcName = type === 'incidents'
+                ? 'get_gang_incidents'
+                : type === 'cases'
+                    ? 'get_gang_cases'
                     : 'get_gang_outings';
             const { data, error } = await supabase.rpc(rpcName, { p_gang_id: targetGangId });
             if (error) throw error;
@@ -1200,7 +1200,7 @@ function Gangs() {
             }
         }
 
-        const isInactive = 
+        const isInactive =
             (typeof m.role === 'string' && m.role.toLowerCase() === 'inactivo') ||
             (typeof m.status === 'string' && (m.status.toLowerCase() === 'inactivo' || m.status.toLowerCase() === 'inactive')) ||
             m.is_inactive === true ||
@@ -1433,15 +1433,15 @@ function Gangs() {
             // Update local state
             setGangs(gangs.map(g =>
                 g.gang_id === activeGangId
-                    ? { 
-                        ...g, 
-                        name: newName.trim(), 
+                    ? {
+                        ...g,
+                        name: newName.trim(),
                         color: newColor,
                         detective_in_charge_1: detective1 || null,
                         detective_in_charge_1_name: d1User ? `${d1User.nombre} ${d1User.apellido}` : null,
                         detective_in_charge_2: detective2 || null,
                         detective_in_charge_2_name: d2User ? `${d2User.nombre} ${d2User.apellido}` : null
-                      }
+                    }
                     : g
             ));
 
@@ -1739,200 +1739,200 @@ function Gangs() {
         <div id="gangs-page" style={{ width: '100%', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent', padding: '1rem 1.5rem 0px 1.5rem', boxSizing: 'border-box', overflow: 'hidden' }}>
             {/* Inner Header Navbar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', padding: '0.3rem 0.8rem', gap: '1rem', flexWrap: 'wrap', width: '100%', boxSizing: 'border-box', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-                        <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.015em' }}>{branding?.gangs_title || (isLSSD ? t('gndTitle') : t('giuTitle'))}</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.015em' }}>{branding?.gangs_title || (isLSSD ? t('gndTitle') : t('giuTitle'))}</h2>
 
-                        {/* Segmented Pill Tabs */}
-                        <div className="mac-doc-tabs" style={{ padding: '0.25rem' }}>
-                            <button className={`mac-doc-tab ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                                </svg>
-                                <span>{t('activeOperationTab')}</span>
-                            </button>
-                            <button className={`mac-doc-tab ${viewMode === 'archived' ? 'active' : ''}`} onClick={() => setViewMode('archived')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="21 8 21 21 3 21 3 8" />
-                                    <rect x="1" y="3" width="22" height="5" />
-                                    <line x1="10" y1="12" x2="14" y2="12" />
-                                </svg>
-                                <span>{t('archiveTab')}</span>
-                            </button>
-                            <button className={`mac-doc-tab ${viewMode === 'todo' ? 'active' : ''}`} onClick={() => setViewMode('todo')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M9 11l3 3L22 4" />
-                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                                </svg>
-                                <span>{t('toDoListTab')}</span>
-                            </button>
-                        </div>
-
-                        {/* SEARCH INPUT */}
-                        <div ref={searchRef} style={{ position: 'relative', width: '260px' }}>
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                background: 'rgba(0, 0, 0, 0.4)',
-                                border: '1px solid rgba(255, 255, 255, 0.15)',
-                                borderRadius: '20px',
-                                padding: '0.35rem 0.85rem',
-                                transition: 'all 0.3s ease',
-                                boxShadow: searchQuery ? '0 0 10px rgba(16, 185, 129, 0.3)' : 'none'
-                            }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', color: '#94a3b8' }}>
-                                    <circle cx="11" cy="11" r="8" />
-                                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                                </svg>
-                                <input
-                                    type="text"
-                                    placeholder="Buscar persona, ID, vehículo..."
-                                    value={searchQuery}
-                                    onChange={(e) => {
-                                        setSearchQuery(e.target.value);
-                                        setSearchDropdownOpen(true);
-                                    }}
-                                    onFocus={() => setSearchDropdownOpen(true)}
-                                    style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        outline: 'none',
-                                        color: '#fff',
-                                        fontSize: '0.82rem',
-                                        width: '100%'
-                                    }}
-                                />
-                                {searchQuery && (
-                                    <button
-                                        onClick={() => { setSearchQuery(''); setSearchDropdownOpen(false); }}
-                                        style={{
-                                            background: 'none',
-                                            border: 'none',
-                                            color: 'rgba(255,255,255,0.6)',
-                                            cursor: 'pointer',
-                                            fontSize: '0.85rem',
-                                            padding: '0 4px'
-                                        }}
-                                    >
-                                        ✕
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* Dropdown Results */}
-                            {searchDropdownOpen && searchQuery.trim() !== '' && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: 'calc(100% + 6px)',
-                                    left: 0,
-                                    width: '340px',
-                                    maxHeight: '350px',
-                                    overflowY: 'auto',
-                                    background: 'rgba(15, 23, 42, 0.96)',
-                                    backdropFilter: 'blur(12px)',
-                                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                                    borderRadius: '12px',
-                                    boxShadow: '0 15px 35px rgba(0,0,0,0.7)',
-                                    zIndex: 1000,
-                                    padding: '0.5rem'
-                                }}>
-                                    {searchResults.length === 0 ? (
-                                        <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
-                                            No se encontraron resultados para "{searchQuery}"
-                                        </div>
-                                    ) : (
-                                        searchResults.map((res, idx) => (
-                                            <div
-                                                key={idx}
-                                                onClick={() => handleSelectSearchResult(res)}
-                                                style={{
-                                                    padding: '0.6rem 0.8rem',
-                                                    borderRadius: '8px',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '0.75rem',
-                                                    transition: 'background 0.2s',
-                                                    borderBottom: idx < searchResults.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none'
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                            >
-                                                {res.type === 'member' && res.photo ? (
-                                                    <img src={res.photo} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${res.gangColor || '#fff'}` }} />
-                                                ) : (
-                                                    <div style={{
-                                                        width: '36px',
-                                                        height: '36px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(255,255,255,0.08)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        fontSize: '0.9rem',
-                                                        border: `1px solid ${res.gangColor || 'rgba(255,255,255,0.2)'}`
-                                                    }}>
-                                                        {res.type === 'member' ? (
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                                                        ) : res.type === 'vehicle' ? (
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13" rx="2" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></svg>
-                                                        ) : res.type === 'home' ? (
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-                                                        ) : res.type === 'info' ? (
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
-                                                        ) : res.type === 'graffiti' ? (
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /></svg>
-                                                        ) : (
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
-                                                        )}
-                                                    </div>
-                                                )}
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        {res.title}
-                                                    </div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: res.gangColor || '#cfb53b', display: 'inline-block' }}></span>
-                                                        <strong style={{ color: res.gangColor || '#fff' }}>{res.gangName}</strong>
-                                                        <span>•</span>
-                                                        <span>{res.subtitle}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            )}
-                        </div>
+                    {/* Segmented Pill Tabs */}
+                    <div className="mac-doc-tabs" style={{ padding: '0.25rem' }}>
+                        <button className={`mac-doc-tab ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                            </svg>
+                            <span>{t('activeOperationTab')}</span>
+                        </button>
+                        <button className={`mac-doc-tab ${viewMode === 'archived' ? 'active' : ''}`} onClick={() => setViewMode('archived')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="21 8 21 21 3 21 3 8" />
+                                <rect x="1" y="3" width="22" height="5" />
+                                <line x1="10" y1="12" x2="14" y2="12" />
+                            </svg>
+                            <span>{t('archiveTab')}</span>
+                        </button>
+                        <button className={`mac-doc-tab ${viewMode === 'todo' ? 'active' : ''}`} onClick={() => setViewMode('todo')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 11l3 3L22 4" />
+                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                            </svg>
+                            <span>{t('toDoListTab')}</span>
+                        </button>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <button
-                            className="mac-btn mac-btn-secondary"
-                            style={{ padding: '0.45rem 1rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.45rem', border: '1px solid rgba(255,255,255,0.18)' }}
-                            onClick={handleCopyAllGangs}
-                            title="Copiar información formateada de todos los grupos al portapapeles"
-                        >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    {/* SEARCH INPUT */}
+                    <div ref={searchRef} style={{ position: 'relative', width: '260px' }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            background: 'rgba(0, 0, 0, 0.4)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            borderRadius: '20px',
+                            padding: '0.35rem 0.85rem',
+                            transition: 'all 0.3s ease',
+                            boxShadow: searchQuery ? '0 0 10px rgba(16, 185, 129, 0.3)' : 'none'
+                        }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', color: '#94a3b8' }}>
+                                <circle cx="11" cy="11" r="8" />
+                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
                             </svg>
-                            <span>Copiar Información Grupos</span>
-                        </button>
-                        {viewMode === 'active' && (
-                            <button
-                                className="mac-btn mac-btn-primary"
-                                style={{ padding: '0.45rem 1rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                                onClick={() => openModal('createGang', null)}
-                            >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="12" y1="5" x2="12" y2="19" />
-                                    <line x1="5" y1="12" x2="19" y2="12" />
-                                </svg>
-                                <span>{t('trackNewSyndicateBtn')}</span>
-                            </button>
+                            <input
+                                type="text"
+                                placeholder="Buscar persona, ID, vehículo..."
+                                value={searchQuery}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    setSearchDropdownOpen(true);
+                                }}
+                                onFocus={() => setSearchDropdownOpen(true)}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    outline: 'none',
+                                    color: '#fff',
+                                    fontSize: '0.82rem',
+                                    width: '100%'
+                                }}
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => { setSearchQuery(''); setSearchDropdownOpen(false); }}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'rgba(255,255,255,0.6)',
+                                        cursor: 'pointer',
+                                        fontSize: '0.85rem',
+                                        padding: '0 4px'
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Dropdown Results */}
+                        {searchDropdownOpen && searchQuery.trim() !== '' && (
+                            <div style={{
+                                position: 'absolute',
+                                top: 'calc(100% + 6px)',
+                                left: 0,
+                                width: '340px',
+                                maxHeight: '350px',
+                                overflowY: 'auto',
+                                background: 'rgba(15, 23, 42, 0.96)',
+                                backdropFilter: 'blur(12px)',
+                                border: '1px solid rgba(255, 255, 255, 0.2)',
+                                borderRadius: '12px',
+                                boxShadow: '0 15px 35px rgba(0,0,0,0.7)',
+                                zIndex: 1000,
+                                padding: '0.5rem'
+                            }}>
+                                {searchResults.length === 0 ? (
+                                    <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                        No se encontraron resultados para "{searchQuery}"
+                                    </div>
+                                ) : (
+                                    searchResults.map((res, idx) => (
+                                        <div
+                                            key={idx}
+                                            onClick={() => handleSelectSearchResult(res)}
+                                            style={{
+                                                padding: '0.6rem 0.8rem',
+                                                borderRadius: '8px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.75rem',
+                                                transition: 'background 0.2s',
+                                                borderBottom: idx < searchResults.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            {res.type === 'member' && res.photo ? (
+                                                <img src={res.photo} alt="" style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${res.gangColor || '#fff'}` }} />
+                                            ) : (
+                                                <div style={{
+                                                    width: '36px',
+                                                    height: '36px',
+                                                    borderRadius: '50%',
+                                                    background: 'rgba(255,255,255,0.08)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '0.9rem',
+                                                    border: `1px solid ${res.gangColor || 'rgba(255,255,255,0.2)'}`
+                                                }}>
+                                                    {res.type === 'member' ? (
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                                    ) : res.type === 'vehicle' ? (
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13" rx="2" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></svg>
+                                                    ) : res.type === 'home' ? (
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                                                    ) : res.type === 'info' ? (
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+                                                    ) : res.type === 'graffiti' ? (
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /></svg>
+                                                    ) : (
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {res.title}
+                                                </div>
+                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: res.gangColor || '#cfb53b', display: 'inline-block' }}></span>
+                                                    <strong style={{ color: res.gangColor || '#fff' }}>{res.gangName}</strong>
+                                                    <span>•</span>
+                                                    <span>{res.subtitle}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <button
+                        className="mac-btn mac-btn-secondary"
+                        style={{ padding: '0.45rem 1rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.45rem', border: '1px solid rgba(255,255,255,0.18)' }}
+                        onClick={handleCopyAllGangs}
+                        title="Copiar información formateada de todos los grupos al portapapeles"
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        <span>Copiar Información Grupos</span>
+                    </button>
+                    {viewMode === 'active' && (
+                        <button
+                            className="mac-btn mac-btn-primary"
+                            style={{ padding: '0.45rem 1rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                            onClick={() => openModal('createGang', null)}
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            <span>{t('trackNewSyndicateBtn')}</span>
+                        </button>
+                    )}
+                </div>
+            </div>
 
             {feedbackNotice && (
                 <div style={{
@@ -2132,10 +2132,10 @@ function Gangs() {
 
             {/* Add/Edit Conflict */}
             {activeModal === 'conflict' && (
-                <Modal 
-                    title={editingItemId ? (t('editConflictTitle') || 'Editar Conflicto') : (t('addConflictTitle') || 'Registrar Conflicto con Grupo')} 
-                    onClose={closeModal} 
-                    onSubmit={handleAddConflict} 
+                <Modal
+                    title={editingItemId ? (t('editConflictTitle') || 'Editar Conflicto') : (t('addConflictTitle') || 'Registrar Conflicto con Grupo')}
+                    onClose={closeModal}
+                    onSubmit={handleAddConflict}
                     submitting={submitting}
                 >
                     <div className="form-group">
@@ -2282,8 +2282,8 @@ function Gangs() {
                             </div>
                             <span className="mac-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <polyline points="12 6 12 12 16 14"/>
+                                    <circle cx="12" cy="12" r="10" />
+                                    <polyline points="12 6 12 12 16 14" />
                                 </svg>
                                 <span>Control de Tiempos de Patrulla - Matriz de Actividad</span>
                             </span>
@@ -2443,15 +2443,15 @@ function Gangs() {
 
                 return (
                     <div className="mac-modal-overlay" onClick={closeModal} style={{ zIndex: 3500 }}>
-                        <div 
-                            className="mac-modal-card" 
-                            onClick={e => e.stopPropagation()} 
-                            style={{ 
-                                maxWidth: '900px', 
-                                width: '94vw', 
-                                height: '88vh', 
+                        <div
+                            className="mac-modal-card"
+                            onClick={e => e.stopPropagation()}
+                            style={{
+                                maxWidth: '900px',
+                                width: '94vw',
+                                height: '88vh',
                                 maxHeight: '90vh',
-                                display: 'flex', 
+                                display: 'flex',
                                 flexDirection: 'column',
                                 background: 'rgba(15, 23, 42, 0.9)',
                                 backdropFilter: 'blur(30px)',
@@ -2472,11 +2472,11 @@ function Gangs() {
                                 background: 'rgba(255, 255, 255, 0.02)'
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span 
-                                        className="mac-window-dot close" 
-                                        onClick={closeModal} 
-                                        title="Cerrar ventana" 
-                                        style={{ cursor: 'pointer', width: '12px', height: '12px' }} 
+                                    <span
+                                        className="mac-window-dot close"
+                                        onClick={closeModal}
+                                        title="Cerrar ventana"
+                                        style={{ cursor: 'pointer', width: '12px', height: '12px' }}
                                     />
                                     <span className="mac-window-dot min" style={{ width: '12px', height: '12px' }} />
                                     <span className="mac-window-dot max" style={{ width: '12px', height: '12px' }} />
@@ -2740,7 +2740,7 @@ function Gangs() {
                                             {cleanSearch ? 'No se encontraron coincidencias' : 'Sin registros vinculados'}
                                         </h4>
                                         <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.86rem', maxWidth: '420px', marginInline: 'auto', lineHeight: '1.5' }}>
-                                            {cleanSearch 
+                                            {cleanSearch
                                                 ? `No hay registros que coincidan con el término "${activitySearchQuery}".`
                                                 : `No hay ${activityType === 'incidents' ? 'informes o incidentes' : activityType === 'outings' ? 'vigilancias operativas' : 'casos criminales'} vinculados a ${activeGang.name || 'este grupo'}.`}
                                         </p>
@@ -2824,11 +2824,10 @@ function Gangs() {
                                                         padding: '1.25rem',
                                                         background: 'rgba(15, 23, 42, 0.6)',
                                                         border: '1px solid rgba(168, 85, 247, 0.25)',
-                                                        borderLeft: `4px solid ${
-                                                            item.threat_level === 'CRÍTICO' ? '#ef4444' :
-                                                            item.threat_level === 'ALTO' ? '#f97316' :
-                                                            item.threat_level === 'MEDIO' ? '#f59e0b' : '#3b82f6'
-                                                        }`,
+                                                        borderLeft: `4px solid ${item.threat_level === 'CRÍTICO' ? '#ef4444' :
+                                                                item.threat_level === 'ALTO' ? '#f97316' :
+                                                                    item.threat_level === 'MEDIO' ? '#f59e0b' : '#3b82f6'
+                                                            }`,
                                                         borderRadius: '14px',
                                                         display: 'flex',
                                                         flexDirection: 'column',
@@ -2971,8 +2970,8 @@ function Gangs() {
             {selectedMember && (
                 <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={handleCloseMemberProfile}>
                     <div style={{
-                        background: isLSSD 
-                            ? 'linear-gradient(180deg, rgba(22, 54, 30, 0.95) 0%, rgba(18, 30, 21, 0.98) 100%)' 
+                        background: isLSSD
+                            ? 'linear-gradient(180deg, rgba(22, 54, 30, 0.95) 0%, rgba(18, 30, 21, 0.98) 100%)'
                             : 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
                         borderRadius: '16px',
                         padding: '2rem',
@@ -3184,10 +3183,10 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
     // Helper for buttons
     const ActionButtons = ({ type, item }) => (
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px', zIndex: 10, position: 'relative' }}>
-            <button 
+            <button
                 onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); onEdit(type, gang.gang_id, item); }} 
-                style={{ background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '2px 5px', color: '#94a3b8' }} 
+                onClick={(e) => { e.stopPropagation(); onEdit(type, gang.gang_id, item); }}
+                style={{ background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '2px 5px', color: '#94a3b8' }}
                 title="Edit"
             >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3195,10 +3194,10 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                 </svg>
             </button>
-            <button 
+            <button
                 onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); onDeleteSubItem(type, item.id); }} 
-                style={{ background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '2px 5px', color: '#f87171' }} 
+                onClick={(e) => { e.stopPropagation(); onDeleteSubItem(type, item.id); }}
+                style={{ background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '2px 5px', color: '#f87171' }}
                 title="Delete"
             >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3347,8 +3346,8 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                         <span>{t('linkedCasesToGang') || 'Casos Ligados'} ({(gang.cases || []).length})</span>
                     </span>
                     {(gang.cases || []).length > 0 && (
-                        <button 
-                            className="mac-btn mac-btn-secondary" 
+                        <button
+                            className="mac-btn mac-btn-secondary"
                             style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px' }}
                             onClick={() => onViewActivity('cases', gang.gang_id)}
                         >
@@ -3370,14 +3369,14 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                         };
                         const sc = statusColors[c.status] || statusColors.open;
                         return (
-                            <div 
-                                key={c.id} 
+                            <div
+                                key={c.id}
                                 onClick={() => navigate(`/cases/${c.id}`)}
                                 className={`gang-list-item ${isCaseMatch ? 'search-highlight-item' : ''}`}
-                                style={{ 
-                                    flexDirection: 'column', 
-                                    alignItems: 'flex-start', 
-                                    borderLeft: `3px solid ${sc.border}`, 
+                                style={{
+                                    flexDirection: 'column',
+                                    alignItems: 'flex-start',
+                                    borderLeft: `3px solid ${sc.border}`,
                                     paddingLeft: '0.8rem',
                                     cursor: 'pointer',
                                     transition: 'all 0.2s ease',
@@ -3394,14 +3393,14 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                     <span style={{ color: 'var(--accent-gold, #f59e0b)', fontFamily: 'monospace', fontWeight: '700', fontSize: '0.8rem' }}>
                                         #{c.case_number}
                                     </span>
-                                    <span style={{ 
-                                        fontSize: '0.65rem', 
-                                        padding: '1px 6px', 
-                                        borderRadius: '4px', 
-                                        backgroundColor: sc.bg, 
-                                        color: sc.text, 
-                                        fontWeight: '600', 
-                                        textTransform: 'uppercase' 
+                                    <span style={{
+                                        fontSize: '0.65rem',
+                                        padding: '1px 6px',
+                                        borderRadius: '4px',
+                                        backgroundColor: sc.bg,
+                                        color: sc.text,
+                                        fontWeight: '600',
+                                        textTransform: 'uppercase'
                                     }}>
                                         {c.status === 'open' ? (t('statusOpen') || 'Abierto') : c.status === 'closed' ? (t('closed') || 'Cerrado') : (t('archived') || 'Archivado')}
                                     </span>
@@ -3463,7 +3462,7 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                 )}
                                 {i.author && (
                                     <div style={{ fontSize: '0.68rem', color: '#4b5563', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                                         <span>Añadido por <span style={{ color: '#6b7280', fontWeight: 600 }}>{i.author}</span></span>
                                     </div>
                                 )}
@@ -3533,14 +3532,14 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                             safeStrMatch(c?.reason, searchQuery)
                         );
                         return (
-                            <div 
-                                key={c.id} 
-                                className={`gang-list-item ${isConflictMatch ? 'search-highlight-item' : ''}`} 
-                                style={{ 
-                                    flexDirection: 'column', 
-                                    alignItems: 'flex-start', 
-                                    borderLeft: `3px solid ${isResolved ? '#10b981' : (c.target_gang_color || '#ef4444')}`, 
-                                    paddingLeft: '0.8rem', 
+                            <div
+                                key={c.id}
+                                className={`gang-list-item ${isConflictMatch ? 'search-highlight-item' : ''}`}
+                                style={{
+                                    flexDirection: 'column',
+                                    alignItems: 'flex-start',
+                                    borderLeft: `3px solid ${isResolved ? '#10b981' : (c.target_gang_color || '#ef4444')}`,
+                                    paddingLeft: '0.8rem',
                                     padding: isConflictMatch ? '0.5rem 0.8rem' : '0.4rem 0.8rem',
                                     background: isResolved ? 'rgba(16, 185, 129, 0.03)' : 'rgba(255, 255, 255, 0.02)',
                                     borderRadius: '0 6px 6px 0',
@@ -3550,13 +3549,13 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                             >
                                 <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
                                     {isResolved ? (
-                                        <span style={{ 
-                                            backgroundColor: 'rgba(16, 185, 129, 0.15)', 
-                                            border: '1px solid rgba(16, 185, 129, 0.4)', 
-                                            color: '#34d399', 
-                                            fontWeight: '700', 
-                                            fontSize: '0.78rem', 
-                                            padding: '2px 8px', 
+                                        <span style={{
+                                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                                            color: '#34d399',
+                                            fontWeight: '700',
+                                            fontSize: '0.78rem',
+                                            padding: '2px 8px',
                                             borderRadius: '4px',
                                             display: 'inline-flex',
                                             alignItems: 'center',
@@ -3566,13 +3565,13 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                             ✓ {c.target_gang_name} <span style={{ fontSize: '0.68rem', opacity: 0.85, fontWeight: 'normal', textDecoration: 'none' }}>({t('conflictStatusResolved') ? 'Finalizado' : 'Finalizado'})</span>
                                         </span>
                                     ) : (
-                                        <span style={{ 
-                                            backgroundColor: c.target_gang_color ? `${c.target_gang_color}22` : 'rgba(239, 68, 68, 0.15)', 
-                                            border: `1px solid ${c.target_gang_color ? `${c.target_gang_color}88` : 'rgba(239, 68, 68, 0.4)'}`, 
-                                            color: c.target_gang_color || '#f87171', 
-                                            fontWeight: '700', 
-                                            fontSize: '0.78rem', 
-                                            padding: '2px 8px', 
+                                        <span style={{
+                                            backgroundColor: c.target_gang_color ? `${c.target_gang_color}22` : 'rgba(239, 68, 68, 0.15)',
+                                            border: `1px solid ${c.target_gang_color ? `${c.target_gang_color}88` : 'rgba(239, 68, 68, 0.4)'}`,
+                                            color: c.target_gang_color || '#f87171',
+                                            fontWeight: '700',
+                                            fontSize: '0.78rem',
+                                            padding: '2px 8px',
                                             borderRadius: '4px',
                                             display: 'inline-flex',
                                             alignItems: 'center',
@@ -3655,7 +3654,7 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                 {v.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{v.notes}</div>}
                                 {v.added_by_name && (
                                     <div style={{ fontSize: '0.68rem', color: '#374151', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                                         <span>Añadido por <span style={{ color: v.added_by_name === 'Sin registro' ? '#4b5563' : '#7c9cbf', fontWeight: 600, fontStyle: v.added_by_name === 'Sin registro' ? 'italic' : 'normal' }}>{v.added_by_name}</span></span>
                                     </div>
                                 )}
@@ -3701,7 +3700,7 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                 {h.notes && <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '5px', fontStyle: 'italic' }}>{h.notes}</div>}
                                 {h.added_by_name && (
                                     <div style={{ fontSize: '0.68rem', color: '#374151', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                                         <span>Añadido por <span style={{ color: h.added_by_name === 'Sin registro' ? '#4b5563' : '#7c9cbf', fontWeight: 600, fontStyle: h.added_by_name === 'Sin registro' ? 'italic' : 'normal' }}>{h.added_by_name}</span></span>
                                     </div>
                                 )}
@@ -3749,11 +3748,11 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                         <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{t('graffitiImageLabel')}</span>
                                         {g.graffiti_image ? (
-                                            <img 
-                                                src={g.graffiti_image} 
-                                                onClick={() => onViewImage(g.graffiti_image)} 
-                                                style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} 
-                                                alt="Graffiti" 
+                                            <img
+                                                src={g.graffiti_image}
+                                                onClick={() => onViewImage(g.graffiti_image)}
+                                                style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }}
+                                                alt="Graffiti"
                                             />
                                         ) : (
                                             <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#ef4444' }}>No image</div>
@@ -3762,11 +3761,11 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                         <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{t('gpsImageLabel')}</span>
                                         {g.gps_image ? (
-                                            <img 
-                                                src={g.gps_image} 
-                                                onClick={() => onViewImage(g.gps_image)} 
-                                                style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }} 
-                                                alt="GPS Location" 
+                                            <img
+                                                src={g.gps_image}
+                                                onClick={() => onViewImage(g.gps_image)}
+                                                style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid #444' }}
+                                                alt="GPS Location"
                                             />
                                         ) : (
                                             <div style={{ fontSize: '0.75rem', fontStyle: 'italic', color: '#ef4444' }}>No image</div>
@@ -3797,8 +3796,8 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                         <span>{t('knownAffiliatesLabel')} ({gang.members.length})</span>
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <button 
-                            className="mac-btn mac-btn-secondary" 
+                        <button
+                            className="mac-btn mac-btn-secondary"
                             style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}
                             onClick={() => onCopyGangInfo && onCopyGangInfo(gang)}
                             title="Copiar lista de miembros de este grupo"
@@ -3891,13 +3890,13 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                     )}
                                     {m.notes && (
                                         <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '3px', fontStyle: 'italic', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }} title={m.notes}>
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
                                             <span>{t('hasNotes')}</span>
                                         </div>
                                     )}
                                     {m.added_by_name && (
                                         <div style={{ fontSize: '0.58rem', color: '#374151', marginTop: '3px', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }} title={`Añadido por ${m.added_by_name}`}>
-                                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                                             <span style={{ color: m.added_by_name === 'Sin registro' ? '#4b5563' : '#7c9cbf', fontWeight: 600, fontStyle: m.added_by_name === 'Sin registro' ? 'italic' : 'normal' }}>{m.added_by_name}</span>
                                         </div>
                                     )}
@@ -3935,8 +3934,8 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                         <span>{t('weeklyActivityPattern') || 'Media de Actividad por Día'}</span>
                     </span>
                     {gang.weekly_activity?.totalIncidents > 0 && (
-                        <button 
-                            className="mac-btn mac-btn-secondary" 
+                        <button
+                            className="mac-btn mac-btn-secondary"
                             style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '4px' }}
                             onClick={() => onViewActivity('incidents', gang.gang_id)}
                             title="Ver informes del grupo"
@@ -4122,11 +4121,10 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onVi
                                 style={{
                                     flexDirection: 'column',
                                     alignItems: 'flex-start',
-                                    borderLeft: `3px solid ${
-                                        intel.threat_level === 'CRÍTICO' ? '#ef4444' :
-                                        intel.threat_level === 'ALTO' ? '#f97316' :
-                                        intel.threat_level === 'MEDIO' ? '#f59e0b' : '#a855f7'
-                                    }`,
+                                    borderLeft: `3px solid ${intel.threat_level === 'CRÍTICO' ? '#ef4444' :
+                                            intel.threat_level === 'ALTO' ? '#f97316' :
+                                                intel.threat_level === 'MEDIO' ? '#f59e0b' : '#a855f7'
+                                        }`,
                                     paddingLeft: '0.8rem',
                                     cursor: 'pointer',
                                     transition: 'all 0.2s ease',

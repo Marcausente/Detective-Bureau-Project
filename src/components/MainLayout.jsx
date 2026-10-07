@@ -299,7 +299,7 @@ function MainLayout() {
         if (profile && profile.rol === 'Externo') {
             const allowedPaths = ['/cases', '/interrogations', '/profile'];
             const isAllowed = allowedPaths.includes(location.pathname) || location.pathname.startsWith('/cases/');
-            
+
             if (!isAllowed) {
                 navigate('/cases');
             }
@@ -343,7 +343,7 @@ function MainLayout() {
 
         if (item.path === '/gangs' || item.path === '/incidents' || item.path === '/crimemap') {
             const hasGangUnit = (profile.subdivisions && profile.subdivisions.includes('Gang Unit')) ||
-                                (profile.divisions && profile.divisions.includes('Gang Unit'));
+                (profile.divisions && profile.divisions.includes('Gang Unit'));
             if (hasGangUnit) return true;
         }
 
@@ -367,12 +367,12 @@ function MainLayout() {
             const userRole = profile.rol ? profile.rol.toLowerCase() : '';
             const isUDRole = ['coordinador', 'comisionado', 'administrador', 'admin', 'superadmin'].includes(userRole);
             const isUDDivision = (profile.divisions && (profile.divisions.includes('Undercover') || profile.divisions.includes('Undercover Division') || profile.divisions.includes('UD'))) ||
-                                 (profile.subdivisions && (profile.subdivisions.includes('Undercover') || profile.subdivisions.includes('Undercover Division') || profile.subdivisions.includes('UD')));
+                (profile.subdivisions && (profile.subdivisions.includes('Undercover') || profile.subdivisions.includes('Undercover Division') || profile.subdivisions.includes('UD')));
             return isUDRole || isUDDivision;
         }
 
         if (!profile.divisions) return false;
-        
+
         if (item.roles) {
             const userRole = profile.rol ? profile.rol.toLowerCase() : '';
             const hasRole = item.roles.some(r => r.toLowerCase() === userRole);
@@ -591,17 +591,17 @@ function MainLayout() {
             />
 
             {activeGame === 'minesweeper' && (
-                <MinesweeperModal 
-                    onClose={() => setActiveGame(null)} 
-                    profile={profile} 
-                    onSwitchGame={(game) => setActiveGame(game)} 
+                <MinesweeperModal
+                    onClose={() => setActiveGame(null)}
+                    profile={profile}
+                    onSwitchGame={(game) => setActiveGame(game)}
                 />
             )}
             {activeGame === 'snake' && (
-                <SnakeModal 
-                    onClose={() => setActiveGame(null)} 
-                    profile={profile} 
-                    onSwitchGame={(game) => setActiveGame(game)} 
+                <SnakeModal
+                    onClose={() => setActiveGame(null)}
+                    profile={profile}
+                    onSwitchGame={(game) => setActiveGame(game)}
                 />
             )}
         </div>
