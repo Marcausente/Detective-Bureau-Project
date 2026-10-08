@@ -1,5 +1,6 @@
 -- =========================================================================
 -- ENSURE DOCUMENTATION SUPPORTS: 'documentation', 'resource', 'information'
+-- FIX ROW LEVEL SECURITY & URL CONSTRAINTS
 -- =========================================================================
 
 -- 1. Ensure category column exists and constraint allows all 3 categories
@@ -25,7 +26,54 @@ BEGIN
         ADD CONSTRAINT check_category CHECK (category IN ('documentation', 'resource', 'information'));
 END $$;
 
--- 2. Update RPC manage_documentation
+-- 2. Make url column nullable (plantillas / text information do not have/require a URL)
+ALTER TABLE public.documentation_posts ALTER COLUMN url DROP NOT NULL;
+
+-- 3. Row Level Security (RLS) Policies for direct table queries
+ALTER TABLE public.documentation_posts ENABLE ROW LEVEL SECURITY;
+
+-- Read: All authenticated users
+DROP POLICY IF EXISTS "Allow read access for documentation" ON public.documentation_posts;
+CREATE POLICY "Allow read access for documentation"
+  ON public.documentation_posts FOR SELECT TO authenticated USING (true);
+
+-- Insert: Coordinador, Comisionado, Administrador
+DROP POLICY IF EXISTS "Allow insert for documentation" ON public.documentation_posts;
+CREATE POLICY "Allow insert for documentation"
+  ON public.documentation_posts FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.users
+      WHERE public.users.id = auth.uid()
+      AND public.users.rol::text IN ('Coordinador', 'Comisionado', 'Administrador')
+    )
+  );
+
+-- Update: Coordinador, Comisionado, Administrador
+DROP POLICY IF EXISTS "Allow update for documentation" ON public.documentation_posts;
+CREATE POLICY "Allow update for documentation"
+  ON public.documentation_posts FOR UPDATE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.users
+      WHERE public.users.id = auth.uid()
+      AND public.users.rol::text IN ('Coordinador', 'Comisionado', 'Administrador')
+    )
+  );
+
+-- Delete: Coordinador, Comisionado, Administrador
+DROP POLICY IF EXISTS "Allow delete for documentation" ON public.documentation_posts;
+CREATE POLICY "Allow delete for documentation"
+  ON public.documentation_posts FOR DELETE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.users
+      WHERE public.users.id = auth.uid()
+      AND public.users.rol::text IN ('Coordinador', 'Comisionado', 'Administrador')
+    )
+  );
+
+-- 4. Update RPC manage_documentation (Security Definer for high reliability)
 DROP FUNCTION IF EXISTS public.manage_documentation(text, uuid, text, text, text);
 DROP FUNCTION IF EXISTS public.manage_documentation(text, uuid, text, text, text, text);
 

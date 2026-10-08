@@ -86,6 +86,7 @@ function Documentation() {
             });
 
             if (error) {
+                console.warn('RPC manage_documentation falló, ejecutando fallback directo:', error);
                 // Direct fallback in case RPC constraint or signature requires direct update
                 const { data: { user } } = await supabase.auth.getUser();
                 if (modalMode === 'create') {
@@ -125,7 +126,11 @@ function Documentation() {
                 p_action: 'delete',
                 p_id: id
             });
-            if (error) throw error;
+            if (error) {
+                console.warn('RPC delete falló, ejecutando eliminación directa:', error);
+                const { error: delErr } = await supabase.from('documentation_posts').delete().eq('id', id);
+                if (delErr) throw delErr;
+            }
             loadData();
         } catch (err) {
             alert('Error al eliminar: ' + err.message);
