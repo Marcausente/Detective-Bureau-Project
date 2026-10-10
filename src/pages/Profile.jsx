@@ -7,6 +7,7 @@ import { getLicenses, getLicenseDetails, getUserLicenses } from '../utils/licens
 import { getUserInternalRank } from '../utils/internalRanks';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
+import AgentActivityHistory from '../components/AgentActivityHistory';
 import '../index.css';
 
 function Profile() {
@@ -19,6 +20,16 @@ function Profile() {
     const editorRef = useRef(null);
     const [rawUser, setRawUser] = useState(null);
     const [availableLicenses, setAvailableLicenses] = useState([]);
+    const [currentUserId, setCurrentUserId] = useState(null);
+    const [selectedActivityCategory, setSelectedActivityCategory] = useState('all');
+    const activityHistoryRef = useRef(null);
+
+    const handleStatCardClick = (category) => {
+        setSelectedActivityCategory(category);
+        if (activityHistoryRef.current) {
+            activityHistoryRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
 
     // User Stats State
     const [userStats, setUserStats] = useState({ incidents: 0, matrix: 0, outings: 0 });
@@ -66,6 +77,7 @@ function Profile() {
             if (error) throw error;
 
             if (data) {
+                setCurrentUserId(user.id);
                 setRawUser(data);
                 setFormData({
                     nombre: data.nombre || '',
@@ -588,7 +600,16 @@ function Profile() {
                     <div className="mac-doc-empty">Cargando estadísticas...</div>
                 ) : (
                     <div className="mac-widgets-grid">
-                        <div className="mac-widget-card">
+                        <div
+                            className="mac-widget-card"
+                            onClick={() => handleStatCardClick('incidents')}
+                            style={{
+                                cursor: 'pointer',
+                                border: selectedActivityCategory === 'incidents' ? '1px solid #3b82f6' : undefined,
+                                boxShadow: selectedActivityCategory === 'incidents' ? '0 0 16px rgba(59, 130, 246, 0.25)' : undefined
+                            }}
+                            title="Ver informes subidos en orden cronológico"
+                        >
                             <div className="mac-widget-header">
                                 <span className="mac-widget-label">Informes Subidos</span>
                                 <div className="mac-widget-icon-pill">📄</div>
@@ -596,10 +617,20 @@ function Profile() {
                             <div className="mac-widget-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                                 <span className="mac-widget-val" style={{ fontSize: '2.2rem', fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>{userStats.incidents}</span>
                                 <span className="mac-widget-sub" style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '0.25rem' }}>Apartado Incidents</span>
+                                <span style={{ fontSize: '0.74rem', color: '#60a5fa', marginTop: '4px', fontWeight: 600 }}>🔍 Ver historial ↗</span>
                             </div>
                         </div>
 
-                        <div className="mac-widget-card">
+                        <div
+                            className="mac-widget-card"
+                            onClick={() => handleStatCardClick('matrices')}
+                            style={{
+                                cursor: 'pointer',
+                                border: selectedActivityCategory === 'matrices' ? '1px solid #10b981' : undefined,
+                                boxShadow: selectedActivityCategory === 'matrices' ? '0 0 16px rgba(16, 185, 129, 0.25)' : undefined
+                            }}
+                            title="Ver matrices de Gang Unit en orden cronológico"
+                        >
                             <div className="mac-widget-header">
                                 <span className="mac-widget-label">Matrices Enviadas</span>
                                 <div className="mac-widget-icon-pill">📈</div>
@@ -607,10 +638,20 @@ function Profile() {
                             <div className="mac-widget-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                                 <span className="mac-widget-val" style={{ fontSize: '2.2rem', fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>{userStats.matrix}</span>
                                 <span className="mac-widget-sub" style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '0.25rem' }}>Gang Unit</span>
+                                <span style={{ fontSize: '0.74rem', color: '#34d399', marginTop: '4px', fontWeight: 600 }}>🔍 Ver historial ↗</span>
                             </div>
                         </div>
 
-                        <div className="mac-widget-card">
+                        <div
+                            className="mac-widget-card"
+                            onClick={() => handleStatCardClick('outings')}
+                            style={{
+                                cursor: 'pointer',
+                                border: selectedActivityCategory === 'outings' ? '1px solid #a855f7' : undefined,
+                                boxShadow: selectedActivityCategory === 'outings' ? '0 0 16px rgba(168, 85, 247, 0.25)' : undefined
+                            }}
+                            title="Ver vigilancias enviadas en orden cronológico"
+                        >
                             <div className="mac-widget-header">
                                 <span className="mac-widget-label">Vigilancias Enviadas</span>
                                 <div className="mac-widget-icon-pill">🕵️‍♂️</div>
@@ -618,9 +659,28 @@ function Profile() {
                             <div className="mac-widget-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                                 <span className="mac-widget-val" style={{ fontSize: '2.2rem', fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>{userStats.outings}</span>
                                 <span className="mac-widget-sub" style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '0.25rem' }}>Outings Log</span>
+                                <span style={{ fontSize: '0.74rem', color: '#c084fc', marginTop: '4px', fontWeight: 600 }}>🔍 Ver historial ↗</span>
                             </div>
                         </div>
                     </div>
+                )}
+
+                {/* Chronological Activity Feed Component */}
+                {currentUserId && (
+                    <AgentActivityHistory
+                        ref={activityHistoryRef}
+                        userId={currentUserId}
+                        userName={formData ? `${formData.nombre} ${formData.apellido}` : ''}
+                        activeCategory={selectedActivityCategory}
+                        onCategoryChange={setSelectedActivityCategory}
+                        onStatsUpdate={(stats) => {
+                            setUserStats(prev => ({
+                                incidents: stats.incidents ?? prev.incidents,
+                                matrix: stats.matrix ?? prev.matrix,
+                                outings: stats.outings ?? prev.outings
+                            }));
+                        }}
+                    />
                 )}
             </div>
 

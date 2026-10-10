@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { getProfileImage } from '../utils/imageStorage';
@@ -6,6 +6,7 @@ import { getUserInternalRank } from '../utils/internalRanks';
 import { getSubdivisions, getSubdivisionAbbrev, getSubdivisionClass } from '../utils/subdivisions';
 import { getLicenses, getLicenseDetails, getUserLicenses, updateUserLicenses } from '../utils/licenses';
 import { useLanguage } from '../contexts/LanguageContext';
+import AgentActivityHistory from '../components/AgentActivityHistory';
 import '../index.css';
 
 // Rank Hierarchy Helper
@@ -63,6 +64,15 @@ function PersonnelDetail() {
     // User Stats State
     const [userStats, setUserStats] = useState({ incidents: 0, matrix: 0, outings: 0 });
     const [statsLoading, setStatsLoading] = useState(true);
+    const [selectedActivityCategory, setSelectedActivityCategory] = useState('all');
+    const activityHistoryRef = useRef(null);
+
+    const handleStatCardClick = (category) => {
+        setSelectedActivityCategory(category);
+        if (activityHistoryRef.current) {
+            activityHistoryRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
 
     // Interrogations State
     const [agentInterrogations, setAgentInterrogations] = useState([]);
@@ -666,42 +676,100 @@ function PersonnelDetail() {
 
                     {/* STATS Section */}
                     <div className="detail-section" style={{ marginTop: '1.5rem' }}>
-                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            📊 {t('statsTitle') || 'Estadísticas de Actividad (STATS)'}
-                        </h3>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                                📊 {t('statsTitle') || 'Estadísticas de Actividad (STATS)'}
+                            </h3>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                                💡 Haz clic en una tarjeta para ver sus aportes cronológicos
+                            </span>
+                        </div>
+
                         {statsLoading ? (
-                            <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.9rem' }}>Cargando estadísticas...</div>
+                            <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.9rem', marginTop: '1rem' }}>Cargando estadísticas...</div>
                         ) : (
                             <div className="stats-grid">
-                                <div className="stat-card">
-                                    <div className="stat-icon">📄</div>
+                                <div
+                                    className="stat-card"
+                                    onClick={() => handleStatCardClick('incidents')}
+                                    style={{
+                                        cursor: 'pointer',
+                                        border: selectedActivityCategory === 'incidents' ? '1px solid #3b82f6' : undefined,
+                                        boxShadow: selectedActivityCategory === 'incidents' ? '0 0 16px rgba(59, 130, 246, 0.25)' : undefined
+                                    }}
+                                    title="Ver informes subidos en orden cronológico"
+                                >
+                                    <div className="stat-icon" style={{ background: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.3)' }}>📄</div>
                                     <div className="stat-info">
                                         <div className="stat-value">{userStats.incidents}</div>
                                         <div className="stat-label">{t('uploadedIncidents') || 'Informes Subidos'}</div>
                                         <div className="stat-subtext">{t('incidentsSectionDesc') || 'Apartado Incidents'}</div>
+                                        <div style={{ fontSize: '0.72rem', color: '#60a5fa', marginTop: '4px', fontWeight: 600 }}>
+                                            🔍 Ver historial ↗
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="stat-card">
-                                    <div className="stat-icon">📈</div>
+                                <div
+                                    className="stat-card"
+                                    onClick={() => handleStatCardClick('matrices')}
+                                    style={{
+                                        cursor: 'pointer',
+                                        border: selectedActivityCategory === 'matrices' ? '1px solid #10b981' : undefined,
+                                        boxShadow: selectedActivityCategory === 'matrices' ? '0 0 16px rgba(16, 185, 129, 0.25)' : undefined
+                                    }}
+                                    title="Ver matrices de Gang Unit en orden cronológico"
+                                >
+                                    <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)' }}>📈</div>
                                     <div className="stat-info">
                                         <div className="stat-value">{userStats.matrix}</div>
                                         <div className="stat-label">{t('submittedMatrices') || 'Matrices Enviadas'}</div>
                                         <div className="stat-subtext">{t('allGangsDesc') || 'Gang Unit - Todos los barrios'}</div>
+                                        <div style={{ fontSize: '0.72rem', color: '#34d399', marginTop: '4px', fontWeight: 600 }}>
+                                            🔍 Ver historial ↗
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="stat-card">
-                                    <div className="stat-icon">🕵️‍♂️</div>
+                                <div
+                                    className="stat-card"
+                                    onClick={() => handleStatCardClick('outings')}
+                                    style={{
+                                        cursor: 'pointer',
+                                        border: selectedActivityCategory === 'outings' ? '1px solid #a855f7' : undefined,
+                                        boxShadow: selectedActivityCategory === 'outings' ? '0 0 16px rgba(168, 85, 247, 0.25)' : undefined
+                                    }}
+                                    title="Ver vigilancias enviadas en orden cronológico"
+                                >
+                                    <div className="stat-icon" style={{ background: 'rgba(168, 85, 247, 0.15)', borderColor: 'rgba(168, 85, 247, 0.3)' }}>🕵️‍♂️</div>
                                     <div className="stat-info">
                                         <div className="stat-value">{userStats.outings}</div>
                                         <div className="stat-label">{t('submittedOutings') || 'Vigilancias Enviadas'}</div>
                                         <div className="stat-subtext">{t('outingsSectionDesc') || 'Apartado Incidents (Outings)'}</div>
+                                        <div style={{ fontSize: '0.72rem', color: '#c084fc', marginTop: '4px', fontWeight: 600 }}>
+                                            🔍 Ver historial ↗
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         )}
                     </div>
+
+                    {/* Agent Chronological Contributions & Activity Feed */}
+                    <AgentActivityHistory
+                        ref={activityHistoryRef}
+                        userId={id}
+                        userName={user ? `${user.nombre} ${user.apellido}` : ''}
+                        activeCategory={selectedActivityCategory}
+                        onCategoryChange={setSelectedActivityCategory}
+                        onStatsUpdate={(stats) => {
+                            setUserStats(prev => ({
+                                incidents: stats.incidents ?? prev.incidents,
+                                matrix: stats.matrix ?? prev.matrix,
+                                outings: stats.outings ?? prev.outings
+                            }));
+                        }}
+                    />
 
                     <div className="detail-section">
                         <h3>Assigned Criminal Cases</h3>
