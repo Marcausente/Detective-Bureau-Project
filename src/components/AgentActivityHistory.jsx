@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
-import { filterBucketImages, getProfileImage } from '../utils/imageStorage';
+import { filterBucketImages } from '../utils/imageStorage';
 
 /**
  * Strips HTML tags to produce a clean plain-text summary snippet.
@@ -69,6 +69,10 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
     const [matrices, setMatrices] = useState([]);
     const [outings, setOutings] = useState([]);
     const [docs, setDocs] = useState([]);
+    const [caseUpdates, setCaseUpdates] = useState([]);
+    const [gangMembers, setGangMembers] = useState([]);
+    const [gangVehicles, setGangVehicles] = useState([]);
+    const [gangHomes, setGangHomes] = useState([]);
 
     // Internal or Controlled Filter
     const [selectedTab, setSelectedTab] = useState(activeCategory || 'all');
@@ -135,8 +139,6 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                         .order('occurred_at', { ascending: false });
 
                     if (incErr) {
-                        // Fallback without junction if schema relationship issues
-                        console.warn('Incident join query failed, falling back to simple select:', incErr);
                         const { data: fallbackData } = await supabase
                             .from('incidents')
                             .select('id, title, location, occurred_at, created_at, tablet_incident_number, description, images')
@@ -174,7 +176,6 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                         .order('patrol_time', { ascending: false });
 
                     if (matErr) {
-                        console.warn('Patrol logs join failed, falling back:', matErr);
                         const { data: fallbackData } = await supabase
                             .from('gang_patrol_logs')
                             .select('id, gang_id, patrol_time, people_count, photo, notes, created_at')
@@ -216,7 +217,6 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                         .order('occurred_at', { ascending: false });
 
                     if (outErr) {
-                        console.warn('Outings join failed, falling back:', outErr);
                         const { data: fallbackData } = await supabase
                             .from('outings')
                             .select('id, title, occurred_at, created_at, reason, info_obtained, images, documents')
@@ -246,24 +246,198 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                 }
             })();
 
-            const [incList, matList, outList, docList] = await Promise.all([
+            // 5. Case Updates (Entradas e Informes en Casos Criminales)
+            const caseUpdatesPromise = (async () => {
+                try {
+                    const { data, error } = await supabase
+                        .from('case_updates')
+                        .select(`
+                            id,
+                            case_id,
+                            author_id,
+                            content,
+                            images,
+                            documents,
+                            created_at,
+                            cases (
+                                id,
+                                case_number,
+                                title,
+                                status
+                            )
+                        `)
+                        .eq('author_id', userId)
+                        .order('created_at', { ascending: false });
+
+                    if (error) {
+                        const { data: fallbackData } = await supabase
+                            .from('case_updates')
+                            .select('id, case_id, author_id, content, images, documents, created_at')
+                            .eq('author_id', userId)
+                            .order('created_at', { ascending: false });
+                        return fallbackData || [];
+                    }
+                    return data || [];
+                } catch (err) {
+                    console.error('Error fetching agent case updates:', err);
+                    return [];
+                }
+            })();
+
+            // 6. Gang Members added by this agent
+            const gangMembersPromise = (async () => {
+                try {
+                    const { data, error } = await supabase
+                        .from('gang_members')
+                        .select(`
+                            id,
+                            gang_id,
+                            name,
+                            role,
+                            photo,
+                            notes,
+                            status,
+                            created_at,
+                            added_by,
+                            gangs (
+                                id,
+                                name,
+                                color
+                            )
+                        `)
+                        .eq('added_by', userId)
+                        .order('created_at', { ascending: false });
+
+                    if (error) {
+                        const { data: fallbackData } = await supabase
+                            .from('gang_members')
+                            .select('id, gang_id, name, role, photo, notes, status, created_at, added_by')
+                            .eq('added_by', userId)
+                            .order('created_at', { ascending: false });
+                        return fallbackData || [];
+                    }
+                    return data || [];
+                } catch (err) {
+                    console.error('Error fetching agent gang members:', err);
+                    return [];
+                }
+            })();
+
+            // 7. Gang Vehicles added by this agent
+            const gangVehiclesPromise = (async () => {
+                try {
+                    const { data, error } = await supabase
+                        .from('gang_vehicles')
+                        .select(`
+                            id,
+                            gang_id,
+                            model,
+                            plate,
+                            owner_name,
+                            notes,
+                            images,
+                            created_at,
+                            added_by,
+                            gangs (
+                                id,
+                                name,
+                                color
+                            )
+                        `)
+                        .eq('added_by', userId)
+                        .order('created_at', { ascending: false });
+
+                    if (error) {
+                        const { data: fallbackData } = await supabase
+                            .from('gang_vehicles')
+                            .select('id, gang_id, model, plate, owner_name, notes, images, created_at, added_by')
+                            .eq('added_by', userId)
+                            .order('created_at', { ascending: false });
+                        return fallbackData || [];
+                    }
+                    return data || [];
+                } catch (err) {
+                    console.error('Error fetching agent gang vehicles:', err);
+                    return [];
+                }
+            })();
+
+            // 8. Gang Homes / Properties added by this agent
+            const gangHomesPromise = (async () => {
+                try {
+                    const { data, error } = await supabase
+                        .from('gang_homes')
+                        .select(`
+                            id,
+                            gang_id,
+                            owner_name,
+                            address_notes,
+                            images,
+                            created_at,
+                            added_by,
+                            gangs (
+                                id,
+                                name,
+                                color
+                            )
+                        `)
+                        .eq('added_by', userId)
+                        .order('created_at', { ascending: false });
+
+                    if (error) {
+                        const { data: fallbackData } = await supabase
+                            .from('gang_homes')
+                            .select('id, gang_id, owner_name, address_notes, images, created_at, added_by')
+                            .eq('added_by', userId)
+                            .order('created_at', { ascending: false });
+                        return fallbackData || [];
+                    }
+                    return data || [];
+                } catch (err) {
+                    console.error('Error fetching agent gang homes:', err);
+                    return [];
+                }
+            })();
+
+            const [
+                incList,
+                matList,
+                outList,
+                docList,
+                caseUpList,
+                gMembersList,
+                gVehiclesList,
+                gHomesList
+            ] = await Promise.all([
                 incPromise,
                 matPromise,
                 outPromise,
-                docPromise
+                docPromise,
+                caseUpdatesPromise,
+                gangMembersPromise,
+                gangVehiclesPromise,
+                gangHomesPromise
             ]);
 
             setIncidents(incList);
             setMatrices(matList);
             setOutings(outList);
             setDocs(docList);
+            setCaseUpdates(caseUpList);
+            setGangMembers(gMembersList);
+            setGangVehicles(gVehiclesList);
+            setGangHomes(gHomesList);
+
+            const totalGangIntel = gMembersList.length + gVehiclesList.length + gHomesList.length;
 
             if (onStatsUpdate) {
                 onStatsUpdate({
                     incidents: incList.length,
                     matrix: matList.length,
                     outings: outList.length,
-                    documents: docList.length
+                    documents: docList.length,
+                    case_updates: caseUpList.length,
+                    gang_data: totalGangIntel
                 });
             }
         } catch (err) {
@@ -365,7 +539,127 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
             });
         });
 
-        // 4. Map Documentation Posts
+        // 4. Map Case Updates (Entradas en Casos)
+        caseUpdates.forEach(cu => {
+            const dateStr = cu.created_at;
+            const caseInfo = cu.cases || null;
+            const caseNum = caseInfo?.case_number ? `#${caseInfo.case_number}` : '';
+            const caseTitle = caseInfo?.title || 'Caso sin título';
+
+            items.push({
+                id: cu.id,
+                type: 'case_update',
+                typeLabel: t('tabCaseUpdates') || 'Entrada en Caso',
+                typeIcon: '📁',
+                themeColor: '#6366f1',
+                bgBadge: 'rgba(99, 102, 241, 0.15)',
+                borderBadge: 'rgba(99, 102, 241, 0.35)',
+                title: `Entrada en Caso ${caseNum} - ${caseTitle}`,
+                caseStatus: caseInfo?.status,
+                caseId: cu.case_id,
+                dateStr,
+                dateObj: new Date(dateStr),
+                gangs: [],
+                images: filterBucketImages(cu.images || []),
+                documents: cu.documents || [],
+                notes: stripHtmlTags(cu.content),
+                rawDescription: cu.content,
+                navigatePath: cu.case_id ? `/cases/${cu.case_id}` : '/cases',
+                raw: cu
+            });
+        });
+
+        // 5. Map Gang Members (Miembros de Bandas)
+        gangMembers.forEach(gm => {
+            const dateStr = gm.created_at;
+            const gangObj = gm.gangs || null;
+            const gangName = gangObj?.name || 'Banda';
+            const gangsList = gangObj ? [gangObj] : [];
+
+            items.push({
+                id: gm.id,
+                type: 'gang_member',
+                typeLabel: 'Miembro Banda',
+                typeIcon: '👤',
+                themeColor: '#06b6d4',
+                bgBadge: 'rgba(6, 182, 212, 0.15)',
+                borderBadge: 'rgba(6, 182, 212, 0.35)',
+                title: `Miembro añadido: ${gm.name} (${gm.role || 'Sospechoso'})`,
+                gangName,
+                gangs: gangsList,
+                memberStatus: gm.status || 'Active',
+                memberRole: gm.role,
+                dateStr,
+                dateObj: new Date(dateStr),
+                photo: gm.photo,
+                images: gm.photo ? [gm.photo] : [],
+                notes: gm.notes ? stripHtmlTags(gm.notes) : `Estado: ${gm.status || 'Active'}`,
+                rawDescription: gm.notes,
+                navigatePath: `/gangs`,
+                raw: gm
+            });
+        });
+
+        // 6. Map Gang Vehicles (Vehículos de Bandas)
+        gangVehicles.forEach(gv => {
+            const dateStr = gv.created_at;
+            const gangObj = gv.gangs || null;
+            const gangName = gangObj?.name || 'Banda';
+            const gangsList = gangObj ? [gangObj] : [];
+
+            items.push({
+                id: gv.id,
+                type: 'gang_vehicle',
+                typeLabel: 'Vehículo Banda',
+                typeIcon: '🚗',
+                themeColor: '#14b8a6',
+                bgBadge: 'rgba(20, 184, 166, 0.15)',
+                borderBadge: 'rgba(20, 184, 166, 0.35)',
+                title: `Vehículo: ${gv.model || 'Desconocido'} [${gv.plate || 'S/M'}]`,
+                gangName,
+                gangs: gangsList,
+                plate: gv.plate,
+                ownerName: gv.owner_name,
+                dateStr,
+                dateObj: new Date(dateStr),
+                images: filterBucketImages(gv.images || []),
+                notes: `Propietario: ${gv.owner_name || 'Desconocido'}. ${gv.notes || ''}`.trim(),
+                rawDescription: gv.notes,
+                navigatePath: `/gangs`,
+                raw: gv
+            });
+        });
+
+        // 7. Map Gang Homes (Propiedades de Bandas)
+        gangHomes.forEach(gh => {
+            const dateStr = gh.created_at;
+            const gangObj = gh.gangs || null;
+            const gangName = gangObj?.name || 'Banda';
+            const gangsList = gangObj ? [gangObj] : [];
+
+            items.push({
+                id: gh.id,
+                type: 'gang_home',
+                typeLabel: 'Propiedad Banda',
+                typeIcon: '🏠',
+                themeColor: '#f97316',
+                bgBadge: 'rgba(249, 115, 22, 0.15)',
+                borderBadge: 'rgba(249, 115, 22, 0.35)',
+                title: `Propiedad: ${gh.owner_name || 'Inmueble identificado'}`,
+                gangName,
+                gangs: gangsList,
+                ownerName: gh.owner_name,
+                dateStr,
+                dateObj: new Date(dateStr),
+                images: filterBucketImages(gh.images || []),
+                notes: gh.address_notes || 'Ubicación identificada',
+                rawDescription: gh.address_notes,
+                navigatePath: `/gangs`,
+                raw: gh
+            });
+        });
+
+        // 8. Map Documentation Posts
         docs.forEach(doc => {
             const dateStr = doc.created_at;
             items.push({
@@ -398,7 +692,7 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
         });
 
         return items;
-    }, [incidents, matrices, outings, docs, sortOrder, t]);
+    }, [incidents, matrices, outings, caseUpdates, gangMembers, gangVehicles, gangHomes, docs, sortOrder, t]);
 
     // Unique gangs present across this user's contributions
     const availableGangs = useMemo(() => {
@@ -415,6 +709,8 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
         return Array.from(gangMap.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }, [unifiedActivities]);
 
+    const totalGangIntel = gangMembers.length + gangVehicles.length + gangHomes.length;
+
     // Filtered items based on Category Tab, Search Query, and Gang Filter
     const filteredActivities = useMemo(() => {
         return unifiedActivities.filter(item => {
@@ -423,6 +719,8 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                 if (selectedTab === 'incidents' && item.type !== 'incident') return false;
                 if (selectedTab === 'matrices' && item.type !== 'matrix') return false;
                 if (selectedTab === 'outings' && item.type !== 'outing') return false;
+                if (selectedTab === 'case_updates' && item.type !== 'case_update') return false;
+                if (selectedTab === 'gang_data' && !['gang_member', 'gang_vehicle', 'gang_home'].includes(item.type)) return false;
                 if (selectedTab === 'documents' && item.type !== 'document') return false;
             }
 
@@ -439,9 +737,10 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                 const matchTablet = item.tabletNumber && item.tabletNumber.toLowerCase().includes(q);
                 const matchLocation = item.location && item.location.toLowerCase().includes(q);
                 const matchNotes = item.notes && item.notes.toLowerCase().includes(q);
+                const matchPlate = item.plate && item.plate.toLowerCase().includes(q);
                 const matchGang = (item.gangs || []).some(g => g.name && g.name.toLowerCase().includes(q));
 
-                if (!matchTitle && !matchTablet && !matchLocation && !matchNotes && !matchGang) {
+                if (!matchTitle && !matchTablet && !matchLocation && !matchNotes && !matchPlate && !matchGang) {
                     return false;
                 }
             }
@@ -496,7 +795,7 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                         fontSize: '0.82rem',
                         color: 'var(--text-secondary)'
                     }}>
-                        {t('activityHistorySubtitle') || 'Informes, matrices y vigilancias registradas en orden cronológico'}
+                        {t('activityHistorySubtitle') || 'Informes, matrices, vigilancias, entradas en casos e inteligencia de bandas'}
                     </p>
                 </div>
 
@@ -657,6 +956,70 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                     </span>
                 </button>
 
+                {/* Case Entries Tab */}
+                <button
+                    type="button"
+                    onClick={() => handleTabSwitch('case_updates')}
+                    style={{
+                        padding: '7px 14px',
+                        borderRadius: '8px',
+                        border: selectedTab === 'case_updates' ? '1px solid #6366f1' : '1px solid var(--glass-border)',
+                        background: selectedTab === 'case_updates' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                        color: selectedTab === 'case_updates' ? '#a5b4fc' : 'var(--text-secondary)',
+                        fontWeight: selectedTab === 'case_updates' ? 700 : 500,
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}
+                >
+                    <span>📁</span>
+                    <span>{t('tabCaseUpdates') || 'Entradas en Casos'}</span>
+                    <span style={{
+                        padding: '1px 6px',
+                        borderRadius: '10px',
+                        fontSize: '0.75rem',
+                        background: selectedTab === 'case_updates' ? '#6366f1' : 'rgba(255, 255, 255, 0.1)',
+                        color: selectedTab === 'case_updates' ? '#ffffff' : 'var(--text-secondary)'
+                    }}>
+                        {caseUpdates.length}
+                    </span>
+                </button>
+
+                {/* Gang Intelligence Tab */}
+                <button
+                    type="button"
+                    onClick={() => handleTabSwitch('gang_data')}
+                    style={{
+                        padding: '7px 14px',
+                        borderRadius: '8px',
+                        border: selectedTab === 'gang_data' ? '1px solid #06b6d4' : '1px solid var(--glass-border)',
+                        background: selectedTab === 'gang_data' ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                        color: selectedTab === 'gang_data' ? '#67e8f9' : 'var(--text-secondary)',
+                        fontWeight: selectedTab === 'gang_data' ? 700 : 500,
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}
+                >
+                    <span>👥</span>
+                    <span>{t('tabGangData') || 'Inteligencia Bandas'}</span>
+                    <span style={{
+                        padding: '1px 6px',
+                        borderRadius: '10px',
+                        fontSize: '0.75rem',
+                        background: selectedTab === 'gang_data' ? '#06b6d4' : 'rgba(255, 255, 255, 0.1)',
+                        color: selectedTab === 'gang_data' ? '#ffffff' : 'var(--text-secondary)'
+                    }}>
+                        {totalGangIntel}
+                    </span>
+                </button>
+
                 {docs.length > 0 && (
                     <button
                         type="button"
@@ -810,7 +1173,7 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                     <div style={{ fontSize: '0.85rem' }}>
                         {searchQuery || selectedGangFilter
                             ? 'Prueba a cambiar los términos de búsqueda o limpiar el filtro de banda.'
-                            : 'El agente aún no ha subido informes o matrices en esta categoría.'}
+                            : 'El agente aún no ha registrado actividad en esta categoría.'}
                     </div>
                 </div>
             ) : (
@@ -883,6 +1246,20 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                                             </span>
                                         )}
 
+                                        {item.caseStatus && (
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                borderRadius: '6px',
+                                                fontSize: '0.76rem',
+                                                fontWeight: 600,
+                                                background: item.caseStatus === 'Open' ? 'rgba(74, 222, 128, 0.15)' : 'rgba(248, 113, 113, 0.15)',
+                                                color: item.caseStatus === 'Open' ? '#4ade80' : '#f87171',
+                                                border: `1px solid ${item.caseStatus === 'Open' ? 'rgba(74, 222, 128, 0.3)' : 'rgba(248, 113, 113, 0.3)'}`
+                                            }}>
+                                                Estado: {item.caseStatus}
+                                            </span>
+                                        )}
+
                                         {item.peopleCount !== undefined && (
                                             <span style={{
                                                 padding: '2px 8px',
@@ -894,6 +1271,34 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                                                 border: '1px solid rgba(16, 185, 129, 0.3)'
                                             }}>
                                                 👥 {item.peopleCount} miembros
+                                            </span>
+                                        )}
+
+                                        {item.memberRole && (
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                borderRadius: '6px',
+                                                fontSize: '0.76rem',
+                                                fontWeight: 600,
+                                                background: 'rgba(6, 182, 212, 0.15)',
+                                                color: '#22d3ee',
+                                                border: '1px solid rgba(6, 182, 212, 0.3)'
+                                            }}>
+                                                Rol: {item.memberRole}
+                                            </span>
+                                        )}
+
+                                        {item.plate && (
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                borderRadius: '6px',
+                                                fontSize: '0.76rem',
+                                                fontWeight: 600,
+                                                background: 'rgba(20, 184, 166, 0.15)',
+                                                color: '#2dd4bf',
+                                                border: '1px solid rgba(20, 184, 166, 0.3)'
+                                            }}>
+                                                Matrícula: {item.plate}
                                             </span>
                                         )}
 
@@ -1007,11 +1412,11 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                                                     border: '1px solid var(--glass-border)',
                                                     position: 'relative'
                                                 }}
-                                                title="Clic para ampliar foto de patrullaje"
+                                                title="Clic para ampliar foto"
                                             >
                                                 <img
                                                     src={item.photo}
-                                                    alt="Foto patrullaje"
+                                                    alt="Foto adjunta"
                                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                 />
                                             </div>
@@ -1181,6 +1586,17 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                                             #{previewItem.tabletNumber}
                                         </span>
                                     )}
+                                    {previewItem.caseStatus && (
+                                        <span style={{
+                                            padding: '2px 8px',
+                                            borderRadius: '6px',
+                                            fontSize: '0.76rem',
+                                            background: previewItem.caseStatus === 'Open' ? 'rgba(74, 222, 128, 0.15)' : 'rgba(248, 113, 113, 0.15)',
+                                            color: previewItem.caseStatus === 'Open' ? '#4ade80' : '#f87171'
+                                        }}>
+                                            {previewItem.caseStatus}
+                                        </span>
+                                    )}
                                 </div>
                                 <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-primary)' }}>
                                     {previewItem.title}
@@ -1221,7 +1637,7 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                             gap: '1.25rem'
                         }}>
                             {/* Gangs & People info */}
-                            {(previewItem.gangs?.length > 0 || previewItem.peopleCount !== undefined) && (
+                            {(previewItem.gangs?.length > 0 || previewItem.peopleCount !== undefined || previewItem.memberRole || previewItem.plate) && (
                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                     {previewItem.peopleCount !== undefined && (
                                         <div style={{
@@ -1234,6 +1650,32 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                                             fontWeight: 600
                                         }}>
                                             👥 Personas avistadas: {previewItem.peopleCount}
+                                        </div>
+                                    )}
+                                    {previewItem.memberRole && (
+                                        <div style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '8px',
+                                            background: 'rgba(6, 182, 212, 0.15)',
+                                            color: '#22d3ee',
+                                            border: '1px solid rgba(6, 182, 212, 0.3)',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 600
+                                        }}>
+                                            Rol: {previewItem.memberRole} ({previewItem.memberStatus || 'Active'})
+                                        </div>
+                                    )}
+                                    {previewItem.plate && (
+                                        <div style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '8px',
+                                            background: 'rgba(20, 184, 166, 0.15)',
+                                            color: '#2dd4bf',
+                                            border: '1px solid rgba(20, 184, 166, 0.3)',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 600
+                                        }}>
+                                            Matrícula: {previewItem.plate}
                                         </div>
                                     )}
                                     {previewItem.gangs?.map(g => (
@@ -1259,7 +1701,7 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                             {previewItem.photo && (
                                 <div>
                                     <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                                        Fotografía de Patrullaje:
+                                        Fotografía Adjunta:
                                     </h4>
                                     <div
                                         onClick={() => setExpandedImage(previewItem.photo)}
@@ -1273,7 +1715,7 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                                     >
                                         <img
                                             src={previewItem.photo}
-                                            alt="Fotografía de patrullaje"
+                                            alt="Fotografía adjunta"
                                             style={{ width: '100%', maxHeight: '320px', objectFit: 'contain', background: '#0a0d14' }}
                                         />
                                     </div>
@@ -1284,7 +1726,7 @@ const AgentActivityHistory = forwardRef(function AgentActivityHistory(
                             {previewItem.rawDescription && (
                                 <div>
                                     <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                                        Descripción / Observaciones:
+                                        Contenido / Observaciones:
                                     </h4>
                                     <div
                                         style={{

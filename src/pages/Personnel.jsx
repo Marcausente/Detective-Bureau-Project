@@ -27,14 +27,16 @@ function Personnel() {
     // Active Tab State ('directory' | 'rankings')
     const [activeTab, setActiveTab] = useState('directory');
 
-    // Rankings State
-    const [rankingsData, setRankingsData] = useState({
-        closed_cases: [],
-        incidents: [],
-        outings: [],
-        interrogations: [],
-        matrix: []
-    });
+    // Rankings State & Filters
+    const [rawRankingsActivity, setRawRankingsActivity] = useState(null);
+    const [rankingsTimeframe, setRankingsTimeframe] = useState('monthly'); // 'monthly' | 'all'
+    const [rankingsMonth, setRankingsMonth] = useState(new Date().getMonth());
+    const [rankingsYear, setRankingsYear] = useState(new Date().getFullYear());
+    const [rankingSortMode, setRankingSortMode] = useState('desc'); // 'desc' (Mayor actividad) | 'asc' (Menor actividad)
+    const [rankingsViewStyle, setRankingsViewStyle] = useState('cards'); // 'cards' | 'table'
+    const [rankingsTableSearch, setRankingsTableSearch] = useState('');
+    const [rankingsTableSortCol, setRankingsTableSortCol] = useState('total');
+    const [rankingsTableSortAsc, setRankingsTableSortAsc] = useState(false);
     const [rankingsLoading, setRankingsLoading] = useState(false);
 
     // Auth State
@@ -127,100 +129,197 @@ function Personnel() {
         }
     };
 
+    const MONTH_NAMES_ES = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+
+    const handlePrevMonth = () => {
+        if (rankingsMonth === 0) {
+            setRankingsMonth(11);
+            setRankingsYear(prev => prev - 1);
+        } else {
+            setRankingsMonth(prev => prev - 1);
+        }
+    };
+
+    const handleNextMonth = () => {
+        if (rankingsMonth === 11) {
+            setRankingsMonth(0);
+            setRankingsYear(prev => prev + 1);
+        } else {
+            setRankingsMonth(prev => prev + 1);
+        }
+    };
+
     const fetchRankingsData = async (force = false) => {
-        if (!force && (rankingsData.closed_cases.length > 0 || rankingsData.incidents.length > 0 || rankingsData.outings.length > 0 || rankingsData.interrogations.length > 0 || rankingsData.matrix.length > 0)) {
+        if (!force && rawRankingsActivity) {
             return;
         }
 
         try {
             setRankingsLoading(true);
-            const { data, error } = await supabase.rpc('get_personnel_rankings');
-            if (!error && data) {
-                setRankingsData({
-                    closed_cases: data.closed_cases || [],
-                    incidents: data.incidents || [],
-                    outings: data.outings || [],
-                    interrogations: data.interrogations || [],
-                    matrix: data.matrix || []
-                });
-            } else {
-                // Fallback computation using direct table queries if RPC is not available
-                const [usersRes, closedCasesRes, incRes, outRes, interrogationsRes, matrixRes] = await Promise.all([
-                    supabase.from('users').select('id, nombre, apellido, rango, no_placa, profile_image'),
-                    supabase.from('cases').select('id, created_by, case_assignments(user_id)').eq('status', 'Closed'),
-                    supabase.from('incidents').select('author_id'),
-                    supabase.from('outings').select('created_by'),
-                    supabase.from('interrogations').select('id, author_id, agents_present'),
-                    supabase.from('gang_patrol_logs').select('created_by')
-                ]);
+            const [usersRes, closedCasesRes, incRes, outRes, interrogationsRes, matrixRes] = await Promise.all([
+                supabase.from('users').select('id, nombre, apellido, rango, no_placa, profile_image, rol'),
+                supabase.from('cases').select('id, created_by, created_at, updated_at, case_assignments(user_id)').eq('status', 'Closed'),
+                supabase.from('incidents').select('id, author_id, occurred_at, created_at'),
+                supabase.from('outings').select('id, created_by, occurred_at, created_at'),
+                supabase.from('interrogations').select('id, author_id, agents_present, interrogation_date, created_at'),
+                supabase.from('gang_patrol_logs').select('id, created_by, patrol_time, created_at')
+            ]);
 
-                const allUsers = usersRes.data || [];
-                const userMap = new Map(allUsers.map(u => [u.id, u]));
-
-                const buildLeaderboard = (items, getUserId) => {
-                    const counts = {};
-                    (items || []).forEach(item => {
-                        const uid = getUserId(item);
-                        if (uid) counts[uid] = (counts[uid] || 0) + 1;
-                    });
-                    return Object.entries(counts)
-                        .map(([uid, count]) => {
-                            const u = userMap.get(uid);
-                            if (!u) return null;
-                            return { ...u, count };
-                        })
-                        .filter(Boolean)
-                        .sort((a, b) => b.count - a.count)
-                        .slice(0, 10);
-                };
-
-                const closedCasesCounts = {};
-                (closedCasesRes.data || []).forEach(c => {
-                    const uniqueUsers = new Set();
-                    if (c.created_by) uniqueUsers.add(c.created_by);
-                    if (c.case_assignments && Array.isArray(c.case_assignments)) {
-                        c.case_assignments.forEach(ca => { if (ca.user_id) uniqueUsers.add(ca.user_id); });
-                    }
-                    uniqueUsers.forEach(uid => {
-                        closedCasesCounts[uid] = (closedCasesCounts[uid] || 0) + 1;
-                    });
-                });
-
-                const closedCasesList = Object.entries(closedCasesCounts)
-                    .map(([uid, count]) => {
-                        const u = userMap.get(uid);
-                        if (!u) return null;
-                        return { ...u, count };
-                    })
-                    .filter(Boolean)
-                    .sort((a, b) => b.count - a.count)
-                    .slice(0, 10);
-
-                const allInterrogations = interrogationsRes.data || [];
-                const interrogationsList = allUsers.map(u => {
-                    const count = allInterrogations.filter(i => {
-                        if (i.author_id === u.id) return true;
-                        if (i.agents_present && u.apellido && i.agents_present.toLowerCase().includes(u.apellido.toLowerCase())) return true;
-                        if (i.agents_present && u.nombre && i.agents_present.toLowerCase().includes(u.nombre.toLowerCase())) return true;
-                        return false;
-                    }).length;
-                    return { ...u, count };
-                }).filter(u => u.count > 0).sort((a, b) => b.count - a.count).slice(0, 10);
-
-                setRankingsData({
-                    closed_cases: closedCasesList,
-                    incidents: buildLeaderboard(incRes.data, i => i.author_id),
-                    outings: buildLeaderboard(outRes.data, i => i.created_by),
-                    interrogations: interrogationsList,
-                    matrix: buildLeaderboard(matrixRes.data, i => i.created_by)
-                });
-            }
+            setRawRankingsActivity({
+                users: usersRes.data || [],
+                closedCases: closedCasesRes.data || [],
+                incidents: incRes.data || [],
+                outings: outRes.data || [],
+                interrogations: interrogationsRes.data || [],
+                matrices: matrixRes.data || []
+            });
         } catch (err) {
-            console.error("Error fetching rankings:", err);
+            console.error("Error fetching rankings activity:", err);
         } finally {
             setRankingsLoading(false);
         }
     };
+
+    const processedRankings = useMemo(() => {
+        if (!rawRankingsActivity) {
+            return {
+                closed_cases: [],
+                incidents: [],
+                outings: [],
+                interrogations: [],
+                matrix: [],
+                agentMatrix: []
+            };
+        }
+
+        const { users, closedCases, incidents, outings, interrogations, matrices } = rawRankingsActivity;
+
+        const isWithinTimeframe = (dateString) => {
+            if (rankingsTimeframe === 'all') return true;
+            if (!dateString) return false;
+            const d = new Date(dateString);
+            if (isNaN(d.getTime())) return false;
+            return d.getFullYear() === rankingsYear && d.getMonth() === rankingsMonth;
+        };
+
+        const filteredCases = (closedCases || []).filter(c => isWithinTimeframe(c.updated_at || c.created_at));
+        const filteredIncidents = (incidents || []).filter(i => isWithinTimeframe(i.occurred_at || i.created_at));
+        const filteredOutings = (outings || []).filter(o => isWithinTimeframe(o.occurred_at || o.created_at));
+        const filteredInterrogations = (interrogations || []).filter(i => isWithinTimeframe(i.interrogation_date || i.created_at));
+        const filteredMatrices = (matrices || []).filter(m => isWithinTimeframe(m.patrol_time || m.created_at));
+
+        const caseCounts = {};
+        filteredCases.forEach(c => {
+            const uniqueUsers = new Set();
+            if (c.created_by) uniqueUsers.add(c.created_by);
+            if (c.case_assignments && Array.isArray(c.case_assignments)) {
+                c.case_assignments.forEach(ca => { if (ca.user_id) uniqueUsers.add(ca.user_id); });
+            }
+            uniqueUsers.forEach(uid => { caseCounts[uid] = (caseCounts[uid] || 0) + 1; });
+        });
+
+        const incidentCounts = {};
+        filteredIncidents.forEach(i => {
+            if (i.author_id) incidentCounts[i.author_id] = (incidentCounts[i.author_id] || 0) + 1;
+        });
+
+        const outingCounts = {};
+        filteredOutings.forEach(o => {
+            if (o.created_by) outingCounts[o.created_by] = (outingCounts[o.created_by] || 0) + 1;
+        });
+
+        const matrixCounts = {};
+        filteredMatrices.forEach(m => {
+            if (m.created_by) matrixCounts[m.created_by] = (matrixCounts[m.created_by] || 0) + 1;
+        });
+
+        const interrogationCounts = {};
+        (users || []).forEach(u => {
+            const cnt = filteredInterrogations.filter(i => {
+                if (i.author_id === u.id) return true;
+                if (i.agents_present && u.apellido && i.agents_present.toLowerCase().includes(u.apellido.toLowerCase())) return true;
+                if (i.agents_present && u.nombre && i.agents_present.toLowerCase().includes(u.nombre.toLowerCase())) return true;
+                return false;
+            }).length;
+            if (cnt > 0) interrogationCounts[u.id] = cnt;
+        });
+
+        const buildCategoryList = (countMap) => {
+            const list = (users || []).map(u => ({
+                ...u,
+                count: countMap[u.id] || 0
+            }));
+
+            if (rankingSortMode === 'desc') {
+                return list
+                    .sort((a, b) => b.count - a.count || (a.nombre || '').localeCompare(b.nombre || ''))
+                    .slice(0, 10);
+            } else {
+                return list
+                    .sort((a, b) => a.count - b.count || (a.nombre || '').localeCompare(b.nombre || ''))
+                    .slice(0, 10);
+            }
+        };
+
+        const agentMatrix = (users || []).map(u => {
+            const cCount = caseCounts[u.id] || 0;
+            const incCount = incidentCounts[u.id] || 0;
+            const outCount = outingCounts[u.id] || 0;
+            const matCount = matrixCounts[u.id] || 0;
+            const intCount = interrogationCounts[u.id] || 0;
+            const total = cCount + incCount + outCount + matCount + intCount;
+
+            return {
+                ...u,
+                closed_cases: cCount,
+                incidents: incCount,
+                outings: outCount,
+                matrix: matCount,
+                interrogations: intCount,
+                total
+            };
+        });
+
+        return {
+            closed_cases: buildCategoryList(caseCounts),
+            incidents: buildCategoryList(incidentCounts),
+            outings: buildCategoryList(outingCounts),
+            interrogations: buildCategoryList(interrogationCounts),
+            matrix: buildCategoryList(matrixCounts),
+            agentMatrix
+        };
+    }, [rawRankingsActivity, rankingsTimeframe, rankingsMonth, rankingsYear, rankingSortMode]);
+
+    const filteredAndSortedAgentMatrix = useMemo(() => {
+        let list = [...(processedRankings.agentMatrix || [])];
+
+        if (rankingsTableSearch.trim()) {
+            const q = rankingsTableSearch.toLowerCase().trim();
+            list = list.filter(u =>
+                (u.nombre && u.nombre.toLowerCase().includes(q)) ||
+                (u.apellido && u.apellido.toLowerCase().includes(q)) ||
+                (u.no_placa && u.no_placa.toLowerCase().includes(q)) ||
+                (u.rango && u.rango.toLowerCase().includes(q))
+            );
+        }
+
+        list.sort((a, b) => {
+            let valA = a[rankingsTableSortCol];
+            let valB = b[rankingsTableSortCol];
+
+            if (typeof valA === 'string') {
+                return rankingsTableSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            valA = Number(valA || 0);
+            valB = Number(valB || 0);
+            return rankingsTableSortAsc ? valA - valB : valB - valA;
+        });
+
+        return list;
+    }, [processedRankings.agentMatrix, rankingsTableSearch, rankingsTableSortCol, rankingsTableSortAsc]);
 
     // Rank Priorities
     const rankPriority = {
@@ -862,203 +961,728 @@ function Personnel() {
                     </div>
                 </div>
             ) : (
-                /* Rankings Tab Content Grid */
-                rankingsLoading ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', color: '#94a3b8', fontSize: '0.95rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{ width: '18px', height: '18px', border: '2px solid #fbbf24', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
-                            Cargando clasificaciones y rankings...
+                /* Rankings & Monthly Statistics Section */
+                <div className="rankings-tab-container" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {/* Control Panel Toolbar */}
+                    <div style={{
+                        background: 'rgba(var(--secondary-rgb), 0.45)',
+                        border: '1px solid var(--glass-border)',
+                        borderRadius: '14px',
+                        padding: '1.15rem 1.4rem',
+                        backdropFilter: 'blur(10px)',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1rem'
+                    }}>
+                        {/* Top row: Title, Status Pill, View Style Toggle */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.85rem' }}>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                    <div style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '8px',
+                                        background: 'rgba(234, 179, 8, 0.15)',
+                                        border: '1px solid rgba(234, 179, 8, 0.3)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '1rem'
+                                    }}>
+                                        📊
+                                    </div>
+                                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                                        {rankingsTimeframe === 'monthly'
+                                            ? `Estadísticas Mensuales: ${MONTH_NAMES_ES[rankingsMonth]} ${rankingsYear}`
+                                            : (t('timeframeAll') || 'Histórico Global Acumulado')}
+                                    </h3>
+                                    <span style={{
+                                        fontSize: '0.72rem',
+                                        padding: '0.2rem 0.65rem',
+                                        borderRadius: '6px',
+                                        fontWeight: 800,
+                                        letterSpacing: '0.03em',
+                                        background: rankingSortMode === 'desc' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                        color: rankingSortMode === 'desc' ? '#4ade80' : '#f87171',
+                                        border: `1px solid ${rankingSortMode === 'desc' ? 'rgba(34, 197, 94, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`
+                                    }}>
+                                        {rankingSortMode === 'desc' ? '▲ MAYOR ACTIVIDAD' : '▼ MENOR ACTIVIDAD'}
+                                    </span>
+                                </div>
+                                <p style={{ margin: '6px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                    {rankingsTimeframe === 'monthly'
+                                        ? `Analizando aportes e intervenciones registradas en ${MONTH_NAMES_ES[rankingsMonth]} de ${rankingsYear}.`
+                                        : 'Consolidado histórico de todas las intervenciones y actividad del personal policial.'}
+                                </p>
+                            </div>
+
+                            {/* View Switcher: Cards vs Table */}
+                            <div style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                background: 'rgba(0, 0, 0, 0.35)',
+                                padding: '3px',
+                                borderRadius: '10px',
+                                border: '1px solid rgba(255, 255, 255, 0.08)'
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setRankingsViewStyle('cards')}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '0.42rem 0.95rem',
+                                        borderRadius: '7px',
+                                        border: 'none',
+                                        background: rankingsViewStyle === 'cards' ? 'rgba(234, 179, 8, 0.25)' : 'transparent',
+                                        color: rankingsViewStyle === 'cards' ? '#fde047' : '#94a3b8',
+                                        fontWeight: rankingsViewStyle === 'cards' ? 700 : 500,
+                                        fontSize: '0.8rem',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+                                        <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+                                    </svg>
+                                    Tarjetas por Campo
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setRankingsViewStyle('table')}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '0.42rem 0.95rem',
+                                        borderRadius: '7px',
+                                        border: 'none',
+                                        background: rankingsViewStyle === 'table' ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
+                                        color: rankingsViewStyle === 'table' ? '#60a5fa' : '#94a3b8',
+                                        fontWeight: rankingsViewStyle === 'table' ? 700 : 500,
+                                        fontSize: '0.8rem',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" />
+                                        <line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" />
+                                        <line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                                    </svg>
+                                    Matriz de Rendimiento
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Bottom row: Timeframe, Month Navigation, Sort Mode */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '0.85rem',
+                            paddingTop: '0.85rem',
+                            borderTop: '1px solid rgba(255, 255, 255, 0.07)'
+                        }}>
+                            {/* Timeframe Buttons */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <div style={{
+                                    display: 'inline-flex',
+                                    background: 'rgba(0, 0, 0, 0.3)',
+                                    padding: '3px',
+                                    borderRadius: '9px',
+                                    border: '1px solid rgba(255, 255, 255, 0.08)'
+                                }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setRankingsTimeframe('monthly')}
+                                        style={{
+                                            padding: '0.38rem 0.85rem',
+                                            borderRadius: '7px',
+                                            border: 'none',
+                                            background: rankingsTimeframe === 'monthly' ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+                                            color: rankingsTimeframe === 'monthly' ? '#93c5fd' : '#94a3b8',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        📅 {t('timeframeMonthly') || 'Estadísticas Mensuales'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setRankingsTimeframe('all')}
+                                        style={{
+                                            padding: '0.38rem 0.85rem',
+                                            borderRadius: '7px',
+                                            border: 'none',
+                                            background: rankingsTimeframe === 'all' ? 'rgba(168, 85, 247, 0.3)' : 'transparent',
+                                            color: rankingsTimeframe === 'all' ? '#d8b4fe' : '#94a3b8',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        🌐 {t('timeframeAll') || 'Histórico Global'}
+                                    </button>
+                                </div>
+
+                                {/* Month & Year Selector (only when monthly is active) */}
+                                {rankingsTimeframe === 'monthly' && (
+                                    <div style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        background: 'rgba(0, 0, 0, 0.3)',
+                                        padding: '3px 8px',
+                                        borderRadius: '9px',
+                                        border: '1px solid rgba(255, 255, 255, 0.08)'
+                                    }}>
+                                        <button
+                                            type="button"
+                                            onClick={handlePrevMonth}
+                                            title="Mes anterior"
+                                            style={{
+                                                background: 'rgba(255, 255, 255, 0.06)',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                color: '#e2e8f0',
+                                                width: '24px',
+                                                height: '24px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '0.8rem'
+                                            }}
+                                        >
+                                            ◀
+                                        </button>
+
+                                        <select
+                                            value={rankingsMonth}
+                                            onChange={(e) => setRankingsMonth(Number(e.target.value))}
+                                            style={{
+                                                background: 'transparent',
+                                                color: '#f8fafc',
+                                                border: 'none',
+                                                fontSize: '0.8rem',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                                padding: '2px 4px',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            {MONTH_NAMES_ES.map((m, idx) => (
+                                                <option key={m} value={idx} style={{ background: '#1e293b', color: '#fff' }}>
+                                                    {m}
+                                                </option>
+                                            ))}
+                                        </select>
+
+                                        <select
+                                            value={rankingsYear}
+                                            onChange={(e) => setRankingsYear(Number(e.target.value))}
+                                            style={{
+                                                background: 'transparent',
+                                                color: '#f8fafc',
+                                                border: 'none',
+                                                fontSize: '0.8rem',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                                padding: '2px 4px',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            {[2024, 2025, 2026, 2027].map(y => (
+                                                <option key={y} value={y} style={{ background: '#1e293b', color: '#fff' }}>
+                                                    {y}
+                                                </option>
+                                            ))}
+                                        </select>
+
+                                        <button
+                                            type="button"
+                                            onClick={handleNextMonth}
+                                            title="Mes siguiente"
+                                            style={{
+                                                background: 'rgba(255, 255, 255, 0.06)',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                color: '#e2e8f0',
+                                                width: '24px',
+                                                height: '24px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '0.8rem'
+                                            }}
+                                        >
+                                            ▶
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Sort Mode: Mayor Actividad vs Menor Actividad */}
+                            <div style={{
+                                display: 'inline-flex',
+                                background: 'rgba(0, 0, 0, 0.3)',
+                                padding: '3px',
+                                borderRadius: '9px',
+                                border: '1px solid rgba(255, 255, 255, 0.08)'
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setRankingSortMode('desc')}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        padding: '0.38rem 0.85rem',
+                                        borderRadius: '7px',
+                                        border: 'none',
+                                        background: rankingSortMode === 'desc' ? 'rgba(34, 197, 94, 0.25)' : 'transparent',
+                                        color: rankingSortMode === 'desc' ? '#4ade80' : '#94a3b8',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    🥇 {t('viewHighest') || 'Mayor Actividad'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setRankingSortMode('asc')}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        padding: '0.38rem 0.85rem',
+                                        borderRadius: '7px',
+                                        border: 'none',
+                                        background: rankingSortMode === 'asc' ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
+                                        color: rankingSortMode === 'asc' ? '#f87171' : '#94a3b8',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    📉 {t('viewLowest') || 'Menor Actividad'}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                ) : (
-                    <div className="rankings-grid">
-                        {/* 1. Closed Cases */}
-                        <div className="ranking-card">
-                            <div className="ranking-card-header">
-                                <span className="ranking-card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                                    </svg>
-                                </span>
-                                <h3 className="ranking-card-title">{t('rankClosedCasesTitle') || 'Casos en Closed'}</h3>
-                            </div>
-                            <div className="ranking-card-desc">{t('rankClosedCasesDesc') || 'Personas con más casos criminales cerrados y resueltos'}</div>
-                            <div className="ranking-list">
-                                {(!rankingsData.closed_cases || rankingsData.closed_cases.length === 0) ? (
-                                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
-                                        {t('noRankingsFound') || 'Sin registros aún en este ranking'}
-                                    </div>
-                                ) : (
-                                    rankingsData.closed_cases.map((item, idx) => {
-                                        const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
-                                        const badgeSymbol = idx === 0 ? '1º' : (idx === 1 ? '2º' : (idx === 2 ? '3º' : `#${idx + 1}`));
-                                        return (
-                                            <div key={item.id} className="ranking-item" onClick={() => navigate(`/personnel/${item.id}`)}>
-                                                <div className={`rank-badge ${rankClass}`}>{badgeSymbol}</div>
-                                                <img src={getProfileImage(item.profile_image, '/logowebp/anon.webp')} alt={item.nombre} className="ranking-avatar" />
-                                                <div className="ranking-user-info">
-                                                    <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
-                                                    <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
-                                                </div>
-                                                <div className="ranking-count-pill">{item.count} {t('unitCases') || 'Casos'}</div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
-                        </div>
 
-                        {/* 2. Incidents */}
-                        <div className="ranking-card">
-                            <div className="ranking-card-header">
-                                <span className="ranking-card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
-                                        <line x1="12" y1="8" x2="12" y2="12" />
-                                        <line x1="12" y1="16" x2="12.01" y2="16" />
-                                    </svg>
-                                </span>
-                                <h3 className="ranking-card-title">{t('rankIncidentsTitle') || 'Incidentes Subidos'}</h3>
-                            </div>
-                            <div className="ranking-card-desc">{t('rankIncidentsDesc') || 'Personas con más partes de incidentes subidos'}</div>
-                            <div className="ranking-list">
-                                {(!rankingsData.incidents || rankingsData.incidents.length === 0) ? (
-                                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
-                                        {t('noRankingsFound') || 'Sin registros aún en este ranking'}
-                                    </div>
-                                ) : (
-                                    rankingsData.incidents.map((item, idx) => {
-                                        const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
-                                        const badgeSymbol = idx === 0 ? '1º' : (idx === 1 ? '2º' : (idx === 2 ? '3º' : `#${idx + 1}`));
-                                        return (
-                                            <div key={item.id} className="ranking-item" onClick={() => navigate(`/personnel/${item.id}`)}>
-                                                <div className={`rank-badge ${rankClass}`}>{badgeSymbol}</div>
-                                                <img src={getProfileImage(item.profile_image, '/logowebp/anon.webp')} alt={item.nombre} className="ranking-avatar" />
-                                                <div className="ranking-user-info">
-                                                    <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
-                                                    <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
-                                                </div>
-                                                <div className="ranking-count-pill">{item.count} {t('unitIncidents') || 'Incidentes'}</div>
-                                            </div>
-                                        );
-                                    })
-                                )}
+                    {/* Content Body: Loading, Cards or Table */}
+                    {rankingsLoading ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', color: '#94a3b8', fontSize: '0.95rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '18px', height: '18px', border: '2px solid #fbbf24', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+                                Cargando estadísticas y rankings...
                             </div>
                         </div>
+                    ) : rankingsViewStyle === 'cards' ? (
+                        /* CARDS VIEW */
+                        <div className="rankings-grid">
+                            {[
+                                {
+                                    key: 'closed_cases',
+                                    title: t('rankClosedCasesTitle') || 'Casos en Closed',
+                                    desc: rankingSortMode === 'desc'
+                                        ? (t('rankClosedCasesDesc') || 'Personas con más casos criminales cerrados y resueltos')
+                                        : 'Personas con menor o nulo registro de casos resueltos',
+                                    iconColor: '#fbbf24',
+                                    unit: t('unitCases') || 'Casos',
+                                    icon: (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                                        </svg>
+                                    )
+                                },
+                                {
+                                    key: 'incidents',
+                                    title: t('rankIncidentsTitle') || 'Incidentes Subidos',
+                                    desc: rankingSortMode === 'desc'
+                                        ? (t('rankIncidentsDesc') || 'Personas con más partes de incidentes subidos')
+                                        : 'Personas con menor o nulo registro de partes de incidentes',
+                                    iconColor: '#f87171',
+                                    unit: t('unitIncidents') || 'Incidentes',
+                                    icon: (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
+                                            <line x1="12" y1="8" x2="12" y2="12" />
+                                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                                        </svg>
+                                    )
+                                },
+                                {
+                                    key: 'outings',
+                                    title: t('rankOutingsTitle') || 'Vigilancias Subidas',
+                                    desc: rankingSortMode === 'desc'
+                                        ? (t('rankOutingsDesc') || 'Personas con más salidas de vigilancia (Outings) registradas')
+                                        : 'Personas con menor o nulo registro de salidas de vigilancia',
+                                    iconColor: '#60a5fa',
+                                    unit: t('unitOutings') || 'Vigilancias',
+                                    icon: (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                            <circle cx="12" cy="12" r="3" />
+                                        </svg>
+                                    )
+                                },
+                                {
+                                    key: 'interrogations',
+                                    title: t('rankInterrogationsTitle') || 'Interrogatorios Realizados',
+                                    desc: rankingSortMode === 'desc'
+                                        ? (t('rankInterrogationsDesc') || 'Personas presentes en un mayor número de interrogatorios')
+                                        : 'Personas con menor o nula participación en interrogatorios',
+                                    iconColor: '#a5b4fc',
+                                    unit: t('unitInterrogations') || 'Interrogatorios',
+                                    icon: (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                                        </svg>
+                                    )
+                                },
+                                {
+                                    key: 'matrix',
+                                    title: t('rankMatricesTitle') || 'Matrices Subidas',
+                                    desc: rankingSortMode === 'desc'
+                                        ? (t('rankMatricesDesc') || 'Personas con más matrices de control de tiempo subidas en Gang Unit')
+                                        : 'Personas con menor o nulo registro de matrices subidas',
+                                    iconColor: '#4ade80',
+                                    unit: t('unitMatrices') || 'Matrices',
+                                    icon: (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="18" y1="20" x2="18" y2="10" />
+                                            <line x1="12" y1="20" x2="12" y2="4" />
+                                            <line x1="6" y1="20" x2="6" y2="14" />
+                                        </svg>
+                                    )
+                                }
+                            ].map((card) => {
+                                const list = processedRankings[card.key] || [];
+                                return (
+                                    <div key={card.key} className="ranking-card">
+                                        <div className="ranking-card-header">
+                                            <span className="ranking-card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                {card.icon}
+                                            </span>
+                                            <h3 className="ranking-card-title">{card.title}</h3>
+                                        </div>
+                                        <div className="ranking-card-desc">{card.desc}</div>
+                                        <div className="ranking-list">
+                                            {list.length === 0 ? (
+                                                <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
+                                                    {t('noRankingsFound') || 'Sin registros en este periodo'}
+                                                </div>
+                                            ) : (
+                                                list.map((item, idx) => {
+                                                    const isDesc = rankingSortMode === 'desc';
+                                                    const rankClass = isDesc ? (idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''))) : '';
+                                                    const badgeSymbol = isDesc
+                                                        ? (idx === 0 ? '1º' : (idx === 1 ? '2º' : (idx === 2 ? '3º' : `#${idx + 1}`)))
+                                                        : `#${idx + 1}`;
+                                                    const isZero = item.count === 0;
 
-                        {/* 3. Outings (Vigilancias) */}
-                        <div className="ranking-card">
-                            <div className="ranking-card-header">
-                                <span className="ranking-card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                        <circle cx="12" cy="12" r="3" />
-                                    </svg>
-                                </span>
-                                <h3 className="ranking-card-title">{t('rankOutingsTitle') || 'Vigilancias Subidas'}</h3>
-                            </div>
-                            <div className="ranking-card-desc">{t('rankOutingsDesc') || 'Personas con más salidas de vigilancia (Outings) registradas'}</div>
-                            <div className="ranking-list">
-                                {(!rankingsData.outings || rankingsData.outings.length === 0) ? (
-                                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
-                                        {t('noRankingsFound') || 'Sin registros aún en este ranking'}
+                                                    return (
+                                                        <div
+                                                            key={item.id}
+                                                            className="ranking-item"
+                                                            onClick={() => navigate(`/personnel/${item.id}`)}
+                                                            title="Ver perfil del agente"
+                                                        >
+                                                            <div
+                                                                className={`rank-badge ${rankClass}`}
+                                                                style={!isDesc ? {
+                                                                    background: isZero ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.06)',
+                                                                    color: isZero ? '#fca5a5' : '#94a3b8',
+                                                                    border: isZero ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)'
+                                                                } : {}}
+                                                            >
+                                                                {badgeSymbol}
+                                                            </div>
+                                                            <img
+                                                                src={getProfileImage(item.profile_image, '/logowebp/anon.webp')}
+                                                                alt={item.nombre}
+                                                                className="ranking-avatar"
+                                                            />
+                                                            <div className="ranking-user-info">
+                                                                <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
+                                                                <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
+                                                            </div>
+                                                            <div
+                                                                className="ranking-count-pill"
+                                                                style={!isDesc && isZero ? {
+                                                                    background: 'rgba(239, 68, 68, 0.15)',
+                                                                    borderColor: 'rgba(239, 68, 68, 0.35)',
+                                                                    color: '#fca5a5'
+                                                                } : {}}
+                                                            >
+                                                                {item.count} {card.unit}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
                                     </div>
-                                ) : (
-                                    rankingsData.outings.map((item, idx) => {
-                                        const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
-                                        const badgeSymbol = idx === 0 ? '1º' : (idx === 1 ? '2º' : (idx === 2 ? '3º' : `#${idx + 1}`));
-                                        return (
-                                            <div key={item.id} className="ranking-item" onClick={() => navigate(`/personnel/${item.id}`)}>
-                                                <div className={`rank-badge ${rankClass}`}>{badgeSymbol}</div>
-                                                <img src={getProfileImage(item.profile_image, '/logowebp/anon.webp')} alt={item.nombre} className="ranking-avatar" />
-                                                <div className="ranking-user-info">
-                                                    <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
-                                                    <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
-                                                </div>
-                                                <div className="ranking-count-pill">{item.count} {t('unitOutings') || 'Vigilancias'}</div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
+                                );
+                            })}
                         </div>
+                    ) : (
+                        /* TABLE / MATRIX VIEW */
+                        <div style={{
+                            background: 'rgba(var(--secondary-rgb), 0.45)',
+                            border: '1px solid var(--glass-border)',
+                            borderRadius: '14px',
+                            padding: '1.25rem',
+                            backdropFilter: 'blur(10px)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '1rem',
+                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
+                        }}>
+                            {/* Search and Summary KPIs */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                                <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar por nombre, rango o placa..."
+                                        value={rankingsTableSearch}
+                                        onChange={(e) => setRankingsTableSearch(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '0.55rem 0.9rem 0.55rem 2.2rem',
+                                            background: 'rgba(0, 0, 0, 0.3)',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            borderRadius: '8px',
+                                            color: '#fff',
+                                            fontSize: '0.85rem',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                    <svg
+                                        width="15"
+                                        height="15"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="#94a3b8"
+                                        strokeWidth="2"
+                                        style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }}
+                                    >
+                                        <circle cx="11" cy="11" r="8" />
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                    </svg>
+                                </div>
 
-                        {/* 4. Interrogations */}
-                        <div className="ranking-card">
-                            <div className="ranking-card-header">
-                                <span className="ranking-card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
-                                    </svg>
-                                </span>
-                                <h3 className="ranking-card-title">{t('rankInterrogationsTitle') || 'Interrogatorios Realizados'}</h3>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                                        Mostrando {filteredAndSortedAgentMatrix.length} agentes
+                                    </span>
+                                    <span style={{
+                                        fontSize: '0.75rem',
+                                        padding: '0.2rem 0.6rem',
+                                        borderRadius: '999px',
+                                        background: 'rgba(34, 197, 94, 0.15)',
+                                        color: '#4ade80',
+                                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                                    }}>
+                                        🟢 {filteredAndSortedAgentMatrix.filter(u => u.total >= 10).length} Alta
+                                    </span>
+                                    <span style={{
+                                        fontSize: '0.75rem',
+                                        padding: '0.2rem 0.6rem',
+                                        borderRadius: '999px',
+                                        background: 'rgba(59, 130, 246, 0.15)',
+                                        color: '#60a5fa',
+                                        border: '1px solid rgba(59, 130, 246, 0.3)'
+                                    }}>
+                                        🔵 {filteredAndSortedAgentMatrix.filter(u => u.total >= 4 && u.total < 10).length} Moderada
+                                    </span>
+                                    <span style={{
+                                        fontSize: '0.75rem',
+                                        padding: '0.2rem 0.6rem',
+                                        borderRadius: '999px',
+                                        background: 'rgba(239, 68, 68, 0.15)',
+                                        color: '#f87171',
+                                        border: '1px solid rgba(239, 68, 68, 0.3)'
+                                    }}>
+                                        🔴 {filteredAndSortedAgentMatrix.filter(u => u.total === 0).length} Sin Actividad
+                                    </span>
+                                </div>
                             </div>
-                            <div className="ranking-card-desc">{t('rankInterrogationsDesc') || 'Personas presentes en un mayor número de interrogatorios'}</div>
-                            <div className="ranking-list">
-                                {(!rankingsData.interrogations || rankingsData.interrogations.length === 0) ? (
-                                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
-                                        {t('noRankingsFound') || 'Sin registros aún en este ranking'}
-                                    </div>
-                                ) : (
-                                    rankingsData.interrogations.map((item, idx) => {
-                                        const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
-                                        const badgeSymbol = idx === 0 ? '1º' : (idx === 1 ? '2º' : (idx === 2 ? '3º' : `#${idx + 1}`));
-                                        return (
-                                            <div key={item.id} className="ranking-item" onClick={() => navigate(`/personnel/${item.id}`)}>
-                                                <div className={`rank-badge ${rankClass}`}>{badgeSymbol}</div>
-                                                <img src={getProfileImage(item.profile_image, '/logowebp/anon.webp')} alt={item.nombre} className="ranking-avatar" />
-                                                <div className="ranking-user-info">
-                                                    <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
-                                                    <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
-                                                </div>
-                                                <div className="ranking-count-pill">{item.count} {t('unitInterrogations') || 'Interrogatorios'}</div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
-                        </div>
 
-                        {/* 5. Matrix GU */}
-                        <div className="ranking-card">
-                            <div className="ranking-card-header">
-                                <span className="ranking-card-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="18" y1="20" x2="18" y2="10" />
-                                        <line x1="12" y1="20" x2="12" y2="4" />
-                                        <line x1="6" y1="20" x2="6" y2="14" />
-                                    </svg>
-                                </span>
-                                <h3 className="ranking-card-title">{t('rankMatricesTitle') || 'Matrices Subidas'}</h3>
-                            </div>
-                            <div className="ranking-card-desc">{t('rankMatricesDesc') || 'Personas con más matrices de control de tiempo subidas en Gang Unit'}</div>
-                            <div className="ranking-list">
-                                {(!rankingsData.matrix || rankingsData.matrix.length === 0) ? (
-                                    <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem', padding: '1rem 0' }}>
-                                        {t('noRankingsFound') || 'Sin registros aún en este ranking'}
-                                    </div>
-                                ) : (
-                                    rankingsData.matrix.map((item, idx) => {
-                                        const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
-                                        const badgeSymbol = idx === 0 ? '1º' : (idx === 1 ? '2º' : (idx === 2 ? '3º' : `#${idx + 1}`));
-                                        return (
-                                            <div key={item.id} className="ranking-item" onClick={() => navigate(`/personnel/${item.id}`)}>
-                                                <div className={`rank-badge ${rankClass}`}>{badgeSymbol}</div>
-                                                <img src={getProfileImage(item.profile_image, '/logowebp/anon.webp')} alt={item.nombre} className="ranking-avatar" />
-                                                <div className="ranking-user-info">
-                                                    <div className="ranking-user-name">{item.nombre} {item.apellido}</div>
-                                                    <div className="ranking-user-rank">{item.rango} #{item.no_placa || '---'}</div>
-                                                </div>
-                                                <div className="ranking-count-pill">{item.count} {t('unitMatrices') || 'Matrices'}</div>
-                                            </div>
-                                        );
-                                    })
-                                )}
+                            {/* Table */}
+                            <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                                    <thead>
+                                        <tr style={{ background: 'rgba(0, 0, 0, 0.4)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', color: '#94a3b8' }}>
+                                            {[
+                                                { id: 'nombre', label: 'Agente' },
+                                                { id: 'rango', label: 'Rango / Placa' },
+                                                { id: 'closed_cases', label: 'Casos Resueltos' },
+                                                { id: 'incidents', label: 'Informes' },
+                                                { id: 'outings', label: 'Vigilancias' },
+                                                { id: 'interrogations', label: 'Interrogatorios' },
+                                                { id: 'matrix', label: 'Matrices GU' },
+                                                { id: 'total', label: 'Total Aportes' },
+                                                { id: 'status', label: 'Nivel Actividad', noSort: true }
+                                            ].map(col => {
+                                                const isCurrent = rankingsTableSortCol === col.id;
+                                                return (
+                                                    <th
+                                                        key={col.id}
+                                                        onClick={() => {
+                                                            if (col.noSort) return;
+                                                            if (rankingsTableSortCol === col.id) {
+                                                                setRankingsTableSortAsc(!rankingsTableSortAsc);
+                                                            } else {
+                                                                setRankingsTableSortCol(col.id);
+                                                                setRankingsTableSortAsc(col.id === 'nombre' || col.id === 'rango');
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            padding: '0.75rem 1rem',
+                                                            fontWeight: 700,
+                                                            cursor: col.noSort ? 'default' : 'pointer',
+                                                            userSelect: 'none',
+                                                            whiteSpace: 'nowrap',
+                                                            color: isCurrent ? 'var(--accent-gold)' : '#94a3b8',
+                                                            borderBottom: isCurrent ? '2px solid var(--accent-gold)' : 'none'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                                            {col.label}
+                                                            {!col.noSort && (
+                                                                <span style={{ fontSize: '0.7rem', opacity: isCurrent ? 1 : 0.35 }}>
+                                                                    {isCurrent ? (rankingsTableSortAsc ? '▲' : '▼') : '↕'}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </th>
+                                                );
+                                            })}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredAndSortedAgentMatrix.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={9} style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                                                    No se encontraron agentes con los criterios de búsqueda.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredAndSortedAgentMatrix.map((agent) => {
+                                                const actStatus = agent.total >= 10
+                                                    ? { label: 'Alta Actividad', bg: 'rgba(34, 197, 94, 0.15)', border: 'rgba(34, 197, 94, 0.3)', color: '#4ade80' }
+                                                    : agent.total >= 4
+                                                        ? { label: 'Moderada', bg: 'rgba(59, 130, 246, 0.15)', border: 'rgba(59, 130, 246, 0.3)', color: '#60a5fa' }
+                                                        : agent.total >= 1
+                                                            ? { label: 'Baja', bg: 'rgba(234, 179, 8, 0.15)', border: 'rgba(234, 179, 8, 0.3)', color: '#fde047' }
+                                                            : { label: 'Sin Actividad', bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.3)', color: '#f87171' };
+
+                                                return (
+                                                    <tr
+                                                        key={agent.id}
+                                                        onClick={() => navigate(`/personnel/${agent.id}`)}
+                                                        style={{
+                                                            borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+                                                            cursor: 'pointer',
+                                                            transition: 'background 0.15s ease'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                    >
+                                                        <td style={{ padding: '0.7rem 1rem' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                <img
+                                                                    src={getProfileImage(agent.profile_image, '/logowebp/anon.webp')}
+                                                                    alt={agent.nombre}
+                                                                    style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                                />
+                                                                <div>
+                                                                    <div style={{ fontWeight: 600, color: '#f1f5f9' }}>
+                                                                        {agent.nombre} {agent.apellido}
+                                                                    </div>
+                                                                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                                                        {agent.rango_interno || agent.rol || 'Agente'}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '0.7rem 1rem', color: '#cbd5e1' }}>
+                                                            {agent.rango} <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>#{agent.no_placa || '---'}</span>
+                                                        </td>
+                                                        <td style={{ padding: '0.7rem 1rem' }}>
+                                                            <span style={{ fontWeight: 600, color: agent.closed_cases > 0 ? '#fbbf24' : '#64748b' }}>
+                                                                {agent.closed_cases}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '0.7rem 1rem' }}>
+                                                            <span style={{ fontWeight: 600, color: agent.incidents > 0 ? '#f87171' : '#64748b' }}>
+                                                                {agent.incidents}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '0.7rem 1rem' }}>
+                                                            <span style={{ fontWeight: 600, color: agent.outings > 0 ? '#60a5fa' : '#64748b' }}>
+                                                                {agent.outings}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '0.7rem 1rem' }}>
+                                                            <span style={{ fontWeight: 600, color: agent.interrogations > 0 ? '#a5b4fc' : '#64748b' }}>
+                                                                {agent.interrogations}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '0.7rem 1rem' }}>
+                                                            <span style={{ fontWeight: 600, color: agent.matrix > 0 ? '#4ade80' : '#64748b' }}>
+                                                                {agent.matrix}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '0.7rem 1rem' }}>
+                                                            <span style={{
+                                                                padding: '0.2rem 0.6rem',
+                                                                borderRadius: '8px',
+                                                                fontWeight: 800,
+                                                                fontSize: '0.85rem',
+                                                                background: agent.total > 0 ? 'rgba(var(--color-blue-rgb), 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                                                                color: agent.total > 0 ? 'var(--color-blue-light)' : '#64748b',
+                                                                border: agent.total > 0 ? '1px solid rgba(var(--color-blue-rgb), 0.35)' : '1px solid rgba(255, 255, 255, 0.08)'
+                                                            }}>
+                                                                {agent.total}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '0.7rem 1rem' }}>
+                                                            <span style={{
+                                                                padding: '0.22rem 0.65rem',
+                                                                borderRadius: '6px',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: 700,
+                                                                background: actStatus.bg,
+                                                                color: actStatus.color,
+                                                                border: `1px solid ${actStatus.border}`,
+                                                                display: 'inline-block'
+                                                            }}>
+                                                                {actStatus.label}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                    </div>
-                )
+                    )}
+                </div>
             )}
 
             {/* Add/Edit Personnel Modal */}

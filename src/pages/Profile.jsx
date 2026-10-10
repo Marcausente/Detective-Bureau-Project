@@ -662,6 +662,48 @@ function Profile() {
                                 <span style={{ fontSize: '0.74rem', color: '#c084fc', marginTop: '4px', fontWeight: 600 }}>🔍 Ver historial ↗</span>
                             </div>
                         </div>
+
+                        <div
+                            className="mac-widget-card"
+                            onClick={() => handleStatCardClick('case_updates')}
+                            style={{
+                                cursor: 'pointer',
+                                border: selectedActivityCategory === 'case_updates' ? '1px solid #6366f1' : undefined,
+                                boxShadow: selectedActivityCategory === 'case_updates' ? '0 0 16px rgba(99, 102, 241, 0.25)' : undefined
+                            }}
+                            title="Ver entradas e informes añadidos en casos"
+                        >
+                            <div className="mac-widget-header">
+                                <span className="mac-widget-label">{t('caseEntriesCount') || 'Entradas en Casos'}</span>
+                                <div className="mac-widget-icon-pill">📁</div>
+                            </div>
+                            <div className="mac-widget-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                <span className="mac-widget-val" style={{ fontSize: '2.2rem', fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>{userStats.case_updates || 0}</span>
+                                <span className="mac-widget-sub" style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '0.25rem' }}>Investigación</span>
+                                <span style={{ fontSize: '0.74rem', color: '#a5b4fc', marginTop: '4px', fontWeight: 600 }}>🔍 Ver historial ↗</span>
+                            </div>
+                        </div>
+
+                        <div
+                            className="mac-widget-card"
+                            onClick={() => handleStatCardClick('gang_data')}
+                            style={{
+                                cursor: 'pointer',
+                                border: selectedActivityCategory === 'gang_data' ? '1px solid #06b6d4' : undefined,
+                                boxShadow: selectedActivityCategory === 'gang_data' ? '0 0 16px rgba(6, 182, 212, 0.25)' : undefined
+                            }}
+                            title="Ver miembros, vehículos y casas añadidas en bandas"
+                        >
+                            <div className="mac-widget-header">
+                                <span className="mac-widget-label">{t('gangIntelCount') || 'Datos en Bandas'}</span>
+                                <div className="mac-widget-icon-pill">👥</div>
+                            </div>
+                            <div className="mac-widget-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                <span className="mac-widget-val" style={{ fontSize: '2.2rem', fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>{userStats.gang_data || 0}</span>
+                                <span className="mac-widget-sub" style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '0.25rem' }}>Inteligencia GU</span>
+                                <span style={{ fontSize: '0.74rem', color: '#67e8f9', marginTop: '4px', fontWeight: 600 }}>🔍 Ver historial ↗</span>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -677,7 +719,9 @@ function Profile() {
                             setUserStats(prev => ({
                                 incidents: stats.incidents ?? prev.incidents,
                                 matrix: stats.matrix ?? prev.matrix,
-                                outings: stats.outings ?? prev.outings
+                                outings: stats.outings ?? prev.outings,
+                                case_updates: stats.case_updates ?? prev.case_updates,
+                                gang_data: stats.gang_data ?? prev.gang_data
                             }));
                         }}
                     />

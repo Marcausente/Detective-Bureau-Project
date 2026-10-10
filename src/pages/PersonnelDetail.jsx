@@ -751,6 +751,48 @@ function PersonnelDetail() {
                                         </div>
                                     </div>
                                 </div>
+
+                                <div
+                                    className="stat-card"
+                                    onClick={() => handleStatCardClick('case_updates')}
+                                    style={{
+                                        cursor: 'pointer',
+                                        border: selectedActivityCategory === 'case_updates' ? '1px solid #6366f1' : undefined,
+                                        boxShadow: selectedActivityCategory === 'case_updates' ? '0 0 16px rgba(99, 102, 241, 0.25)' : undefined
+                                    }}
+                                    title="Ver entradas y notas añadidas en casos criminales"
+                                >
+                                    <div className="stat-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', borderColor: 'rgba(99, 102, 241, 0.3)' }}>📁</div>
+                                    <div className="stat-info">
+                                        <div className="stat-value">{userStats.case_updates || 0}</div>
+                                        <div className="stat-label">{t('caseEntriesCount') || 'Entradas en Casos'}</div>
+                                        <div className="stat-subtext">{t('caseEntriesDesc') || 'Actualizaciones de casos'}</div>
+                                        <div style={{ fontSize: '0.72rem', color: '#a5b4fc', marginTop: '4px', fontWeight: 600 }}>
+                                            🔍 Ver historial ↗
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="stat-card"
+                                    onClick={() => handleStatCardClick('gang_data')}
+                                    style={{
+                                        cursor: 'pointer',
+                                        border: selectedActivityCategory === 'gang_data' ? '1px solid #06b6d4' : undefined,
+                                        boxShadow: selectedActivityCategory === 'gang_data' ? '0 0 16px rgba(6, 182, 212, 0.25)' : undefined
+                                    }}
+                                    title="Ver miembros, vehículos y propiedades añadidas en bandas"
+                                >
+                                    <div className="stat-icon" style={{ background: 'rgba(6, 182, 212, 0.15)', borderColor: 'rgba(6, 182, 212, 0.3)' }}>👥</div>
+                                    <div className="stat-info">
+                                        <div className="stat-value">{userStats.gang_data || 0}</div>
+                                        <div className="stat-label">{t('gangIntelCount') || 'Datos en Bandas'}</div>
+                                        <div className="stat-subtext">{t('gangIntelDesc') || 'Miembros, autos y casas'}</div>
+                                        <div style={{ fontSize: '0.72rem', color: '#67e8f9', marginTop: '4px', fontWeight: 600 }}>
+                                            🔍 Ver historial ↗
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -766,7 +808,9 @@ function PersonnelDetail() {
                             setUserStats(prev => ({
                                 incidents: stats.incidents ?? prev.incidents,
                                 matrix: stats.matrix ?? prev.matrix,
-                                outings: stats.outings ?? prev.outings
+                                outings: stats.outings ?? prev.outings,
+                                case_updates: stats.case_updates ?? prev.case_updates,
+                                gang_data: stats.gang_data ?? prev.gang_data
                             }));
                         }}
                     />
