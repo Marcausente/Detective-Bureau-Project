@@ -39,8 +39,9 @@ const loadImgAsPngDataUrl = (src) => new Promise((resolve) => {
  * @param {Object} config - Order type field configurations
  * @param {Boolean} isLSSDOverride - Override for LSSD department mode
  * @param {String} pdfType - 'solicitud' (Internal investigation full record) or 'orden' (Public Warrant Mandate to deliver to citizen)
+ * @param {Object} brandingOverride - Optional branding configuration passed from theme context
  */
-export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 'solicitud') => {
+export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 'solicitud', brandingOverride = null) => {
     const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -49,6 +50,15 @@ export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 
     
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+    
+    // Retrieve branding configuration (passed directly or read from cached localStorage)
+    let branding = brandingOverride;
+    if (!branding || typeof branding !== 'object') {
+        try {
+            const saved = localStorage.getItem('app_custom_branding_v1');
+            if (saved) branding = JSON.parse(saved);
+        } catch (e) {}
+    }
     
     // Register custom signature font
     try {
@@ -75,9 +85,11 @@ export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 
     const textMuted = [100, 116, 139];                             // Slate #64748b
     const bgLight = [248, 250, 252];                               // Slate #f8fafc
 
-    // Mandatory transparent logos: dojlogo.webp and sanandreas.webp
-    const dojLogoDataUrl = await loadImgAsPngDataUrl('/logowebp/dojlogo.webp');
-    const saLogoDataUrl = await loadImgAsPngDataUrl('/logowebp/sanandreas.webp');
+    // Transparent logos: Left and right logos (customizable from admin branding)
+    const leftLogoUrl = branding?.orders_pdf_left_logo || '/logowebp/dojlogo.webp';
+    const rightLogoUrl = branding?.orders_pdf_right_logo || '/logowebp/sanandreas.webp';
+    const dojLogoDataUrl = await loadImgAsPngDataUrl(leftLogoUrl);
+    const saLogoDataUrl = await loadImgAsPngDataUrl(rightLogoUrl);
 
     // Decorative Outer Border Frame
     const drawPageBorder = () => {
@@ -102,12 +114,19 @@ export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 
     if (dojLogoDataUrl) doc.addImage(dojLogoDataUrl, 'PNG', 14, 17, 25, 25);
     if (saLogoDataUrl) doc.addImage(saLogoDataUrl, 'PNG', pageWidth - 39, 17, 25, 25);
 
-    // Title Text - Bureau Dynamic Name according to LSSD / LSPD mode
-    const bureauName = isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU" : "DETECTIVE BUREAU";
-    const bureauSubtitle = isPublicExecutionOrder
-        ? (isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU • MANDAMIENTO DE EJECUCIÓN" : "DETECTIVE BUREAU • MANDAMIENTO DE EJECUCIÓN PÚBLICA")
-        : (isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU • SOLICITUD Y EXPEDIENTE" : "DETECTIVE BUREAU • DIVISION DE ORDENES JUDICIALES");
-    const bureauUnit = isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau";
+    // Dynamic Bureau Names from Admin Branding or Default LSSD / LSPD mode
+    const defaultBureauName = isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU" : "DETECTIVE BUREAU";
+    const bureauName = cleanPDFText(branding?.orders_pdf_header || defaultBureauName);
+
+    const defaultBureauSubtitle = isPublicExecutionOrder
+        ? (isLSSD ? `${bureauName} • MANDAMIENTO DE EJECUCIÓN` : `${bureauName} • MANDAMIENTO DE EJECUCIÓN PÚBLICA`)
+        : (isLSSD ? `${bureauName} • SOLICITUD Y EXPEDIENTE` : `${bureauName} • DIVISION DE ORDENES JUDICIALES`);
+    const bureauSubtitle = cleanPDFText(branding?.orders_pdf_subtitle || defaultBureauSubtitle);
+
+    const bureauDojLine = cleanPDFText(branding?.orders_pdf_doj_line || "DEPARTMENT OF JUSTICE • ESTADO DE SAN ANDREAS");
+
+    const defaultBureauUnit = isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau";
+    const bureauUnit = cleanPDFText(branding?.orders_unit_name || defaultBureauUnit);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
@@ -121,7 +140,7 @@ export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 
     doc.setFontSize(8);
     doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
     doc.setFont('helvetica', 'normal');
-    doc.text("DEPARTMENT OF JUSTICE • ESTADO DE SAN ANDREAS", pageWidth / 2, 34, { align: 'center' });
+    doc.text(bureauDojLine, pageWidth / 2, 34, { align: 'center' });
 
     // Decorative Line Divider
     doc.setLineWidth(0.4);
@@ -184,8 +203,9 @@ export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+    const defaultJudgeName = cleanPDFText(branding?.orders_pdf_judge_name || "FISCAL JOHN ROXTON").toUpperCase();
     const authorityText = isPublicExecutionOrder
-        ? "FISCAL JOHN ROXTON"
+        ? defaultJudgeName
         : cleanPDFText(`${order.author_rank || 'Agente'} ${order.author_name || 'Desconocido'}`).toUpperCase();
     doc.text(authorityText, boxX + 41, y + 15);
 
@@ -305,8 +325,18 @@ export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 
     Object.entries(order.content || {}).forEach(([key, val]) => {
         if (!val) return;
         
+        // Exclude execution_details object (it is handled separately or purely for public orders)
+        if (key === 'execution_details') {
+            return;
+        }
+
         // Exclude private internal case data & motives when generating public execution order
         if (isPublicExecutionOrder && privateInternalKeys.includes(key)) {
+            return;
+        }
+
+        // Avoid rendering complex non-array objects as raw [object Object]
+        if (typeof val === 'object' && !Array.isArray(val)) {
             return;
         }
 
@@ -461,13 +491,14 @@ export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 
     doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
     doc.text(isPublicExecutionOrder ? "MANDAMIENTO JUDICIAL ENTREGADO AL INTERESADO" : "EXPEDIENTE INTERNO - REGISTRO JUDICIAL", 14, y + 4);
     doc.setFont('helvetica', 'normal');
-    doc.text("VALIDADO POR LA CORTE SUPERIOR Y DEPARTAMENTO DE JUSTICIA", 14, y + 8);
+    const legalFooter = cleanPDFText(branding?.orders_pdf_footer_legal || "VALIDADO POR LA CORTE SUPERIOR Y DEPARTAMENTO DE JUSTICIA");
+    doc.text(legalFooter, 14, y + 8);
     doc.text(`VERIFICACIÓN OFICIAL: SA-JUD-${Math.floor(100000 + Math.random() * 900000)}`, 14, y + 12);
 
     // Right Digital Cursive Signature
     const signatureName = isPublicExecutionOrder
-        ? 'John Roxton'
-        : cleanPDFText(order.content.author_agent || order.author_name || 'Agente Judicial');
+        ? cleanPDFText(branding?.orders_pdf_judge_signer || branding?.orders_pdf_judge_name || 'John Roxton')
+        : cleanPDFText(order.content?.author_agent || order.author_name || 'Agente Judicial');
 
     try {
         doc.setFont('AlexBrush', 'normal');
@@ -485,16 +516,17 @@ export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 
     doc.setFontSize(8);
     doc.setTextColor(textDark[0], textDark[1], textDark[2]);
     const signatureTitleLine = isPublicExecutionOrder
-        ? "FISCAL JOHN ROXTON"
+        ? cleanPDFText(branding?.orders_pdf_judge_name || "FISCAL JOHN ROXTON").toUpperCase()
         : cleanPDFText(`${order.author_rank || 'Agente'} ${signatureName}`).toUpperCase();
     doc.text(signatureTitleLine, pageWidth - 14, y + 10, { align: 'right' });
     
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
-    const signatureSubline = isPublicExecutionOrder
-        ? "Fiscalía General • Corte Superior de Justicia"
-        : (isLSSD ? 'Sheriff Criminal Unit Bureau, LSSD' : 'Detective Bureau, LSPD');
+    const defaultSignatureSubline = isPublicExecutionOrder
+        ? (branding?.orders_pdf_judge_title || "Fiscalía General • Corte Superior de Justicia")
+        : (branding?.orders_pdf_signature_dept || (isLSSD ? 'Sheriff Criminal Unit Bureau, LSSD' : 'Detective Bureau, LSPD'));
+    const signatureSubline = cleanPDFText(defaultSignatureSubline);
     doc.text(signatureSubline, pageWidth - 14, y + 14, { align: 'right' });
 
     // Save document with distinct filename

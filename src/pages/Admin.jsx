@@ -1418,6 +1418,265 @@ function Admin() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* BLOQUE 15: APARTADO DE ÓRDENES JUDICIALES, MANDAMIENTOS Y PDF */}
+                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem', gridColumn: '1 / -1' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '1.3rem' }}>⚖️</span>
+                                        <div>
+                                            <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1.05rem', fontWeight: 700 }}>
+                                                Apartado de Órdenes Judiciales, Mandamientos y Documentos PDF
+                                            </h4>
+                                            <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                                                Configura el departamento superior, subtítulos, unidad expedidora, sellos y firmas del PDF y del apartado web.
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span style={{ fontSize: '0.72rem', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>
+                                        PDF ENGINE & WARRANTS
+                                    </span>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+                                    {/* 1. Cabecera PDF: Nombre del Departamento */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Nombre del Departamento en Cabecera del PDF (Línea Superior)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.orders_pdf_header || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, orders_pdf_header: e.target.value })}
+                                            placeholder="Ej: SHERIFF CRIMINAL UNIT BUREAU o DETECTIVE BUREAU"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                        <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px' }}>
+                                            Aparece en la parte superior central en grande en el PDF.
+                                        </span>
+                                    </div>
+
+                                    {/* 2. Cabecera PDF: Subtítulo Superior */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Subtítulo de la Cabecera del PDF (Segunda Línea en Dorado)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.orders_pdf_subtitle || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, orders_pdf_subtitle: e.target.value })}
+                                            placeholder="Ej: SHERIFF CRIMINAL UNIT BUREAU • SOLICITUD Y EXPEDIENTE"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                        <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px' }}>
+                                            Texto dorado debajo del nombre de departamento en la cabecera.
+                                        </span>
+                                    </div>
+
+                                    {/* 3. Cabecera PDF: Organismo de Justicia */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Jurisdicción / Organismo Judicial (Tercera Línea Cabecera)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.orders_pdf_doj_line || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, orders_pdf_doj_line: e.target.value })}
+                                            placeholder="Ej: DEPARTMENT OF JUSTICE • ESTADO DE SAN ANDREAS"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    {/* 4. Metadatos PDF: Unidad Expedidora */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Unidad Expedidora (En Metadatos de la Orden)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.orders_unit_name || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, orders_unit_name: e.target.value })}
+                                            placeholder="Ej: Sheriff Criminal Unit Bureau o Detective Bureau"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                        <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px' }}>
+                                            Texto que se muestra junto a "UNIDAD EXPEDIDORA:".
+                                        </span>
+                                    </div>
+
+                                    {/* 5. Firma PDF: Departamento / Cuerpo en la Firma del Agente */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Departamento en la Firma del Agente (Abajo a la derecha)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.orders_pdf_signature_dept || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, orders_pdf_signature_dept: e.target.value })}
+                                            placeholder="Ej: Sheriff Criminal Unit Bureau, LSSD o Detective Bureau, LSPD"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                        <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px' }}>
+                                            Línea de subtexto debajo del nombre y cargo del agente en la firma.
+                                        </span>
+                                    </div>
+
+                                    {/* 6. Autoridad Judicial en Mandamiento Público de Ejecución */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Autoridad Judicial Firmante (Mandamiento Público)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.orders_pdf_judge_name || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, orders_pdf_judge_name: e.target.value })}
+                                            placeholder="Ej: FISCAL JOHN ROXTON o JUEZ TITULAR"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    {/* 7. Organismo de la Autoridad Judicial en Mandamiento */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Organismo de la Autoridad Judicial (Subtexto de Firma Pública)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.orders_pdf_judge_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, orders_pdf_judge_title: e.target.value })}
+                                            placeholder="Ej: Fiscalía General • Corte Superior de Justicia"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    {/* 8. Texto de Validación Legal en Pie de Página */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Texto de Validación Legal (Pie de Página Izquierdo del PDF)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.orders_pdf_footer_legal || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, orders_pdf_footer_legal: e.target.value })}
+                                            placeholder="Ej: VALIDADO POR LA CORTE SUPERIOR Y DEPARTAMENTO DE JUSTICIA"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    {/* 9. Título del Apartado en la Web */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Título del Apartado en la Web (Cabecera Superior)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.orders_web_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, orders_web_title: e.target.value })}
+                                            placeholder="Ej: ÓRDENES Y SENTENCIAS JUDICIALES"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    {/* 10. Subtítulo del Apartado en la Web */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Subtítulo / Departamento en la Web
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.orders_web_subtitle || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, orders_web_subtitle: e.target.value })}
+                                            placeholder="Ej: SHERIFF CRIMINAL UNIT BUREAU • Registro y consulta de expedientes"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    {/* 11. Nombre en Barra de Navegación */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Nombre en Pestaña / Barra de Navegación
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.orders_nav_label || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, orders_nav_label: e.target.value })}
+                                            placeholder="Ej: Órdenes, Warrants, Sentencias..."
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                    </div>
+
+                                    {/* 12. Logo Izquierdo del PDF */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo Izquierdo del PDF (Sello Oficial)
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.orders_pdf_left_logo && (
+                                                <img src={brandingForm.orders_pdf_left_logo} alt="Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.orders_pdf_left_logo || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, orders_pdf_left_logo: e.target.value })}
+                                                placeholder="/logowebp/dojlogo.webp o URL"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['orders_pdf_left_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['orders_pdf_left_logo'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['orders_pdf_left_logo']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('orders_pdf_left_logo', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {/* 13. Logo Derecho del PDF */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo Derecho del PDF (Sello Estatal / Sello Bureau)
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.orders_pdf_right_logo && (
+                                                <img src={brandingForm.orders_pdf_right_logo} alt="Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.orders_pdf_right_logo || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, orders_pdf_right_logo: e.target.value })}
+                                                placeholder="/logowebp/sanandreas.webp o URL"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['orders_pdf_right_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['orders_pdf_right_logo'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['orders_pdf_right_logo']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('orders_pdf_right_logo', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Actions & Save Button */}

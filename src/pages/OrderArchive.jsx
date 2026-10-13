@@ -397,7 +397,7 @@ const CategoryItem = ({ type, config, active, onClick }) => {
 };
 
 const OrderCard = ({ order, onPreview, onOpenExecutionModal }) => {
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
     const config = ORDER_TYPES[order.order_type];
     const cardAccentColor = config?.color || (isLSSD ? '#10b981' : '#3b82f6');
     
@@ -554,7 +554,7 @@ const OrderCard = ({ order, onPreview, onOpenExecutionModal }) => {
                     <button 
                         onClick={(e) => {
                             e.stopPropagation();
-                            import('../utils/orderPdfGenerator').then(mod => mod.generateOrderPDF(order, config, isLSSD, 'solicitud'));
+                            import('../utils/orderPdfGenerator').then(mod => mod.generateOrderPDF(order, config, isLSSD, 'solicitud', branding));
                         }}
                         style={{ 
                             background: 'rgba(255,255,255,0.06)', 
@@ -614,7 +614,7 @@ const OrderCard = ({ order, onPreview, onOpenExecutionModal }) => {
 
 // --- PREVIEW MODAL ---
 const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDelete, onOpenExecutionModal }) => {
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
 
     if (!isOpen || !order) return null;
     const config = ORDER_TYPES[order.order_type];
@@ -890,7 +890,7 @@ const PreviewModal = ({ order, isOpen, onClose, canManage, onUpdateStatus, onDel
                         <button 
                             type="button" 
                             className="mac-btn"
-                            onClick={() => import('../utils/orderPdfGenerator').then(mod => mod.generateOrderPDF(order, config, isLSSD, 'solicitud'))}
+                            onClick={() => import('../utils/orderPdfGenerator').then(mod => mod.generateOrderPDF(order, config, isLSSD, 'solicitud', branding))}
                             style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', border: '1px solid var(--glass-border, rgba(255,255,255,0.15))', display: 'flex', alignItems: 'center', gap: '5px' }}
                             title="Exportar Expediente de Solicitud Interna (PDF)"
                         >
@@ -975,7 +975,7 @@ function OrderArchive() {
     const [filterCategory, setFilterCategory] = useState('Todas');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
-    const { isLSSD } = useTheme();
+    const { isLSSD, branding } = useTheme();
 
     // Preview State
     const [previewOrder, setPreviewOrder] = useState(null);
@@ -1059,7 +1059,7 @@ function OrderArchive() {
 
             // Generate and download Execution Order PDF
             const mod = await import('../utils/orderPdfGenerator');
-            await mod.generateOrderPDF(updatedOrder, config, isLSSD, 'orden');
+            await mod.generateOrderPDF(updatedOrder, config, isLSSD, 'orden', branding);
 
             setShowExecutionModal(false);
         } catch (err) {
@@ -1465,7 +1465,7 @@ function OrderArchive() {
                         <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                                 <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                                    ÓRDENES Y SENTENCIAS JUDICIALES
+                                    {branding?.orders_web_title || 'ÓRDENES Y SENTENCIAS JUDICIALES'}
                                 </h1>
                                 <span style={{
                                     fontSize: '0.7rem',
@@ -1482,7 +1482,7 @@ function OrderArchive() {
                                 </span>
                             </div>
                             <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                {isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU • Registro y consulta de expedientes" : "DETECTIVE BUREAU • Registro y consulta de expedientes"}
+                                {branding?.orders_web_subtitle || (isLSSD ? "SHERIFF CRIMINAL UNIT BUREAU • Registro y consulta de expedientes" : "DETECTIVE BUREAU • Registro y consulta de expedientes")}
                             </p>
                         </div>
                     </div>

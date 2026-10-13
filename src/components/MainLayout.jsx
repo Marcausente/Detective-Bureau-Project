@@ -174,7 +174,7 @@ const getShortLabel = (path, fullName, branding = {}, isLSSD = false) => {
         case '/incidents': return 'Incidentes';
         case '/complaints': return 'Denuncias';
         case '/crimemap': return 'Mapa';
-        case '/warrants': return 'Órdenes';
+        case '/warrants': return branding?.orders_nav_label || 'Órdenes';
         case '/interrogations': return 'Interrogatorios';
         case '/ballistics': return 'Balística';
         case '/personnel': return 'Personal';
@@ -323,7 +323,7 @@ function MainLayout() {
         { name: t('ballistics'), path: '/ballistics', divisions: ['Detective Bureau'] },
         { name: t('personnel'), path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD'] },
         { name: t('trainingProgram'), path: '/training', divisions: ['Detective Bureau'], roles: ['detective', 'coordinador', 'ayudante'] },
-        { name: t('judicialOrders'), path: '/warrants', divisions: ['Detective Bureau', 'DOJ'] },
+        { name: branding?.orders_nav_label || t('judicialOrders'), path: '/warrants', divisions: ['Detective Bureau', 'DOJ'] },
         { name: t('internalAffairs'), path: '/internal-affairs', divisions: ['Internal Affairs'] },
         { name: t('doj'), path: '/doj', divisions: ['DOJ'] },
         { name: t('seb'), path: '/seb', divisions: ['SEB'] },

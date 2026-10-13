@@ -60,7 +60,20 @@ export const BRANDING_PRESETS = {
         coordination_badge: 'SCUB • Executive Command',
         coordination_title: 'PANEL DE COORDINACIÓN Y JEFATURA',
         coordination_subtitle: 'Gestión interna de tareas semanales, planificación de departamento y registro disciplinario.',
-        coordination_logo: '/logowebp/SCUB.webp'
+        coordination_logo: '/logowebp/SCUB.webp',
+        orders_nav_label: 'Órdenes',
+        orders_web_title: 'ÓRDENES Y SENTENCIAS JUDICIALES',
+        orders_web_subtitle: 'SHERIFF CRIMINAL UNIT BUREAU • Registro y consulta de expedientes',
+        orders_pdf_header: 'SHERIFF CRIMINAL UNIT BUREAU',
+        orders_pdf_subtitle: 'SHERIFF CRIMINAL UNIT BUREAU • SOLICITUD Y EXPEDIENTE',
+        orders_pdf_doj_line: 'DEPARTMENT OF JUSTICE • ESTADO DE SAN ANDREAS',
+        orders_unit_name: 'Sheriff Criminal Unit Bureau',
+        orders_pdf_signature_dept: 'Sheriff Criminal Unit Bureau, LSSD',
+        orders_pdf_judge_name: 'FISCAL JOHN ROXTON',
+        orders_pdf_judge_title: 'Fiscalía General • Corte Superior de Justicia',
+        orders_pdf_footer_legal: 'VALIDADO POR LA CORTE SUPERIOR Y DEPARTAMENTO DE JUSTICIA',
+        orders_pdf_left_logo: '/logowebp/dojlogo.webp',
+        orders_pdf_right_logo: '/logowebp/sanandreas.webp'
     },
     DB: {
         topbar_name: 'DB',
@@ -118,7 +131,20 @@ export const BRANDING_PRESETS = {
         coordination_badge: 'DB • Executive Leadership',
         coordination_title: 'COMANDO CENTRAL DETECTIVE BUREAU',
         coordination_subtitle: 'Jefatura y supervisión operativa de la división de detectives.',
-        coordination_logo: '/logowebp/dblogo.webp'
+        coordination_logo: '/logowebp/dblogo.webp',
+        orders_nav_label: 'Órdenes',
+        orders_web_title: 'ÓRDENES Y SENTENCIAS JUDICIALES',
+        orders_web_subtitle: 'DETECTIVE BUREAU • Registro y consulta de expedientes',
+        orders_pdf_header: 'DETECTIVE BUREAU',
+        orders_pdf_subtitle: 'DETECTIVE BUREAU • DIVISION DE ORDENES JUDICIALES',
+        orders_pdf_doj_line: 'DEPARTMENT OF JUSTICE • ESTADO DE SAN ANDREAS',
+        orders_unit_name: 'Detective Bureau',
+        orders_pdf_signature_dept: 'Detective Bureau, LSPD',
+        orders_pdf_judge_name: 'FISCAL JOHN ROXTON',
+        orders_pdf_judge_title: 'Fiscalía General • Corte Superior de Justicia',
+        orders_pdf_footer_legal: 'VALIDADO POR LA CORTE SUPERIOR Y DEPARTAMENTO DE JUSTICIA',
+        orders_pdf_left_logo: '/logowebp/dojlogo.webp',
+        orders_pdf_right_logo: '/logowebp/sanandreas.webp'
     },
     LSSD: {
         topbar_name: 'LSSD',
@@ -176,7 +202,20 @@ export const BRANDING_PRESETS = {
         coordination_badge: 'LSSD • High Command',
         coordination_title: 'JEFATURA Y COORDINACIÓN LSSD',
         coordination_subtitle: "Mando y supervisión general del Los Santos County Sheriff's Department.",
-        coordination_logo: '/logowebp/LSSDlogo.webp'
+        coordination_logo: '/logowebp/LSSDlogo.webp',
+        orders_nav_label: 'Órdenes',
+        orders_web_title: 'ÓRDENES Y SENTENCIAS JUDICIALES',
+        orders_web_subtitle: "LOS SANTOS COUNTY SHERIFF'S DEPARTMENT • Registro y consulta de expedientes",
+        orders_pdf_header: "LOS SANTOS COUNTY SHERIFF'S DEPARTMENT",
+        orders_pdf_subtitle: "LSSD • INVESTIGATION & WARRANT DIVISION",
+        orders_pdf_doj_line: 'DEPARTMENT OF JUSTICE • ESTADO DE SAN ANDREAS',
+        orders_unit_name: "Los Santos County Sheriff's Department",
+        orders_pdf_signature_dept: "Los Santos County Sheriff's Department",
+        orders_pdf_judge_name: 'FISCAL JOHN ROXTON',
+        orders_pdf_judge_title: 'Fiscalía General • Corte Superior de Justicia',
+        orders_pdf_footer_legal: 'VALIDADO POR LA CORTE SUPERIOR Y DEPARTAMENTO DE JUSTICIA',
+        orders_pdf_left_logo: '/logowebp/dojlogo.webp',
+        orders_pdf_right_logo: '/logowebp/sanandreas.webp'
     },
     SAPD: {
         topbar_name: 'SAPD',
@@ -234,7 +273,20 @@ export const BRANDING_PRESETS = {
         coordination_badge: 'SAPD • State Command',
         coordination_title: 'MANDO Y COORDINACIÓN ESTATAL',
         coordination_subtitle: 'Dirección general y coordinación de divisiones del SAPD.',
-        coordination_logo: '/logowebp/sanandreas.webp'
+        coordination_logo: '/logowebp/sanandreas.webp',
+        orders_nav_label: 'Órdenes',
+        orders_web_title: 'ÓRDENES Y SENTENCIAS JUDICIALES',
+        orders_web_subtitle: 'SAN ANDREAS POLICE DEPARTMENT • Registro y consulta de expedientes',
+        orders_pdf_header: 'SAN ANDREAS POLICE DEPARTMENT',
+        orders_pdf_subtitle: 'SAPD • STATE JUDICIAL WARRANT DIVISION',
+        orders_pdf_doj_line: 'DEPARTMENT OF JUSTICE • ESTADO DE SAN ANDREAS',
+        orders_unit_name: 'San Andreas Police Department',
+        orders_pdf_signature_dept: 'San Andreas Police Department',
+        orders_pdf_judge_name: 'FISCAL JOHN ROXTON',
+        orders_pdf_judge_title: 'Fiscalía General • Corte Superior de Justicia',
+        orders_pdf_footer_legal: 'VALIDADO POR LA CORTE SUPERIOR Y DEPARTAMENTO DE JUSTICIA',
+        orders_pdf_left_logo: '/logowebp/dojlogo.webp',
+        orders_pdf_right_logo: '/logowebp/sanandreas.webp'
     }
 };
 
