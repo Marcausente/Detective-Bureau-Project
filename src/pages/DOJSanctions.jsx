@@ -158,18 +158,18 @@ function DOJSanctions() {
                             </button>
                             <span className="mac-status-dot" style={{ backgroundColor: '#f43f5e', boxShadow: '0 0 10px #f43f5e' }}></span>
                             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fb7185', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                {language === 'es' ? 'Régimen Disciplinario • Expedientes' : 'Disciplinary Sanctions Registry'}
+                                {language === 'es' ? 'DOJ • Amonestaciones & Régimen Sancionador' : 'DOJ • Sanctions & Warnings Registry'}
                             </span>
                         </div>
                         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0.2rem 0 0 0', color: '#ffffff', letterSpacing: '-0.02em' }}>
-                            {language === 'es' ? 'REGISTRO DE SANCIONES Y FALTAS JUDICIALES' : 'JUDICIAL SANCTIONS & CITATIONS'}
+                            {language === 'es' ? 'AMONESTACIONES Y SANCIONES (CIVILES, LETRADOS, LICENCIAS)' : 'SANCTIONS REGISTRY (CIVILIANS, LAWYERS, LICENSEES)'}
                         </h1>
                     </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                     {/* Search Bar */}
-                    <div className="mac-input-with-icon" style={{ width: '250px' }}>
+                    <div className="mac-input-with-icon" style={{ width: '280px' }}>
                         <span className="mac-input-icon">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <circle cx="11" cy="11" r="8"/>
@@ -180,7 +180,7 @@ function DOJSanctions() {
                             type="text"
                             className="mac-form-input has-icon"
                             style={{ padding: '0.55rem 0.85rem 0.55rem 2.6rem', fontSize: '0.85rem' }}
-                            placeholder={language === 'es' ? "Buscar agente o placa..." : "Search name or badge..."}
+                            placeholder={language === 'es' ? "Buscar nombre, DNI, colegiado o licencia..." : "Search name, ID or license..."}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -217,7 +217,7 @@ function DOJSanctions() {
             {loading ? (
                 <div className="mac-doc-empty">
                     <span className="mac-status-dot" style={{ animation: 'pulse 1s infinite', backgroundColor: '#f43f5e', width: '10px', height: '10px', display: 'inline-block', borderRadius: '50%', marginBottom: '0.5rem' }}></span>
-                    <div>{language === 'es' ? 'Cargando expedientes disciplinarios...' : 'Loading sanctions registry...'}</div>
+                    <div>{language === 'es' ? 'Cargando expedientes sancionadores...' : 'Loading sanctions registry...'}</div>
                 </div>
             ) : filteredProfiles.length === 0 ? (
                 <div className="mac-doc-empty">
@@ -228,7 +228,7 @@ function DOJSanctions() {
                         {language === 'es' ? 'No se encontraron expedientes' : 'No profiles found'}
                     </div>
                     <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
-                        {language === 'es' ? 'Registre un agente con el botón superior' : 'Register an officer profile above'}
+                        {language === 'es' ? 'Registre un individuo o titular con el botón superior' : 'Register an individual or license holder above'}
                     </div>
                 </div>
             ) : (
@@ -303,7 +303,7 @@ function DOJSanctions() {
                                                 padding: '0.15rem 0.5rem',
                                                 borderRadius: '6px'
                                             }}>
-                                                PLACA: {profile.no_placa}
+                                                ID / LICENCIA: {profile.no_placa}
                                             </span>
                                         </div>
                                     </div>
@@ -351,7 +351,7 @@ function DOJSanctions() {
                                     fontSize: '0.8rem'
                                 }}>
                                     <span style={{ color: '#94a3b8' }}>
-                                        {language === 'es' ? 'Faltas Registradas:' : 'Sanctions:'}
+                                        {language === 'es' ? 'Amonestaciones / Sanciones:' : 'Warnings / Sanctions:'}
                                     </span>
                                     <span style={{
                                         fontWeight: 700,
@@ -373,7 +373,7 @@ function DOJSanctions() {
             {/* Modal: Create / Edit Profile */}
             {showModal && (
                 <div className="mac-modal-backdrop" onClick={() => setShowModal(false)}>
-                    <div className="mac-modal-container" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
+                    <div className="mac-modal-container" style={{ maxWidth: '460px' }} onClick={(e) => e.stopPropagation()}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#ff5f56', display: 'inline-block' }}></span>
@@ -394,13 +394,13 @@ function DOJSanctions() {
 
                         <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#ffffff', margin: '0 0 0.4rem 0' }}>
                             {editingId 
-                                ? (language === 'es' ? 'Modificar Expediente' : 'Edit Officer Profile') 
-                                : (language === 'es' ? 'Registrar Agente / Sujeto' : 'Register New Officer')}
+                                ? (language === 'es' ? 'Modificar Expediente Sancionador' : 'Edit Sanction Profile') 
+                                : (language === 'es' ? 'Nuevo Expediente Sancionador' : 'New Sanction Profile')}
                         </h2>
                         <p style={{ fontSize: '0.84rem', color: '#94a3b8', margin: '0 0 1.25rem 0' }}>
                             {language === 'es' 
-                                ? 'Ficha disciplinaria interna para registrar faltas y citaciones del DOJ.' 
-                                : 'Officer record for documenting infractions and judicial sanctions.'}
+                                ? 'Ficha para registrar amonestaciones y sanciones a civiles, letrados, abogados y titulares de licencias.' 
+                                : 'Record for logging sanctions and citations for civilians, lawyers and license holders.'}
                         </p>
 
                         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -410,6 +410,7 @@ function DOJSanctions() {
                                     <input
                                         required
                                         className="mac-form-input"
+                                        placeholder="Ej: John"
                                         value={formData.nombre}
                                         onChange={e => setFormData({ ...formData, nombre: e.target.value })}
                                     />
@@ -419,6 +420,7 @@ function DOJSanctions() {
                                     <input
                                         required
                                         className="mac-form-input"
+                                        placeholder="Ej: Doe"
                                         value={formData.apellido}
                                         onChange={e => setFormData({ ...formData, apellido: e.target.value })}
                                     />
@@ -426,11 +428,11 @@ function DOJSanctions() {
                             </div>
 
                             <div className="mac-form-group">
-                                <label className="mac-form-label">{language === 'es' ? 'Número de Placa / Identificador *' : 'Badge Number *'}</label>
+                                <label className="mac-form-label">{language === 'es' ? 'DNI / N° Colegiado / N° Licencia *' : 'ID / Bar Number / License No. *'}</label>
                                 <input
                                     required
                                     className="mac-form-input"
-                                    placeholder="Ej: 418"
+                                    placeholder={language === 'es' ? "Ej: DNI 589201, COL-204, LIC-ARMA-42..." : "e.g. ID 589201, BAR-204, LIC-WEAPON-42..."}
                                     value={formData.no_placa}
                                     onChange={e => setFormData({ ...formData, no_placa: e.target.value })}
                                 />

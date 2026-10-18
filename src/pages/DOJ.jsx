@@ -138,11 +138,11 @@ function DOJ() {
         {
             id: 'sanctions',
             path: '/doj/sanctions',
-            title: language === 'es' ? 'Expedientes & Sanciones' : 'Judicial Sanctions & Records',
-            subtitle: language === 'es' ? 'Officer & Subject Profiles' : 'Officer & Subject Profiles',
+            title: language === 'es' ? 'Amonestaciones & Sanciones' : 'Sanctions & Disciplinary Records',
+            subtitle: language === 'es' ? 'Civiles, Letrados & Licencias' : 'Civilians, Lawyers & Licensees',
             desc: language === 'es' 
-                ? 'Registro de antecedentes disciplinarios, amonestaciones de agentes y expedientes sancionadores del DOJ.' 
-                : 'Officer and subject disciplinary history, citations, and official Department of Justice sanctions.',
+                ? 'Expedientes sancionadores, amonestaciones y suspensiones para civiles, abogados y titulares de licencias legales.' 
+                : 'Disciplinary records, warnings and suspension files for civilians, lawyers and official license holders.',
             color: '#f43f5e',
             bgGlow: 'rgba(244, 63, 94, 0.15)',
             badgeText: `${stats.sanctions} ${language === 'es' ? 'Perfiles' : 'Profiles'}`,

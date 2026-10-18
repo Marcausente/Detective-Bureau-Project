@@ -162,7 +162,7 @@ function DOJSanctionProfile() {
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>DOJ INTERNAL AFFAIRS //</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>DOJ • SANCIONES & LICENCIAS //</span>
                     <span style={{
                         padding: '0.2rem 0.6rem',
                         borderRadius: '6px',
@@ -173,7 +173,7 @@ function DOJSanctionProfile() {
                         color: '#f87171',
                         border: '1px solid rgba(239, 68, 68, 0.3)'
                     }}>
-                        CONFIDENTIAL
+                        EXPEDIENTE
                     </span>
                 </div>
             </div>
@@ -210,7 +210,7 @@ function DOJSanctionProfile() {
                         boxShadow: '0 0 24px rgba(239, 68, 68, 0.2)',
                         letterSpacing: '1px'
                     }}>
-                        {(profile.nombre?.[0] || 'A')}{(profile.apellido?.[0] || 'O')}
+                        {(profile.nombre?.[0] || 'C')}{(profile.apellido?.[0] || 'S')}
                     </div>
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
@@ -226,11 +226,11 @@ function DOJSanctionProfile() {
                                 color: '#fbbf24',
                                 border: '1px solid rgba(217, 119, 6, 0.3)'
                             }}>
-                                #{profile.no_placa}
+                                ID / LIC: {profile.no_placa}
                             </span>
                         </div>
                         <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                            <span>{language === 'es' ? 'Oficial Sujeto a Asuntos Internos' : 'Officer Subject to Internal Affairs'}</span>
+                            <span>{language === 'es' ? 'Civil / Abogado / Titular de Licencia' : 'Civilian / Lawyer / License Holder'}</span>
                             <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
                             <span>ID: <code style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{id.slice(0, 8)}</code></span>
                         </div>
@@ -310,7 +310,7 @@ function DOJSanctionProfile() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <div style={{ width: '4px', height: '18px', borderRadius: '2px', background: '#ef4444' }} />
                     <h2 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: '#f8fafc' }}>
-                        {language === 'es' ? 'Historial Disciplinario' : 'Disciplinary History'}
+                        {language === 'es' ? 'Historial de Amonestaciones y Sanciones' : 'Sanctions & Citations History'}
                     </h2>
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
                         ({sanctions.length} {language === 'es' ? 'registros' : 'records'})
@@ -331,10 +331,10 @@ function DOJSanctionProfile() {
                     }}>
                         <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem', opacity: 0.6 }}>🛡️</div>
                         <div style={{ fontSize: '1rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '0.25rem' }}>
-                            {language === 'es' ? 'Sin registros de sanciones' : 'No disciplinary records found'}
+                            {language === 'es' ? 'Sin registros de amonestaciones' : 'No sanctions recorded'}
                         </div>
                         <p style={{ margin: 0, fontSize: '0.85rem' }}>
-                            {language === 'es' ? 'Este oficial no posee sanciones activas registradas en el sistema del DOJ.' : 'This officer has no active disciplinary records in the DOJ system.'}
+                            {language === 'es' ? 'Este individuo no posee amonestaciones o sanciones registradas en el sistema del DOJ.' : 'This individual has no active sanctions or warnings recorded in the DOJ system.'}
                         </p>
                     </div>
                 ) : (
@@ -396,7 +396,7 @@ function DOJSanctionProfile() {
                                                     border: `1px solid ${colors.border}`
                                                 }}>
                                                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: colors.dot }} />
-                                                    {language === 'es' ? `Falta ${item.type}` : `${item.type} Fault`}
+                                                    {language === 'es' ? `Sanción ${item.type}` : `${item.type} Sanction`}
                                                 </span>
 
                                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
@@ -517,35 +517,35 @@ function DOJSanctionProfile() {
                             <div className="mac-status-dot" style={{ background: '#27c93f' }} />
                             <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
                                 {modalMode === 'create'
-                                    ? (language === 'es' ? 'REGISTRAR SANCIÓN' : 'REGISTER SANCTION')
-                                    : (language === 'es' ? 'EDITAR SANCIÓN' : 'EDIT SANCTION')}
+                                    ? (language === 'es' ? 'REGISTRAR AMONESTACIÓN' : 'REGISTER SANCTION')
+                                    : (language === 'es' ? 'EDITAR AMONESTACIÓN' : 'EDIT SANCTION')}
                             </span>
                         </div>
 
                         <div style={{ marginBottom: '1.5rem' }}>
                             <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#f8fafc' }}>
                                 {modalMode === 'create'
-                                    ? (language === 'es' ? 'Nueva Sanción Disciplinaria' : 'New Disciplinary Sanction')
-                                    : (language === 'es' ? 'Editar Sanción' : 'Edit Sanction')}
+                                    ? (language === 'es' ? 'Nueva Amonestación / Sanción' : 'New Warning / Sanction')
+                                    : (language === 'es' ? 'Editar Amonestación / Sanción' : 'Edit Warning / Sanction')}
                             </h3>
                             <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                {profile.nombre} {profile.apellido} (#{profile.no_placa})
+                                {profile.nombre} {profile.apellido} (ID / LIC: {profile.no_placa})
                             </p>
                         </div>
 
                         <form onSubmit={handleAction} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
                             <div className="mac-form-group">
                                 <label className="mac-form-label">
-                                    {language === 'es' ? 'Tipo de Falta / Gravedad' : 'Sanction Type / Severity'}
+                                    {language === 'es' ? 'Tipo de Falta / Amonestación' : 'Sanction Type / Severity'}
                                 </label>
                                 <select
                                     className="mac-form-select"
                                     value={formData.type}
                                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                                 >
-                                    <option value="Leve">{language === 'es' ? 'Leve (Amonestación / Menor)' : 'Leve (Minor / Warning)'}</option>
-                                    <option value="Media">{language === 'es' ? 'Media (Suspensión / Moderada)' : 'Media (Moderate / Suspension)'}</option>
-                                    <option value="Grave">{language === 'es' ? 'Grave (Expulsión / Severa)' : 'Grave (Severe / Expulsion)'}</option>
+                                    <option value="Leve">{language === 'es' ? 'Leve (Amonestación / Apercibimiento)' : 'Leve (Warning / Citation)'}</option>
+                                    <option value="Media">{language === 'es' ? 'Media (Suspensión temporal de licencia / Multa)' : 'Media (Temporary Suspension / Fine)'}</option>
+                                    <option value="Grave">{language === 'es' ? 'Grave (Revocación definitiva de licencia / Inhabilitación)' : 'Grave (Permanent Revocation / Ineligibility)'}</option>
                                 </select>
                             </div>
 
@@ -564,12 +564,12 @@ function DOJSanctionProfile() {
 
                             <div className="mac-form-group">
                                 <label className="mac-form-label">
-                                    {language === 'es' ? 'Descripción y Motivo de la Sanción' : 'Description / Reason'}
+                                    {language === 'es' ? 'Descripción y Motivo de la Amonestación' : 'Description / Reason'}
                                 </label>
                                 <textarea
                                     className="mac-form-textarea"
                                     rows="4"
-                                    placeholder={language === 'es' ? 'Detalles sobre los hechos, artículos vulnerados...' : 'Provide details of the violation...'}
+                                    placeholder={language === 'es' ? 'Detalles sobre los hechos, normativa legal vulnerada o motivo de la sanción...' : 'Provide details of the violation...'}
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 />
@@ -613,7 +613,7 @@ function DOJSanctionProfile() {
                                 >
                                     {submitting
                                         ? (language === 'es' ? 'Guardando...' : 'Saving...')
-                                        : (language === 'es' ? 'Guardar Sanción' : 'Confirm Sanction')}
+                                        : (language === 'es' ? 'Guardar Amonestación' : 'Confirm Sanction')}
                                 </button>
                             </div>
                         </form>
