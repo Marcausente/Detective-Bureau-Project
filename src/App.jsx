@@ -107,6 +107,8 @@ function App() {
             <Route path="/doj/cases/:id" element={<DOJCaseDetail />} />
             <Route path="/doj/docs" element={<DOJDocumentation />} />
             <Route path="/doj/interrogations" element={<DOJInterrogations />} />
+            <Route path="/doj/sanctions" element={<DOJSanctions />} />
+            <Route path="/doj/sanctions/:id" element={<DOJSanctionProfile />} />
             <Route path="/doj/licenses" element={<DOJLicenses />} />
             <Route path="/doj/licenses/:id" element={<DOJLicenseProfile />} />
             <Route path="/seb" element={<SEB />} />
