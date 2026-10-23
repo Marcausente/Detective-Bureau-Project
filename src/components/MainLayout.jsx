@@ -396,7 +396,7 @@ function MainLayout() {
         { name: t('crimeMap'), path: '/crimemap', divisions: ['Detective Bureau'] },
         { name: t('interrogations'), path: '/interrogations', divisions: ['Detective Bureau'] },
         { name: t('ballistics'), path: '/ballistics', divisions: ['Detective Bureau'] },
-        { name: t('personnel'), path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'DTP', 'Gang Unit', 'Undercover'] },
+        { name: t('personnel'), path: '/personnel', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'DTP', 'Gang Unit', 'Undercover', 'Comandancia'] },
         { name: t('trainingProgram'), path: '/training', divisions: ['Detective Bureau'], roles: ['detective', 'coordinador', 'ayudante'] },
         { name: branding?.orders_nav_label || t('judicialOrders'), path: '/warrants', divisions: ['Detective Bureau', 'DOJ'] },
         { name: t('internalAffairs'), path: '/internal-affairs', divisions: ['Internal Affairs'] },
@@ -405,6 +405,7 @@ function MainLayout() {
         { name: t('airSupport') || 'Air Support', path: '/air-support', divisions: ['ASD'] },
         { name: t('undercover') || 'Undercover', path: '/undercover', divisions: ['Undercover', 'Undercover Division', 'UD'] },
         { name: branding?.coordination_nav_label || t('coordination'), path: '/coordination', divisions: ['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'Undercover'], roles: ['coordinador', 'comisionado', 'administrador', 'superadmin'] },
+        { name: t('comandancia') || 'Comandancia', path: '/comandancia', divisions: ['Comandancia'], roles: ['comisionado', 'administrador', 'superadmin'] },
         { name: t('adminPanel'), path: '/admin', divisions: ['SysAdmin'] },
     ];
 
@@ -441,6 +442,10 @@ function MainLayout() {
         (profile?.divisions && (profile.divisions.includes('Undercover') || profile.divisions.includes('Undercover Division') || profile.divisions.includes('UD'))) ||
         (profile?.subdivisions && (profile.subdivisions.includes('Undercover') || profile.subdivisions.includes('Undercover Division') || profile.subdivisions.includes('UD')));
 
+    const hasComandanciaAccess = ['administrador', 'superadmin', 'comisionado'].includes(userRoleLower) ||
+        (profile?.divisions && profile.divisions.includes('Comandancia')) ||
+        (profile?.subdivisions && profile.subdivisions.includes('Comandancia'));
+
     const navItems = allNavItems.filter(item => {
         if (!profile) return false;
         if (profile.rol === 'Administrador' || profile.rol === 'superadmin') return true;
@@ -466,6 +471,7 @@ function MainLayout() {
             if (item.path === '/air-support' && hasASDAccess) return true;
             if ((item.path === '/doj' || item.path === '/warrants') && hasDOJAccess) return true;
             if (item.path === '/undercover' && hasUDAccess) return true;
+            if (item.path === '/comandancia' && hasComandanciaAccess) return true;
             if (item.path === '/coordination' && isHighLeadership) return true;
             return false;
         }
@@ -500,6 +506,10 @@ function MainLayout() {
 
         if (item.path === '/undercover') {
             return hasUDAccess;
+        }
+
+        if (item.path === '/comandancia') {
+            return hasComandanciaAccess;
         }
 
         if (!effectiveDivisions || effectiveDivisions.length === 0) return false;

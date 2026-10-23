@@ -57,7 +57,7 @@ DECLARE
     caller_role app_role;
 BEGIN
     SELECT rol INTO caller_role FROM public.users WHERE id = auth.uid();
-    IF caller_role NOT IN ('Comisionado', 'Coordinador', 'Administrador') THEN
+    IF caller_role::TEXT NOT IN ('Comisionado', 'Coordinador', 'Administrador') THEN
         RAISE EXCEPTION 'Solo los administradores pueden otorgar permisos de creación de personal.';
     END IF;
 
@@ -79,7 +79,7 @@ DECLARE
     caller_role app_role;
 BEGIN
     SELECT rol INTO caller_role FROM public.users WHERE id = auth.uid();
-    IF caller_role NOT IN ('Comisionado', 'Coordinador', 'Administrador') THEN
+    IF caller_role::TEXT NOT IN ('Comisionado', 'Coordinador', 'Administrador') THEN
         RAISE EXCEPTION 'Solo los administradores pueden revocar permisos de creación de personal.';
     END IF;
 
@@ -123,9 +123,9 @@ BEGIN
   IF caller_id IS NOT NULL THEN
     SELECT rol INTO caller_role FROM public.users WHERE id = caller_id;
 
-    IF caller_role IN ('Comisionado', 'Coordinador', 'Administrador') THEN
+    IF caller_role::TEXT IN ('Comisionado', 'Coordinador', 'Administrador') THEN
       is_admin := true;
-    ELSIF caller_role LIKE 'Coordinador %' THEN
+    ELSIF caller_role::TEXT LIKE 'Coordinador %' THEN
       -- Coordinadores de división fijos: rol forzado a 'Ayudante'
       v_rol := 'Ayudante'::app_role;
     ELSE

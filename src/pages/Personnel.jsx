@@ -361,7 +361,9 @@ function Personnel() {
         'Department of Justice Agent': 85,
         'Agente Externo': 84,
         'Detective III': 80,
+        'Sargento II': 75,
         'Detective II': 70,
+        'Sargento I': 65,
         'Detective I': 60,
         'Oficial III+': 50,
         'Oficial III': 40,
@@ -389,7 +391,7 @@ function Personnel() {
         );
     }, [users, searchTerm, availableLicenses]);
 
-    const detectives = useMemo(() => filteredUsers.filter(u => ['Detective I', 'Detective II', 'Detective III'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
+    const detectives = useMemo(() => filteredUsers.filter(u => ['Detective I', 'Sargento I', 'Detective II', 'Sargento II', 'Detective III'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
     const helpers = useMemo(() => filteredUsers.filter(u => ['Deputy Sheriff', 'Oficial I', 'Deputy Sheriff Bonus I', 'Oficial II', 'Deputy Sheriff Bonus II', 'Oficial III', 'Oficial III+'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
     const commandAndExternal = useMemo(() => filteredUsers.filter(u => ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente', 'Internal Affairs Agent', 'SEB Agent', 'ASD Agent', 'Department of Justice Agent', 'Agente Externo'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
 
@@ -1982,7 +1984,9 @@ function Personnel() {
                                     <option value="Deputy Sheriff Bonus II">Deputy Sheriff Bonus II</option>
                                     <option value="Oficial III">Oficial III</option>
                                     <option value="Detective I">Detective I</option>
+                                    <option value="Sargento I">Sargento I</option>
                                     <option value="Detective II">Detective II</option>
+                                    <option value="Sargento II">Sargento II</option>
                                     <option value="Detective III">Detective III</option>
                                     <option value="Internal Affairs Agent">Internal Affairs Agent</option>
                                     <option value="SEB Agent">SEB Agent</option>
@@ -2108,7 +2112,7 @@ function Personnel() {
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
-                                        {['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'DTP', 'Gang Unit', 'Undercover'].map(divName => (
+                                        {['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'DTP', 'Gang Unit', 'Undercover', 'Comandancia'].map(divName => (
                                             <label key={divName} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#f8fafc', fontSize: '0.82rem' }}>
                                                 <input
                                                     type="checkbox"
@@ -2382,7 +2386,7 @@ function Personnel() {
                                         <div style={{ display: 'flex', gap: '6px' }}>
                                             <button
                                                 type="button"
-                                                onClick={() => setDelegationDivisions(['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'DTP', 'Gang Unit', 'Undercover'])}
+                                                onClick={() => setDelegationDivisions(['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'DTP', 'Gang Unit', 'Undercover', 'Comandancia'])}
                                                 style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: '0.72rem', cursor: 'pointer', textDecoration: 'underline' }}
                                             >
                                                 Marcar todas
@@ -2407,7 +2411,7 @@ function Personnel() {
                                         borderRadius: '10px',
                                         border: '1px solid rgba(255, 255, 255, 0.12)'
                                     }}>
-                                        {['ASD', 'DTP', 'SEB', 'Internal Affairs', 'DOJ', 'Detective Bureau', 'Gang Unit', 'Undercover'].map(divName => {
+                                        {['ASD', 'DTP', 'SEB', 'Internal Affairs', 'DOJ', 'Detective Bureau', 'Gang Unit', 'Undercover', 'Comandancia'].map(divName => {
                                             const checked = delegationDivisions.includes(divName);
                                             return (
                                                 <label

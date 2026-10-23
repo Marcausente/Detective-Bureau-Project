@@ -22,8 +22,12 @@ const getRankLevel = (rank) => {
             return 1;
         case 'Detective I':
             return 2;
+        case 'Sargento I':
+            return 2.5;
         case 'Detective II':
             return 3;
+        case 'Sargento II':
+            return 3.5;
         case 'Detective III':
             return 4;
         case 'Internal Affairs Agent':

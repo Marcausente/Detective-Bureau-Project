@@ -46,6 +46,7 @@ import Coordination from './pages/Coordination';
 import SEB from './pages/SEB';
 import AirSupport from './pages/AirSupport';
 import Undercover from './pages/Undercover';
+import Comandancia from './pages/Comandancia';
 import PublicASDFlightLog from './pages/PublicASDFlightLog';
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
@@ -120,6 +121,7 @@ function App() {
             <Route path="/admin" element={<Admin />} /> {/* Admin Route */}
             <Route path="/ballistics" element={<Ballistics />} />
             <Route path="/coordination" element={<Coordination />} />
+            <Route path="/comandancia" element={<Comandancia />} />
           </Route>
 
           {/* Fallback */}
