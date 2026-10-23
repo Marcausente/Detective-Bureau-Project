@@ -4,6 +4,7 @@
 -- Restaura la división 'Detective Bureau' a cualquier agente con rol 'Detective',
 -- 'Ayudante' (de DB) o mandos, asegurando que ninguno pierda el acceso a sus canales.
 -- No afecta a los agentes exclusivos de DOJ, IA, SEB o ASD.
+-- Usamos rango::text y rol::text para evitar errores con tipos enum.
 -- =========================================================================
 
 UPDATE public.users
@@ -16,7 +17,7 @@ WHERE (
     OR (
         rol::text = 'Ayudante'
         AND rol::text NOT IN ('Coordinador IA', 'Coordinador ASD', 'Coordinador SWAT/SEB', 'Coordinador DOJ')
-        AND COALESCE(rango, '') NOT IN ('Department of Justice Agent', 'Internal Affairs Agent', 'SEB Agent', 'ASD Agent')
+        AND COALESCE(rango::text, '') NOT IN ('Department of Justice Agent', 'Internal Affairs Agent', 'SEB Agent', 'ASD Agent')
     )
 )
 AND NOT ('Detective Bureau' = ANY(COALESCE(divisions, ARRAY[]::text[])));
