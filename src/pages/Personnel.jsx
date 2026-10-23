@@ -396,7 +396,8 @@ function Personnel() {
         'Detective II': 70,
         'Sargento I': 65,
         'Detective I': 60,
-        'Oficial III+': 50,
+        'Oficial III+': 55,
+        'FTO': 50,
         'Oficial III': 40,
         'Deputy Sheriff Bonus II': 35,
         'Oficial II': 30,
@@ -422,9 +423,42 @@ function Personnel() {
         );
     }, [users, searchTerm, availableLicenses]);
 
-    const detectives = useMemo(() => filteredUsers.filter(u => ['Detective I', 'Sargento I', 'Detective II', 'Sargento II', 'Detective III'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
-    const helpers = useMemo(() => filteredUsers.filter(u => ['Deputy Sheriff', 'Oficial I', 'Deputy Sheriff Bonus I', 'Oficial II', 'Deputy Sheriff Bonus II', 'Oficial III', 'Oficial III+'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
-    const commandAndExternal = useMemo(() => filteredUsers.filter(u => ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente', 'Internal Affairs Agent', 'SEB Agent', 'ASD Agent', 'Department of Justice Agent', 'Agente Externo'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
+    // 4 Columnas del Directorio de Personal
+    const isCommandOrCommissioner = (u) => {
+        const rank = u.rango || '';
+        const role = u.rol || '';
+        const divisions = u.divisions || [];
+        return (
+            role === 'Comisionado' ||
+            divisions.includes('Comandancia') ||
+            ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente'].includes(rank)
+        );
+    };
+
+    const isDetective = (u) => {
+        if (isCommandOrCommissioner(u)) return false;
+        const rank = u.rango || '';
+        return ['Detective I', 'Sargento I', 'Detective II', 'Sargento II', 'Detective III'].includes(rank);
+    };
+
+    const isAyudanteSCUB = (u) => {
+        if (isCommandOrCommissioner(u)) return false;
+        if (isDetective(u)) return false;
+        const divisions = u.divisions || [];
+        return divisions.includes('Detective Bureau');
+    };
+
+    const isAgenteOrdinario = (u) => {
+        if (isCommandOrCommissioner(u)) return false;
+        if (isDetective(u)) return false;
+        if (isAyudanteSCUB(u)) return false;
+        return true;
+    };
+
+    const detectives = useMemo(() => filteredUsers.filter(isDetective).sort(sortUsers), [filteredUsers]);
+    const ayudantesSCUB = useMemo(() => filteredUsers.filter(isAyudanteSCUB).sort(sortUsers), [filteredUsers]);
+    const comandanciaYComisionado = useMemo(() => filteredUsers.filter(isCommandOrCommissioner).sort(sortUsers), [filteredUsers]);
+    const agentesOrdinarios = useMemo(() => filteredUsers.filter(isAgenteOrdinario).sort(sortUsers), [filteredUsers]);
 
     // Agent Feedback Stats Calculation
     const agentFeedbackStats = useMemo(() => {
@@ -1173,7 +1207,7 @@ function Personnel() {
     };
 
     return (
-        <div className="personnel-container" style={{ maxWidth: '1400px', width: '100%', margin: '0 auto', padding: '1.5rem', boxSizing: 'border-box' }}>
+        <div className="personnel-container" style={{ maxWidth: '1600px', width: '100%', margin: '0 auto', padding: '1.5rem', boxSizing: 'border-box' }}>
             {/* Header Title Bar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1190,7 +1224,7 @@ function Personnel() {
                             {t('personnelDirectory') || 'Directorio de Personal'}
                         </h2>
                         <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '3px' }}>
-                            Agentes: <strong style={{ color: '#f8fafc' }}>{users.length}</strong> • Detectives: <strong style={{ color: '#fbbf24' }}>{detectives.length}</strong> • {isLSSD ? "Ayudantes SCUB" : "Ayudantes DB"}: <strong style={{ color: '#60a5fa' }}>{helpers.length}</strong> • Mandos: <strong style={{ color: '#f87171' }}>{commandAndExternal.length}</strong>
+                            Agentes: <strong style={{ color: '#f8fafc' }}>{users.length}</strong> • Detectives: <strong style={{ color: '#fbbf24' }}>{detectives.length}</strong> • {isLSSD ? "Ayudantes SCUB" : "Ayudantes DB"}: <strong style={{ color: '#60a5fa' }}>{ayudantesSCUB.length}</strong> • Comandancia y Comisionado: <strong style={{ color: '#f87171' }}>{comandanciaYComisionado.length}</strong> • Ordinarios: <strong style={{ color: '#34d399' }}>{agentesOrdinarios.length}</strong>
                         </div>
                     </div>
                 </div>
@@ -1388,7 +1422,7 @@ function Personnel() {
                     </div>
                 </div>
             ) : activeTab === 'directory' ? (
-                /* Directory Layout: 3 Columns Grid */
+                /* Directory Layout: 4 Columns Grid */
                 <div className="personnel-grid">
                     {/* Column 1: Detectives */}
                     <div className="personnel-column">
@@ -1404,30 +1438,44 @@ function Personnel() {
                         </div>
                     </div>
 
-                    {/* Column 2: Helpers / Officers */}
+                    {/* Column 2: Ayudantes SCUB */}
                     <div className="personnel-column">
                         <h3 className="column-title" style={{ color: '#60a5fa' }}>
-                            {isLSSD ? "Ayudantes SCUB" : "Ayudantes DB"} ({helpers.length})
+                            {isLSSD ? "Ayudantes SCUB" : "Ayudantes DB"} ({ayudantesSCUB.length})
                         </h3>
                         <div className="personnel-list">
-                            {helpers.length > 0 ? (
-                                helpers.map(u => <UserCard key={u.id} user={u} />)
+                            {ayudantesSCUB.length > 0 ? (
+                                ayudantesSCUB.map(u => <UserCard key={u.id} user={u} />)
                             ) : (
-                                <div className="empty-list">No se encontraron oficiales</div>
+                                <div className="empty-list">No se encontraron ayudantes</div>
                             )}
                         </div>
                     </div>
 
-                    {/* Column 3: Command & External Staff */}
+                    {/* Column 3: Comandancia y Comisionado */}
                     <div className="personnel-column">
                         <h3 className="column-title" style={{ color: '#f87171' }}>
-                            Comisionado y Mandos ({commandAndExternal.length})
+                            Comandancia y Comisionado ({comandanciaYComisionado.length})
                         </h3>
                         <div className="personnel-list">
-                            {commandAndExternal.length > 0 ? (
-                                commandAndExternal.map(u => <UserCard key={u.id} user={u} />)
+                            {comandanciaYComisionado.length > 0 ? (
+                                comandanciaYComisionado.map(u => <UserCard key={u.id} user={u} />)
                             ) : (
                                 <div className="empty-list">No se encontró personal de mando</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Column 4: Agentes Ordinarios */}
+                    <div className="personnel-column">
+                        <h3 className="column-title" style={{ color: '#34d399' }}>
+                            Agentes Ordinarios ({agentesOrdinarios.length})
+                        </h3>
+                        <div className="personnel-list">
+                            {agentesOrdinarios.length > 0 ? (
+                                agentesOrdinarios.map(u => <UserCard key={u.id} user={u} />)
+                            ) : (
+                                <div className="empty-list">No se encontraron agentes ordinarios</div>
                             )}
                         </div>
                     </div>
@@ -2665,6 +2713,8 @@ function Personnel() {
                                     <option value="Oficial II">Oficial II</option>
                                     <option value="Deputy Sheriff Bonus II">Deputy Sheriff Bonus II</option>
                                     <option value="Oficial III">Oficial III</option>
+                                    <option value="Oficial III+">Oficial III+</option>
+                                    <option value="FTO">FTO</option>
                                     <option value="Detective I">Detective I</option>
                                     <option value="Sargento I">Sargento I</option>
                                     <option value="Detective II">Detective II</option>

@@ -1334,15 +1334,15 @@ body {
 
 /* --- Personnel Page --- */
 .personnel-container {
-  max-width: 1400px;
+  max-width: 1750px;
   width: 100%;
   margin: 0 auto;
 }
 
 .personnel-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
   margin-top: 2rem;
 }
 
@@ -1350,7 +1350,7 @@ body {
   background: rgba(var(--secondary-rgb), 0.4);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: 1.25rem 0.9rem;
   min-height: 500px;
 }
 
@@ -1639,7 +1639,14 @@ body.theme-lssd .dtp-status-registered {
   to { opacity: 1; }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1400px) {
+  .personnel-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
+}
+
+@media (max-width: 850px) {
   .personnel-grid {
     grid-template-columns: 1fr;
     gap: 3rem;

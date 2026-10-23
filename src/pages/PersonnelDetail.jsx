@@ -19,6 +19,7 @@ const getRankLevel = (rank) => {
         case 'Deputy Sheriff Bonus II':
         case 'Oficial III':
         case 'Oficial III+':
+        case 'FTO':
             return 1;
         case 'Detective I':
             return 2;
