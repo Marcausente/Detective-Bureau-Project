@@ -45,11 +45,18 @@ function Welcome() {
                     const rank = data.rango || '';
                     const isDB = div.includes('Detective Bureau');
 
+                    const rankLower = (rank || '').toLowerCase();
+                    const isIAUser = rank === 'Internal Affairs Agent' ||
+                        rankLower.includes('internal affairs') ||
+                        rankLower.includes('iab') ||
+                        data.rol === 'Coordinador IA' ||
+                        (div.includes('Internal Affairs') && !isDB);
+
                     if (rank === 'SEB Agent' || (div.includes('SEB') && !isDB)) {
                         targetRoute = '/seb';
                     } else if (rank === 'ASD Agent' || (div.includes('ASD') && !isDB)) {
                         targetRoute = '/air-support';
-                    } else if (rank === 'Internal Affairs Agent' || (div.includes('Internal Affairs') && !isDB)) {
+                    } else if (isIAUser) {
                         targetRoute = '/internal-affairs';
                     } else if (rank === 'Department of Justice Agent' || (div.includes('DOJ') && !isDB)) {
                         targetRoute = '/doj';

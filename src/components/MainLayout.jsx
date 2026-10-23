@@ -338,7 +338,12 @@ function MainLayout() {
         }
 
         // Restricción exclusiva para IA puro
-        const isPureIA = userRole === 'Coordinador IA' || profile.rango === 'Internal Affairs Agent';
+        const isIARank = profile.rango === 'Internal Affairs Agent' ||
+            profile.rango?.toLowerCase().includes('internal affairs') ||
+            profile.rango?.toLowerCase().includes('iab');
+        const isIADivision = (profile.divisions && profile.divisions.includes('Internal Affairs')) ||
+            (profile.subdivisions && profile.subdivisions.includes('Internal Affairs'));
+        const isPureIA = userRole === 'Coordinador IA' || isIARank || isIADivision;
         if (isPureIA) {
             const isAllowed = location.pathname.startsWith('/internal-affairs') ||
                 location.pathname.startsWith('/personnel') ||
@@ -432,7 +437,12 @@ function MainLayout() {
             }
 
             // IA: Coordinador IA y miembros solo ven Personal e Internal Affairs
-            const isPureIA = userRole === 'Coordinador IA' || profile.rango === 'Internal Affairs Agent' || (profile.divisions && profile.divisions.includes('Internal Affairs'));
+            const isIARank = profile.rango === 'Internal Affairs Agent' ||
+                profile.rango?.toLowerCase().includes('internal affairs') ||
+                profile.rango?.toLowerCase().includes('iab');
+            const isIADivision = (profile.divisions && profile.divisions.includes('Internal Affairs')) ||
+                (profile.subdivisions && profile.subdivisions.includes('Internal Affairs'));
+            const isPureIA = userRole === 'Coordinador IA' || isIARank || isIADivision;
             if (isPureIA) {
                 return item.path === '/personnel' || item.path === '/internal-affairs';
             }
@@ -477,11 +487,20 @@ function MainLayout() {
         }
 
         if (item.path === '/internal-affairs') {
-            if (userRoleLower === 'coordinador ia') return true;
+            const isIARank = profile.rango === 'Internal Affairs Agent' ||
+                profile.rango?.toLowerCase().includes('internal affairs') ||
+                profile.rango?.toLowerCase().includes('iab');
+            const isIADivision = effectiveDivisions.includes('Internal Affairs') ||
+                (profile.subdivisions && profile.subdivisions.includes('Internal Affairs'));
+            const hasAllowedRole = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'coordinador ia'].includes(userRoleLower);
+            return isIARank || isIADivision || hasAllowedRole;
         }
 
         if (item.path === '/doj') {
-            if (userRoleLower === 'coordinador doj') return true;
+            const isDOJRank = profile.rango === 'Department of Justice Agent' || profile.rango?.toLowerCase().includes('doj');
+            const isDOJDivision = effectiveDivisions.includes('DOJ') || (profile.subdivisions && profile.subdivisions.includes('DOJ'));
+            const hasAllowedRole = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'coordinador doj'].includes(userRoleLower);
+            return isDOJRank || isDOJDivision || hasAllowedRole;
         }
 
         if (item.path === '/undercover') {
@@ -511,8 +530,32 @@ function MainLayout() {
 
     const maxPrimary = getResponsiveMaxPrimary(windowWidth);
 
-    // Force Formación, Órdenes, Asuntos Internos, DOJ, Air Support, Undercover, Coordinación, Admin into "Más ▾" in exact order
-    const forcedMorePaths = ['/training', '/warrants', '/internal-affairs', '/doj', '/air-support', '/undercover', '/coordination', '/admin'];
+    const userRoleLower = (profile?.rol || '').trim().toLowerCase();
+    const isPrimaryIA = userRoleLower === 'coordinador ia' ||
+        profile?.rango === 'Internal Affairs Agent' ||
+        profile?.rango?.toLowerCase().includes('internal affairs') ||
+        profile?.rango?.toLowerCase().includes('iab') ||
+        (profile?.divisions && profile.divisions.includes('Internal Affairs'));
+
+    const isPrimaryDOJ = userRoleLower === 'coordinador doj' ||
+        profile?.rango === 'Department of Justice Agent' ||
+        (profile?.divisions && profile.divisions.includes('DOJ'));
+
+    const isPrimaryASD = userRoleLower === 'coordinador asd' ||
+        profile?.rango === 'ASD Agent' ||
+        (profile?.divisions && profile.divisions.includes('ASD'));
+
+    // Force items into "Más ▾" in exact order, keeping user's primary division visible directly in the dock
+    const forcedMorePaths = [
+        '/training',
+        '/warrants',
+        ...(isPrimaryIA ? [] : ['/internal-affairs']),
+        ...(isPrimaryDOJ ? [] : ['/doj']),
+        ...(isPrimaryASD ? [] : ['/air-support']),
+        '/undercover',
+        '/coordination',
+        '/admin'
+    ];
 
     const forcedMoreItems = navItems.filter(item => forcedMorePaths.includes(item.path));
     const eligiblePrimaryItems = navItems.filter(item => !forcedMorePaths.includes(item.path));

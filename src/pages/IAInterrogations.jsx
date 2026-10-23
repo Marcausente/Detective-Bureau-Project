@@ -101,10 +101,14 @@ function IAInterrogations() {
             if (error) throw error;
 
             if (data) {
-                const iaUsers = data.filter(u =>
-                    (u.divisions && u.divisions.includes('Internal Affairs')) ||
-                    u.rol === 'Administrador'
-                );
+                const iaUsers = data.filter(u => {
+                    const rank = (u.rango || '').toLowerCase().trim();
+                    const rol = (u.rol || '').toLowerCase().trim();
+                    const isIARank = rank === 'internal affairs agent' || rank.includes('internal affairs') || rank.includes('iab');
+                    const isIADiv = (u.divisions && u.divisions.includes('Internal Affairs'));
+                    const isIARole = rol === 'coordinador ia' || rol === 'administrador';
+                    return isIARank || isIADiv || isIARole;
+                });
 
                 const rankPriority = {
                     'Sheriff': 150,

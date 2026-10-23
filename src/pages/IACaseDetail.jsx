@@ -235,10 +235,14 @@ function IACaseDetail() {
         if (users.length === 0) {
             const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, divisions, profile_image').order('rango');
             if (data) {
-                const iaUsers = data.filter(u =>
-                    (u.divisions && u.divisions.includes('Internal Affairs')) ||
-                    u.rol === 'Administrador'
-                );
+                const iaUsers = data.filter(u => {
+                    const rank = (u.rango || '').toLowerCase().trim();
+                    const rol = (u.rol || '').toLowerCase().trim();
+                    const isIARank = rank === 'internal affairs agent' || rank.includes('internal affairs') || rank.includes('iab');
+                    const isIADiv = (u.divisions && u.divisions.includes('Internal Affairs'));
+                    const isIARole = rol === 'coordinador ia' || rol === 'administrador';
+                    return isIARank || isIADiv || isIARole;
+                });
                 setUsers(iaUsers);
             }
         }
@@ -288,10 +292,14 @@ function IACaseDetail() {
         if (users.length === 0) {
             const { data } = await supabase.from('users').select('id, nombre, apellido, rango, rol, divisions, profile_image').order('rango');
             if (data) {
-                const iaUsers = data.filter(u =>
-                    (u.divisions && u.divisions.includes('Internal Affairs')) ||
-                    u.rol === 'Administrador'
-                );
+                const iaUsers = data.filter(u => {
+                    const rank = (u.rango || '').toLowerCase().trim();
+                    const rol = (u.rol || '').toLowerCase().trim();
+                    const isIARank = rank === 'internal affairs agent' || rank.includes('internal affairs') || rank.includes('iab');
+                    const isIADiv = (u.divisions && u.divisions.includes('Internal Affairs'));
+                    const isIARole = rol === 'coordinador ia' || rol === 'administrador';
+                    return isIARank || isIADiv || isIARole;
+                });
                 setUsers(iaUsers);
             }
         }
@@ -558,7 +566,16 @@ function IACaseDetail() {
 
     const userIsIAUser = currentUser && (
         (currentUser.divisions && currentUser.divisions.includes('Internal Affairs')) ||
-        currentUser.rol === 'Administrador'
+        (currentUser.subdivisions && currentUser.subdivisions.includes('Internal Affairs')) ||
+        (currentUser.rango && (
+            currentUser.rango.toLowerCase().trim() === 'internal affairs agent' ||
+            currentUser.rango.toLowerCase().includes('internal affairs') ||
+            currentUser.rango.toLowerCase().includes('iab')
+        )) ||
+        (currentUser.rol && (
+            currentUser.rol.toLowerCase().trim() === 'coordinador ia' ||
+            currentUser.rol.toLowerCase().includes('admin')
+        ))
     );
 
     const isAssigned = currentUser && assignments && assignments.some(a => a.user_id === currentUser.id);
@@ -574,7 +591,10 @@ function IACaseDetail() {
                               r.includes('admin');
         const isIA = (currentUser.divisions && currentUser.divisions.includes('Internal Affairs')) ||
                      (currentUser.subdivisions && currentUser.subdivisions.includes('Internal Affairs')) ||
-                     rank === 'internal affairs agent';
+                     rank === 'internal affairs agent' ||
+                     rank.includes('internal affairs') ||
+                     rank.includes('iab') ||
+                     r === 'coordinador ia';
         return isHighCommand || isIA;
     };
 

@@ -79,7 +79,16 @@ function IASanctionVoting({ caseId, currentUser: initialUser, userIsIAUser: init
         ? initialIsIA 
         : currentUser && (
             (currentUser.divisions && currentUser.divisions.includes('Internal Affairs')) ||
-            currentUser.rol === 'Administrador'
+            (currentUser.subdivisions && currentUser.subdivisions.includes('Internal Affairs')) ||
+            (currentUser.rango && (
+                currentUser.rango.toLowerCase().trim() === 'internal affairs agent' ||
+                currentUser.rango.toLowerCase().includes('internal affairs') ||
+                currentUser.rango.toLowerCase().includes('iab')
+            )) ||
+            (currentUser.rol && (
+                currentUser.rol.toLowerCase().trim() === 'coordinador ia' ||
+                currentUser.rol.toLowerCase().includes('admin')
+            ))
         );
 
     const canEdit = initialCanEdit !== undefined 
