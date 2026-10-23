@@ -317,34 +317,29 @@ function MainLayout() {
             userRole === 'Detective' ||
             profile.rango?.toLowerCase().includes('detective') ||
             (profile.divisions && profile.divisions.includes('Detective Bureau')) ||
-            (userRole === 'Ayudante' && !['Coordinador IA', 'Coordinador ASD', 'Coordinador SWAT/SEB', 'Coordinador SEB', 'Coordinador DOJ'].includes(userRole) && !profile.rango?.includes('Agent'));
+            (userRole === 'Ayudante' && !profile.rango?.includes('Agent'));
 
         if (isDetectiveBureauMember) {
             return;
         }
 
-        const hasIAAccess = userRoleLower === 'coordinador ia' ||
-            profile.rango === 'Internal Affairs Agent' ||
+        const hasIAAccess = profile.rango === 'Internal Affairs Agent' ||
             profile.rango?.toLowerCase().includes('internal affairs') ||
             profile.rango?.toLowerCase().includes('iab') ||
             (profile.divisions && profile.divisions.includes('Internal Affairs')) ||
             (profile.subdivisions && profile.subdivisions.includes('Internal Affairs'));
 
-        const hasSEBAccess = userRoleLower === 'coordinador swat/seb' ||
-            userRoleLower === 'coordinador seb' ||
-            profile.rango === 'SEB Agent' ||
+        const hasSEBAccess = profile.rango === 'SEB Agent' ||
             profile.rango?.toLowerCase().includes('seb') ||
             (profile.divisions && profile.divisions.includes('SEB')) ||
             (profile.subdivisions && profile.subdivisions.includes('SEB'));
 
-        const hasASDAccess = userRoleLower === 'coordinador asd' ||
-            profile.rango === 'ASD Agent' ||
+        const hasASDAccess = profile.rango === 'ASD Agent' ||
             profile.rango?.toLowerCase().includes('asd') ||
             (profile.divisions && profile.divisions.includes('ASD')) ||
             (profile.subdivisions && profile.subdivisions.includes('ASD'));
 
-        const hasDOJAccess = userRoleLower === 'coordinador doj' ||
-            profile.rango === 'Department of Justice Agent' ||
+        const hasDOJAccess = profile.rango === 'Department of Justice Agent' ||
             profile.rango?.toLowerCase().includes('doj') ||
             (profile.divisions && profile.divisions.includes('DOJ')) ||
             (profile.subdivisions && profile.subdivisions.includes('DOJ'));
@@ -412,28 +407,23 @@ function MainLayout() {
     const userRoleLower = (profile?.rol || '').trim().toLowerCase();
     const isHighLeadership = ['administrador', 'superadmin', 'comisionado', 'coordinador'].includes(userRoleLower);
 
-    const hasIAAccess = userRoleLower === 'coordinador ia' ||
-        profile?.rango === 'Internal Affairs Agent' ||
+    const hasIAAccess = profile?.rango === 'Internal Affairs Agent' ||
         profile?.rango?.toLowerCase().includes('internal affairs') ||
         profile?.rango?.toLowerCase().includes('iab') ||
         (profile?.divisions && profile.divisions.includes('Internal Affairs')) ||
         (profile?.subdivisions && profile.subdivisions.includes('Internal Affairs'));
 
-    const hasSEBAccess = userRoleLower === 'coordinador swat/seb' ||
-        userRoleLower === 'coordinador seb' ||
-        profile?.rango === 'SEB Agent' ||
+    const hasSEBAccess = profile?.rango === 'SEB Agent' ||
         profile?.rango?.toLowerCase().includes('seb') ||
         (profile?.divisions && profile.divisions.includes('SEB')) ||
         (profile?.subdivisions && profile.subdivisions.includes('SEB'));
 
-    const hasASDAccess = userRoleLower === 'coordinador asd' ||
-        profile?.rango === 'ASD Agent' ||
+    const hasASDAccess = profile?.rango === 'ASD Agent' ||
         profile?.rango?.toLowerCase().includes('asd') ||
         (profile?.divisions && profile.divisions.includes('ASD')) ||
         (profile?.subdivisions && profile.subdivisions.includes('ASD'));
 
-    const hasDOJAccess = userRoleLower === 'coordinador doj' ||
-        profile?.rango === 'Department of Justice Agent' ||
+    const hasDOJAccess = profile?.rango === 'Department of Justice Agent' ||
         profile?.rango?.toLowerCase().includes('doj') ||
         (profile?.divisions && profile.divisions.includes('DOJ')) ||
         (profile?.subdivisions && profile.subdivisions.includes('DOJ'));
@@ -461,7 +451,7 @@ function MainLayout() {
             userRole === 'Detective' ||
             profile.rango?.toLowerCase().includes('detective') ||
             (profile.divisions && profile.divisions.includes('Detective Bureau')) ||
-            (userRole === 'Ayudante' && !['Coordinador IA', 'Coordinador ASD', 'Coordinador SWAT/SEB', 'Coordinador SEB', 'Coordinador DOJ'].includes(userRole) && !profile.rango?.includes('Agent'));
+            (userRole === 'Ayudante' && !profile.rango?.includes('Agent'));
 
         // Si es agente exclusivo de divisiones (NO de Detective Bureau), solo mostrar sus divisiones asignadas:
         if (!isDetectiveBureauMember) {

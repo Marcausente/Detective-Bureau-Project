@@ -87,7 +87,7 @@ function WarrantRequests() {
     };
 
     const canReview = currentUser && ['Administrador', 'Coordinador', 'Comisionado', 'Jefe', 'Capitan'].includes(currentUser.rol);
-    const isAyudante = currentUser && (currentUser.rol === 'Ayudante' || ['Coordinador IA', 'Coordinador ASD', 'Coordinador SWAT/SEB', 'Coordinador SEB', 'Coordinador DOJ'].includes(currentUser.rol));
+    const isAyudante = currentUser && currentUser.rol === 'Ayudante';
 
     // Filter requests
     const filteredRequests = requests.filter(req => {

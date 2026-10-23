@@ -48,6 +48,7 @@ import AirSupport from './pages/AirSupport';
 import Undercover from './pages/Undercover';
 import Comandancia from './pages/Comandancia';
 import PublicASDFlightLog from './pages/PublicASDFlightLog';
+import PublicFeedback from './pages/PublicFeedback';
 import MainLayout from './components/MainLayout';
 import { PresenceProvider } from './contexts/PresenceContext';
 import { ThemeProvider } from './contexts/ThemeContext'; // Import ThemeProvider
@@ -72,6 +73,8 @@ function App() {
           <Route path="/registro-vuelo" element={<PublicASDFlightLog />} />
           <Route path="/flight-log" element={<PublicASDFlightLog />} />
           <Route path="/asd-vuelo" element={<PublicASDFlightLog />} />
+          <Route path="/feedback" element={<PublicFeedback />} />
+          <Route path="/public-feedback" element={<PublicFeedback />} />
 
           {/* Interstitial Route */}
           <Route path="/welcome" element={<Welcome />} />

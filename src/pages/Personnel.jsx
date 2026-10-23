@@ -37,7 +37,15 @@ function Personnel() {
     const [rankingsTableSearch, setRankingsTableSearch] = useState('');
     const [rankingsTableSortCol, setRankingsTableSortCol] = useState('total');
     const [rankingsTableSortAsc, setRankingsTableSortAsc] = useState(false);
+    // Rankings Loading
     const [rankingsLoading, setRankingsLoading] = useState(false);
+
+    // Feedbacks & Semáforo State
+    const [feedbacks, setFeedbacks] = useState([]);
+    const [feedbackTableSearch, setFeedbackTableSearch] = useState('');
+    const [feedbackFilterStatus, setFeedbackFilterStatus] = useState('all'); // 'all' | 'positive' | 'negative' | 'neutral' | 'has_submitted'
+    const [feedbackSortCol, setFeedbackSortCol] = useState('netScore');
+    const [feedbackSortAsc, setFeedbackSortAsc] = useState(false);
 
     // Auth & Delegation State
     const [currentUserRole, setCurrentUserRole] = useState(null);
@@ -146,6 +154,29 @@ function Personnel() {
                 licenses: getUserLicenses(u)
             }));
             setUsers(mappedUsers);
+
+            // 3. Fetch Feedbacks (with fallback to app_settings)
+            try {
+                const { data: fbData, error: fbErr } = await supabase
+                    .from('agent_feedbacks')
+                    .select('*')
+                    .order('feedback_date', { ascending: false });
+
+                if (!fbErr && fbData) {
+                    setFeedbacks(fbData);
+                } else {
+                    const { data: settingData } = await supabase
+                        .from('app_settings')
+                        .select('value')
+                        .eq('key', 'agent_feedbacks')
+                        .single();
+                    if (settingData?.value && Array.isArray(settingData.value)) {
+                        setFeedbacks(settingData.value);
+                    }
+                }
+            } catch (fbCatch) {
+                console.warn('Could not load feedbacks in Personnel:', fbCatch);
+            }
         } catch (err) {
             console.error('Error fetching data:', err);
             setError(err.message);
@@ -395,6 +426,144 @@ function Personnel() {
     const helpers = useMemo(() => filteredUsers.filter(u => ['Deputy Sheriff', 'Oficial I', 'Deputy Sheriff Bonus I', 'Oficial II', 'Deputy Sheriff Bonus II', 'Oficial III', 'Oficial III+'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
     const commandAndExternal = useMemo(() => filteredUsers.filter(u => ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente', 'Internal Affairs Agent', 'SEB Agent', 'ASD Agent', 'Department of Justice Agent', 'Agente Externo'].includes(u.rango)).sort(sortUsers), [filteredUsers]);
 
+    // Agent Feedback Stats Calculation
+    const agentFeedbackStats = useMemo(() => {
+        const stats = {};
+        users.forEach(u => {
+            stats[u.id] = {
+                userId: u.id,
+                user: u,
+                nombre: u.nombre || '',
+                apellido: u.apellido || '',
+                no_placa: u.no_placa || '',
+                rango: u.rango || '',
+                rango_interno: u.rango_interno || '',
+                rol: u.rol || '',
+                profile_image: u.profile_image,
+                // Received Feedbacks
+                receivedPositives: 0,
+                receivedNegatives: 0,
+                receivedMixed: 0,
+                receivedTotal: 0,
+                netScore: 0, // positives - negatives
+                status: 'neutral', // 'positive' (green) | 'negative' (red) | 'neutral'
+                // Submitted Feedbacks
+                submittedPositives: 0,
+                submittedNegatives: 0,
+                submittedMixed: 0,
+                submittedTotal: 0,
+                submittedTendency: 'neutral' // 'positive' | 'negative' | 'neutral'
+            };
+        });
+
+        feedbacks.forEach(fb => {
+            const type = (fb.feedback_type || '').toLowerCase();
+
+            // Match Target Agent
+            let target = null;
+            if (fb.target_user_id && stats[fb.target_user_id]) {
+                target = stats[fb.target_user_id];
+            } else if (fb.target_agent_name) {
+                const nameLower = fb.target_agent_name.toLowerCase().trim();
+                target = Object.values(stats).find(s => {
+                    const full = `${s.nombre} ${s.apellido}`.toLowerCase().trim();
+                    return full && (full.includes(nameLower) || nameLower.includes(full));
+                });
+            }
+
+            if (target) {
+                target.receivedTotal += 1;
+                if (type === 'positivo') target.receivedPositives += 1;
+                else if (type === 'negativo') target.receivedNegatives += 1;
+                else if (type === 'mixto') target.receivedMixed += 1;
+            }
+
+            // Match Author Agent
+            let author = null;
+            if (fb.author_user_id && stats[fb.author_user_id]) {
+                author = stats[fb.author_user_id];
+            } else if (fb.author_agent_name) {
+                const nameLower = fb.author_agent_name.toLowerCase().trim();
+                author = Object.values(stats).find(s => {
+                    const full = `${s.nombre} ${s.apellido}`.toLowerCase().trim();
+                    return full && (full.includes(nameLower) || nameLower.includes(full));
+                });
+            }
+
+            if (author) {
+                author.submittedTotal += 1;
+                if (type === 'positivo') author.submittedPositives += 1;
+                else if (type === 'negativo') author.submittedNegatives += 1;
+                else if (type === 'mixto') author.submittedMixed += 1;
+            }
+        });
+
+        Object.values(stats).forEach(s => {
+            s.netScore = s.receivedPositives - s.receivedNegatives;
+            if (s.receivedPositives > s.receivedNegatives) {
+                s.status = 'positive';
+            } else if (s.receivedNegatives > s.receivedPositives) {
+                s.status = 'negative';
+            } else {
+                s.status = 'neutral';
+            }
+
+            if (s.submittedPositives > s.submittedNegatives) {
+                s.submittedTendency = 'positive';
+            } else if (s.submittedNegatives > s.submittedPositives) {
+                s.submittedTendency = 'negative';
+            } else {
+                s.submittedTendency = 'neutral';
+            }
+        });
+
+        return stats;
+    }, [users, feedbacks]);
+
+    const filteredAndSortedFeedbackMatrix = useMemo(() => {
+        let list = Object.values(agentFeedbackStats);
+
+        // Search Filter
+        if (feedbackTableSearch.trim()) {
+            const q = feedbackTableSearch.toLowerCase().trim();
+            list = list.filter(item =>
+                item.nombre.toLowerCase().includes(q) ||
+                item.apellido.toLowerCase().includes(q) ||
+                item.rango.toLowerCase().includes(q) ||
+                item.no_placa.toLowerCase().includes(q)
+            );
+        }
+
+        // Status Filter
+        if (feedbackFilterStatus === 'positive') {
+            list = list.filter(item => item.status === 'positive');
+        } else if (feedbackFilterStatus === 'negative') {
+            list = list.filter(item => item.status === 'negative');
+        } else if (feedbackFilterStatus === 'neutral') {
+            list = list.filter(item => item.receivedTotal > 0 && item.status === 'neutral');
+        } else if (feedbackFilterStatus === 'has_submitted') {
+            list = list.filter(item => item.submittedTotal > 0);
+        }
+
+        // Sorting
+        list.sort((a, b) => {
+            let valA = a[feedbackSortCol];
+            let valB = b[feedbackSortCol];
+
+            if (typeof valA === 'string') {
+                valA = valA.toLowerCase();
+                valB = (valB || '').toLowerCase();
+                return feedbackSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+
+            valA = valA ?? 0;
+            valB = valB ?? 0;
+            return feedbackSortAsc ? valA - valB : valB - valA;
+        });
+
+        return list;
+    }, [agentFeedbackStats, feedbackTableSearch, feedbackFilterStatus, feedbackSortCol, feedbackSortAsc]);
+
     // Actions
     const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -426,20 +595,12 @@ function Personnel() {
         setScale(1.2);
     };
 
-    const DIVISION_COORDINATOR_CONFIG = {
-        'Coordinador IA': { division: 'Internal Affairs', label: 'Internal Affairs' },
-        'Coordinador ASD': { division: 'ASD', label: 'Air Support Division (ASD)' },
-        'Coordinador SWAT/SEB': { division: 'SEB', label: 'Special Enforcement Bureau (SEB)' },
-        'Coordinador SEB': { division: 'SEB', label: 'Special Enforcement Bureau (SEB)' },
-        'Coordinador DOJ': { division: 'DOJ', label: 'Department of Justice (DOJ)' }
-    };
-
     const isFullAdmin = ['Comisionado', 'Coordinador', 'Administrador'].includes(currentUserRole);
-    const isDivisionCoordinator = Boolean(DIVISION_COORDINATOR_CONFIG[currentUserRole]);
-    const userDivisionConfig = DIVISION_COORDINATOR_CONFIG[currentUserRole] || null;
     const isDelegatedCreator = Boolean(myDelegation && myDelegation.allowed_divisions && myDelegation.allowed_divisions.length > 0);
 
-    const canAddPersonnel = isFullAdmin || isDivisionCoordinator || isDelegatedCreator;
+    const canAddPersonnel = isFullAdmin || isDelegatedCreator;
+    const canEditPersonnel = isFullAdmin || isDelegatedCreator;
+    const canDeletePersonnel = isFullAdmin;
     const canManagePersonnel = isFullAdmin;
 
     const handleSaveDelegation = async (e) => {
@@ -530,13 +691,7 @@ function Personnel() {
         let initialRank = 'Oficial II';
         let initialDivisions = [];
 
-        if (isDivisionCoordinator && userDivisionConfig) {
-            initialDivisions = [userDivisionConfig.division];
-            if (currentUserRole.includes('SEB')) initialRank = 'SEB Agent';
-            else if (currentUserRole.includes('ASD')) initialRank = 'ASD Agent';
-            else if (currentUserRole.includes('IA')) initialRank = 'Internal Affairs Agent';
-            else if (currentUserRole.includes('DOJ')) initialRank = 'Department of Justice Agent';
-        } else if (isDelegatedCreator && myDelegation?.allowed_divisions?.length > 0) {
+        if (isDelegatedCreator && myDelegation?.allowed_divisions?.length > 0) {
             initialDivisions = [myDelegation.allowed_divisions[0]];
             if (myDelegation.allowed_divisions.includes('ASD')) initialRank = 'ASD Agent';
             else if (myDelegation.allowed_divisions.includes('SEB')) initialRank = 'SEB Agent';
@@ -609,17 +764,36 @@ function Personnel() {
                 setFormData(prev => ({ ...prev, profile_image: imageUrl }));
             }
 
+            const targetUser = modalMode === 'edit' ? users.find(u => u.id === editingUserId) : null;
             const selectedRank = formData.rango_interno || 'Auxiliar de Investigación';
-            const selectedLicenses = (isDivisionCoordinator || isDelegatedCreator) ? [] : (formData.licenses || []);
-            const finalRol = (isDivisionCoordinator || isDelegatedCreator) ? 'Ayudante' : (formData.rol || 'Ayudante');
             
+            let selectedLicenses = [];
+            let finalRol = formData.rol || 'Ayudante';
             let finalDivisions = formData.divisions || [];
-            if (isDivisionCoordinator && userDivisionConfig) {
-                finalDivisions = [userDivisionConfig.division];
-            } else if (isDelegatedCreator && myDelegation?.allowed_divisions) {
-                finalDivisions = finalDivisions.filter(d => myDelegation.allowed_divisions.includes(d));
-                if (finalDivisions.length === 0 && myDelegation.allowed_divisions.length > 0) {
-                    finalDivisions = [myDelegation.allowed_divisions[0]];
+
+            if (isFullAdmin) {
+                selectedLicenses = formData.licenses || [];
+                finalRol = formData.rol || 'Ayudante';
+                finalDivisions = formData.divisions || [];
+            } else if (isDelegatedCreator) {
+                if (modalMode === 'edit') {
+                    // Preservar rol original del agente editado
+                    finalRol = targetUser ? targetUser.rol : (formData.rol || 'Ayudante');
+                    // Preservar licencias existentes
+                    selectedLicenses = targetUser ? (targetUser.licenses || getUserLicenses(targetUser) || []) : [];
+                    
+                    // Divisiones: conservar las que están fuera del alcance del creador
+                    // y aplicar únicamente las que puede poner/quitar
+                    const outsideDivisions = (targetUser?.divisions || []).filter(d => !(myDelegation?.allowed_divisions || []).includes(d));
+                    const selectedAllowed = (formData.divisions || []).filter(d => (myDelegation?.allowed_divisions || []).includes(d));
+                    finalDivisions = Array.from(new Set([...outsideDivisions, ...selectedAllowed]));
+                } else {
+                    finalRol = 'Ayudante';
+                    selectedLicenses = [];
+                    finalDivisions = (formData.divisions || []).filter(d => (myDelegation?.allowed_divisions || []).includes(d));
+                    if (finalDivisions.length === 0 && myDelegation?.allowed_divisions?.length > 0) {
+                        finalDivisions = [myDelegation.allowed_divisions[0]];
+                    }
                 }
             }
 
@@ -665,7 +839,7 @@ function Personnel() {
                     .single();
                 if (newUser) {
                     await setUserInternalRank(newUser.id, selectedRank);
-                    if (!isDivisionCoordinator) {
+                    if (isFullAdmin) {
                         await updateUserLicenses(newUser.id, selectedLicenses);
                     }
                 }
@@ -709,12 +883,12 @@ function Personnel() {
 
                 // Sync rango_interno & licenses via helpers
                 await setUserInternalRank(editingUserId, selectedRank);
-                if (!isDivisionCoordinator) {
+                if (isFullAdmin) {
                     await updateUserLicenses(editingUserId, selectedLicenses);
                 }
 
                 // Update local state immediately
-                setUsers(prev => prev.map(u => u.id === editingUserId ? { ...u, rango_interno: selectedRank, licenses: selectedLicenses, divisions: finalDivisions } : u));
+                setUsers(prev => prev.map(u => u.id === editingUserId ? { ...u, rol: finalRol, rango_interno: selectedRank, licenses: selectedLicenses, divisions: finalDivisions } : u));
 
                 setMessage({ type: 'success', text: '¡Personal actualizado correctamente!' });
             }
@@ -753,55 +927,59 @@ function Personnel() {
                     transition: 'all 0.2s ease'
                 }}
             >
-                {/* Admin Quick Actions */}
-                {canManagePersonnel && (
+                {/* Admin / Delegated Creator Quick Actions */}
+                {(canEditPersonnel || canDeletePersonnel) && (
                     <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '4px', zIndex: 6 }} onClick={(e) => e.stopPropagation()}>
-                        <button
-                            type="button"
-                            onClick={() => openEditModal(user)}
-                            style={{
-                                background: 'rgba(255, 255, 255, 0.08)',
-                                border: '1px solid rgba(255, 255, 255, 0.15)',
-                                color: '#fbbf24',
-                                borderRadius: '6px',
-                                width: '26px',
-                                height: '26px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                            title="Editar Agente"
-                        >
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                            </svg>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handleDeleteUser(user.id)}
-                            style={{
-                                background: 'rgba(239, 68, 68, 0.12)',
-                                border: '1px solid rgba(239, 68, 68, 0.3)',
-                                color: '#f87171',
-                                borderRadius: '6px',
-                                width: '26px',
-                                height: '26px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s'
-                            }}
-                            title="Eliminar Agente"
-                        >
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                            </svg>
-                        </button>
+                        {canEditPersonnel && (
+                            <button
+                                type="button"
+                                onClick={() => openEditModal(user)}
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                    color: '#fbbf24',
+                                    borderRadius: '6px',
+                                    width: '26px',
+                                    height: '26px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                title="Editar Agente"
+                            >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                </svg>
+                            </button>
+                        )}
+                        {canDeletePersonnel && (
+                            <button
+                                type="button"
+                                onClick={() => handleDeleteUser(user.id)}
+                                style={{
+                                    background: 'rgba(239, 68, 68, 0.12)',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    color: '#f87171',
+                                    borderRadius: '6px',
+                                    width: '26px',
+                                    height: '26px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                title="Eliminar Agente"
+                            >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                </svg>
+                            </button>
+                        )}
                     </div>
                 )}
 
@@ -910,6 +1088,85 @@ function Personnel() {
                             })}
                         </div>
                     )}
+
+                    {/* Agent Feedback Traffic-Light Semáforo Pill */}
+                    {(() => {
+                        const fb = agentFeedbackStats[user.id];
+                        if (!fb || (fb.receivedTotal === 0 && fb.submittedTotal === 0)) return null;
+                        const isPos = fb.status === 'positive';
+                        const isNeg = fb.status === 'negative';
+                        const bg = fb.receivedTotal === 0
+                            ? 'rgba(148, 163, 184, 0.12)'
+                            : isPos
+                                ? 'rgba(34, 197, 94, 0.18)'
+                                : isNeg
+                                    ? 'rgba(239, 68, 68, 0.18)'
+                                    : 'rgba(234, 179, 8, 0.18)';
+                        const color = fb.receivedTotal === 0
+                            ? '#94a3b8'
+                            : isPos
+                                ? '#4ade80'
+                                : isNeg
+                                    ? '#f87171'
+                                    : '#fde047';
+                        const border = fb.receivedTotal === 0
+                            ? 'rgba(148, 163, 184, 0.25)'
+                            : isPos
+                                ? 'rgba(34, 197, 94, 0.4)'
+                                : isNeg
+                                    ? 'rgba(239, 68, 68, 0.4)'
+                                    : 'rgba(234, 179, 8, 0.4)';
+                        const label = fb.receivedTotal === 0
+                            ? '0 Feedbacks'
+                            : isPos
+                                ? `+${fb.netScore} Favorable`
+                                : isNeg
+                                    ? `${fb.netScore} Desfavorable`
+                                    : `0 Equilibrado`;
+
+                        return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap', marginTop: '3px' }}>
+                                <span
+                                    style={{
+                                        fontSize: '0.66rem',
+                                        fontWeight: 800,
+                                        padding: '1px 6px',
+                                        borderRadius: '6px',
+                                        background: bg,
+                                        color: color,
+                                        border: `1px solid ${border}`,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                    title={`Balance de Feedbacks: ${fb.receivedPositives} positivos, ${fb.receivedNegatives} negativos, ${fb.receivedMixed} mixtos.`}
+                                >
+                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: color, display: 'inline-block' }}></span>
+                                    <span>{label}</span>
+                                </span>
+                                {fb.submittedTotal > 0 && (
+                                    <span
+                                        style={{
+                                            fontSize: '0.64rem',
+                                            fontWeight: 700,
+                                            padding: '1px 5px',
+                                            borderRadius: '6px',
+                                            background: 'rgba(255, 255, 255, 0.05)',
+                                            color: '#cbd5e1',
+                                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '3px'
+                                        }}
+                                        title={`Ha evaluado a otros compañeros en ${fb.submittedTotal} ocasiones (${fb.submittedPositives} a favor / ${fb.submittedNegatives} en contra)`}
+                                    >
+                                        <span>✍️</span>
+                                        <span>{fb.submittedTotal} dados</span>
+                                    </span>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
         );
@@ -1095,6 +1352,31 @@ function Personnel() {
                     </svg>
                     {t('rankingsTab') || 'Rankings y Líderes'}
                 </button>
+
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('feedbacks')}
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '7px',
+                        padding: '0.45rem 1.15rem',
+                        borderRadius: '9px',
+                        background: activeTab === 'feedbacks' ? 'rgba(16, 185, 129, 0.25)' : 'transparent',
+                        color: activeTab === 'feedbacks' ? '#34d399' : '#94a3b8',
+                        border: activeTab === 'feedbacks' ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid transparent',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: activeTab === 'feedbacks' ? '0 2px 8px rgba(0, 0, 0, 0.3)' : 'none'
+                    }}
+                >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    Feedbacks & Semáforo ({feedbacks.length})
+                </button>
             </div>
 
             {/* Main Content Area */}
@@ -1150,7 +1432,7 @@ function Personnel() {
                         </div>
                     </div>
                 </div>
-            ) : (
+            ) : activeTab === 'rankings' ? (
                 /* Rankings & Monthly Statistics Section */
                 <div className="rankings-tab-container" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     {/* Control Panel Toolbar */}
@@ -1873,6 +2155,406 @@ function Personnel() {
                         </div>
                     )}
                 </div>
+            ) : (
+                /* FEEDBACKS & SEMÁFORO TAB */
+                (() => {
+                    const totalFb = feedbacks.length;
+                    const positiveFb = feedbacks.filter(f => (f.feedback_type || '').toLowerCase() === 'positivo').length;
+                    const negativeFb = feedbacks.filter(f => (f.feedback_type || '').toLowerCase() === 'negativo').length;
+                    const mixedFb = feedbacks.filter(f => (f.feedback_type || '').toLowerCase() === 'mixto').length;
+                    const greenAgents = Object.values(agentFeedbackStats).filter(s => s.status === 'positive').length;
+                    const redAgents = Object.values(agentFeedbackStats).filter(s => s.status === 'negative').length;
+                    const neutralAgents = Object.values(agentFeedbackStats).filter(s => s.receivedTotal > 0 && s.status === 'neutral').length;
+                    const activeWriters = Object.values(agentFeedbackStats).filter(s => s.submittedTotal > 0).length;
+
+                    return (
+                        <div className="feedbacks-tab-container" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                            {/* Top KPI Summary Cards */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                                <div style={{
+                                    background: 'rgba(var(--secondary-rgb), 0.5)',
+                                    border: '1px solid var(--glass-border)',
+                                    borderRadius: '14px',
+                                    padding: '1.15rem',
+                                    backdropFilter: 'blur(10px)',
+                                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)'
+                                }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                        Total Feedbacks
+                                    </div>
+                                    <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#f8fafc', margin: '4px 0' }}>
+                                        {totalFb}
+                                    </div>
+                                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'flex', gap: '8px' }}>
+                                        <span style={{ color: '#4ade80' }}>👍 {positiveFb}</span>
+                                        <span style={{ color: '#f87171' }}>⚠️ {negativeFb}</span>
+                                        <span style={{ color: '#fbbf24' }}>⚖️ {mixedFb}</span>
+                                    </div>
+                                </div>
+
+                                <div style={{
+                                    background: 'rgba(34, 197, 94, 0.08)',
+                                    border: '1px solid rgba(34, 197, 94, 0.25)',
+                                    borderRadius: '14px',
+                                    padding: '1.15rem',
+                                    backdropFilter: 'blur(10px)',
+                                    boxShadow: '0 4px 16px rgba(34, 197, 94, 0.1)'
+                                }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#86efac', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                        Semáforo Verde
+                                    </div>
+                                    <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#4ade80', margin: '4px 0' }}>
+                                        {greenAgents}
+                                    </div>
+                                    <div style={{ fontSize: '0.78rem', color: '#86efac' }}>
+                                        Agentes con balance favorable
+                                    </div>
+                                </div>
+
+                                <div style={{
+                                    background: 'rgba(239, 68, 68, 0.08)',
+                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                    borderRadius: '14px',
+                                    padding: '1.15rem',
+                                    backdropFilter: 'blur(10px)',
+                                    boxShadow: '0 4px 16px rgba(239, 68, 68, 0.1)'
+                                }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                        Semáforo Rojo
+                                    </div>
+                                    <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#f87171', margin: '4px 0' }}>
+                                        {redAgents}
+                                    </div>
+                                    <div style={{ fontSize: '0.78rem', color: '#fca5a5' }}>
+                                        Agentes con balance desfavorable
+                                    </div>
+                                </div>
+
+                                <div style={{
+                                    background: 'rgba(99, 102, 241, 0.08)',
+                                    border: '1px solid rgba(99, 102, 241, 0.25)',
+                                    borderRadius: '14px',
+                                    padding: '1.15rem',
+                                    backdropFilter: 'blur(10px)',
+                                    boxShadow: '0 4px 16px rgba(99, 102, 241, 0.1)'
+                                }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#c7d2fe', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                        Evaluadores Activos
+                                    </div>
+                                    <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#a5b4fc', margin: '4px 0' }}>
+                                        {activeWriters}
+                                    </div>
+                                    <div style={{ fontSize: '0.78rem', color: '#c7d2fe' }}>
+                                        Agentes que han rellenado feedbacks
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Controls Toolbar */}
+                            <div style={{
+                                background: 'rgba(var(--secondary-rgb), 0.45)',
+                                border: '1px solid var(--glass-border)',
+                                borderRadius: '14px',
+                                padding: '1.15rem 1.4rem',
+                                backdropFilter: 'blur(10px)',
+                                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '1rem'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.85rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{
+                                            width: '32px',
+                                            height: '32px',
+                                            borderRadius: '8px',
+                                            background: 'rgba(16, 185, 129, 0.15)',
+                                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '1.1rem'
+                                        }}>
+                                            🚦
+                                        </div>
+                                        <div>
+                                            <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                                                Semáforo y Balance Acumulado de Feedbacks
+                                            </h3>
+                                            <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                                                Auditoría de valoraciones recibidas y emitidas por cada miembro del personal
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => window.open('/feedback', '_blank')}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '7px',
+                                            padding: '0.5rem 1rem',
+                                            borderRadius: '10px',
+                                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.3))',
+                                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                                            color: '#6ee7b7',
+                                            fontSize: '0.82rem',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                        title="Abrir formulario público de feedback (no requiere login)"
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                            <polyline points="15 3 21 3 21 9"></polyline>
+                                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                                        </svg>
+                                        Formulario Público de Feedback ↗
+                                    </button>
+                                </div>
+
+                                {/* Search and Filters */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.85rem' }}>
+                                    <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar por nombre, placa o rango..."
+                                            value={feedbackTableSearch}
+                                            onChange={(e) => setFeedbackTableSearch(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.45rem 0.85rem 0.45rem 2rem',
+                                                borderRadius: '8px',
+                                                border: '1px solid rgba(255, 255, 255, 0.12)',
+                                                background: 'rgba(0, 0, 0, 0.25)',
+                                                color: '#f8fafc',
+                                                fontSize: '0.82rem',
+                                                outline: 'none',
+                                                boxSizing: 'border-box'
+                                            }}
+                                        />
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.2" style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)' }}>
+                                            <circle cx="11" cy="11" r="8" />
+                                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                                        </svg>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                        {[
+                                            { id: 'all', label: `Todos (${users.length})` },
+                                            { id: 'positive', label: `🟢 En Verde (${greenAgents})` },
+                                            { id: 'negative', label: `🔴 En Rojo (${redAgents})` },
+                                            { id: 'neutral', label: `🟡 Neutro (${neutralAgents})` },
+                                            { id: 'has_submitted', label: `✍️ Evaluadores (${activeWriters})` }
+                                        ].map(btn => (
+                                            <button
+                                                key={btn.id}
+                                                type="button"
+                                                onClick={() => setFeedbackFilterStatus(btn.id)}
+                                                style={{
+                                                    padding: '0.35rem 0.8rem',
+                                                    borderRadius: '8px',
+                                                    border: feedbackFilterStatus === btn.id ? '1px solid rgba(255, 255, 255, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                                    background: feedbackFilterStatus === btn.id ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.04)',
+                                                    color: feedbackFilterStatus === btn.id ? '#ffffff' : '#94a3b8',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: feedbackFilterStatus === btn.id ? 700 : 500,
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.15s'
+                                                }}
+                                            >
+                                                {btn.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Main Table */}
+                            <div style={{
+                                background: 'rgba(var(--secondary-rgb), 0.45)',
+                                border: '1px solid var(--glass-border)',
+                                borderRadius: '14px',
+                                padding: '1.25rem',
+                                backdropFilter: 'blur(10px)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '1rem',
+                                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                                overflowX: 'auto'
+                            }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', color: '#94a3b8' }}>
+                                            {[
+                                                { key: 'nombre', label: 'Agente', width: '25%' },
+                                                { key: 'rango', label: 'Rango / Placa', width: '18%' },
+                                                { key: 'netScore', label: 'Semáforo & Balance', width: '20%' },
+                                                { key: 'receivedTotal', label: 'Recibidos (Detalle)', width: '15%' },
+                                                { key: 'submittedTotal', label: 'Emitidos & Tendencia', width: '17%' },
+                                                { key: 'actions', label: 'Acción', width: '5%', noSort: true }
+                                            ].map(col => {
+                                                const isCurrent = feedbackSortCol === col.key;
+                                                return (
+                                                    <th
+                                                        key={col.key}
+                                                        onClick={() => {
+                                                            if (col.noSort) return;
+                                                            if (isCurrent) setFeedbackSortAsc(!feedbackSortAsc);
+                                                            else {
+                                                                setFeedbackSortCol(col.key);
+                                                                setFeedbackSortAsc(false);
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            padding: '0.75rem 1rem',
+                                                            fontWeight: 700,
+                                                            cursor: col.noSort ? 'default' : 'pointer',
+                                                            userSelect: 'none',
+                                                            width: col.width
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                                            {col.label}
+                                                            {!col.noSort && (
+                                                                <span style={{ fontSize: '0.7rem', opacity: isCurrent ? 1 : 0.35 }}>
+                                                                    {isCurrent ? (feedbackSortAsc ? '▲' : '▼') : '↕'}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </th>
+                                                );
+                                            })}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredAndSortedFeedbackMatrix.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6} style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                                                    No se encontraron agentes con los criterios seleccionados.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredAndSortedFeedbackMatrix.map(agent => {
+                                                const isPos = agent.status === 'positive';
+                                                const isNeg = agent.status === 'negative';
+                                                const semPill = agent.receivedTotal === 0
+                                                    ? { bg: 'rgba(148, 163, 184, 0.1)', color: '#94a3b8', border: 'rgba(148, 163, 184, 0.25)', label: '⚪ SIN EVALUACIONES' }
+                                                    : isPos
+                                                        ? { bg: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: 'rgba(34, 197, 94, 0.35)', label: `🟢 FAVORABLE (+${agent.netScore})` }
+                                                        : isNeg
+                                                            ? { bg: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: 'rgba(239, 68, 68, 0.35)', label: `🔴 DESFAVORABLE (${agent.netScore})` }
+                                                            : { bg: 'rgba(234, 179, 8, 0.15)', color: '#fde047', border: 'rgba(234, 179, 8, 0.35)', label: '🟡 EQUILIBRADO (0)' };
+
+                                                return (
+                                                    <tr
+                                                        key={agent.userId}
+                                                        onClick={() => navigate(`/personnel/${agent.userId}`)}
+                                                        style={{
+                                                            borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+                                                            cursor: 'pointer',
+                                                            transition: 'background 0.15s ease'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                    >
+                                                        <td style={{ padding: '0.75rem 1rem' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                <img
+                                                                    src={getProfileImage(agent.profile_image, '/logowebp/anon.webp')}
+                                                                    alt={agent.nombre}
+                                                                    style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
+                                                                />
+                                                                <div>
+                                                                    <div style={{ fontWeight: 700, color: '#f1f5f9' }}>
+                                                                        {agent.nombre} {agent.apellido}
+                                                                    </div>
+                                                                    <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                                                        {agent.rango_interno || agent.rol || 'Agente'}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '0.75rem 1rem', color: '#cbd5e1' }}>
+                                                            {agent.rango} <span style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: 700 }}>#{agent.no_placa || '---'}</span>
+                                                        </td>
+                                                        <td style={{ padding: '0.75rem 1rem' }}>
+                                                            <span style={{
+                                                                padding: '0.25rem 0.75rem',
+                                                                borderRadius: '8px',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: 800,
+                                                                background: semPill.bg,
+                                                                color: semPill.color,
+                                                                border: `1px solid ${semPill.border}`,
+                                                                display: 'inline-block'
+                                                            }}>
+                                                                {semPill.label}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ padding: '0.75rem 1rem' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                                <span style={{ color: '#4ade80', fontWeight: 700 }} title="Positivos recibidos">👍 {agent.receivedPositives}</span>
+                                                                <span style={{ color: '#64748b' }}>•</span>
+                                                                <span style={{ color: '#f87171', fontWeight: 700 }} title="Negativos recibidos">⚠️ {agent.receivedNegatives}</span>
+                                                                <span style={{ color: '#64748b' }}>•</span>
+                                                                <span style={{ color: '#fbbf24', fontWeight: 700 }} title="Mixtos recibidos">⚖️ {agent.receivedMixed}</span>
+                                                                <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>({agent.receivedTotal} total)</span>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '0.75rem 1rem' }}>
+                                                            {agent.submittedTotal === 0 ? (
+                                                                <span style={{ color: '#64748b', fontStyle: 'italic', fontSize: '0.78rem' }}>Sin emitir</span>
+                                                            ) : (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                    <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.8rem' }}>
+                                                                        ✍️ {agent.submittedTotal} feedback{agent.submittedTotal > 1 ? 's' : ''}
+                                                                    </div>
+                                                                    <div style={{ fontSize: '0.72rem' }}>
+                                                                        {agent.submittedTendency === 'positive' ? (
+                                                                            <span style={{ color: '#4ade80', fontWeight: 600 }}>Pone más a favor ({agent.submittedPositives} vs {agent.submittedNegatives})</span>
+                                                                        ) : agent.submittedTendency === 'negative' ? (
+                                                                            <span style={{ color: '#f87171', fontWeight: 600 }}>Pone más en contra ({agent.submittedNegatives} vs {agent.submittedPositives})</span>
+                                                                        ) : (
+                                                                            <span style={{ color: '#fbbf24', fontWeight: 600 }}>Equitativo ({agent.submittedPositives} vs {agent.submittedNegatives})</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    navigate(`/personnel/${agent.userId}`);
+                                                                }}
+                                                                style={{
+                                                                    background: 'rgba(255, 255, 255, 0.06)',
+                                                                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                                                                    color: '#cbd5e1',
+                                                                    padding: '0.3rem 0.65rem',
+                                                                    borderRadius: '6px',
+                                                                    fontSize: '0.74rem',
+                                                                    cursor: 'pointer',
+                                                                    fontWeight: 600
+                                                                }}
+                                                            >
+                                                                Ver Ficha ↗
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    );
+                })()
             )}
 
             {/* Add/Edit Personnel Modal */}
@@ -2019,13 +2701,13 @@ function Personnel() {
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     <span>Rol del Sistema</span>
-                                    {(isDivisionCoordinator || isDelegatedCreator) && (
+                                    {!isFullAdmin && isDelegatedCreator && (
                                         <span style={{ fontSize: '0.68rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '1px 6px', borderRadius: '4px' }}>
-                                            🔒 Fijado en Ayudante
+                                            🔒 Protegido
                                         </span>
                                     )}
                                 </label>
-                                {(isDivisionCoordinator || isDelegatedCreator) ? (
+                                {!isFullAdmin && isDelegatedCreator ? (
                                     <div style={{
                                         background: 'rgba(15, 23, 42, 0.55)',
                                         border: '1px dashed rgba(255, 255, 255, 0.2)',
@@ -2037,8 +2719,10 @@ function Personnel() {
                                         alignItems: 'center',
                                         justifyContent: 'space-between'
                                     }}>
-                                        <span style={{ color: '#f1f5f9', fontWeight: 600 }}>Ayudante</span>
-                                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Fijado automáticamente (Permiso restringido)</span>
+                                        <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{formData.rol || 'Ayudante'}</span>
+                                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                            {modalMode === 'edit' ? 'No modificable por creador delegado' : 'Fijado automáticamente (Ayudante)'}
+                                        </span>
                                     </div>
                                 ) : (
                                     <select
@@ -2051,10 +2735,6 @@ function Personnel() {
                                         <option value="Coordinador">Coordinador</option>
                                         <option value="Comisionado">Comisionado</option>
                                         <option value="Administrador">Administrador</option>
-                                        <option value="Coordinador IA">Coordinador IA</option>
-                                        <option value="Coordinador ASD">Coordinador ASD</option>
-                                        <option value="Coordinador SWAT/SEB">Coordinador SWAT/SEB</option>
-                                        <option value="Coordinador DOJ">Coordinador DOJ</option>
                                     </select>
                                 )}
                             </div>
@@ -2062,53 +2742,46 @@ function Personnel() {
                             <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
                                 <label className="form-label" style={{ fontSize: '0.82rem', color: '#a5b4fc', fontWeight: 700, marginBottom: '0.35rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <span>División(es)</span>
-                                    {isDivisionCoordinator && (
+                                    {!isFullAdmin && isDelegatedCreator && (
                                         <span style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 600 }}>
-                                            🔒 Solo puedes asignar tu división ({userDivisionConfig?.division})
-                                        </span>
-                                    )}
-                                    {isDelegatedCreator && (
-                                        <span style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 600 }}>
-                                            🔒 Solo puedes asignar tus divisiones autorizadas ({myDelegation?.allowed_divisions?.join(', ')})
+                                            🔒 Solo puedes gestionar tus divisiones autorizadas ({myDelegation?.allowed_divisions?.join(', ')})
                                         </span>
                                     )}
                                 </label>
-                                {isDivisionCoordinator ? (
-                                    <div style={{ background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.3)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <div style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            background: 'rgba(56, 189, 248, 0.15)',
-                                            border: '1px solid rgba(56, 189, 248, 0.4)',
-                                            padding: '6px 14px',
-                                            borderRadius: '8px',
-                                            color: '#ffffff',
-                                            fontSize: '0.85rem',
-                                            fontWeight: 700
-                                        }}>
-                                            <span style={{ color: '#38bdf8', fontWeight: 900 }}>✓</span>
-                                            <span>{userDivisionConfig?.division} ({userDivisionConfig?.label})</span>
+                                {!isFullAdmin && isDelegatedCreator ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', background: 'rgba(15, 23, 42, 0.65)', padding: '0.85rem', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
+                                        <div style={{ display: 'flex', gap: '0.85rem', flexWrap: 'wrap' }}>
+                                            {(myDelegation?.allowed_divisions || []).map(divName => (
+                                                <label key={divName} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#f8fafc', fontSize: '0.82rem', background: 'rgba(56, 189, 248, 0.1)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.divisions.includes(divName)}
+                                                        onChange={(e) => {
+                                                            const newDivisions = e.target.checked
+                                                                ? [...formData.divisions, divName]
+                                                                : formData.divisions.filter(d => d !== divName);
+                                                            setFormData({ ...formData, divisions: newDivisions });
+                                                        }}
+                                                    />
+                                                    <span style={{ fontWeight: 600 }}>{divName}</span>
+                                                </label>
+                                            ))}
                                         </div>
-                                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Esta división se asignará obligatoriamente al nuevo agente.</span>
-                                    </div>
-                                ) : isDelegatedCreator ? (
-                                    <div style={{ display: 'flex', gap: '0.85rem', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
-                                        {(myDelegation?.allowed_divisions || []).map(divName => (
-                                            <label key={divName} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#f8fafc', fontSize: '0.82rem', background: 'rgba(56, 189, 248, 0.1)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.divisions.includes(divName)}
-                                                    onChange={(e) => {
-                                                        const newDivisions = e.target.checked
-                                                            ? [...formData.divisions, divName]
-                                                            : formData.divisions.filter(d => d !== divName);
-                                                        setFormData({ ...formData, divisions: newDivisions });
-                                                    }}
-                                                />
-                                                <span style={{ fontWeight: 600 }}>{divName}</span>
-                                            </label>
-                                        ))}
+                                        {modalMode === 'edit' && editingUserId && (() => {
+                                            const currentEditingUser = users.find(u => u.id === editingUserId);
+                                            const otherDivisions = (currentEditingUser?.divisions || []).filter(d => !(myDelegation?.allowed_divisions || []).includes(d));
+                                            if (otherDivisions.length === 0) return null;
+                                            return (
+                                                <div style={{ paddingTop: '0.5rem', borderTop: '1px dashed rgba(255, 255, 255, 0.1)', fontSize: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                    <span style={{ color: '#cbd5e1' }}>Otras divisiones activas (protegidas):</span>
+                                                    {otherDivisions.map(d => (
+                                                        <span key={d} style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '2px 8px', borderRadius: '4px', color: '#e2e8f0', fontWeight: 600 }}>
+                                                            {d}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
@@ -2131,7 +2804,7 @@ function Personnel() {
                                 )}
                             </div>
 
-                            {!isDivisionCoordinator && !isDelegatedCreator && (
+                            {isFullAdmin && (
                                 <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
                                     <label className="form-label" style={{ fontSize: '0.82rem', color: '#6ee7b7', fontWeight: 700, marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
                                         <span>🪪</span>

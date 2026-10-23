@@ -49,28 +49,23 @@ function Welcome() {
                     const hasIA = rank === 'Internal Affairs Agent' ||
                         rankLower.includes('internal affairs') ||
                         rankLower.includes('iab') ||
-                        data.rol === 'Coordinador IA' ||
                         (div.includes('Internal Affairs') && !isDB);
 
                     const hasSEB = rank === 'SEB Agent' ||
                         rankLower.includes('seb') ||
-                        data.rol === 'Coordinador SWAT/SEB' ||
-                        data.rol === 'Coordinador SEB' ||
                         (div.includes('SEB') && !isDB);
 
                     const hasASD = rank === 'ASD Agent' ||
                         rankLower.includes('asd') ||
-                        data.rol === 'Coordinador ASD' ||
                         (div.includes('ASD') && !isDB);
 
                     const hasDOJ = rank === 'Department of Justice Agent' ||
                         rankLower.includes('doj') ||
-                        data.rol === 'Coordinador DOJ' ||
                         (div.includes('DOJ') && !isDB);
 
                     if (isDB) {
                         targetRoute = '/dashboard';
-                    } else if (hasIA && (rank === 'Internal Affairs Agent' || rankLower.includes('ia') || data.rol?.includes('IA'))) {
+                    } else if (hasIA && (rank === 'Internal Affairs Agent' || rankLower.includes('ia'))) {
                         targetRoute = '/internal-affairs';
                     } else if (hasSEB) {
                         targetRoute = '/seb';

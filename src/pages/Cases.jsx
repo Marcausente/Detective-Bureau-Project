@@ -274,7 +274,7 @@ function Cases() {
                     </div>
 
                     {/* New Case Button */}
-                    {currentUser && !['Ayudante', 'Invitado', 'Externo', 'Coordinador IA', 'Coordinador ASD', 'Coordinador SWAT/SEB', 'Coordinador SEB', 'Coordinador DOJ'].includes(currentUser.rol) && (
+                    {currentUser && !['Ayudante', 'Invitado', 'Externo'].includes(currentUser.rol) && (
                         <button 
                             className="mac-btn mac-btn-primary" 
                             onClick={() => setShowCreateModal(true)}

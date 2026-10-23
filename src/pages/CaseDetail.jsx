@@ -951,13 +951,12 @@ function CaseDetail() {
 
     const isHighCommand = currentUser && ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol);
     const isCreator = currentUser && info.created_by === currentUser.id;
-    const isAssignedEncargado = currentUser && assignments && assignments.some(a => a.user_id === currentUser.id && a.role === 'Encargado');
-    const isAyudante = currentUser && (currentUser.rol === 'Ayudante' || ['Coordinador IA', 'Coordinador ASD', 'Coordinador SWAT/SEB', 'Coordinador SEB', 'Coordinador DOJ'].includes(currentUser.rol));
+    const isAyudante = currentUser && currentUser.rol === 'Ayudante';
     const canEditCase = (isHighCommand || isCreator || isAssignedEncargado) && !isAyudante;
     const canChangeCaseStatus = currentUser && (
         ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol) ||
         (currentUser.rol && currentUser.rol.toLowerCase().includes('detective')) ||
-        !['Ayudante', 'Invitado', 'Externo', 'Coordinador IA', 'Coordinador ASD', 'Coordinador SWAT/SEB', 'Coordinador SEB', 'Coordinador DOJ'].includes(currentUser.rol)
+        !['Ayudante', 'Invitado', 'Externo'].includes(currentUser.rol)
     );
 
     const isCaseOpen = !info || !info.status || info.status.toLowerCase() === 'open' || info.status.toLowerCase() === 'abierto';

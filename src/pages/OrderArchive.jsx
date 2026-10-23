@@ -1415,7 +1415,7 @@ function OrderArchive() {
         return [];
     };
 
-    const isAyudante = currentUser && (currentUser.rol === 'Ayudante' || ['Coordinador IA', 'Coordinador ASD', 'Coordinador SWAT/SEB', 'Coordinador SEB', 'Coordinador DOJ'].includes(currentUser.rol));
+    const isAyudante = currentUser && currentUser.rol === 'Ayudante';
     const canManageOrders = currentUser && !isAyudante;
 
     const accentColor = isLSSD ? '#10b981' : 'var(--color-blue, #3b82f6)';
