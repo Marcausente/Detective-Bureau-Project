@@ -6,34 +6,26 @@
 -- 2. 'Coordinador ASD'
 -- 3. 'Coordinador SWAT/SEB'
 -- 4. 'Coordinador DOJ'
---
--- These roles have the same system-wide base permissions as 'Ayudante',
--- but they have permission to add new members to Personnel restricted to
--- their specific division and with the system role locked to 'Ayudante'.
 -- =========================================================================
 
-DO $$
-BEGIN
-    ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'Coordinador IA';
-    ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'Coordinador ASD';
-    ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'Coordinador SWAT/SEB';
-    ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'Coordinador DOJ';
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+-- 1. Añadir los nuevos valores al enum app_role
+ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'Coordinador IA';
+ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'Coordinador ASD';
+ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'Coordinador SWAT/SEB';
+ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'Coordinador DOJ';
 
 -- =========================================================================
--- Limpieza de 'Detective Bureau' en divisiones de agentes específicos de división
--- Garantiza que usuarios de DOJ, IA, SEB y ASD solo tengan su división asignada
+-- 2. Limpieza de 'Detective Bureau' en divisiones de agentes de división
+-- Usamos rol::text para evitar cualquier error de casting de tipo enum
 -- =========================================================================
 
 -- Limpieza DOJ (la gente de DOJ y Coordinador DOJ solo deben tener 'DOJ')
 UPDATE public.users
 SET divisions = array_remove(divisions, 'Detective Bureau')
 WHERE (
-    rol = 'Coordinador DOJ'
+    rol::text = 'Coordinador DOJ'
     OR rango = 'Department of Justice Agent'
-    OR (divisions @> ARRAY['DOJ']::text[] AND rol NOT IN ('Administrador', 'Comisionado', 'Coordinador'))
+    OR (divisions @> ARRAY['DOJ']::text[] AND rol::text NOT IN ('Administrador', 'Comisionado', 'Coordinador'))
 )
 AND 'Detective Bureau' = ANY(divisions);
 
@@ -41,9 +33,9 @@ AND 'Detective Bureau' = ANY(divisions);
 UPDATE public.users
 SET divisions = array_remove(divisions, 'Detective Bureau')
 WHERE (
-    rol = 'Coordinador IA'
+    rol::text = 'Coordinador IA'
     OR rango = 'Internal Affairs Agent'
-    OR (divisions @> ARRAY['Internal Affairs']::text[] AND rol NOT IN ('Administrador', 'Comisionado', 'Coordinador'))
+    OR (divisions @> ARRAY['Internal Affairs']::text[] AND rol::text NOT IN ('Administrador', 'Comisionado', 'Coordinador'))
 )
 AND 'Detective Bureau' = ANY(divisions);
 
@@ -51,9 +43,9 @@ AND 'Detective Bureau' = ANY(divisions);
 UPDATE public.users
 SET divisions = array_remove(divisions, 'Detective Bureau')
 WHERE (
-    rol IN ('Coordinador SWAT/SEB', 'Coordinador SEB')
+    rol::text IN ('Coordinador SWAT/SEB', 'Coordinador SEB')
     OR rango = 'SEB Agent'
-    OR (divisions @> ARRAY['SEB']::text[] AND rol NOT IN ('Administrador', 'Comisionado', 'Coordinador'))
+    OR (divisions @> ARRAY['SEB']::text[] AND rol::text NOT IN ('Administrador', 'Comisionado', 'Coordinador'))
 )
 AND 'Detective Bureau' = ANY(divisions);
 
@@ -61,8 +53,8 @@ AND 'Detective Bureau' = ANY(divisions);
 UPDATE public.users
 SET divisions = array_remove(divisions, 'Detective Bureau')
 WHERE (
-    rol = 'Coordinador ASD'
+    rol::text = 'Coordinador ASD'
     OR rango = 'ASD Agent'
-    OR (divisions @> ARRAY['ASD']::text[] AND rol NOT IN ('Administrador', 'Comisionado', 'Coordinador'))
+    OR (divisions @> ARRAY['ASD']::text[] AND rol::text NOT IN ('Administrador', 'Comisionado', 'Coordinador'))
 )
 AND 'Detective Bureau' = ANY(divisions);
