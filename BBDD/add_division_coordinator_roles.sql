@@ -1,5 +1,5 @@
 -- =========================================================================
--- Migration: Add Division Coordinator Roles to app_role enum
+-- Migration: Add Division Coordinator Roles to app_role enum & Clean Divisions
 -- =========================================================================
 -- New Roles:
 -- 1. 'Coordinador IA'
@@ -21,3 +21,48 @@ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
+
+-- =========================================================================
+-- Limpieza de 'Detective Bureau' en divisiones de agentes específicos de división
+-- Garantiza que usuarios de DOJ, IA, SEB y ASD solo tengan su división asignada
+-- =========================================================================
+
+-- Limpieza DOJ (la gente de DOJ y Coordinador DOJ solo deben tener 'DOJ')
+UPDATE public.users
+SET divisions = array_remove(divisions, 'Detective Bureau')
+WHERE (
+    rol = 'Coordinador DOJ'
+    OR rango = 'Department of Justice Agent'
+    OR (divisions @> ARRAY['DOJ']::text[] AND rol NOT IN ('Administrador', 'Comisionado', 'Coordinador'))
+)
+AND 'Detective Bureau' = ANY(divisions);
+
+-- Limpieza IA (Coordinador IA y agentes de Asuntos Internos)
+UPDATE public.users
+SET divisions = array_remove(divisions, 'Detective Bureau')
+WHERE (
+    rol = 'Coordinador IA'
+    OR rango = 'Internal Affairs Agent'
+    OR (divisions @> ARRAY['Internal Affairs']::text[] AND rol NOT IN ('Administrador', 'Comisionado', 'Coordinador'))
+)
+AND 'Detective Bureau' = ANY(divisions);
+
+-- Limpieza SEB (Coordinador SWAT/SEB y agentes SEB)
+UPDATE public.users
+SET divisions = array_remove(divisions, 'Detective Bureau')
+WHERE (
+    rol IN ('Coordinador SWAT/SEB', 'Coordinador SEB')
+    OR rango = 'SEB Agent'
+    OR (divisions @> ARRAY['SEB']::text[] AND rol NOT IN ('Administrador', 'Comisionado', 'Coordinador'))
+)
+AND 'Detective Bureau' = ANY(divisions);
+
+-- Limpieza ASD (Coordinador ASD y agentes ASD)
+UPDATE public.users
+SET divisions = array_remove(divisions, 'Detective Bureau')
+WHERE (
+    rol = 'Coordinador ASD'
+    OR rango = 'ASD Agent'
+    OR (divisions @> ARRAY['ASD']::text[] AND rol NOT IN ('Administrador', 'Comisionado', 'Coordinador'))
+)
+AND 'Detective Bureau' = ANY(divisions);
