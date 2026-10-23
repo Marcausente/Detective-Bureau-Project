@@ -70,7 +70,7 @@ function Personnel() {
         rango_interno: 'Auxiliar de Investigación',
         fecha_ingreso: '',
         profile_image: '',
-        divisions: ['Detective Bureau'],
+        divisions: [],
         licenses: []
     });
 
@@ -399,13 +399,48 @@ function Personnel() {
         setScale(1.2);
     };
 
+    const DIVISION_COORDINATOR_CONFIG = {
+        'Coordinador IA': { division: 'Internal Affairs', label: 'Internal Affairs' },
+        'Coordinador ASD': { division: 'ASD', label: 'Air Support Division (ASD)' },
+        'Coordinador SWAT/SEB': { division: 'SEB', label: 'Special Enforcement Bureau (SEB)' },
+        'Coordinador SEB': { division: 'SEB', label: 'Special Enforcement Bureau (SEB)' },
+        'Coordinador DOJ': { division: 'DOJ', label: 'Department of Justice (DOJ)' }
+    };
+
+    const isFullAdmin = ['Comisionado', 'Coordinador', 'Administrador'].includes(currentUserRole);
+    const isDivisionCoordinator = Boolean(DIVISION_COORDINATOR_CONFIG[currentUserRole]);
+    const userDivisionConfig = DIVISION_COORDINATOR_CONFIG[currentUserRole] || null;
+
+    const canAddPersonnel = isFullAdmin || isDivisionCoordinator;
+    const canManagePersonnel = isFullAdmin;
+
     const openCreateModal = () => {
         setModalMode('create');
         setEditingUserId(null);
+
+        let initialRank = 'Oficial II';
+        let initialDivisions = [];
+
+        if (isDivisionCoordinator && userDivisionConfig) {
+            initialDivisions = [userDivisionConfig.division];
+            if (currentUserRole.includes('SEB')) initialRank = 'SEB Agent';
+            else if (currentUserRole.includes('ASD')) initialRank = 'ASD Agent';
+            else if (currentUserRole.includes('IA')) initialRank = 'Internal Affairs Agent';
+            else if (currentUserRole.includes('DOJ')) initialRank = 'Department of Justice Agent';
+        }
+
         setFormData({
-            email: '', password: '', nombre: '', apellido: '', no_placa: '',
-            rango: 'Oficial II', rol: 'Ayudante', rango_interno: 'Auxiliar de Investigación', fecha_ingreso: '', profile_image: '',
-            divisions: ['Detective Bureau'],
+            email: '',
+            password: '',
+            nombre: '',
+            apellido: '',
+            no_placa: '',
+            rango: initialRank,
+            rol: 'Ayudante',
+            rango_interno: 'Auxiliar de Investigación',
+            fecha_ingreso: new Date().toISOString().split('T')[0],
+            profile_image: '',
+            divisions: initialDivisions,
             licenses: []
         });
         setMessage(null);
@@ -427,7 +462,7 @@ function Personnel() {
             rango_interno: currentRank,
             fecha_ingreso: user.fecha_ingreso ? user.fecha_ingreso.split('T')[0] : '',
             profile_image: user.profile_image || '',
-            divisions: user.divisions || ['Detective Bureau'],
+            divisions: user.divisions || [],
             licenses: getUserLicenses(user) || []
         });
         setMessage(null);
@@ -460,7 +495,11 @@ function Personnel() {
             }
 
             const selectedRank = formData.rango_interno || 'Auxiliar de Investigación';
-            const selectedLicenses = formData.licenses || [];
+            const selectedLicenses = isDivisionCoordinator ? [] : (formData.licenses || []);
+            const finalRol = isDivisionCoordinator ? 'Ayudante' : (formData.rol || 'Ayudante');
+            const finalDivisions = isDivisionCoordinator && userDivisionConfig
+                ? [userDivisionConfig.division]
+                : (formData.divisions || []);
 
             if (modalMode === 'create') {
                 const { error } = await supabase.rpc('create_new_personnel', {
@@ -470,11 +509,11 @@ function Personnel() {
                     p_apellido: formData.apellido,
                     p_no_placa: formData.no_placa,
                     p_rango: formData.rango,
-                    p_rol: formData.rol,
+                    p_rol: finalRol,
                     p_fecha_ingreso: formData.fecha_ingreso || null,
                     p_fecha_ultimo_ascenso: null,
                     p_profile_image: imageUrl || null,
-                    p_divisions: formData.divisions,
+                    p_divisions: finalDivisions,
                     p_rango_interno: selectedRank,
                     p_licenses: selectedLicenses
                 });
@@ -486,11 +525,11 @@ function Personnel() {
                         p_apellido: formData.apellido,
                         p_no_placa: formData.no_placa,
                         p_rango: formData.rango,
-                        p_rol: formData.rol,
+                        p_rol: finalRol,
                         p_fecha_ingreso: formData.fecha_ingreso || null,
                         p_fecha_ultimo_ascenso: null,
                         p_profile_image: imageUrl || null,
-                        p_divisions: formData.divisions,
+                        p_divisions: finalDivisions,
                         p_rango_interno: selectedRank
                     });
                     if (fallbackErr) throw fallbackErr;
@@ -504,7 +543,9 @@ function Personnel() {
                     .single();
                 if (newUser) {
                     await setUserInternalRank(newUser.id, selectedRank);
-                    await updateUserLicenses(newUser.id, selectedLicenses);
+                    if (!isDivisionCoordinator) {
+                        await updateUserLicenses(newUser.id, selectedLicenses);
+                    }
                 }
 
                 setMessage({ type: 'success', text: '¡Personal añadido correctamente!' });
@@ -517,11 +558,11 @@ function Personnel() {
                     p_apellido: formData.apellido,
                     p_no_placa: formData.no_placa,
                     p_rango: formData.rango,
-                    p_rol: formData.rol,
+                    p_rol: finalRol,
                     p_fecha_ingreso: formData.fecha_ingreso || null,
                     p_fecha_ultimo_ascenso: null,
                     p_profile_image: imageUrl || null,
-                    p_divisions: formData.divisions,
+                    p_divisions: finalDivisions,
                     p_rango_interno: selectedRank,
                     p_licenses: selectedLicenses
                 });
@@ -534,11 +575,11 @@ function Personnel() {
                         p_apellido: formData.apellido,
                         p_no_placa: formData.no_placa,
                         p_rango: formData.rango,
-                        p_rol: formData.rol,
+                        p_rol: finalRol,
                         p_fecha_ingreso: formData.fecha_ingreso || null,
                         p_fecha_ultimo_ascenso: null,
                         p_profile_image: imageUrl || null,
-                        p_divisions: formData.divisions,
+                        p_divisions: finalDivisions,
                         p_rango_interno: selectedRank
                     });
                     if (fallbackErr) throw fallbackErr;
@@ -546,10 +587,12 @@ function Personnel() {
 
                 // Sync rango_interno & licenses via helpers
                 await setUserInternalRank(editingUserId, selectedRank);
-                await updateUserLicenses(editingUserId, selectedLicenses);
+                if (!isDivisionCoordinator) {
+                    await updateUserLicenses(editingUserId, selectedLicenses);
+                }
 
                 // Update local state immediately
-                setUsers(prev => prev.map(u => u.id === editingUserId ? { ...u, rango_interno: selectedRank, licenses: selectedLicenses } : u));
+                setUsers(prev => prev.map(u => u.id === editingUserId ? { ...u, rango_interno: selectedRank, licenses: selectedLicenses, divisions: finalDivisions } : u));
 
                 setMessage({ type: 'success', text: '¡Personal actualizado correctamente!' });
             }
@@ -566,8 +609,6 @@ function Personnel() {
             setProcessing(false);
         }
     };
-
-    const canManagePersonnel = ['Comisionado', 'Coordinador', 'Administrador'].includes(currentUserRole);
 
     const UserCard = ({ user }) => {
         const isOnline = onlineUsers.includes(user.id);
@@ -817,7 +858,7 @@ function Personnel() {
                     </div>
 
                     {/* Admin Create Personnel Button (Apple macOS Style) */}
-                    {canManagePersonnel && (
+                    {canAddPersonnel && (
                         <button
                             type="button"
                             className="personnel-add-btn"
@@ -1825,88 +1866,146 @@ function Personnel() {
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem', display: 'block' }}>Rol del Sistema</label>
-                                <select
-                                    name="rol" className="form-input custom-select" value={formData.rol} onChange={handleInputChange}
-                                    style={{ background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '10px', color: '#ffffff', fontSize: '0.88rem', padding: '0.65rem 0.9rem' }}
-                                >
-                                    <option value="Externo">Invitado</option>
-                                    <option value="Ayudante">Ayudante</option>
-                                    <option value="Detective">Detective</option>
-                                    <option value="Coordinador">Coordinador</option>
-                                    <option value="Comisionado">Comisionado</option>
-                                    <option value="Administrador">Administrador</option>
-                                </select>
-                            </div>
-
-                            <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#a5b4fc', fontWeight: 700, marginBottom: '0.35rem', display: 'block' }}>División(es)</label>
-                                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
-                                    {['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'DTP', 'Gang Unit', 'Undercover'].map(divName => (
-                                        <label key={divName} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#f8fafc', fontSize: '0.82rem' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.divisions.includes(divName)}
-                                                onChange={(e) => {
-                                                    const newDivisions = e.target.checked
-                                                        ? [...formData.divisions, divName]
-                                                        : formData.divisions.filter(d => d !== divName);
-                                                    setFormData({ ...formData, divisions: newDivisions });
-                                                }}
-                                            />
-                                            {divName}
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
-                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#6ee7b7', fontWeight: 700, marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                    <span>🪪</span>
-                                    <span>Licencias y Habilitaciones ({formData.licenses?.length || 0})</span>
-                                </label>
-                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
-                                    {availableLicenses.length === 0 ? (
-                                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>No hay licencias registradas en Coordinación.</span>
-                                    ) : (
-                                        availableLicenses.map(lic => {
-                                            const isChecked = formData.licenses?.includes(lic.name);
-                                            const licColor = lic.color || '#10b981';
-                                            return (
-                                                <button
-                                                    key={lic.name}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const newLics = isChecked
-                                                            ? formData.licenses.filter(l => l !== lic.name)
-                                                            : [...(formData.licenses || []), lic.name];
-                                                        setFormData({ ...formData, licenses: newLics });
-                                                    }}
-                                                    style={{
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px',
-                                                        padding: '5px 10px',
-                                                        borderRadius: '8px',
-                                                        background: isChecked ? `${licColor}33` : 'rgba(255, 255, 255, 0.04)',
-                                                        border: isChecked ? `1px solid ${licColor}` : '1px solid rgba(255, 255, 255, 0.1)',
-                                                        color: isChecked ? '#ffffff' : '#94a3b8',
-                                                        fontSize: '0.8rem',
-                                                        fontWeight: isChecked ? 700 : 500,
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.15s'
-                                                    }}
-                                                    title={lic.description || lic.name}
-                                                >
-                                                    <span>{lic.icon || '🪪'}</span>
-                                                    <span>{lic.code ? `${lic.code} - ` : ''}{lic.name}</span>
-                                                    {isChecked && <span style={{ color: licColor, marginLeft: '2px', fontWeight: 800 }}>✓</span>}
-                                                </button>
-                                            );
-                                        })
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>Rol del Sistema</span>
+                                    {isDivisionCoordinator && (
+                                        <span style={{ fontSize: '0.68rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '1px 6px', borderRadius: '4px' }}>
+                                            🔒 No modificable
+                                        </span>
                                     )}
-                                </div>
+                                </label>
+                                {isDivisionCoordinator ? (
+                                    <div style={{
+                                        background: 'rgba(15, 23, 42, 0.55)',
+                                        border: '1px dashed rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '10px',
+                                        color: '#94a3b8',
+                                        fontSize: '0.88rem',
+                                        padding: '0.65rem 0.9rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between'
+                                    }}>
+                                        <span>Ayudante</span>
+                                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Fijado automáticamente</span>
+                                    </div>
+                                ) : (
+                                    <select
+                                        name="rol" className="form-input custom-select" value={formData.rol} onChange={handleInputChange}
+                                        style={{ background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '10px', color: '#ffffff', fontSize: '0.88rem', padding: '0.65rem 0.9rem' }}
+                                    >
+                                        <option value="Externo">Invitado</option>
+                                        <option value="Ayudante">Ayudante</option>
+                                        <option value="Detective">Detective</option>
+                                        <option value="Coordinador">Coordinador</option>
+                                        <option value="Comisionado">Comisionado</option>
+                                        <option value="Administrador">Administrador</option>
+                                        <option value="Coordinador IA">Coordinador IA</option>
+                                        <option value="Coordinador ASD">Coordinador ASD</option>
+                                        <option value="Coordinador SWAT/SEB">Coordinador SWAT/SEB</option>
+                                        <option value="Coordinador DOJ">Coordinador DOJ</option>
+                                    </select>
+                                )}
                             </div>
+
+                            <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
+                                <label className="form-label" style={{ fontSize: '0.82rem', color: '#a5b4fc', fontWeight: 700, marginBottom: '0.35rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span>División(es)</span>
+                                    {isDivisionCoordinator && (
+                                        <span style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 600 }}>
+                                            🔒 Solo puedes asignar tu división ({userDivisionConfig?.division})
+                                        </span>
+                                    )}
+                                </label>
+                                {isDivisionCoordinator ? (
+                                    <div style={{ background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.3)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <div style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            background: 'rgba(56, 189, 248, 0.15)',
+                                            border: '1px solid rgba(56, 189, 248, 0.4)',
+                                            padding: '6px 14px',
+                                            borderRadius: '8px',
+                                            color: '#ffffff',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 700
+                                        }}>
+                                            <span style={{ color: '#38bdf8', fontWeight: 900 }}>✓</span>
+                                            <span>{userDivisionConfig?.division} ({userDivisionConfig?.label})</span>
+                                        </div>
+                                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Esta división se asignará obligatoriamente al nuevo agente.</span>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
+                                        {['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'DTP', 'Gang Unit', 'Undercover'].map(divName => (
+                                            <label key={divName} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#f8fafc', fontSize: '0.82rem' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={formData.divisions.includes(divName)}
+                                                    onChange={(e) => {
+                                                        const newDivisions = e.target.checked
+                                                            ? [...formData.divisions, divName]
+                                                            : formData.divisions.filter(d => d !== divName);
+                                                        setFormData({ ...formData, divisions: newDivisions });
+                                                    }}
+                                                />
+                                                {divName}
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {!isDivisionCoordinator && (
+                                <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
+                                    <label className="form-label" style={{ fontSize: '0.82rem', color: '#6ee7b7', fontWeight: 700, marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <span>🪪</span>
+                                        <span>Licencias y Habilitaciones ({formData.licenses?.length || 0})</span>
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                                        {availableLicenses.length === 0 ? (
+                                            <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>No hay licencias registradas en Coordinación.</span>
+                                        ) : (
+                                            availableLicenses.map(lic => {
+                                                const isChecked = formData.licenses?.includes(lic.name);
+                                                const licColor = lic.color || '#10b981';
+                                                return (
+                                                    <button
+                                                        key={lic.name}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const newLics = isChecked
+                                                                ? formData.licenses.filter(l => l !== lic.name)
+                                                                : [...(formData.licenses || []), lic.name];
+                                                            setFormData({ ...formData, licenses: newLics });
+                                                        }}
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '6px',
+                                                            padding: '5px 10px',
+                                                            borderRadius: '8px',
+                                                            background: isChecked ? `${licColor}33` : 'rgba(255, 255, 255, 0.04)',
+                                                            border: isChecked ? `1px solid ${licColor}` : '1px solid rgba(255, 255, 255, 0.1)',
+                                                            color: isChecked ? '#ffffff' : '#94a3b8',
+                                                            fontSize: '0.8rem',
+                                                            fontWeight: isChecked ? 700 : 500,
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.15s'
+                                                        }}
+                                                        title={lic.description || lic.name}
+                                                    >
+                                                        <span>{lic.icon || '🪪'}</span>
+                                                        <span>{lic.code ? `${lic.code} - ` : ''}{lic.name}</span>
+                                                        {isChecked && <span style={{ color: licColor, marginLeft: '2px', fontWeight: 800 }}>✓</span>}
+                                                    </button>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
                                 <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem', display: 'block' }}>Fecha de Ingreso al Bureau</label>

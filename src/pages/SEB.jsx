@@ -290,7 +290,7 @@ function SEB() {
         const role = profile.rol ? profile.rol.toLowerCase().trim() : '';
         const isSEBRank = profile.rango === 'SEB Agent';
         const isSEBDivision = profile.divisions && profile.divisions.includes('SEB');
-        const allowedRoles = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'admin'];
+        const allowedRoles = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'admin', 'coordinador swat/seb', 'coordinador seb'];
 
         return isSEBRank || isSEBDivision || allowedRoles.includes(role);
     };

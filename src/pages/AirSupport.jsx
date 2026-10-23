@@ -305,7 +305,7 @@ function AirSupport() {
         const role = profile.rol ? profile.rol.toLowerCase().trim() : '';
         const isASDRank = profile.rango === 'ASD Agent';
         const isASDDivision = profile.divisions && profile.divisions.includes('ASD');
-        const allowedRoles = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'admin'];
+        const allowedRoles = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'admin', 'coordinador asd'];
 
         return isASDRank || isASDDivision || allowedRoles.includes(role);
     };

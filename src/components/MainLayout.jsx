@@ -351,7 +351,7 @@ function MainLayout() {
             const userRole = profile.rol ? profile.rol.toLowerCase() : '';
             const isSEBRank = profile.rango === 'SEB Agent';
             const isSEBDivision = profile.divisions && profile.divisions.includes('SEB');
-            const hasAllowedRole = ['coordinador', 'comisionado', 'administrador', 'superadmin'].includes(userRole);
+            const hasAllowedRole = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'coordinador swat/seb', 'coordinador seb'].includes(userRole);
             return isSEBRank || isSEBDivision || hasAllowedRole;
         }
 
@@ -359,8 +359,18 @@ function MainLayout() {
             const userRole = profile.rol ? profile.rol.toLowerCase() : '';
             const isASDRank = profile.rango === 'ASD Agent';
             const isASDDivision = profile.divisions && profile.divisions.includes('ASD');
-            const hasAllowedRole = ['coordinador', 'comisionado', 'administrador', 'superadmin'].includes(userRole);
+            const hasAllowedRole = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'coordinador asd'].includes(userRole);
             return isASDRank || isASDDivision || hasAllowedRole;
+        }
+
+        if (item.path === '/internal-affairs') {
+            const userRole = profile.rol ? profile.rol.toLowerCase() : '';
+            if (userRole === 'coordinador ia') return true;
+        }
+
+        if (item.path === '/doj') {
+            const userRole = profile.rol ? profile.rol.toLowerCase() : '';
+            if (userRole === 'coordinador doj') return true;
         }
 
         if (item.path === '/undercover') {
