@@ -431,14 +431,15 @@ function Personnel() {
         return (
             role === 'Comisionado' ||
             divisions.includes('Comandancia') ||
-            ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente'].includes(rank)
+            ['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente', 'Sargento II', 'Sargento I'].includes(rank) ||
+            rank.toLowerCase().includes('sargento')
         );
     };
 
     const isDetective = (u) => {
         if (isCommandOrCommissioner(u)) return false;
         const rank = u.rango || '';
-        return ['Detective I', 'Sargento I', 'Detective II', 'Sargento II', 'Detective III'].includes(rank);
+        return ['Detective I', 'Detective II', 'Detective III'].includes(rank);
     };
 
     const isAyudanteSCUB = (u) => {
@@ -457,7 +458,7 @@ function Personnel() {
 
     const detectives = useMemo(() => filteredUsers.filter(isDetective).sort(sortUsers), [filteredUsers]);
     const ayudantesSCUB = useMemo(() => filteredUsers.filter(isAyudanteSCUB).sort(sortUsers), [filteredUsers]);
-    const comandanciaYComisionado = useMemo(() => filteredUsers.filter(isCommandOrCommissioner).sort(sortUsers), [filteredUsers]);
+    const comandancia = useMemo(() => filteredUsers.filter(isCommandOrCommissioner).sort(sortUsers), [filteredUsers]);
     const agentesOrdinarios = useMemo(() => filteredUsers.filter(isAgenteOrdinario).sort(sortUsers), [filteredUsers]);
 
     // Agent Feedback Stats Calculation
@@ -1224,7 +1225,7 @@ function Personnel() {
                             {t('personnelDirectory') || 'Directorio de Personal'}
                         </h2>
                         <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '3px' }}>
-                            Agentes: <strong style={{ color: '#f8fafc' }}>{users.length}</strong> • Detectives: <strong style={{ color: '#fbbf24' }}>{detectives.length}</strong> • {isLSSD ? "Ayudantes SCUB" : "Ayudantes DB"}: <strong style={{ color: '#60a5fa' }}>{ayudantesSCUB.length}</strong> • Comandancia y Comisionado: <strong style={{ color: '#f87171' }}>{comandanciaYComisionado.length}</strong> • Ordinarios: <strong style={{ color: '#34d399' }}>{agentesOrdinarios.length}</strong>
+                            Agentes: <strong style={{ color: '#f8fafc' }}>{users.length}</strong> • Detectives: <strong style={{ color: '#fbbf24' }}>{detectives.length}</strong> • {isLSSD ? "Ayudantes SCUB" : "Ayudantes DB"}: <strong style={{ color: '#60a5fa' }}>{ayudantesSCUB.length}</strong> • Comandancia: <strong style={{ color: '#f87171' }}>{comandancia.length}</strong> • Ordinarios: <strong style={{ color: '#34d399' }}>{agentesOrdinarios.length}</strong>
                         </div>
                     </div>
                 </div>
@@ -1452,16 +1453,16 @@ function Personnel() {
                         </div>
                     </div>
 
-                    {/* Column 3: Comandancia y Comisionado */}
+                    {/* Column 3: Comandancia */}
                     <div className="personnel-column">
                         <h3 className="column-title" style={{ color: '#f87171' }}>
-                            Comandancia y Comisionado ({comandanciaYComisionado.length})
+                            Comandancia ({comandancia.length})
                         </h3>
                         <div className="personnel-list">
-                            {comandanciaYComisionado.length > 0 ? (
-                                comandanciaYComisionado.map(u => <UserCard key={u.id} user={u} />)
+                            {comandancia.length > 0 ? (
+                                comandancia.map(u => <UserCard key={u.id} user={u} />)
                             ) : (
-                                <div className="empty-list">No se encontró personal de mando</div>
+                                <div className="empty-list">No se encontró personal de comandancia</div>
                             )}
                         </div>
                     </div>
