@@ -39,8 +39,16 @@ function Personnel() {
     const [rankingsTableSortAsc, setRankingsTableSortAsc] = useState(false);
     const [rankingsLoading, setRankingsLoading] = useState(false);
 
-    // Auth State
+    // Auth & Delegation State
     const [currentUserRole, setCurrentUserRole] = useState(null);
+    const [currentUserId, setCurrentUserId] = useState(null);
+    const [delegations, setDelegations] = useState([]);
+    const [myDelegation, setMyDelegation] = useState(null);
+    const [showDelegationModal, setShowDelegationModal] = useState(false);
+    const [delegationTargetUser, setDelegationTargetUser] = useState('');
+    const [delegationDivisions, setDelegationDivisions] = useState([]);
+    const [delegationProcessing, setDelegationProcessing] = useState(false);
+    const [delegationMessage, setDelegationMessage] = useState(null);
 
     // Global Presence
     const { onlineUsers } = usePresence();
@@ -101,12 +109,29 @@ function Personnel() {
             // 1. Get Current User and Role
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
+                setCurrentUserId(user.id);
                 const { data: profile } = await supabase
                     .from('users')
                     .select('rol')
                     .eq('id', user.id)
                     .single();
                 if (profile) setCurrentUserRole(profile.rol);
+            }
+
+            // 1b. Fetch Delegations
+            try {
+                const { data: delegData, error: delegErr } = await supabase
+                    .from('personnel_creator_delegations')
+                    .select('*');
+                if (!delegErr && delegData) {
+                    setDelegations(delegData);
+                    if (user) {
+                        const mine = delegData.find(d => d.user_id === user.id);
+                        setMyDelegation(mine || null);
+                    }
+                }
+            } catch (dErr) {
+                console.warn('Could not load personnel_creator_delegations:', dErr);
             }
 
             // 2. Fetch All Personnel
@@ -410,9 +435,91 @@ function Personnel() {
     const isFullAdmin = ['Comisionado', 'Coordinador', 'Administrador'].includes(currentUserRole);
     const isDivisionCoordinator = Boolean(DIVISION_COORDINATOR_CONFIG[currentUserRole]);
     const userDivisionConfig = DIVISION_COORDINATOR_CONFIG[currentUserRole] || null;
+    const isDelegatedCreator = Boolean(myDelegation && myDelegation.allowed_divisions && myDelegation.allowed_divisions.length > 0);
 
-    const canAddPersonnel = isFullAdmin || isDivisionCoordinator;
+    const canAddPersonnel = isFullAdmin || isDivisionCoordinator || isDelegatedCreator;
     const canManagePersonnel = isFullAdmin;
+
+    const handleSaveDelegation = async (e) => {
+        if (e) e.preventDefault();
+        if (!delegationTargetUser) {
+            setDelegationMessage({ type: 'error', text: 'Por favor, selecciona un agente.' });
+            return;
+        }
+        if (delegationDivisions.length === 0) {
+            setDelegationMessage({ type: 'error', text: 'Debes seleccionar al menos una división autorizada.' });
+            return;
+        }
+
+        setDelegationProcessing(true);
+        setDelegationMessage(null);
+        try {
+            const { error: rpcErr } = await supabase.rpc('set_personnel_creator_delegation', {
+                p_target_user_id: delegationTargetUser,
+                p_allowed_divisions: delegationDivisions
+            });
+
+            if (rpcErr) {
+                // Fallback direct upsert
+                const { error: upsertErr } = await supabase
+                    .from('personnel_creator_delegations')
+                    .upsert({
+                        user_id: delegationTargetUser,
+                        allowed_divisions: delegationDivisions,
+                        granted_by: currentUserId,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'user_id' });
+                if (upsertErr) throw upsertErr;
+            }
+
+            const { data: updatedDeleg } = await supabase
+                .from('personnel_creator_delegations')
+                .select('*');
+            if (updatedDeleg) {
+                setDelegations(updatedDeleg);
+                if (currentUserId) {
+                    const mine = updatedDeleg.find(d => d.user_id === currentUserId);
+                    setMyDelegation(mine || null);
+                }
+            }
+
+            setDelegationMessage({ type: 'success', text: 'Autorización guardada exitosamente.' });
+            setDelegationTargetUser('');
+            setDelegationDivisions([]);
+        } catch (err) {
+            console.error('Error saving delegation:', err);
+            setDelegationMessage({ type: 'error', text: 'Error al guardar autorización: ' + err.message });
+        } finally {
+            setDelegationProcessing(false);
+        }
+    };
+
+    const handleRevokeDelegation = async (userId) => {
+        if (!window.confirm('¿Seguro que deseas revocar los permisos de creación para este usuario?')) return;
+        setDelegationProcessing(true);
+        setDelegationMessage(null);
+        try {
+            const { error: rpcErr } = await supabase.rpc('revoke_personnel_creator_delegation', {
+                p_target_user_id: userId
+            });
+            if (rpcErr) {
+                const { error: delErr } = await supabase
+                    .from('personnel_creator_delegations')
+                    .delete()
+                    .eq('user_id', userId);
+                if (delErr) throw delErr;
+            }
+
+            setDelegations(prev => prev.filter(d => d.user_id !== userId));
+            if (currentUserId === userId) setMyDelegation(null);
+            setDelegationMessage({ type: 'success', text: 'Autorización revocada con éxito.' });
+        } catch (err) {
+            console.error('Error revoking delegation:', err);
+            setDelegationMessage({ type: 'error', text: 'Error al revocar autorización: ' + err.message });
+        } finally {
+            setDelegationProcessing(false);
+        }
+    };
 
     const openCreateModal = () => {
         setModalMode('create');
@@ -427,6 +534,12 @@ function Personnel() {
             else if (currentUserRole.includes('ASD')) initialRank = 'ASD Agent';
             else if (currentUserRole.includes('IA')) initialRank = 'Internal Affairs Agent';
             else if (currentUserRole.includes('DOJ')) initialRank = 'Department of Justice Agent';
+        } else if (isDelegatedCreator && myDelegation?.allowed_divisions?.length > 0) {
+            initialDivisions = [myDelegation.allowed_divisions[0]];
+            if (myDelegation.allowed_divisions.includes('ASD')) initialRank = 'ASD Agent';
+            else if (myDelegation.allowed_divisions.includes('SEB')) initialRank = 'SEB Agent';
+            else if (myDelegation.allowed_divisions.includes('Internal Affairs')) initialRank = 'Internal Affairs Agent';
+            else if (myDelegation.allowed_divisions.includes('DOJ')) initialRank = 'Department of Justice Agent';
         }
 
         setFormData({
@@ -495,11 +608,18 @@ function Personnel() {
             }
 
             const selectedRank = formData.rango_interno || 'Auxiliar de Investigación';
-            const selectedLicenses = isDivisionCoordinator ? [] : (formData.licenses || []);
-            const finalRol = isDivisionCoordinator ? 'Ayudante' : (formData.rol || 'Ayudante');
-            const finalDivisions = isDivisionCoordinator && userDivisionConfig
-                ? [userDivisionConfig.division]
-                : (formData.divisions || []);
+            const selectedLicenses = (isDivisionCoordinator || isDelegatedCreator) ? [] : (formData.licenses || []);
+            const finalRol = (isDivisionCoordinator || isDelegatedCreator) ? 'Ayudante' : (formData.rol || 'Ayudante');
+            
+            let finalDivisions = formData.divisions || [];
+            if (isDivisionCoordinator && userDivisionConfig) {
+                finalDivisions = [userDivisionConfig.division];
+            } else if (isDelegatedCreator && myDelegation?.allowed_divisions) {
+                finalDivisions = finalDivisions.filter(d => myDelegation.allowed_divisions.includes(d));
+                if (finalDivisions.length === 0 && myDelegation.allowed_divisions.length > 0) {
+                    finalDivisions = [myDelegation.allowed_divisions[0]];
+                }
+            }
 
             if (modalMode === 'create') {
                 const { error } = await supabase.rpc('create_new_personnel', {
@@ -857,7 +977,34 @@ function Personnel() {
                         )}
                     </div>
 
-                    {/* Admin Create Personnel Button (Apple macOS Style) */}
+                    {/* Admin Delegation Management Button */}
+                    {isFullAdmin && (
+                        <button
+                            type="button"
+                            className="personnel-add-btn"
+                            onClick={() => {
+                                setDelegationMessage(null);
+                                setShowDelegationModal(true);
+                            }}
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.3))',
+                                border: '1px solid rgba(168, 85, 247, 0.5)',
+                                color: '#e9d5ff',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '7px'
+                            }}
+                            title="Gestionar usuarios autorizados a dar de alta personal"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                <path d="M9 12l2 2 4-4" />
+                            </svg>
+                            Autorizar Creadores
+                        </button>
+                    )}
+
+                    {/* Admin / Authorized Create Personnel Button (Apple macOS Style) */}
                     {canAddPersonnel && (
                         <button
                             type="button"
@@ -1868,13 +2015,13 @@ function Personnel() {
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label" style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     <span>Rol del Sistema</span>
-                                    {isDivisionCoordinator && (
+                                    {(isDivisionCoordinator || isDelegatedCreator) && (
                                         <span style={{ fontSize: '0.68rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '1px 6px', borderRadius: '4px' }}>
-                                            🔒 No modificable
+                                            🔒 Fijado en Ayudante
                                         </span>
                                     )}
                                 </label>
-                                {isDivisionCoordinator ? (
+                                {(isDivisionCoordinator || isDelegatedCreator) ? (
                                     <div style={{
                                         background: 'rgba(15, 23, 42, 0.55)',
                                         border: '1px dashed rgba(255, 255, 255, 0.2)',
@@ -1886,8 +2033,8 @@ function Personnel() {
                                         alignItems: 'center',
                                         justifyContent: 'space-between'
                                     }}>
-                                        <span>Ayudante</span>
-                                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Fijado automáticamente</span>
+                                        <span style={{ color: '#f1f5f9', fontWeight: 600 }}>Ayudante</span>
+                                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Fijado automáticamente (Permiso restringido)</span>
                                     </div>
                                 ) : (
                                     <select
@@ -1916,6 +2063,11 @@ function Personnel() {
                                             🔒 Solo puedes asignar tu división ({userDivisionConfig?.division})
                                         </span>
                                     )}
+                                    {isDelegatedCreator && (
+                                        <span style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 600 }}>
+                                            🔒 Solo puedes asignar tus divisiones autorizadas ({myDelegation?.allowed_divisions?.join(', ')})
+                                        </span>
+                                    )}
                                 </label>
                                 {isDivisionCoordinator ? (
                                     <div style={{ background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.3)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1935,6 +2087,24 @@ function Personnel() {
                                             <span>{userDivisionConfig?.division} ({userDivisionConfig?.label})</span>
                                         </div>
                                         <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Esta división se asignará obligatoriamente al nuevo agente.</span>
+                                    </div>
+                                ) : isDelegatedCreator ? (
+                                    <div style={{ display: 'flex', gap: '0.85rem', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
+                                        {(myDelegation?.allowed_divisions || []).map(divName => (
+                                            <label key={divName} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#f8fafc', fontSize: '0.82rem', background: 'rgba(56, 189, 248, 0.1)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={formData.divisions.includes(divName)}
+                                                    onChange={(e) => {
+                                                        const newDivisions = e.target.checked
+                                                            ? [...formData.divisions, divName]
+                                                            : formData.divisions.filter(d => d !== divName);
+                                                        setFormData({ ...formData, divisions: newDivisions });
+                                                    }}
+                                                />
+                                                <span style={{ fontWeight: 600 }}>{divName}</span>
+                                            </label>
+                                        ))}
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
@@ -1957,7 +2127,7 @@ function Personnel() {
                                 )}
                             </div>
 
-                            {!isDivisionCoordinator && (
+                            {!isDivisionCoordinator && !isDelegatedCreator && (
                                 <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
                                     <label className="form-label" style={{ fontSize: '0.82rem', color: '#6ee7b7', fontWeight: 700, marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
                                         <span>🪪</span>
@@ -2082,6 +2252,377 @@ function Personnel() {
                                 <button type="button" className="login-button btn-secondary" onClick={handleCancelCrop} style={{ width: 'auto', padding: '0.45rem 1.2rem', borderRadius: '10px' }}>Cancelar</button>
                                 <button type="button" className="login-button" onClick={handleSaveCroppedImage} style={{ width: 'auto', padding: '0.45rem 1.4rem', borderRadius: '10px', fontWeight: 700 }}>Guardar Imagen</button>
                             </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Modal de Gestión de Autorizaciones de Creación (Solo Administradores) */}
+            {showDelegationModal && isFullAdmin && createPortal(
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-content" style={{
+                        maxWidth: '680px',
+                        width: '95vw',
+                        maxHeight: '90vh',
+                        overflowY: 'auto',
+                        borderRadius: '20px',
+                        background: 'rgba(15, 23, 42, 0.96)',
+                        backdropFilter: 'blur(25px)',
+                        border: '1px solid rgba(168, 85, 247, 0.35)',
+                        boxShadow: '0 25px 70px -15px rgba(0, 0, 0, 0.9)',
+                        padding: '1.75rem'
+                    }}>
+                        {/* Modal Header */}
+                        <div className="mac-modal-header" style={{
+                            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                            paddingBottom: '0.9rem',
+                            marginBottom: '1.25rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div className="mac-window-dots">
+                                    <span className="mac-window-dot close" onClick={() => setShowDelegationModal(false)} title="Cerrar" />
+                                    <span className="mac-window-dot min" />
+                                    <span className="mac-window-dot max" />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#f8fafc', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span>🛡️</span>
+                                        <span>Autorizaciones de Creación de Personal</span>
+                                    </h3>
+                                    <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
+                                        Permite a usuarios específicos añadir personal con rol fijado en "Ayudante" y divisiones autorizadas.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Notification message */}
+                        {delegationMessage && (
+                            <div style={{
+                                padding: '0.75rem 1rem',
+                                borderRadius: '10px',
+                                marginBottom: '1.25rem',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                                background: delegationMessage.type === 'error' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)',
+                                border: `1px solid ${delegationMessage.type === 'error' ? 'rgba(239, 68, 68, 0.35)' : 'rgba(34, 197, 94, 0.35)'}`,
+                                color: delegationMessage.type === 'error' ? '#fca5a5' : '#86efac'
+                            }}>
+                                {delegationMessage.text}
+                            </div>
+                        )}
+
+                        {/* Add / Edit Form */}
+                        <div style={{
+                            background: 'rgba(30, 41, 59, 0.6)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: '14px',
+                            padding: '1.25rem',
+                            marginBottom: '1.5rem'
+                        }}>
+                            <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: '#cbd5e1', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>➕</span>
+                                <span>Nueva Autorización / Modificar Existente</span>
+                            </h4>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {/* Select User */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.4rem' }}>
+                                        Seleccionar Usuario a Autorizar:
+                                    </label>
+                                    <select
+                                        value={delegationTargetUser}
+                                        onChange={(e) => {
+                                            const uid = e.target.value;
+                                            setDelegationTargetUser(uid);
+                                            const existing = delegations.find(d => d.user_id === uid);
+                                            if (existing) {
+                                                setDelegationDivisions(existing.allowed_divisions || []);
+                                            } else {
+                                                setDelegationDivisions([]);
+                                            }
+                                        }}
+                                        className="form-input custom-select"
+                                        style={{
+                                            width: '100%',
+                                            background: 'rgba(15, 23, 42, 0.85)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            borderRadius: '10px',
+                                            color: '#ffffff',
+                                            padding: '0.65rem 0.9rem',
+                                            fontSize: '0.88rem'
+                                        }}
+                                    >
+                                        <option value="">-- Selecciona un agente --</option>
+                                        {users
+                                            .filter(u => !['Comisionado', 'Coordinador', 'Administrador'].includes(u.rol))
+                                            .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''))
+                                            .map(u => {
+                                                const isAlready = delegations.some(d => d.user_id === u.id);
+                                                return (
+                                                    <option key={u.id} value={u.id} style={{ background: '#0f172a' }}>
+                                                        {u.no_placa ? `[#${u.no_placa}] ` : ''}{u.nombre} {u.apellido} ({u.rango || 'Agente'}) {isAlready ? '★ (Ya Autorizado)' : ''}
+                                                    </option>
+                                                );
+                                            })}
+                                    </select>
+                                </div>
+
+                                {/* Select Allowed Divisions */}
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                        <label style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700 }}>
+                                            Divisiones que se le autoriza asignar:
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '6px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDelegationDivisions(['Detective Bureau', 'Internal Affairs', 'DOJ', 'SEB', 'ASD', 'DTP', 'Gang Unit', 'Undercover'])}
+                                                style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: '0.72rem', cursor: 'pointer', textDecoration: 'underline' }}
+                                            >
+                                                Marcar todas
+                                            </button>
+                                            <span style={{ color: '#64748b', fontSize: '0.72rem' }}>|</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDelegationDivisions([])}
+                                                style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '0.72rem', cursor: 'pointer', textDecoration: 'underline' }}
+                                            >
+                                                Desmarcar
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                                        gap: '0.6rem',
+                                        background: 'rgba(15, 23, 42, 0.65)',
+                                        padding: '0.75rem',
+                                        borderRadius: '10px',
+                                        border: '1px solid rgba(255, 255, 255, 0.12)'
+                                    }}>
+                                        {['ASD', 'DTP', 'SEB', 'Internal Affairs', 'DOJ', 'Detective Bureau', 'Gang Unit', 'Undercover'].map(divName => {
+                                            const checked = delegationDivisions.includes(divName);
+                                            return (
+                                                <label
+                                                    key={divName}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.5rem',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.82rem',
+                                                        color: checked ? '#ffffff' : '#94a3b8',
+                                                        background: checked ? 'rgba(56, 189, 248, 0.12)' : 'transparent',
+                                                        border: `1px solid ${checked ? 'rgba(56, 189, 248, 0.35)' : 'transparent'}`,
+                                                        padding: '4px 8px',
+                                                        borderRadius: '6px'
+                                                    }}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setDelegationDivisions(prev => [...prev, divName]);
+                                                            } else {
+                                                                setDelegationDivisions(prev => prev.filter(d => d !== divName));
+                                                            }
+                                                        }}
+                                                    />
+                                                    <span>{divName}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Notice about role */}
+                                <div style={{
+                                    background: 'rgba(245, 158, 11, 0.08)',
+                                    border: '1px solid rgba(245, 158, 11, 0.25)',
+                                    borderRadius: '8px',
+                                    padding: '0.6rem 0.85rem',
+                                    fontSize: '0.78rem',
+                                    color: '#fbbf24',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <span>ℹ️</span>
+                                    <span>
+                                        El usuario podrá rellenar todos los datos del nuevo agente, pero su <strong>rol de sistema quedará bloqueado en "Ayudante"</strong> y solo podrá asignarle las divisiones marcadas arriba.
+                                    </span>
+                                </div>
+
+                                {/* Save button */}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.25rem' }}>
+                                    {delegationTargetUser && (
+                                        <button
+                                            type="button"
+                                            className="login-button btn-secondary"
+                                            onClick={() => {
+                                                setDelegationTargetUser('');
+                                                setDelegationDivisions([]);
+                                            }}
+                                            style={{ width: 'auto', padding: '0.45rem 1rem', fontSize: '0.82rem', borderRadius: '8px' }}
+                                        >
+                                            Limpiar
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className="login-button"
+                                        onClick={handleSaveDelegation}
+                                        disabled={delegationProcessing || !delegationTargetUser || delegationDivisions.length === 0}
+                                        style={{
+                                            width: 'auto',
+                                            padding: '0.5rem 1.4rem',
+                                            fontSize: '0.85rem',
+                                            borderRadius: '8px',
+                                            fontWeight: 700,
+                                            background: 'linear-gradient(135deg, #6366f1, #a855f7)'
+                                        }}
+                                    >
+                                        {delegationProcessing ? 'Guardando...' : 'Guardar Autorización'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* List of currently authorized users */}
+                        <div>
+                            <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.92rem', color: '#cbd5e1', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span>👥 Usuarios Autorizados Actualmente ({delegations.length})</span>
+                            </h4>
+
+                            {delegations.length === 0 ? (
+                                <div style={{
+                                    textAlign: 'center',
+                                    padding: '1.5rem',
+                                    background: 'rgba(30, 41, 59, 0.3)',
+                                    border: '1px dashed rgba(255, 255, 255, 0.15)',
+                                    borderRadius: '10px',
+                                    color: '#94a3b8',
+                                    fontSize: '0.85rem'
+                                }}>
+                                    No hay usuarios delegados en este momento. Selecciona uno arriba para otorgarle permisos.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                                    {delegations.map(del => {
+                                        const targetUser = users.find(u => u.id === del.user_id);
+                                        return (
+                                            <div
+                                                key={del.id || del.user_id}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    background: 'rgba(30, 41, 59, 0.5)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                    borderRadius: '10px',
+                                                    padding: '0.75rem 1rem',
+                                                    flexWrap: 'wrap',
+                                                    gap: '0.75rem'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    {targetUser?.profile_image ? (
+                                                        <img
+                                                            src={targetUser.profile_image}
+                                                            alt="Avatar"
+                                                            style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }}
+                                                        />
+                                                    ) : (
+                                                        <div style={{
+                                                            width: '36px',
+                                                            height: '36px',
+                                                            borderRadius: '50%',
+                                                            background: 'rgba(99, 102, 241, 0.3)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            fontSize: '0.9rem',
+                                                            color: '#c7d2fe',
+                                                            fontWeight: 700
+                                                        }}>
+                                                            {(targetUser?.nombre || 'U')[0]}
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.88rem' }}>
+                                                            {targetUser ? `${targetUser.no_placa ? `[#${targetUser.no_placa}] ` : ''}${targetUser.nombre} ${targetUser.apellido}` : `ID: ${del.user_id}`}
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap', marginTop: '3px' }}>
+                                                            <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginRight: '4px' }}>Divisiones:</span>
+                                                            {(del.allowed_divisions || []).map(div => (
+                                                                <span
+                                                                    key={div}
+                                                                    style={{
+                                                                        fontSize: '0.7rem',
+                                                                        background: 'rgba(56, 189, 248, 0.15)',
+                                                                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                                                                        color: '#38bdf8',
+                                                                        padding: '1px 6px',
+                                                                        borderRadius: '4px',
+                                                                        fontWeight: 600
+                                                                    }}
+                                                                >
+                                                                    {div}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setDelegationTargetUser(del.user_id);
+                                                            setDelegationDivisions(del.allowed_divisions || []);
+                                                        }}
+                                                        style={{
+                                                            background: 'rgba(255, 255, 255, 0.08)',
+                                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                            color: '#cbd5e1',
+                                                            padding: '4px 10px',
+                                                            borderRadius: '6px',
+                                                            fontSize: '0.78rem',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Editar
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRevokeDelegation(del.user_id)}
+                                                        disabled={delegationProcessing}
+                                                        style={{
+                                                            background: 'rgba(239, 68, 68, 0.15)',
+                                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                            color: '#f87171',
+                                                            padding: '4px 10px',
+                                                            borderRadius: '6px',
+                                                            fontSize: '0.78rem',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Revocar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>,
