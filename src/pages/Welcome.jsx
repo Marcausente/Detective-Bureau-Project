@@ -46,19 +46,39 @@ function Welcome() {
                     const isDB = div.includes('Detective Bureau');
 
                     const rankLower = (rank || '').toLowerCase();
-                    const isIAUser = rank === 'Internal Affairs Agent' ||
+                    const hasIA = rank === 'Internal Affairs Agent' ||
                         rankLower.includes('internal affairs') ||
                         rankLower.includes('iab') ||
                         data.rol === 'Coordinador IA' ||
                         (div.includes('Internal Affairs') && !isDB);
 
-                    if (rank === 'SEB Agent' || (div.includes('SEB') && !isDB)) {
-                        targetRoute = '/seb';
-                    } else if (rank === 'ASD Agent' || (div.includes('ASD') && !isDB)) {
-                        targetRoute = '/air-support';
-                    } else if (isIAUser) {
+                    const hasSEB = rank === 'SEB Agent' ||
+                        rankLower.includes('seb') ||
+                        data.rol === 'Coordinador SWAT/SEB' ||
+                        data.rol === 'Coordinador SEB' ||
+                        (div.includes('SEB') && !isDB);
+
+                    const hasASD = rank === 'ASD Agent' ||
+                        rankLower.includes('asd') ||
+                        data.rol === 'Coordinador ASD' ||
+                        (div.includes('ASD') && !isDB);
+
+                    const hasDOJ = rank === 'Department of Justice Agent' ||
+                        rankLower.includes('doj') ||
+                        data.rol === 'Coordinador DOJ' ||
+                        (div.includes('DOJ') && !isDB);
+
+                    if (isDB) {
+                        targetRoute = '/dashboard';
+                    } else if (hasIA && (rank === 'Internal Affairs Agent' || rankLower.includes('ia') || data.rol?.includes('IA'))) {
                         targetRoute = '/internal-affairs';
-                    } else if (rank === 'Department of Justice Agent' || (div.includes('DOJ') && !isDB)) {
+                    } else if (hasSEB) {
+                        targetRoute = '/seb';
+                    } else if (hasIA) {
+                        targetRoute = '/internal-affairs';
+                    } else if (hasASD) {
+                        targetRoute = '/air-support';
+                    } else if (hasDOJ) {
                         targetRoute = '/doj';
                     }
 
