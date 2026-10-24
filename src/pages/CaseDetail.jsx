@@ -180,7 +180,7 @@ function CaseDetail() {
                 ballisticsBulletsRes
             ] = await Promise.allSettled([
                 supabase.from('case_assignments').select('user_id, role, users:user_id(id, nombre, apellido, rango, profile_image)').eq('case_id', id),
-                supabase.from('case_updates').select('*, users:author_id(nombre, apellido, rango, profile_image)').eq('case_id', id).order('created_at', { ascending: true }),
+                supabase.from('case_updates').select('*, users:author_id(nombre, apellido, rango, profile_image)').eq('case_id', id).order('created_at', { ascending: false }),
                 supabase.from('interrogations').select('id, title, created_at, subjects').eq('case_id', id).order('created_at', { ascending: false }),
                 supabase.from('case_incidents').select('incident_id, incidents:incident_id(id, title, occurred_at, location)').eq('case_id', id),
                 supabase.from('case_outings').select('outing_id, outings:outing_id(id, title, occurred_at)').eq('case_id', id),
@@ -1084,7 +1084,7 @@ function CaseDetail() {
     const info = caseData.info || caseData.case || {};
     const { 
         assignments = [], 
-        updates = [], 
+        updates: rawUpdates = [], 
         interrogations = [], 
         incidents: linkedIncidents = [], 
         outings: linkedOutings = [], 
@@ -1094,6 +1094,10 @@ function CaseDetail() {
         ballistics_weapons: linkedWeapons = [],
         ballistics_bullets: linkedBullets = []
     } = caseData;
+
+    const updates = useMemo(() => {
+        return [...rawUpdates].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    }, [rawUpdates]);
 
     const userRole = (currentUser?.rol || '').toLowerCase().trim();
     const isHighCommand = currentUser && ['coordinador', 'administrador', 'comisionado', 'jefatura'].includes(userRole);

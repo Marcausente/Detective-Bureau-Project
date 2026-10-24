@@ -331,7 +331,7 @@ BEGIN
     'author_rank', u.rango,
     'author_avatar', u.profile_image,
     'author_id', cu.author_id
-  ) ORDER BY cu.created_at ASC) INTO v_updates
+  ) ORDER BY cu.created_at DESC) INTO v_updates
   FROM public.case_updates cu
   JOIN public.users u ON cu.author_id = u.id
   WHERE cu.case_id = p_case_id;

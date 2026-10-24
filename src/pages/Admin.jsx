@@ -34,7 +34,8 @@ function Admin() {
                 .eq('id', user.id)
                 .single();
 
-            if (error || !profile || (profile.rol !== 'Administrador' && profile.rol !== 'superadmin')) {
+            const allowedRoles = ['Administrador', 'superadmin', 'Comisionado'];
+            if (error || !profile || !allowedRoles.includes(profile.rol)) {
                 navigate('/dashboard');
             } else {
                 setLoading(false);
@@ -324,6 +325,63 @@ function Admin() {
                                             className="mac-form-input"
                                             style={{ width: '100%', padding: '0.6rem 0.8rem' }}
                                         />
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo de la Pestaña del Navegador (Favicon)
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {brandingForm.app_favicon && (
+                                                <img src={brandingForm.app_favicon} alt="Favicon Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px', border: '1px solid rgba(255,255,255,0.15)' }} />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.app_favicon || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, app_favicon: e.target.value })}
+                                                placeholder="/logowebp/SCUB.webp o URL"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['app_favicon'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['app_favicon'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['app_favicon']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('app_favicon', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Rápidos:</span>
+                                            {[
+                                                { label: 'SCUB', url: '/logowebp/SCUB.webp' },
+                                                { label: 'DB', url: '/logowebp/dblogo.webp' },
+                                                { label: 'LSSD', url: '/logowebp/LSSDlogo.webp' },
+                                                { label: 'SAPD', url: '/logowebp/sanandreas.webp' },
+                                                { label: 'IA', url: '/logowebp/IALSSD.webp' },
+                                                { label: 'DOJ', url: '/logowebp/dojlogo.webp' }
+                                            ].map(presetIcon => (
+                                                <button
+                                                    key={presetIcon.label}
+                                                    type="button"
+                                                    onClick={() => setBrandingForm({ ...brandingForm, app_favicon: presetIcon.url })}
+                                                    className="mac-btn mac-btn-secondary"
+                                                    style={{ 
+                                                        padding: '2px 8px', 
+                                                        fontSize: '0.72rem', 
+                                                        height: 'auto', 
+                                                        borderRadius: '6px',
+                                                        border: brandingForm.app_favicon === presetIcon.url ? '1px solid #10b981' : undefined,
+                                                        color: brandingForm.app_favicon === presetIcon.url ? '#6ee7b7' : undefined
+                                                    }}
+                                                >
+                                                    {presetIcon.label}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

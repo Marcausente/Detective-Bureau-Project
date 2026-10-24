@@ -469,14 +469,31 @@ export function ThemeProvider({ children }) {
             document.title = "Detective Bureau";
         }
 
-        // Favicon
-        if (favicon) {
-            if (branding.app_favicon) {
-                favicon.href = branding.app_favicon;
-            } else if (theme === 'LSSD' || userTheme === 'verde') {
-                favicon.href = '/logowebp/SCUB.webp';
+        // Favicon dynamic update
+        const targetFavicon = branding.app_favicon || (theme === 'LSSD' || userTheme === 'verde' ? '/logowebp/SCUB.webp' : '/logowebp/dblogo.webp');
+        if (targetFavicon) {
+            let favicon = document.querySelector("link[rel~='icon']");
+            if (!favicon) {
+                favicon = document.createElement('link');
+                favicon.rel = 'icon';
+                document.head.appendChild(favicon);
+            }
+            const newFavicon = favicon.cloneNode(true);
+            newFavicon.rel = 'icon';
+            newFavicon.href = targetFavicon;
+            if (targetFavicon.endsWith('.png')) {
+                newFavicon.type = 'image/png';
+            } else if (targetFavicon.endsWith('.webp')) {
+                newFavicon.type = 'image/webp';
+            } else if (targetFavicon.endsWith('.svg')) {
+                newFavicon.type = 'image/svg+xml';
+            } else if (targetFavicon.endsWith('.ico')) {
+                newFavicon.type = 'image/x-icon';
             } else {
-                favicon.href = '/logowebp/dblogo.webp';
+                newFavicon.removeAttribute('type');
+            }
+            if (favicon.parentNode) {
+                favicon.parentNode.replaceChild(newFavicon, favicon);
             }
         }
 
