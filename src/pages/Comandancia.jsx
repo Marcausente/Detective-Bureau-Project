@@ -24,6 +24,11 @@ export default function Comandancia() {
     // Generic Ficha Modal State
     const [selectedFichaAgent, setSelectedFichaAgent] = useState(null);
     const [modalFichaTab, setModalFichaTab] = useState('received'); // 'received' | 'submitted'
+    const [expandedFeedbacks, setExpandedFeedbacks] = useState({});
+
+    const toggleFeedbackExpand = (id) => {
+        setExpandedFeedbacks(prev => ({ ...prev, [id]: !prev[id] }));
+    };
 
     useEffect(() => {
         loadData();
@@ -1005,45 +1010,46 @@ export default function Comandancia() {
                     padding: '1.5rem'
                 }}>
                     <div className="mac-modal-content custom-scrollbar" style={{
-                        maxWidth: '1150px',
-                        width: '94vw',
-                        maxHeight: '92vh',
-                        overflowY: 'auto',
-                        overflowX: 'hidden',
+                        maxWidth: '1100px',
+                        width: '92vw',
+                        height: '88vh',
+                        maxHeight: '88vh',
                         boxSizing: 'border-box',
-                        background: 'rgba(15, 23, 42, 0.97)',
+                        background: 'rgba(15, 23, 42, 0.98)',
                         border: '1px solid rgba(16, 185, 129, 0.45)',
-                        borderRadius: '24px',
-                        padding: '2rem 2.25rem',
+                        borderRadius: '20px',
+                        padding: '1.25rem 1.6rem',
                         boxShadow: '0 30px 90px rgba(0, 0, 0, 0.85)',
                         backdropFilter: 'blur(30px)',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '1.25rem'
+                        gap: '0.85rem',
+                        overflow: 'hidden'
                     }}>
-                        {/* Modal Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '1rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        {/* Modal Header (Compact) */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div style={{
-                                    width: '52px',
-                                    height: '52px',
-                                    borderRadius: '16px',
+                                    width: '40px',
+                                    height: '40px',
+                                    borderRadius: '12px',
                                     background: 'rgba(16, 185, 129, 0.2)',
                                     border: '1px solid rgba(16, 185, 129, 0.4)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    fontSize: '1.65rem',
+                                    fontSize: '1.3rem',
                                     fontWeight: 900,
-                                    color: '#4ade80'
+                                    color: '#4ade80',
+                                    flexShrink: 0
                                 }}>
                                     {selectedFichaAgent.name.charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#6ee7b7', letterSpacing: '0.08em' }}>
+                                    <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', color: '#6ee7b7', letterSpacing: '0.08em' }}>
                                         Ficha Evaluativa de Comandancia
                                     </div>
-                                    <h2 style={{ margin: '2px 0 0 0', fontSize: '1.6rem', fontWeight: 900, color: '#f8fafc' }}>
+                                    <h2 style={{ margin: '1px 0 0 0', fontSize: '1.3rem', fontWeight: 900, color: '#f8fafc' }}>
                                         {selectedFichaAgent.name}
                                     </h2>
                                 </div>
@@ -1056,94 +1062,90 @@ export default function Comandancia() {
                                     background: 'rgba(255, 255, 255, 0.08)',
                                     border: '1px solid rgba(255, 255, 255, 0.15)',
                                     color: '#94a3b8',
-                                    borderRadius: '10px',
-                                    width: '36px',
-                                    height: '36px',
+                                    borderRadius: '8px',
+                                    width: '32px',
+                                    height: '32px',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     cursor: 'pointer',
-                                    fontSize: '1.15rem'
+                                    fontSize: '1rem',
+                                    flexShrink: 0
                                 }}
                             >
                                 ✕
                             </button>
                         </div>
 
-                        {/* Semáforo & Metrics Card */}
+                        {/* Semáforo & Metrics Bar (Ultra Compact Single Row) */}
                         <div style={{
                             background: selectedFichaAgent.status === 'positive'
-                                ? 'rgba(16, 185, 129, 0.12)'
+                                ? 'rgba(16, 185, 129, 0.08)'
                                 : selectedFichaAgent.status === 'negative'
-                                    ? 'rgba(239, 68, 68, 0.12)'
-                                    : 'rgba(30, 41, 59, 0.5)',
-                            border: `1px solid ${selectedFichaAgent.status === 'positive' ? 'rgba(16, 185, 129, 0.35)' : selectedFichaAgent.status === 'negative' ? 'rgba(239, 68, 68, 0.35)' : 'rgba(255, 255, 255, 0.1)'}`,
-                            borderRadius: '16px',
-                            padding: '1.25rem 1.5rem',
+                                    ? 'rgba(239, 68, 68, 0.08)'
+                                    : 'rgba(30, 41, 59, 0.45)',
+                            border: `1px solid ${selectedFichaAgent.status === 'positive' ? 'rgba(16, 185, 129, 0.3)' : selectedFichaAgent.status === 'negative' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.08)'}`,
+                            borderRadius: '12px',
+                            padding: '0.55rem 0.95rem',
                             display: 'flex',
-                            flexDirection: 'column',
-                            gap: '1rem'
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '10px',
+                            flexShrink: 0
                         }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <span style={{ fontSize: '2rem' }}>
-                                        {selectedFichaAgent.status === 'positive' ? '🟢' : selectedFichaAgent.status === 'negative' ? '🔴' : '⚪'}
-                                    </span>
-                                    <div>
-                                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-                                            Dictamen de Semáforo
-                                        </div>
-                                        <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f8fafc' }}>
-                                            {selectedFichaAgent.status === 'positive'
-                                                ? 'Desempeño Favorable'
-                                                : selectedFichaAgent.status === 'negative'
-                                                    ? 'Atención Requerida (Desfavorable)'
-                                                    : 'Neutral / Sin Desviación Significativa'}
-                                        </div>
+                            {/* Dictamen */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>
+                                    {selectedFichaAgent.status === 'positive' ? '🟢' : selectedFichaAgent.status === 'negative' ? '🔴' : '⚪'}
+                                </span>
+                                <div>
+                                    <div style={{ fontSize: '0.62rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
+                                        Dictamen
                                     </div>
-                                </div>
-
-                                <div style={{
-                                    padding: '0.5rem 1.1rem',
-                                    borderRadius: '12px',
-                                    background: 'rgba(0,0,0,0.3)',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    textAlign: 'right'
-                                }}>
-                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Balance Neto</div>
-                                    <div style={{
-                                        fontSize: '1.35rem',
-                                        fontWeight: 900,
-                                        color: selectedFichaAgent.netScore >= 0 ? '#4ade80' : '#f87171'
-                                    }}>
-                                        {selectedFichaAgent.netScore > 0 ? `+${selectedFichaAgent.netScore}` : selectedFichaAgent.netScore}
+                                    <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#f8fafc' }}>
+                                        {selectedFichaAgent.status === 'positive'
+                                            ? 'Desempeño Favorable'
+                                            : selectedFichaAgent.status === 'negative'
+                                                ? 'Atención Requerida'
+                                                : 'Neutral / Sin Desviación'}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Metric Badges */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
-                                <div style={{ background: 'rgba(34, 197, 94, 0.12)', border: '1px solid rgba(34, 197, 94, 0.25)', borderRadius: '12px', padding: '0.65rem 0.85rem', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.7rem', color: '#86efac', fontWeight: 800 }}>POSITIVOS</div>
-                                    <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#4ade80' }}>{selectedFichaAgent.positivesReceived}</div>
+                            {/* Metric Badges inline */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <div style={{ background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: '8px', padding: '3px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontSize: '0.65rem', color: '#86efac', fontWeight: 800 }}>POSITIVOS</span>
+                                    <span style={{ fontSize: '0.92rem', fontWeight: 900, color: '#4ade80' }}>{selectedFichaAgent.positivesReceived}</span>
                                 </div>
-                                <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '12px', padding: '0.65rem 0.85rem', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.7rem', color: '#fca5a5', fontWeight: 800 }}>NEGATIVOS</div>
-                                    <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#f87171' }}>{selectedFichaAgent.negativesReceived}</div>
+                                <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '3px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontSize: '0.65rem', color: '#fca5a5', fontWeight: 800 }}>NEGATIVOS</span>
+                                    <span style={{ fontSize: '0.92rem', fontWeight: 900, color: '#f87171' }}>{selectedFichaAgent.negativesReceived}</span>
                                 </div>
-                                <div style={{ background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.25)', borderRadius: '12px', padding: '0.65rem 0.85rem', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.7rem', color: '#fde047', fontWeight: 800 }}>MIXTOS</div>
-                                    <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#facc15' }}>{selectedFichaAgent.mixedReceived}</div>
+                                <div style={{ background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: '8px', padding: '3px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontSize: '0.65rem', color: '#fde047', fontWeight: 800 }}>MIXTOS</span>
+                                    <span style={{ fontSize: '0.92rem', fontWeight: 900, color: '#facc15' }}>{selectedFichaAgent.mixedReceived}</span>
                                 </div>
-                                <div style={{ background: 'rgba(148, 163, 184, 0.08)', border: '1px solid rgba(148, 163, 184, 0.2)', borderRadius: '12px', padding: '0.65rem 0.85rem', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.7rem', color: '#cbd5e1', fontWeight: 800 }}>TOTAL RECIBIDOS</div>
-                                    <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#f1f5f9' }}>{selectedFichaAgent.receivedTotal}</div>
+                                <div style={{ background: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.25)', borderRadius: '8px', padding: '3px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontSize: '0.65rem', color: '#cbd5e1', fontWeight: 800 }}>TOTAL</span>
+                                    <span style={{ fontSize: '0.92rem', fontWeight: 900, color: '#f1f5f9' }}>{selectedFichaAgent.receivedTotal}</span>
+                                </div>
+                                <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '3px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 800 }}>BALANCE</span>
+                                    <span style={{
+                                        fontSize: '0.92rem',
+                                        fontWeight: 900,
+                                        color: selectedFichaAgent.netScore >= 0 ? '#4ade80' : '#f87171'
+                                    }}>
+                                        {selectedFichaAgent.netScore > 0 ? `+${selectedFichaAgent.netScore}` : selectedFichaAgent.netScore}
+                                    </span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Modal Tabs: Feedbacks Recibidos vs Feedbacks Emitidos */}
-                        <div style={{ display: 'flex', gap: '0.6rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.75rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.45rem', flexShrink: 0 }}>
                             <button
                                 type="button"
                                 onClick={() => setModalFichaTab('received')}
@@ -1151,9 +1153,9 @@ export default function Comandancia() {
                                     background: modalFichaTab === 'received' ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
                                     border: modalFichaTab === 'received' ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid transparent',
                                     color: modalFichaTab === 'received' ? '#6ee7b7' : '#94a3b8',
-                                    borderRadius: '10px',
-                                    padding: '0.5rem 1.1rem',
-                                    fontSize: '0.85rem',
+                                    borderRadius: '8px',
+                                    padding: '0.35rem 0.85rem',
+                                    fontSize: '0.8rem',
                                     fontWeight: 800,
                                     cursor: 'pointer'
                                 }}
@@ -1168,9 +1170,9 @@ export default function Comandancia() {
                                     background: modalFichaTab === 'submitted' ? 'rgba(16, 185, 129, 0.2)' : 'transparent',
                                     border: modalFichaTab === 'submitted' ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid transparent',
                                     color: modalFichaTab === 'submitted' ? '#6ee7b7' : '#94a3b8',
-                                    borderRadius: '10px',
-                                    padding: '0.5rem 1.1rem',
-                                    fontSize: '0.85rem',
+                                    borderRadius: '8px',
+                                    padding: '0.35rem 0.85rem',
+                                    fontSize: '0.8rem',
                                     fontWeight: 800,
                                     cursor: 'pointer'
                                 }}
@@ -1179,21 +1181,21 @@ export default function Comandancia() {
                             </button>
                         </div>
 
-                        {/* Feedbacks List inside Modal */}
+                        {/* Feedbacks Scrollable List (Flexible 100% Height, Clamped to 4 lines, Click to Expand) */}
                         <div
                             className="custom-scrollbar"
                             style={{
                                 display: 'flex',
                                 flexDirection: 'column',
-                                gap: '0.85rem',
-                                minHeight: '260px',
-                                maxHeight: '56vh',
+                                gap: '0.65rem',
+                                flex: 1,
+                                minHeight: 0,
                                 overflowY: 'auto',
                                 overflowX: 'hidden',
                                 width: '100%',
                                 minWidth: 0,
                                 boxSizing: 'border-box',
-                                paddingRight: '6px',
+                                paddingRight: '8px',
                                 overscrollBehavior: 'contain'
                             }}
                         >
@@ -1213,15 +1215,17 @@ export default function Comandancia() {
                                         const authorName = fb.author_name || fb.author_agent_name || 'Anónimo';
                                         const dateStr = fb.fecha || (fb.created_at ? new Date(fb.created_at).toLocaleDateString() : '');
                                         const reason = fb.motivo || fb.reason || '';
+                                        const isExpanded = Boolean(expandedFeedbacks[fb.id]);
 
                                         return (
                                             <div
                                                 key={fb.id}
+                                                onClick={() => toggleFeedbackExpand(fb.id)}
                                                 style={{
-                                                    background: 'rgba(255, 255, 255, 0.03)',
-                                                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                                                    borderRadius: '12px',
-                                                    padding: '0.85rem 1rem',
+                                                    background: isExpanded ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.025)',
+                                                    border: isExpanded ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                                    borderRadius: '10px',
+                                                    padding: '0.7rem 0.95rem',
                                                     display: 'flex',
                                                     flexDirection: 'column',
                                                     gap: '6px',
@@ -1229,13 +1233,16 @@ export default function Comandancia() {
                                                     minWidth: 0,
                                                     maxWidth: '100%',
                                                     boxSizing: 'border-box',
-                                                    overflow: 'hidden'
+                                                    flexShrink: 0,
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.15s ease'
                                                 }}
+                                                title={isExpanded ? 'Click para contraer' : 'Click para expandir'}
                                             >
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', width: '100%', minWidth: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                         <span style={{
-                                                            fontSize: '0.72rem',
+                                                            fontSize: '0.7rem',
                                                             fontWeight: 800,
                                                             padding: '2px 8px',
                                                             borderRadius: '6px',
@@ -1246,25 +1253,36 @@ export default function Comandancia() {
                                                         }}>
                                                             {isP ? '🌟 Positivo' : isN ? '⚠️ Negativo' : '⚖️ Mixto'}
                                                         </span>
-                                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f1f5f9' }}>
+                                                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f1f5f9' }}>
                                                             Por: {authorName}
                                                         </span>
                                                     </div>
-                                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                                                        {dateStr}
-                                                    </span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                                            {dateStr}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.68rem', color: isExpanded ? '#34d399' : '#64748b' }}>
+                                                            {isExpanded ? '▲ Contraer' : '▼ Expandir'}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                                 <div style={{
-                                                    fontSize: '0.88rem',
-                                                    color: '#e2e8f0',
-                                                    lineHeight: 1.5,
+                                                    fontSize: '0.84rem',
+                                                    color: '#cbd5e1',
+                                                    lineHeight: 1.45,
                                                     whiteSpace: 'pre-wrap',
-                                                    wordBreak: 'break-all',
+                                                    wordBreak: 'break-word',
                                                     overflowWrap: 'anywhere',
                                                     width: '100%',
                                                     minWidth: 0,
                                                     maxWidth: '100%',
-                                                    boxSizing: 'border-box'
+                                                    boxSizing: 'border-box',
+                                                    ...(isExpanded ? {} : {
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 4,
+                                                        WebkitBoxOrient: 'vertical',
+                                                        overflow: 'hidden'
+                                                    })
                                                 }}>
                                                     {reason}
                                                 </div>
@@ -1287,15 +1305,17 @@ export default function Comandancia() {
                                         const targetName = fb.target_name || fb.target_agent_name || 'Agente';
                                         const dateStr = fb.fecha || (fb.created_at ? new Date(fb.created_at).toLocaleDateString() : '');
                                         const reason = fb.motivo || fb.reason || '';
+                                        const isExpanded = Boolean(expandedFeedbacks[fb.id]);
 
                                         return (
                                             <div
                                                 key={fb.id}
+                                                onClick={() => toggleFeedbackExpand(fb.id)}
                                                 style={{
-                                                    background: 'rgba(255, 255, 255, 0.03)',
-                                                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                                                    borderRadius: '12px',
-                                                    padding: '0.85rem 1rem',
+                                                    background: isExpanded ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.025)',
+                                                    border: isExpanded ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                                    borderRadius: '10px',
+                                                    padding: '0.7rem 0.95rem',
                                                     display: 'flex',
                                                     flexDirection: 'column',
                                                     gap: '6px',
@@ -1303,13 +1323,16 @@ export default function Comandancia() {
                                                     minWidth: 0,
                                                     maxWidth: '100%',
                                                     boxSizing: 'border-box',
-                                                    overflow: 'hidden'
+                                                    flexShrink: 0,
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.15s ease'
                                                 }}
+                                                title={isExpanded ? 'Click para contraer' : 'Click para expandir'}
                                             >
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', width: '100%', minWidth: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                         <span style={{
-                                                            fontSize: '0.72rem',
+                                                            fontSize: '0.7rem',
                                                             fontWeight: 800,
                                                             padding: '2px 8px',
                                                             borderRadius: '6px',
@@ -1318,25 +1341,36 @@ export default function Comandancia() {
                                                         }}>
                                                             {isP ? '🌟 Positivo' : isN ? '⚠️ Negativo' : '⚖️ Mixto'}
                                                         </span>
-                                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f1f5f9' }}>
+                                                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f1f5f9' }}>
                                                             Hacia: {targetName}
                                                         </span>
                                                     </div>
-                                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                                                        {dateStr}
-                                                    </span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                                            {dateStr}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.68rem', color: isExpanded ? '#34d399' : '#64748b' }}>
+                                                            {isExpanded ? '▲ Contraer' : '▼ Expandir'}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                                 <div style={{
-                                                    fontSize: '0.88rem',
-                                                    color: '#e2e8f0',
-                                                    lineHeight: 1.5,
+                                                    fontSize: '0.84rem',
+                                                    color: '#cbd5e1',
+                                                    lineHeight: 1.45,
                                                     whiteSpace: 'pre-wrap',
-                                                    wordBreak: 'break-all',
+                                                    wordBreak: 'break-word',
                                                     overflowWrap: 'anywhere',
                                                     width: '100%',
                                                     minWidth: 0,
                                                     maxWidth: '100%',
-                                                    boxSizing: 'border-box'
+                                                    boxSizing: 'border-box',
+                                                    ...(isExpanded ? {} : {
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 4,
+                                                        WebkitBoxOrient: 'vertical',
+                                                        overflow: 'hidden'
+                                                    })
                                                 }}>
                                                     {reason}
                                                 </div>
@@ -1347,8 +1381,8 @@ export default function Comandancia() {
                             )}
                         </div>
 
-                        {/* Modal Footer */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '1rem', flexWrap: 'wrap', gap: '10px' }}>
+                        {/* Modal Footer (Compact) */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.65rem', flexWrap: 'wrap', gap: '10px', flexShrink: 0 }}>
                             <button
                                 type="button"
                                 onClick={() => {
@@ -1358,9 +1392,9 @@ export default function Comandancia() {
                                     background: 'rgba(16, 185, 129, 0.15)',
                                     border: '1px solid rgba(16, 185, 129, 0.35)',
                                     color: '#6ee7b7',
-                                    borderRadius: '10px',
-                                    padding: '0.5rem 1.1rem',
-                                    fontSize: '0.82rem',
+                                    borderRadius: '8px',
+                                    padding: '0.45rem 1rem',
+                                    fontSize: '0.8rem',
                                     fontWeight: 800,
                                     cursor: 'pointer'
                                 }}
@@ -1372,7 +1406,7 @@ export default function Comandancia() {
                                 type="button"
                                 onClick={() => setSelectedFichaAgent(null)}
                                 className="login-button btn-secondary"
-                                style={{ width: 'auto', padding: '0.5rem 1.4rem', borderRadius: '10px' }}
+                                style={{ width: 'auto', padding: '0.45rem 1.2rem', borderRadius: '8px', fontSize: '0.8rem' }}
                             >
                                 Cerrar Ficha
                             </button>
