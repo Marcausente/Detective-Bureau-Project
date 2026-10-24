@@ -166,30 +166,41 @@ function CaseDetail() {
                 return;
             }
 
-            // Parallel relation queries
+            // Parallel relation queries with Promise.allSettled
             const [
-                { data: assignmentsData },
-                { data: updatesData },
-                { data: interrogationsData },
-                { data: caseIncidentsData },
-                { data: caseOutingsData },
-                { data: denunciasData },
-                { data: caseGangsData },
-                { data: ballisticsMatchesData },
-                { data: ballisticsWeaponsData },
-                { data: ballisticsBulletsData }
-            ] = await Promise.all([
+                assignmentsRes,
+                updatesRes,
+                interrogationsRes,
+                caseIncidentsRes,
+                caseOutingsRes,
+                denunciasRes,
+                caseGangsRes,
+                ballisticsMatchesRes,
+                ballisticsWeaponsRes,
+                ballisticsBulletsRes
+            ] = await Promise.allSettled([
                 supabase.from('case_assignments').select('user_id, role, users:user_id(id, nombre, apellido, rango, profile_image)').eq('case_id', id),
                 supabase.from('case_updates').select('*, users:author_id(nombre, apellido, rango, profile_image)').eq('case_id', id).order('created_at', { ascending: true }),
-                supabase.from('interrogations').select('id, title, full_name, dni, image_url, interrogator_id, crime, created_at, subjects').eq('case_id', id).order('created_at', { ascending: false }),
+                supabase.from('interrogations').select('id, title, created_at, subjects').eq('case_id', id).order('created_at', { ascending: false }),
                 supabase.from('case_incidents').select('incident_id, incidents:incident_id(id, title, occurred_at, location)').eq('case_id', id),
                 supabase.from('case_outings').select('outing_id, outings:outing_id(id, title, occurred_at)').eq('case_id', id),
                 supabase.from('denuncias').select('id, titulo, created_at, status').eq('case_id', id).order('created_at', { ascending: false }),
                 supabase.from('case_gangs').select('gang_id, gangs:gang_id(id, name, color, zones_image, is_archived)').eq('case_id', id),
-                supabase.from('ballistics_matches').select('id, weapon_id, status, motivo_rechazo, updated_at, ballistics_weapons:weapon_id(id, numero_serie, modelo, propietario, incidente_relacionado)').eq('case_id', id).order('updated_at', { ascending: false }),
+                supabase.from('ballistics_matches').select('id, weapon_id, serial_number, status, motivo_rechazo, updated_at').eq('case_id', id).order('updated_at', { ascending: false }),
                 supabase.from('ballistics_weapons').select('id, modelo, numero_serie, propietario, incidente_relacionado, created_at').eq('case_id', id).order('created_at', { ascending: false }),
                 supabase.from('ballistics_bullets').select('id, calibre, numero_serie, modelo_arma, incidente_relacionado, created_at').eq('case_id', id).order('created_at', { ascending: false })
             ]);
+
+            const assignmentsData = assignmentsRes.status === 'fulfilled' ? assignmentsRes.value?.data : [];
+            const updatesData = updatesRes.status === 'fulfilled' ? updatesRes.value?.data : [];
+            const interrogationsData = interrogationsRes.status === 'fulfilled' ? interrogationsRes.value?.data : [];
+            const caseIncidentsData = caseIncidentsRes.status === 'fulfilled' ? caseIncidentsRes.value?.data : [];
+            const caseOutingsData = caseOutingsRes.status === 'fulfilled' ? caseOutingsRes.value?.data : [];
+            const denunciasData = denunciasRes.status === 'fulfilled' ? denunciasRes.value?.data : [];
+            const caseGangsData = caseGangsRes.status === 'fulfilled' ? caseGangsRes.value?.data : [];
+            const ballisticsMatchesData = ballisticsMatchesRes.status === 'fulfilled' ? ballisticsMatchesRes.value?.data : [];
+            const ballisticsWeaponsData = ballisticsWeaponsRes.status === 'fulfilled' ? ballisticsWeaponsRes.value?.data : [];
+            const ballisticsBulletsData = ballisticsBulletsRes.status === 'fulfilled' ? ballisticsBulletsRes.value?.data : [];
 
             const mappedAssignments = (assignmentsData || []).map(a => ({
                 user_id: a.user_id,
@@ -217,20 +228,23 @@ function CaseDetail() {
             const mappedOutings = (caseOutingsData || []).map(co => co.outings).filter(Boolean);
             const mappedComplaints = (denunciasData || []).filter(Boolean);
             const mappedGangs = (caseGangsData || []).map(cg => cg.gangs).filter(Boolean);
-            const mappedMatches = (ballisticsMatchesData || []).map(m => ({
-                id: m.id,
-                weapon_id: m.weapon_id,
-                serial_number: m.ballistics_weapons?.numero_serie,
-                numero_serie: m.ballistics_weapons?.numero_serie,
-                weapon_model: m.ballistics_weapons?.modelo,
-                modelo: m.ballistics_weapons?.modelo,
-                weapon_owner: m.ballistics_weapons?.propietario,
-                propietario: m.ballistics_weapons?.propietario,
-                weapon_incident: m.ballistics_weapons?.incidente_relacionado,
-                status: m.status,
-                motivo_rechazo: m.motivo_rechazo,
-                updated_at: m.updated_at
-            }));
+            const mappedMatches = (ballisticsMatchesData || []).map(m => {
+                const matchedWeapon = (ballisticsWeaponsData || []).find(w => w.id === m.weapon_id);
+                return {
+                    id: m.id,
+                    weapon_id: m.weapon_id,
+                    serial_number: matchedWeapon?.numero_serie || m.serial_number,
+                    numero_serie: matchedWeapon?.numero_serie || m.serial_number,
+                    weapon_model: matchedWeapon?.modelo,
+                    modelo: matchedWeapon?.modelo,
+                    weapon_owner: matchedWeapon?.propietario,
+                    propietario: matchedWeapon?.propietario,
+                    weapon_incident: matchedWeapon?.incidente_relacionado,
+                    status: m.status,
+                    motivo_rechazo: m.motivo_rechazo,
+                    updated_at: m.updated_at
+                };
+            });
 
             const fallbackNormalized = {
                 info: directCase,
@@ -1085,7 +1099,8 @@ function CaseDetail() {
     const isHighCommand = currentUser && ['coordinador', 'administrador', 'comisionado'].includes(userRole);
     const isCreator = currentUser && info.created_by === currentUser.id;
     const isDbMember = isDetectiveBureauMember();
-    const isRestrictedAyudante = currentUser && userRole === 'ayudante' && !isDbMember;
+    const isAyudante = currentUser && userRole === 'ayudante';
+    const isRestrictedAyudante = isAyudante && !isDbMember;
     const canEditCase = (isHighCommand || isCreator || isAssignedEncargado || isDbMember) && !isRestrictedAyudante;
     const canChangeCaseStatus = currentUser && (
         isHighCommand ||

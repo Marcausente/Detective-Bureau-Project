@@ -108,11 +108,6 @@ BEGIN
   SELECT json_agg(json_build_object(
     'id', i.id,
     'title', i.title,
-    'full_name', i.full_name,
-    'dni', i.dni,
-    'image_url', i.image_url,
-    'interrogator_id', i.interrogator_id,
-    'crime', i.crime,
     'created_at', i.created_at,
     'subjects', i.subjects
   ) ORDER BY i.created_at DESC) INTO v_interrogations
