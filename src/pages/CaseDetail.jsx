@@ -549,10 +549,19 @@ function CaseDetail() {
         }
     };
 
+    const isDetectiveBureauMember = () => {
+        if (!currentUser) return false;
+        const r = (currentUser.rol || '').toLowerCase().trim();
+        const rank = (currentUser.rango || '').toLowerCase().trim();
+        const divs = Array.isArray(currentUser.divisions) ? currentUser.divisions : [];
+        if (divs.some(d => d && d.toLowerCase().includes('detective bureau'))) return true;
+        if (rank.includes('detective') || rank.includes('sargento')) return true;
+        if (['administrador', 'coordinador', 'comisionado', 'detective'].includes(r) || r.includes('detective') || r.includes('admin')) return true;
+        return false;
+    };
+
     const canPinCase = () => {
-        if (!currentUser?.rol) return false;
-        const r = currentUser.rol.toLowerCase().trim();
-        return r === 'administrador' || r === 'coordinador' || r === 'comisionado' || r.includes('detective') || r.includes('admin');
+        return isDetectiveBureauMember();
     };
 
     const handleTogglePin = async () => {
@@ -949,14 +958,16 @@ function CaseDetail() {
         ballistics_bullets: linkedBullets = []
     } = caseData;
 
-    const isHighCommand = currentUser && ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol);
+    const userRole = (currentUser?.rol || '').toLowerCase().trim();
+    const isHighCommand = currentUser && ['coordinador', 'administrador', 'comisionado'].includes(userRole);
     const isCreator = currentUser && info.created_by === currentUser.id;
-    const isAyudante = currentUser && currentUser.rol === 'Ayudante';
-    const canEditCase = (isHighCommand || isCreator || isAssignedEncargado) && !isAyudante;
+    const isDbMember = isDetectiveBureauMember();
+    const isRestrictedAyudante = currentUser && userRole === 'ayudante' && !isDbMember;
+    const canEditCase = (isHighCommand || isCreator || isAssignedEncargado || isDbMember) && !isRestrictedAyudante;
     const canChangeCaseStatus = currentUser && (
-        ['Coordinador', 'Administrador', 'Comisionado'].includes(currentUser.rol) ||
-        (currentUser.rol && currentUser.rol.toLowerCase().includes('detective')) ||
-        !['Ayudante', 'Invitado', 'Externo'].includes(currentUser.rol)
+        isHighCommand ||
+        isDbMember ||
+        !['ayudante', 'invitado', 'externo'].includes(userRole)
     );
 
     const isCaseOpen = !info || !info.status || info.status.toLowerCase() === 'open' || info.status.toLowerCase() === 'abierto';

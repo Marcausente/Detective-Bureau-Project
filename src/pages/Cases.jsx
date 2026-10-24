@@ -34,7 +34,7 @@ function Cases() {
         const getCurrentUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const { data } = await supabase.from('users').select('rol').eq('id', user.id).single();
+                const { data } = await supabase.from('users').select('id, rol, rango, divisions').eq('id', user.id).single();
                 setCurrentUser(data);
             }
         };
@@ -129,10 +129,26 @@ function Cases() {
         }
     };
 
+    const isDetectiveBureauMember = () => {
+        if (!currentUser) return false;
+        const r = (currentUser.rol || '').toLowerCase().trim();
+        const rank = (currentUser.rango || '').toLowerCase().trim();
+        const divs = Array.isArray(currentUser.divisions) ? currentUser.divisions : [];
+        if (divs.some(d => d && d.toLowerCase().includes('detective bureau'))) return true;
+        if (rank.includes('detective') || rank.includes('sargento')) return true;
+        if (['administrador', 'coordinador', 'comisionado', 'detective'].includes(r) || r.includes('detective') || r.includes('admin')) return true;
+        return false;
+    };
+
+    const canCreateCase = () => {
+        if (!currentUser) return false;
+        const r = (currentUser.rol || '').toLowerCase().trim();
+        if (['invitado', 'externo'].includes(r)) return false;
+        return isDetectiveBureauMember();
+    };
+
     const canPinCase = () => {
-        if (!currentUser?.rol) return false;
-        const r = currentUser.rol.toLowerCase().trim();
-        return r === 'administrador' || r === 'coordinador' || r === 'comisionado' || r.includes('detective') || r.includes('admin');
+        return isDetectiveBureauMember();
     };
 
     const handleTogglePin = async (e, caseId, currentPinned) => {
@@ -274,7 +290,7 @@ function Cases() {
                     </div>
 
                     {/* New Case Button */}
-                    {currentUser && !['Ayudante', 'Invitado', 'Externo'].includes(currentUser.rol) && (
+                    {canCreateCase() && (
                         <button 
                             className="mac-btn mac-btn-primary" 
                             onClick={() => setShowCreateModal(true)}

@@ -11,48 +11,58 @@ import '../index.css';
 
 // Rank Hierarchy Helper
 const getRankLevel = (rank) => {
-    switch (rank) {
-        case 'Deputy Sheriff':
-        case 'Oficial I':
-        case 'Deputy Sheriff Bonus I':
-        case 'Oficial II':
-        case 'Deputy Sheriff Bonus II':
-        case 'Oficial III':
-        case 'Oficial III+':
-        case 'FTO':
-            return 1;
-        case 'Detective I':
-            return 2;
-        case 'Sargento I':
-            return 2.5;
-        case 'Detective II':
-            return 3;
-        case 'Sargento II':
-            return 3.5;
-        case 'Detective III':
-            return 4;
-        case 'Internal Affairs Agent':
-        case 'SEB Agent':
-        case 'ASD Agent':
-        case 'Department of Justice Agent':
-            return 4.5;
-        case 'Teniente':
-            return 5;
-        case 'Capitan':
-            return 6;
-        case 'Comandante':
-            return 7;
-        case 'Division Chief':
-            return 8;
-        case 'Assistant Sheriff':
-            return 9;
-        case 'Undersheriff':
-            return 10;
-        case 'Sheriff':
-            return 11;
-        default:
-            return 0;
-    }
+    if (!rank) return 0;
+    const clean = String(rank).toLowerCase().trim();
+
+    // High Command
+    if (clean === 'sheriff') return 150;
+    if (clean === 'undersheriff') return 140;
+    if (clean === 'assistant sheriff') return 130;
+    if (clean === 'division chief') return 120;
+    if (clean === 'comandante') return 110;
+    if (clean === 'capitan') return 100;
+    if (clean === 'teniente') return 90;
+
+    // Detectives & Sergeants
+    if (clean === 'detective iii' || clean === 'detective 3') return 80;
+    if (clean === 'sargento ii' || clean === 'sargento 2') return 75;
+    if (clean === 'detective ii' || clean === 'detective 2') return 70;
+    if (clean === 'sargento i' || clean === 'sargento 1') return 65;
+    if (clean === 'detective i' || clean === 'detective 1' || clean === 'detective') return 60;
+
+    // Patrol / Mesh Ranks
+    if (clean === 'fto') return 52;
+    if (clean === 'oficial iii+' || clean === 'oficial 3+') return 50;
+    if (clean === 'oficial iii' || clean === 'oficial 3') return 40;
+    if (clean === 'deputy sheriff bonus ii') return 35;
+    if (clean === 'oficial ii' || clean === 'oficial 2') return 30;
+    if (clean === 'deputy sheriff bonus i') return 20;
+    if (clean === 'oficial i' || clean === 'oficial 1') return 15;
+    if (clean === 'deputy sheriff') return 10;
+
+    // Agent fallbacks
+    if (clean.includes('agent')) return 45;
+
+    // Partial pattern matchers as safe fallback
+    if (clean.includes('sheriff')) return 150;
+    if (clean.includes('comandante')) return 110;
+    if (clean.includes('capitan')) return 100;
+    if (clean.includes('teniente')) return 90;
+    if (clean.includes('detective') && clean.includes('iii')) return 80;
+    if (clean.includes('sargento') && clean.includes('ii')) return 75;
+    if (clean.includes('detective') && clean.includes('ii')) return 70;
+    if (clean.includes('sargento') && clean.includes('i')) return 65;
+    if (clean.includes('detective')) return 60;
+    if (clean.includes('sargento')) return 65;
+    if (clean.includes('fto')) return 52;
+    if (clean.includes('iii+')) return 50;
+    if (clean.includes('iii')) return 40;
+    if (clean.includes('bonus ii')) return 35;
+    if (clean.includes('ii')) return 30;
+    if (clean.includes('bonus i')) return 20;
+    if (clean.includes('oficial') || clean.includes('deputy')) return 10;
+
+    return 0;
 };
 
 function PersonnelDetail() {
@@ -451,30 +461,29 @@ function PersonnelDetail() {
     };
 
     const checkAndFetchEvaluations = async (viewerProfile, targetProfile) => {
-        // Exclude IA, SEB, ASD and DOJ Agents from evaluations system entirely
-        const excludedRanks = ['Internal Affairs Agent', 'SEB Agent', 'ASD Agent', 'Department of Justice Agent'];
-        
-        // If viewer is IA/DOJ agent, they cannot view anyone's evaluations
-        if (excludedRanks.includes(viewerProfile.rango)) {
+        if (!viewerProfile || !targetProfile) {
             setCanViewEvaluations(false);
             setEvaluations([]);
             return;
         }
-        
-        // If target is IA/DOJ agent, no one can view their evaluations
-        if (excludedRanks.includes(targetProfile.rango)) {
+
+        // Cannot evaluate oneself
+        if (viewerProfile.id === targetProfile.id) {
             setCanViewEvaluations(false);
             setEvaluations([]);
             return;
         }
+
+        const viewerRole = (viewerProfile.rol || '').trim();
+        const isHighCommand = ['Administrador', 'Comisionado', 'Coordinador'].includes(viewerRole);
 
         const viewerLevel = getRankLevel(viewerProfile.rango);
         const targetLevel = getRankLevel(targetProfile.rango);
 
-        console.log(`Rank Check: Viewer (${viewerProfile.rango}, L${viewerLevel}) vs Target (${targetProfile.rango}, L${targetLevel})`);
+        console.log(`Rank Check: Viewer (${viewerProfile.rango}, L${viewerLevel}, Role: ${viewerRole}) vs Target (${targetProfile.rango}, L${targetLevel})`);
 
-        // Rule: Viewer MUST be strictly higher than Target
-        if (viewerLevel > targetLevel) {
+        // Rule: High command or viewer MUST be strictly higher than Target
+        if (isHighCommand || viewerLevel > targetLevel) {
             setCanViewEvaluations(true);
             await fetchEvaluations(targetProfile.id);
         } else {

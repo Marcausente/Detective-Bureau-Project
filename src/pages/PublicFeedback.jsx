@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
@@ -39,14 +39,18 @@ export default function PublicFeedback() {
     const { isLSSD, branding } = useTheme();
 
     const [authorName, setAuthorName] = useState('');
-    const [targetAgentId, setTargetAgentId] = useState('');
     const [targetAgentName, setTargetAgentName] = useState('');
     const [feedbackType, setFeedbackType] = useState('Positivo');
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [motivo, setMotivo] = useState('');
 
-    const [availableAgents, setAvailableAgents] = useState([]);
-    const [loadingAgents, setLoadingAgents] = useState(true);
+    // Fichas Evaluativas Autocomplete State
+    const [existingFichas, setExistingFichas] = useState([]);
+    const [loadingFichas, setLoadingFichas] = useState(true);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const autocompleteRef = useRef(null);
+
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
@@ -60,16 +64,23 @@ export default function PublicFeedback() {
 
         loadInitialData();
 
+        // Close autocomplete when clicking outside
+        const handleClickOutside = (e) => {
+            if (autocompleteRef.current && !autocompleteRef.current.contains(e.target)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+
         return () => {
             document.body.style.overflowY = prevOverflowY;
             document.body.style.height = prevHeight;
+            document.removeEventListener('mousedown', handleClickOutside);
         };
     }, []);
 
     const loadInitialData = async () => {
         try {
-            setLoadingAgents(true);
-
             // If user is currently signed in, prefill author name
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
@@ -83,28 +94,136 @@ export default function PublicFeedback() {
                 }
             }
 
-            // Fetch agents list for targets dropdown
-            const { data: agentList } = await supabase
-                .from('users')
-                .select('id, nombre, apellido, no_placa, rango, profile_image')
-                .order('nombre', { ascending: true });
-
-            if (agentList) setAvailableAgents(agentList);
+            await loadExistingFichas();
         } catch (err) {
-            console.warn('Error fetching agents:', err);
-        } finally {
-            setLoadingAgents(false);
+            console.warn('Error loading initial data:', err);
         }
     };
 
-    const handleTargetSelect = (e) => {
-        const val = e.target.value;
-        setTargetAgentId(val);
-        const agent = availableAgents.find(a => a.id === val);
-        if (agent) {
-            setTargetAgentName(`${agent.no_placa ? `[#${agent.no_placa}] ` : ''}${agent.nombre} ${agent.apellido}`.trim());
-        } else {
-            setTargetAgentName('');
+    const loadExistingFichas = async () => {
+        try {
+            setLoadingFichas(true);
+            let fichasList = [];
+
+            // 1. Try RPC get_feedback_fichas
+            const { data: rpcData, error: rpcErr } = await supabase.rpc('get_feedback_fichas');
+            if (!rpcErr && rpcData && rpcData.length > 0) {
+                fichasList = rpcData.map(r => ({
+                    name: r.agent_name,
+                    count: Number(r.feedbacks_count || 0),
+                    positives: Number(r.positives_count || 0),
+                    negatives: Number(r.negatives_count || 0),
+                    mixed: Number(r.mixed_count || 0),
+                    lastDate: r.last_feedback
+                }));
+            } else {
+                // 2. Direct query fallback
+                const { data: fbData } = await supabase
+                    .from('agent_feedbacks')
+                    .select('target_name, tipo, fecha');
+
+                if (fbData && fbData.length > 0) {
+                    const map = {};
+                    fbData.forEach(item => {
+                        const name = (item.target_name || '').trim();
+                        if (!name) return;
+                        if (!map[name]) {
+                            map[name] = { name, count: 0, positives: 0, negatives: 0, mixed: 0, lastDate: item.fecha };
+                        }
+                        map[name].count += 1;
+                        if (item.tipo === 'Positivo') map[name].positives += 1;
+                        else if (item.tipo === 'Negativo') map[name].negatives += 1;
+                        else if (item.tipo === 'Mixto') map[name].mixed += 1;
+                    });
+                    fichasList = Object.values(map);
+                } else {
+                    // 3. Fallback to app_settings
+                    const { data: settingData } = await supabase
+                        .from('app_settings')
+                        .select('value')
+                        .eq('key', 'agent_feedbacks')
+                        .single();
+
+                    if (settingData?.value) {
+                        const items = typeof settingData.value === 'string' ? JSON.parse(settingData.value) : settingData.value;
+                        if (Array.isArray(items)) {
+                            const map = {};
+                            items.forEach(item => {
+                                const name = (item.target_name || item.target_agent_name || '').trim();
+                                if (!name) return;
+                                if (!map[name]) {
+                                    map[name] = { name, count: 0, positives: 0, negatives: 0, mixed: 0, lastDate: item.fecha };
+                                }
+                                map[name].count += 1;
+                                const t = (item.tipo || item.feedback_type || '').toLowerCase();
+                                if (t === 'positivo') map[name].positives += 1;
+                                else if (t === 'negativo') map[name].negatives += 1;
+                                else if (t === 'mixto') map[name].mixed += 1;
+                            });
+                            fichasList = Object.values(map);
+                        }
+                    }
+                }
+            }
+
+            fichasList.sort((a, b) => a.name.localeCompare(b.name));
+            setExistingFichas(fichasList);
+        } catch (err) {
+            console.warn('Error fetching existing fichas:', err);
+        } finally {
+            setLoadingFichas(false);
+        }
+    };
+
+    // Filter suggestions based on typed text
+    const filteredSuggestions = useMemo(() => {
+        const q = targetAgentName.trim().toLowerCase();
+        if (!q) {
+            return existingFichas.slice(0, 8);
+        }
+        return existingFichas.filter(f => f.name.toLowerCase().includes(q));
+    }, [existingFichas, targetAgentName]);
+
+    // Check if the current typed name exactly matches an existing ficha
+    const matchedFicha = useMemo(() => {
+        const q = targetAgentName.trim().toLowerCase();
+        if (!q) return null;
+        return existingFichas.find(f => f.name.toLowerCase() === q) || null;
+    }, [existingFichas, targetAgentName]);
+
+    const isExistingFicha = Boolean(matchedFicha);
+
+    const handleSelectFicha = (fichaName) => {
+        setTargetAgentName(fichaName);
+        setIsDropdownOpen(false);
+        setHighlightedIndex(-1);
+    };
+
+    const handleKeyDown = (e) => {
+        if (!isDropdownOpen) {
+            if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                setIsDropdownOpen(true);
+            }
+            return;
+        }
+
+        const maxIndex = filteredSuggestions.length - 1;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev < maxIndex ? prev + 1 : 0));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev > 0 ? prev - 1 : maxIndex));
+        } else if (e.key === 'Enter') {
+            if (highlightedIndex >= 0 && filteredSuggestions[highlightedIndex]) {
+                e.preventDefault();
+                handleSelectFicha(filteredSuggestions[highlightedIndex].name);
+            } else {
+                setIsDropdownOpen(false);
+            }
+        } else if (e.key === 'Escape') {
+            setIsDropdownOpen(false);
         }
     };
 
@@ -117,11 +236,7 @@ export default function PublicFeedback() {
             return;
         }
 
-        const finalTargetName = targetAgentName.trim() ||
-            (availableAgents.find(a => a.id === targetAgentId)
-                ? `${availableAgents.find(a => a.id === targetAgentId).nombre} ${availableAgents.find(a => a.id === targetAgentId).apellido}`
-                : '');
-
+        const finalTargetName = targetAgentName.trim();
         if (!finalTargetName) {
             setErrorMsg('Por favor, indica hacia qué agente va dirigido el feedback.');
             return;
@@ -140,14 +255,14 @@ export default function PublicFeedback() {
                 tipo: feedbackType,
                 author_name: authorName.trim(),
                 target_name: finalTargetName,
-                target_user_id: targetAgentId || null,
+                target_user_id: null,
                 fecha: fecha || new Date().toISOString().split('T')[0],
                 motivo: motivo.trim(),
                 status: 'Activo',
                 created_at: new Date().toISOString()
             };
 
-            // Try inserting to table
+            // 1. Try inserting to table
             const { error: tblError } = await supabase
                 .from('agent_feedbacks')
                 .insert([payload]);
@@ -171,6 +286,9 @@ export default function PublicFeedback() {
                 }, { onConflict: 'key' });
             }
 
+            // Refresh fichas in background so newly created agent is immediately available
+            loadExistingFichas();
+
             setSubmitted(true);
         } catch (err) {
             console.error('Error submitting feedback:', err);
@@ -183,10 +301,10 @@ export default function PublicFeedback() {
     const handleReset = () => {
         setSubmitted(false);
         setFeedbackType('Positivo');
-        setTargetAgentId('');
         setTargetAgentName('');
         setMotivo('');
         setFecha(new Date().toISOString().split('T')[0]);
+        loadExistingFichas();
     };
 
     return (
@@ -380,78 +498,266 @@ export default function PublicFeedback() {
                             />
                         </div>
 
-                        {/* Step 3: Agente hacia quien va dirigido */}
-                        <div style={{ marginBottom: '1.25rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.4rem' }}>
-                                3. Agente hacia quien va dirigido el Feedback
-                            </label>
+                        {/* Step 3: Agente hacia quien va dirigido (Fichas Evaluativas Autocomplete) */}
+                        <div style={{ marginBottom: '1.25rem', position: 'relative' }} ref={autocompleteRef}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                                    3. Agente hacia quien va dirigido el Feedback
+                                </label>
+                                <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                    {existingFichas.length} {existingFichas.length === 1 ? 'ficha registrada' : 'fichas registradas'}
+                                </span>
+                            </div>
 
-                            {availableAgents.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                    <select
-                                        value={targetAgentId}
-                                        onChange={handleTargetSelect}
-                                        className="form-input custom-select"
-                                        style={{
-                                            width: '100%',
-                                            background: 'rgba(15, 23, 42, 0.85)',
-                                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                                            borderRadius: '12px',
-                                            color: '#ffffff',
-                                            padding: '0.7rem 1rem',
-                                            fontSize: '0.9rem'
-                                        }}
-                                    >
-                                        <option value="">-- Seleccionar agente de la lista --</option>
-                                        {availableAgents.map(ag => (
-                                            <option key={ag.id} value={ag.id} style={{ background: '#0f172a' }}>
-                                                {ag.no_placa ? `[#${ag.no_placa}] ` : ''}{ag.nombre} {ag.apellido} ({ag.rango || 'Agente'})
-                                            </option>
-                                        ))}
-                                    </select>
+                            {/* Autocomplete Input Container */}
+                            <div style={{ position: 'relative' }}>
+                                <span style={{
+                                    position: 'absolute',
+                                    left: '1rem',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    fontSize: '1rem',
+                                    pointerEvents: 'none',
+                                    opacity: 0.7
+                                }}>
+                                    👤
+                                </span>
 
-                                    <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                                        O si no aparece en el selector, escribe su nombre manualmente:
-                                    </div>
-
-                                    <input
-                                        type="text"
-                                        placeholder="Escribir nombre del agente manualmente..."
-                                        value={targetAgentName}
-                                        onChange={(e) => {
-                                            setTargetAgentName(e.target.value);
-                                            setTargetAgentId('');
-                                        }}
-                                        className="form-input"
-                                        style={{
-                                            width: '100%',
-                                            background: 'rgba(15, 23, 42, 0.65)',
-                                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                                            borderRadius: '10px',
-                                            color: '#ffffff',
-                                            padding: '0.55rem 0.9rem',
-                                            fontSize: '0.85rem'
-                                        }}
-                                    />
-                                </div>
-                            ) : (
                                 <input
                                     required
                                     type="text"
-                                    placeholder="Nombre, apellido y placa del agente evaluado..."
+                                    autoComplete="off"
+                                    placeholder="Escribe el nombre del agente (ej. Matthew, Matias...)"
                                     value={targetAgentName}
-                                    onChange={(e) => setTargetAgentName(e.target.value)}
+                                    onChange={(e) => {
+                                        setTargetAgentName(e.target.value);
+                                        setIsDropdownOpen(true);
+                                        setHighlightedIndex(-1);
+                                    }}
+                                    onFocus={() => setIsDropdownOpen(true)}
+                                    onKeyDown={handleKeyDown}
                                     className="form-input"
                                     style={{
                                         width: '100%',
                                         background: 'rgba(15, 23, 42, 0.85)',
-                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        border: `1px solid ${isExistingFicha ? 'rgba(16, 185, 129, 0.6)' : isDropdownOpen ? '#38bdf8' : 'rgba(255, 255, 255, 0.2)'}`,
                                         borderRadius: '12px',
                                         color: '#ffffff',
-                                        padding: '0.7rem 1rem',
-                                        fontSize: '0.9rem'
+                                        padding: '0.75rem 2.5rem 0.75rem 2.8rem',
+                                        fontSize: '0.92rem',
+                                        boxShadow: isDropdownOpen ? '0 0 15px rgba(56, 189, 248, 0.2)' : 'none',
+                                        transition: 'all 0.2s ease'
                                     }}
                                 />
+
+                                {targetAgentName && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setTargetAgentName('');
+                                            setIsDropdownOpen(true);
+                                        }}
+                                        style={{
+                                            position: 'absolute',
+                                            right: '0.85rem',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            border: 'none',
+                                            color: '#94a3b8',
+                                            width: '22px',
+                                            height: '22px',
+                                            borderRadius: '50%',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '0.75rem'
+                                        }}
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Autocomplete Dropdown List */}
+                            {isDropdownOpen && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 'calc(100% + 6px)',
+                                    left: 0,
+                                    right: 0,
+                                    zIndex: 50,
+                                    background: 'rgba(15, 23, 42, 0.98)',
+                                    backdropFilter: 'blur(20px)',
+                                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                                    borderRadius: '14px',
+                                    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.15)',
+                                    maxHeight: '260px',
+                                    overflowY: 'auto',
+                                    padding: '6px'
+                                }}>
+                                    <div style={{
+                                        padding: '6px 12px 4px 12px',
+                                        fontSize: '0.7rem',
+                                        fontWeight: 800,
+                                        letterSpacing: '0.08em',
+                                        color: '#38bdf8',
+                                        textTransform: 'uppercase',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                                    }}>
+                                        <span>Fichas Evaluativas Existentes</span>
+                                        <span>{filteredSuggestions.length} encontradas</span>
+                                    </div>
+
+                                    {filteredSuggestions.length > 0 ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                                            {filteredSuggestions.map((ficha, idx) => {
+                                                const isHighlighted = idx === highlightedIndex;
+                                                const isSelected = matchedFicha?.name.toLowerCase() === ficha.name.toLowerCase();
+
+                                                return (
+                                                    <div
+                                                        key={ficha.name}
+                                                        onClick={() => handleSelectFicha(ficha.name)}
+                                                        onMouseEnter={() => setHighlightedIndex(idx)}
+                                                        style={{
+                                                            padding: '0.6rem 0.85rem',
+                                                            borderRadius: '10px',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            background: isHighlighted || isSelected
+                                                                ? 'linear-gradient(90deg, rgba(56, 189, 248, 0.2) 0%, rgba(30, 41, 59, 0.5) 100%)'
+                                                                : 'transparent',
+                                                            border: isHighlighted
+                                                                ? '1px solid rgba(56, 189, 248, 0.4)'
+                                                                : '1px solid transparent',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                            <div style={{
+                                                                width: '32px',
+                                                                height: '32px',
+                                                                borderRadius: '8px',
+                                                                background: 'rgba(56, 189, 248, 0.15)',
+                                                                color: '#38bdf8',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontWeight: 800,
+                                                                fontSize: '0.85rem'
+                                                            }}>
+                                                                {ficha.name[0]?.toUpperCase() || 'A'}
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#f8fafc' }}>
+                                                                    {ficha.name}
+                                                                </div>
+                                                                <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                                                    Ficha activa • {ficha.count} {ficha.count === 1 ? 'evaluación' : 'evaluaciones'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            {ficha.positives > 0 && (
+                                                                <span style={{ fontSize: '0.7rem', color: '#4ade80', background: 'rgba(16, 185, 129, 0.15)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                                                    +{ficha.positives}
+                                                                </span>
+                                                            )}
+                                                            {ficha.negatives > 0 && (
+                                                                <span style={{ fontSize: '0.7rem', color: '#f87171', background: 'rgba(239, 68, 68, 0.15)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                                                    -{ficha.negatives}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: '0.85rem 0.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.82rem' }}>
+                                            No hay ninguna ficha previa con "{targetAgentName}"
+                                        </div>
+                                    )}
+
+                                    {/* Option to create new Ficha if text typed doesn't match an exact ficha */}
+                                    {targetAgentName.trim().length > 0 && !isExistingFicha && (
+                                        <div
+                                            onClick={() => {
+                                                setIsDropdownOpen(false);
+                                            }}
+                                            style={{
+                                                marginTop: '4px',
+                                                padding: '0.65rem 0.85rem',
+                                                borderRadius: '10px',
+                                                background: 'rgba(245, 158, 11, 0.12)',
+                                                border: '1px dashed rgba(245, 158, 11, 0.45)',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px'
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '1rem' }}>✨</span>
+                                            <div>
+                                                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fbbf24' }}>
+                                                    Crear nueva ficha evaluativa para "{targetAgentName.trim()}"
+                                                </div>
+                                                <div style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>
+                                                    Se creará automáticamente en el sistema al enviar el informe.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Informative Status Badge below input */}
+                            {targetAgentName.trim().length > 0 && (
+                                <div style={{ marginTop: '0.5rem' }}>
+                                    {isExistingFicha ? (
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            background: 'rgba(16, 185, 129, 0.12)',
+                                            border: '1px solid rgba(16, 185, 129, 0.35)',
+                                            borderRadius: '8px',
+                                            padding: '0.45rem 0.85rem',
+                                            fontSize: '0.78rem',
+                                            color: '#86efac'
+                                        }}>
+                                            <span>🟢</span>
+                                            <span>
+                                                <strong>Ficha Evaluativa Existente:</strong> Este informe se acumulará al historial y balance de <strong>{matchedFicha.name}</strong> ({matchedFicha.count} evaluaciones acumuladas).
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            background: 'rgba(245, 158, 11, 0.1)',
+                                            border: '1px solid rgba(245, 158, 11, 0.35)',
+                                            borderRadius: '8px',
+                                            padding: '0.45rem 0.85rem',
+                                            fontSize: '0.78rem',
+                                            color: '#fde047'
+                                        }}>
+                                            <span>✨</span>
+                                            <span>
+                                                <strong>Nueva Ficha Evaluativa:</strong> Aún no existe ficha previa para <strong>"{targetAgentName.trim()}"</strong>. Su ficha se creará automáticamente al enviar el informe.
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
                             )}
                         </div>
 

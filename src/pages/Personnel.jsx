@@ -492,18 +492,49 @@ function Personnel() {
         });
 
         feedbacks.forEach(fb => {
-            const type = (fb.feedback_type || '').toLowerCase();
+            const type = (fb.feedback_type || fb.tipo || '').toLowerCase();
 
             // Match Target Agent
             let target = null;
+            const rawTarget = (fb.target_agent_name || fb.target_name || '').trim();
             if (fb.target_user_id && stats[fb.target_user_id]) {
                 target = stats[fb.target_user_id];
-            } else if (fb.target_agent_name) {
-                const nameLower = fb.target_agent_name.toLowerCase().trim();
+            } else if (rawTarget) {
+                const nameLower = rawTarget.toLowerCase();
                 target = Object.values(stats).find(s => {
                     const full = `${s.nombre} ${s.apellido}`.toLowerCase().trim();
                     return full && (full.includes(nameLower) || nameLower.includes(full));
                 });
+            }
+
+            if (!target && rawTarget) {
+                const fichaKey = `ficha_${rawTarget.toLowerCase()}`;
+                if (!stats[fichaKey]) {
+                    stats[fichaKey] = {
+                        userId: fichaKey,
+                        user: { id: fichaKey, nombre: rawTarget, apellido: '', rango: 'Ficha Evaluativa' },
+                        nombre: rawTarget,
+                        apellido: '',
+                        no_placa: '---',
+                        rango: 'Ficha Evaluativa',
+                        rango_interno: 'Ficha Externa',
+                        rol: 'Agente Evaluado',
+                        profile_image: null,
+                        receivedPositives: 0,
+                        receivedNegatives: 0,
+                        receivedMixed: 0,
+                        receivedTotal: 0,
+                        netScore: 0,
+                        status: 'neutral',
+                        submittedPositives: 0,
+                        submittedNegatives: 0,
+                        submittedMixed: 0,
+                        submittedTotal: 0,
+                        submittedTendency: 'neutral',
+                        isFichaOnly: true
+                    };
+                }
+                target = stats[fichaKey];
             }
 
             if (target) {
@@ -2500,7 +2531,13 @@ function Personnel() {
                                                 return (
                                                     <tr
                                                         key={agent.userId}
-                                                        onClick={() => navigate(`/personnel/${agent.userId}`)}
+                                                        onClick={() => {
+                                                            if (agent.isFichaOnly) {
+                                                                navigate('/comandancia');
+                                                            } else {
+                                                                navigate(`/personnel/${agent.userId}`);
+                                                            }
+                                                        }}
                                                         style={{
                                                             borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
                                                             cursor: 'pointer',

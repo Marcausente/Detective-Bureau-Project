@@ -330,20 +330,45 @@ export default function Comandancia() {
         });
 
         feedbacks.forEach(fb => {
+            const cleanTarget = (fb.target_name || fb.target_agent_name || '').trim();
             // Target matching
             let targetUser = users.find(u => u.id === fb.target_user_id);
-            if (!targetUser && fb.target_name) {
-                const cleanTarget = fb.target_name.toLowerCase();
+            if (!targetUser && cleanTarget) {
+                const lower = cleanTarget.toLowerCase();
                 targetUser = users.find(u =>
-                    (u.nombre && cleanTarget.includes(u.nombre.toLowerCase())) &&
-                    (u.apellido && cleanTarget.includes(u.apellido.toLowerCase()))
+                    (u.nombre && lower.includes(u.nombre.toLowerCase())) &&
+                    (u.apellido && lower.includes(u.apellido.toLowerCase()))
                 );
             }
-            if (targetUser && map[targetUser.id]) {
-                map[targetUser.id].receivedTotal += 1;
-                if (fb.tipo === 'Positivo') map[targetUser.id].positivesReceived += 1;
-                else if (fb.tipo === 'Negativo') map[targetUser.id].negativesReceived += 1;
-                else if (fb.tipo === 'Mixto') map[targetUser.id].mixedReceived += 1;
+
+            const targetKey = targetUser ? targetUser.id : (cleanTarget ? `ficha_${cleanTarget.toLowerCase()}` : null);
+            if (targetKey) {
+                if (!map[targetKey]) {
+                    map[targetKey] = {
+                        user: {
+                            id: targetKey,
+                            nombre: cleanTarget,
+                            apellido: '',
+                            rango: 'Ficha Evaluativa',
+                            divisions: ['Personal Evaluado'],
+                            profile_image: null,
+                            isFichaOnly: true
+                        },
+                        receivedTotal: 0,
+                        positivesReceived: 0,
+                        negativesReceived: 0,
+                        mixedReceived: 0,
+                        submittedTotal: 0,
+                        positivesSubmitted: 0,
+                        negativesSubmitted: 0,
+                        mixedSubmitted: 0
+                    };
+                }
+                const t = (fb.tipo || fb.feedback_type || '').toLowerCase();
+                map[targetKey].receivedTotal += 1;
+                if (t === 'positivo') map[targetKey].positivesReceived += 1;
+                else if (t === 'negativo') map[targetKey].negativesReceived += 1;
+                else if (t === 'mixto') map[targetKey].mixedReceived += 1;
             }
 
             // Author matching
@@ -1202,10 +1227,17 @@ export default function Comandancia() {
                                                     </div>
                                                 </div>
 
-                                                {/* Action Link to profile */}
+                                                {/* Action Link to profile / ficha */}
                                                 <button
                                                     type="button"
-                                                    onClick={() => navigate(`/personnel/${u.id}`)}
+                                                    onClick={() => {
+                                                        if (u.isFichaOnly) {
+                                                            setFeedbackSearch(u.nombre);
+                                                            setFeedbackSubView('timeline');
+                                                        } else {
+                                                            navigate(`/personnel/${u.id}`);
+                                                        }
+                                                    }}
                                                     style={{
                                                         background: 'rgba(255, 255, 255, 0.08)',
                                                         border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -1217,7 +1249,7 @@ export default function Comandancia() {
                                                         cursor: 'pointer'
                                                     }}
                                                 >
-                                                    Ficha →
+                                                    {u.isFichaOnly ? 'Ver Ficha ↗' : 'Ficha →'}
                                                 </button>
                                             </div>
                                         </div>
