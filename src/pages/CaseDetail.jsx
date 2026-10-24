@@ -1052,7 +1052,7 @@ function CaseDetail() {
 
             await supabase
                 .from('cases')
-                .update({ 
+                .update({
                     documents: uploadedCaseDocs,
                     ...(finalInitialImage !== null ? { initial_image_url: finalInitialImage || null } : {})
                 })
@@ -1073,7 +1073,7 @@ function CaseDetail() {
             <span>Cargando expediente policial...</span>
         </div>
     );
-    
+
     if (!caseData || (!caseData.info && !caseData.case)) return (
         <div className="mac-doc-empty">
             <span>No se encontró el expediente solicitado.</span>
@@ -1081,12 +1081,12 @@ function CaseDetail() {
     );
 
     const info = caseData.info || caseData.case || {};
-    const { 
-        assignments = [], 
-        updates: rawUpdates = [], 
-        interrogations = [], 
-        incidents: linkedIncidents = [], 
-        outings: linkedOutings = [], 
+    const {
+        assignments = [],
+        updates: rawUpdates = [],
+        interrogations = [],
+        incidents: linkedIncidents = [],
+        outings: linkedOutings = [],
         complaints: linkedComplaints = [],
         gangs: linkedGangs = [],
         ballistics_coincidences: linkedMatches = [],
@@ -1104,8 +1104,8 @@ function CaseDetail() {
     const isRestrictedAyudante = isAyudante && !isDbMember;
     const isAssigned = Boolean(assignments && assignments.some(a => a.user_id === currentUser?.id));
     const isAssignedEncargado = Boolean(
-        currentUser && 
-        assignments && 
+        currentUser &&
+        assignments &&
         assignments.some(a => a.user_id === currentUser.id && (a.role === 'Encargado' || a.role === 'Supervisor'))
     );
     const canEditCase = (isHighCommand || isCreator || isAssignedEncargado || isDbMember) && !isRestrictedAyudante;
@@ -1132,19 +1132,19 @@ function CaseDetail() {
         <div className="mac-dashboard-container">
             {/* Top Compact Navigation Row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <button 
+                <button
                     onClick={() => navigate('/cases')}
-                    style={{ 
-                        background: 'none', 
-                        border: 'none', 
-                        color: '#94a3b8', 
-                        fontSize: '0.8rem', 
+                    style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#94a3b8',
+                        fontSize: '0.8rem',
                         fontWeight: 600,
-                        cursor: 'pointer', 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
                         gap: '0.35rem',
-                        padding: 0 
+                        padding: 0
                     }}
                 >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1180,7 +1180,7 @@ function CaseDetail() {
                     </button>
 
                     {canPinCase() && (
-                        <button 
+                        <button
                             className="mac-btn mac-btn-secondary"
                             onClick={handleTogglePin}
                             style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.3rem', opacity: info.is_pinned ? 1 : 0.75, borderRadius: '6px' }}
@@ -1194,7 +1194,7 @@ function CaseDetail() {
                     )}
 
                     {canEditCase && !isEditingInfo && (
-                        <button 
+                        <button
                             className="mac-btn mac-btn-secondary"
                             onClick={startEditingInfo}
                             style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.3rem', borderRadius: '6px' }}
@@ -1210,14 +1210,14 @@ function CaseDetail() {
                     {canChangeCaseStatus && (
                         isCaseOpen ? (
                             <>
-                                <button 
+                                <button
                                     className="mac-btn mac-btn-secondary"
                                     onClick={() => handleStatusChange('Closed')}
                                     style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#f87171' }}
                                 >
                                     {t('closeCaseBtn') || 'Cerrar Caso'}
                                 </button>
-                                <button 
+                                <button
                                     className="mac-btn mac-btn-secondary"
                                     onClick={() => handleStatusChange('Archived')}
                                     style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#94a3b8' }}
@@ -1227,13 +1227,13 @@ function CaseDetail() {
                             </>
                         ) : (
                             <>
-                                <button 
+                                <button
                                     className="mac-btn mac-btn-secondary"
                                     onClick={() => handleStatusChange('Open')}
-                                    style={{ 
-                                        padding: '0.25rem 0.75rem', 
-                                        fontSize: '0.75rem', 
-                                        borderRadius: '6px', 
+                                    style={{
+                                        padding: '0.25rem 0.75rem',
+                                        fontSize: '0.75rem',
+                                        borderRadius: '6px',
                                         color: '#86efac',
                                         border: '1px solid rgba(34, 197, 94, 0.4)',
                                         background: 'rgba(34, 197, 94, 0.15)',
@@ -1250,7 +1250,7 @@ function CaseDetail() {
                                     <span>{t('reopenCaseBtn') || 'Reabrir Caso'}</span>
                                 </button>
                                 {info.status !== 'Archived' && info.status !== 'Archivado' && (
-                                    <button 
+                                    <button
                                         className="mac-btn mac-btn-secondary"
                                         onClick={() => handleStatusChange('Archived')}
                                         style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#94a3b8' }}
@@ -1259,7 +1259,7 @@ function CaseDetail() {
                                     </button>
                                 )}
                                 {info.status !== 'Closed' && info.status !== 'Cerrado' && (
-                                    <button 
+                                    <button
                                         className="mac-btn mac-btn-secondary"
                                         onClick={() => handleStatusChange('Closed')}
                                         style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', color: '#f87171' }}
@@ -1272,7 +1272,7 @@ function CaseDetail() {
                     )}
 
                     {(currentUser?.rol === 'Administrador' || currentUser?.rol === 'Coordinador') && (
-                        <button 
+                        <button
                             className="mac-btn"
                             onClick={handleDeleteCase}
                             style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', padding: '0.25rem 0.65rem', fontSize: '0.75rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
@@ -1354,12 +1354,12 @@ function CaseDetail() {
                                 fontSize: '0.78rem',
                                 color: '#cbd5e1'
                             }}>
-                                <input 
-                                    type="file" 
-                                    multiple 
-                                    accept=".pdf,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.zip,.rar,.csv,.png,.jpg,.jpeg" 
-                                    onChange={(e) => handleDocumentUpload(e, setEditCaseDocuments)} 
-                                    style={{ display: 'none' }} 
+                                <input
+                                    type="file"
+                                    multiple
+                                    accept=".pdf,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.zip,.rar,.csv,.png,.jpg,.jpeg"
+                                    onChange={(e) => handleDocumentUpload(e, setEditCaseDocuments)}
+                                    style={{ display: 'none' }}
                                 />
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -1439,8 +1439,8 @@ function CaseDetail() {
                         CLAVES DEL CASO
                     </h4>
                     {info.initial_image_url && (
-                        <div 
-                            style={{ marginBottom: '0.6rem', borderRadius: '6px', overflow: 'hidden', cursor: 'pointer', maxWidth: '320px', border: '1px solid rgba(255,255,255,0.12)' }} 
+                        <div
+                            style={{ marginBottom: '0.6rem', borderRadius: '6px', overflow: 'hidden', cursor: 'pointer', maxWidth: '320px', border: '1px solid rgba(255,255,255,0.12)' }}
                             onClick={() => setExpandedImage(info.initial_image_url)}
                         >
                             <img src={info.initial_image_url} alt="Initial Evidence" style={{ width: '100%', display: 'block' }} />
@@ -1589,7 +1589,7 @@ function CaseDetail() {
                                         </div>
                                     )}
                                     <form onSubmit={handlePostUpdate}>
-                                        <ReactQuill 
+                                        <ReactQuill
                                             theme="snow"
                                             modules={quillModules}
                                             formats={quillFormats}
@@ -1708,12 +1708,12 @@ function CaseDetail() {
                                                     fontSize: '0.78rem',
                                                     color: '#cbd5e1'
                                                 }}>
-                                                    <input 
-                                                        type="file" 
-                                                        multiple 
-                                                        accept=".pdf,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.zip,.rar,.csv,.png,.jpg,.jpeg" 
-                                                        onChange={(e) => handleDocumentUpload(e, setNewUpdateDocuments)} 
-                                                        style={{ display: 'none' }} 
+                                                    <input
+                                                        type="file"
+                                                        multiple
+                                                        accept=".pdf,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.zip,.rar,.csv,.png,.jpg,.jpeg"
+                                                        onChange={(e) => handleDocumentUpload(e, setNewUpdateDocuments)}
+                                                        style={{ display: 'none' }}
                                                     />
                                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -1744,19 +1744,19 @@ function CaseDetail() {
                                         const isEditing = editingId === update.id;
 
                                         return (
-                                            <div 
-                                                key={update.id} 
+                                            <div
+                                                key={update.id}
                                                 id={`update-${update.id}`}
-                                                className="mac-widget-card" 
+                                                className="mac-widget-card"
                                                 style={{ position: 'relative', padding: '0.9rem 1.1rem' }}
                                             >
                                                 {/* Header */}
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', paddingBottom: '0.45rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                        <img 
-                                                            src={update.author_avatar || '/logowebp/anon.webp'} 
-                                                            alt="Avatar" 
-                                                            style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }} 
+                                                        <img
+                                                            src={update.author_avatar || '/logowebp/anon.webp'}
+                                                            alt="Avatar"
+                                                            style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }}
                                                         />
                                                         <div>
                                                             <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#ffffff' }}>
@@ -1770,14 +1770,14 @@ function CaseDetail() {
 
                                                     {canEditThisUpdate && !isEditing && (
                                                         <div style={{ display: 'flex', gap: '0.3rem' }}>
-                                                            <button 
+                                                            <button
                                                                 onClick={() => handleStartEdit(update)}
                                                                 className="mac-btn mac-btn-secondary"
                                                                 style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
                                                             >
                                                                 Editar
                                                             </button>
-                                                            <button 
+                                                            <button
                                                                 onClick={() => handleDeleteUpdate(update.id)}
                                                                 className="mac-btn"
                                                                 style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
@@ -1790,7 +1790,7 @@ function CaseDetail() {
 
                                                 {isEditing ? (
                                                     <div>
-                                                        <ReactQuill 
+                                                        <ReactQuill
                                                             theme="snow"
                                                             modules={quillModules}
                                                             formats={quillFormats}
@@ -1897,12 +1897,12 @@ function CaseDetail() {
                                                                     fontSize: '0.78rem',
                                                                     color: '#cbd5e1'
                                                                 }}>
-                                                                    <input 
-                                                                        type="file" 
-                                                                        multiple 
-                                                                        accept=".pdf,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.zip,.rar,.csv,.png,.jpg,.jpeg" 
-                                                                        onChange={(e) => handleDocumentUpload(e, setEditDocuments)} 
-                                                                        style={{ display: 'none' }} 
+                                                                    <input
+                                                                        type="file"
+                                                                        multiple
+                                                                        accept=".pdf,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.zip,.rar,.csv,.png,.jpg,.jpeg"
+                                                                        onChange={(e) => handleDocumentUpload(e, setEditDocuments)}
+                                                                        style={{ display: 'none' }}
                                                                     />
                                                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -1925,7 +1925,7 @@ function CaseDetail() {
                                                 ) : (
                                                     <>
                                                         {/* Content */}
-                                                        <div 
+                                                        <div
                                                             className="quill-content"
                                                             style={{ color: '#cbd5e1', fontSize: '0.84rem', lineHeight: '1.5' }}
                                                             dangerouslySetInnerHTML={{ __html: update.content }}
@@ -1935,8 +1935,8 @@ function CaseDetail() {
                                                         {update.images && update.images.length > 0 && (
                                                             <div style={{ marginTop: '0.6rem', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                                                 {update.images.map((imgSrc, i) => (
-                                                                    <div 
-                                                                        key={i} 
+                                                                    <div
+                                                                        key={i}
                                                                         style={{ borderRadius: '6px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer' }}
                                                                         onClick={() => setExpandedImage(imgSrc)}
                                                                     >
@@ -2013,399 +2013,399 @@ function CaseDetail() {
 
                 {/* Right Sidebar: All 5 Link Categories */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                        {/* 1. Assigned Detectives */}
-                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                                        <circle cx="9" cy="7" r="4" />
-                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                                    </svg>
-                                    <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>DETECTIVES ASIGNADOS</h4>
-                                </div>
-                                {isCaseOpen && (
-                                    <button onClick={openAssignModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
-                                        Gestionar
-                                    </button>
-                                )}
+                    {/* 1. Assigned Detectives */}
+                    <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                    <circle cx="9" cy="7" r="4" />
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                </svg>
+                                <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>DETECTIVES ASIGNADOS</h4>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                {assignments.length === 0 ? (
-                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin detectives asignados</span>
-                                ) : (
-                                    assignments.map(user => (
-                                        <div key={user.user_id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '0.35rem 0.5rem', borderRadius: '6px' }}>
-                                            <img src={user.avatar || '/logowebp/anon.webp'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '6px', objectFit: 'cover' }} />
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {user.rank} {user.full_name}
-                                                </div>
-                                            </div>
-                                            {isCaseOpen && !isAyudante ? (
-                                                <select
-                                                    value={user.role || 'Investigador'}
-                                                    onChange={(e) => handleUpdateRole(user.user_id, e.target.value)}
-                                                    style={{ background: 'rgba(0,0,0,0.5)', color: '#34d399', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', padding: '1px 4px', fontSize: '0.7rem', cursor: 'pointer' }}
-                                                >
-                                                    <option value="Supervisor" style={{ background: '#1e293b', color: '#fff' }}>Supervisor</option>
-                                                    <option value="Encargado" style={{ background: '#1e293b', color: '#fff' }}>Encargado</option>
-                                                    <option value="Investigador" style={{ background: '#1e293b', color: '#fff' }}>Investigador</option>
-                                                    <option value="Ayudante" style={{ background: '#1e293b', color: '#fff' }}>Ayudante</option>
-                                                    <option value="Externo" style={{ background: '#1e293b', color: '#fff' }}>Externo</option>
-                                                </select>
-                                            ) : (
-                                                <span style={{ fontSize: '0.68rem', color: '#10b981', background: 'rgba(16,185,129,0.15)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 600 }}>
-                                                    {user.role || 'Investigador'}
-                                                </span>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
+                            {isCaseOpen && (
+                                <button onClick={openAssignModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                    Gestionar
+                                </button>
+                            )}
                         </div>
-
-                        {/* 2. Linked Interrogations */}
-                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                                    </svg>
-                                    <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>INTERROGATORIOS</h4>
-                                </div>
-                                {isCaseOpen && (
-                                    <button onClick={openLinkModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
-                                        Vincular
-                                    </button>
-                                )}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                {interrogations.length === 0 ? (
-                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin interrogatorios vinculados</span>
-                                ) : (
-                                    interrogations.map(inv => (
-                                        <div key={inv.id} onClick={() => navigate(`/interrogations?id=${inv.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #10b981', position: 'relative' }}>
-                                            <div style={{ paddingRight: '18px' }}>
-                                                <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{inv.title}</div>
-                                                <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{new Date(inv.created_at).toLocaleDateString()}</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {assignments.length === 0 ? (
+                                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin detectives asignados</span>
+                            ) : (
+                                assignments.map(user => (
+                                    <div key={user.user_id} style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '0.35rem 0.5rem', borderRadius: '6px' }}>
+                                        <img src={user.avatar || '/logowebp/anon.webp'} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', marginRight: '6px', objectFit: 'cover' }} />
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {user.rank} {user.full_name}
                                             </div>
-                                            {isCaseOpen && (
-                                                <button onClick={(e) => handleUnlink(e, inv.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
-                                                    ✕
-                                                </button>
-                                            )}
                                         </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* 3. Linked Incidents (Informes) */}
-                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                        <polyline points="14 2 14 8 20 8" />
-                                    </svg>
-                                    <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>INFORMES VINCULADOS</h4>
-                                </div>
-                                {isCaseOpen && (
-                                    <button onClick={openLinkIncidentModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
-                                        Vincular
-                                    </button>
-                                )}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                {linkedIncidents.length === 0 ? (
-                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin informes vinculados</span>
-                                ) : (
-                                    linkedIncidents.map(inc => (
-                                        <div key={inc.id} onClick={() => navigate(`/incidents?id=${inc.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #60a5fa', position: 'relative' }}>
-                                            <div style={{ paddingRight: '18px' }}>
-                                                <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{inc.title}</div>
-                                            </div>
-                                            {isCaseOpen && (
-                                                <button onClick={(e) => handleUnlinkIncident(e, inc.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
-                                                    ✕
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* 4. Linked Outings (Información / Outings) */}
-                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <rect x="1" y="3" width="15" height="13" rx="2" />
-                                        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-                                        <circle cx="5.5" cy="18.5" r="2.5" />
-                                        <circle cx="18.5" cy="18.5" r="2.5" />
-                                    </svg>
-                                    <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>INFORMACIÓN / OUTINGS</h4>
-                                </div>
-                                {isCaseOpen && (
-                                    <button onClick={openLinkOutingModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
-                                        Vincular
-                                    </button>
-                                )}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                {linkedOutings.length === 0 ? (
-                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin información/outings vinculados</span>
-                                ) : (
-                                    linkedOutings.map(out => (
-                                        <div key={out.id} onClick={() => navigate(`/outings?id=${out.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #a855f7', position: 'relative' }}>
-                                            <div style={{ paddingRight: '18px' }}>
-                                                <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{out.title}</div>
-                                            </div>
-                                            {isCaseOpen && (
-                                                <button onClick={(e) => handleUnlinkOuting(e, out.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
-                                                    ✕
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* 5. Linked Complaints (Denuncias) */}
-                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M12 3v18" />
-                                        <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z" />
-                                        <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z" />
-                                    </svg>
-                                    <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>DENUNCIAS VINCULADAS</h4>
-                                </div>
-                                {isCaseOpen && (
-                                    <button onClick={openLinkComplaintModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
-                                        Vincular
-                                    </button>
-                                )}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                {linkedComplaints.length === 0 ? (
-                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin denuncias vinculadas</span>
-                                ) : (
-                                    linkedComplaints.map(comp => (
-                                        <div key={comp.id} onClick={() => navigate(`/complaints?id=${comp.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #f59e0b', position: 'relative' }}>
-                                            <div style={{ paddingRight: '18px' }}>
-                                                <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{comp.titulo}</div>
-                                            </div>
-                                            {isCaseOpen && (
-                                                <button onClick={(e) => handleUnlinkComplaint(e, comp.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
-                                                    ✕
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* 6. Linked Criminal Groups (Grupos Criminales) */}
-                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                                        <circle cx="9" cy="7" r="4" />
-                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                                    </svg>
-                                    <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                        {t('linkedGangs') || 'GRUPOS CRIMINALES VINCULADOS'}
-                                    </h4>
-                                </div>
-                                {isCaseOpen && (
-                                    <button onClick={openLinkGangModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
-                                        Vincular
-                                    </button>
-                                )}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                {linkedGangs.length === 0 ? (
-                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                                        {t('noLinkedGangs') || 'Sin grupos criminales vinculados'}
-                                    </span>
-                                ) : (
-                                    linkedGangs.map(g => (
-                                        <div 
-                                            key={g.id} 
-                                            onClick={() => navigate(`/gangs?id=${g.id}`)} 
-                                            style={{ 
-                                                padding: '0.45rem 0.55rem', 
-                                                background: 'rgba(0,0,0,0.3)', 
-                                                borderRadius: '6px', 
-                                                cursor: 'pointer', 
-                                                borderLeft: `3px solid ${g.color || '#ec4899'}`, 
-                                                position: 'relative' 
-                                            }}
-                                        >
-                                            <div style={{ paddingRight: '18px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                {g.zones_image && (
-                                                    <img src={g.zones_image} alt="" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover' }} />
-                                                )}
-                                                <div>
-                                                    <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
-                                                        {g.name} {g.is_archived ? <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>[Archivado]</span> : ''}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {isCaseOpen && (
-                                                <button onClick={(e) => handleUnlinkGang(e, g.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
-                                                    ✕
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* 7. Linked Ballistics (Coincidencias, Armas, Balas) */}
-                        <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <circle cx="12" cy="12" r="10" />
-                                        <line x1="22" y1="12" x2="18" y2="12" />
-                                        <line x1="6" y1="12" x2="2" y2="12" />
-                                        <line x1="12" y1="6" x2="12" y2="2" />
-                                        <line x1="12" y1="22" x2="12" y2="18" />
-                                    </svg>
-                                    <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                        {t('linkedBallistics') || 'BALÍSTICA VINCULADA'}
-                                    </h4>
-                                </div>
-                                {isCaseOpen && (
-                                    <button onClick={() => openLinkBallisticsModal('coincidences')} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
-                                        Vincular
-                                    </button>
-                                )}
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                                {/* Coincidencias */}
-                                {linkedMatches.length > 0 && (
-                                    <div>
-                                        <div style={{ fontSize: '0.7rem', color: '#fbbf24', fontWeight: 700, marginBottom: '0.25rem', textTransform: 'uppercase' }}>
-                                            🎯 {t('coincidences') || 'Coincidencias'} ({linkedMatches.length})
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                            {linkedMatches.map(m => {
-                                                const serial = m.numero_serie || m.serial_number || '';
-                                                const model = m.modelo || m.weapon_model || (serial ? 'Coincidencia' : 'Arma');
-                                                const bulletsCount = m.bullets_count ?? (Array.isArray(m.bullets) ? m.bullets.length : 0);
-                                                return (
-                                                    <div
-                                                        key={m.weapon_id || m.id}
-                                                        onClick={() => navigate(`/ballistics?tab=coincidences&search=${encodeURIComponent(serial)}`)}
-                                                        style={{ padding: '0.45rem 0.55rem', background: 'rgba(251, 191, 36, 0.08)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #fbbf24', position: 'relative' }}
-                                                    >
-                                                        <div style={{ paddingRight: '18px' }}>
-                                                            <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
-                                                                {model} {serial ? <span style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.72rem' }}>({serial})</span> : ''}
-                                                            </div>
-                                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
-                                                                {bulletsCount} casquillo(s) vinculados
-                                                            </div>
-                                                        </div>
-                                                        {isCaseOpen && (
-                                                            <button onClick={(e) => handleUnlinkBallisticsMatch(e, m.weapon_id || m.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
-                                                                ✕
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                        {isCaseOpen && !isAyudante ? (
+                                            <select
+                                                value={user.role || 'Investigador'}
+                                                onChange={(e) => handleUpdateRole(user.user_id, e.target.value)}
+                                                style={{ background: 'rgba(0,0,0,0.5)', color: '#34d399', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', padding: '1px 4px', fontSize: '0.7rem', cursor: 'pointer' }}
+                                            >
+                                                <option value="Supervisor" style={{ background: '#1e293b', color: '#fff' }}>Supervisor</option>
+                                                <option value="Encargado" style={{ background: '#1e293b', color: '#fff' }}>Encargado</option>
+                                                <option value="Investigador" style={{ background: '#1e293b', color: '#fff' }}>Investigador</option>
+                                                <option value="Ayudante" style={{ background: '#1e293b', color: '#fff' }}>Ayudante</option>
+                                                <option value="Externo" style={{ background: '#1e293b', color: '#fff' }}>Externo</option>
+                                            </select>
+                                        ) : (
+                                            <span style={{ fontSize: '0.68rem', color: '#10b981', background: 'rgba(16,185,129,0.15)', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 600 }}>
+                                                {user.role || 'Investigador'}
+                                            </span>
+                                        )}
                                     </div>
-                                )}
-
-                                {/* Armas */}
-                                {linkedWeapons.length > 0 && (
-                                    <div>
-                                        <div style={{ fontSize: '0.7rem', color: '#fca5a5', fontWeight: 700, marginBottom: '0.25rem', textTransform: 'uppercase' }}>
-                                            🔫 {t('seizedWeapons') || 'Armas'} ({linkedWeapons.length})
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                            {linkedWeapons.map(w => (
-                                                <div
-                                                    key={w.id}
-                                                    onClick={() => navigate(`/ballistics?tab=weapons&search=${encodeURIComponent(w.numero_serie)}`)}
-                                                    style={{ padding: '0.45rem 0.55rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #ef4444', position: 'relative' }}
-                                                >
-                                                    <div style={{ paddingRight: '18px' }}>
-                                                        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
-                                                            {w.modelo} <span style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.72rem' }}>({w.numero_serie})</span>
-                                                        </div>
-                                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{w.propietario}</div>
-                                                    </div>
-                                                    {isCaseOpen && (
-                                                        <button onClick={(e) => handleUnlinkBallisticsWeapon(e, w.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
-                                                            ✕
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Casquillos */}
-                                {linkedBullets.length > 0 && (
-                                    <div>
-                                        <div style={{ fontSize: '0.7rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.25rem', textTransform: 'uppercase' }}>
-                                            🔘 {t('bulletCasings') || 'Casquillos'} ({linkedBullets.length})
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                            {linkedBullets.map(b => (
-                                                <div
-                                                    key={b.id}
-                                                    onClick={() => navigate(`/ballistics?tab=bullets&search=${encodeURIComponent(b.numero_serie)}`)}
-                                                    style={{ padding: '0.45rem 0.55rem', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #3b82f6', position: 'relative' }}
-                                                >
-                                                    <div style={{ paddingRight: '18px' }}>
-                                                        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
-                                                            {b.incidente_relacionado} <span style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.72rem' }}>({b.numero_serie})</span>
-                                                        </div>
-                                                        {b.descripcion_incidente && (
-                                                            <div style={{ fontSize: '0.7rem', color: '#93c5fd', fontStyle: 'italic', marginTop: '2px' }}>
-                                                                📍 {b.descripcion_incidente}
-                                                            </div>
-                                                        )}
-                                                        {b.calibre && <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Calibre: {b.calibre}</div>}
-                                                    </div>
-                                                    {isCaseOpen && (
-                                                        <button onClick={(e) => handleUnlinkBallisticsBullet(e, b.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
-                                                            ✕
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {linkedMatches.length === 0 && linkedWeapons.length === 0 && linkedBullets.length === 0 && (
-                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                                        {t('noLinkedBallistics') || 'Sin balística vinculada'}
-                                    </span>
-                                )}
-                            </div>
+                                ))
+                            )}
                         </div>
                     </div>
+
+                    {/* 2. Linked Interrogations */}
+                    <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                </svg>
+                                <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>INTERROGATORIOS</h4>
+                            </div>
+                            {isCaseOpen && (
+                                <button onClick={openLinkModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                    Vincular
+                                </button>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {interrogations.length === 0 ? (
+                                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin interrogatorios vinculados</span>
+                            ) : (
+                                interrogations.map(inv => (
+                                    <div key={inv.id} onClick={() => navigate(`/interrogations?id=${inv.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #10b981', position: 'relative' }}>
+                                        <div style={{ paddingRight: '18px' }}>
+                                            <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{inv.title}</div>
+                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{new Date(inv.created_at).toLocaleDateString()}</div>
+                                        </div>
+                                        {isCaseOpen && (
+                                            <button onClick={(e) => handleUnlink(e, inv.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 3. Linked Incidents (Informes) */}
+                    <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                </svg>
+                                <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>INFORMES VINCULADOS</h4>
+                            </div>
+                            {isCaseOpen && (
+                                <button onClick={openLinkIncidentModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                    Vincular
+                                </button>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {linkedIncidents.length === 0 ? (
+                                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin informes vinculados</span>
+                            ) : (
+                                linkedIncidents.map(inc => (
+                                    <div key={inc.id} onClick={() => navigate(`/incidents?id=${inc.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #60a5fa', position: 'relative' }}>
+                                        <div style={{ paddingRight: '18px' }}>
+                                            <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{inc.title}</div>
+                                        </div>
+                                        {isCaseOpen && (
+                                            <button onClick={(e) => handleUnlinkIncident(e, inc.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 4. Linked Outings (Información / Outings) */}
+                    <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="1" y="3" width="15" height="13" rx="2" />
+                                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                                    <circle cx="5.5" cy="18.5" r="2.5" />
+                                    <circle cx="18.5" cy="18.5" r="2.5" />
+                                </svg>
+                                <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>INFORMACIÓN / OUTINGS</h4>
+                            </div>
+                            {isCaseOpen && (
+                                <button onClick={openLinkOutingModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                    Vincular
+                                </button>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {linkedOutings.length === 0 ? (
+                                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin información/outings vinculados</span>
+                            ) : (
+                                linkedOutings.map(out => (
+                                    <div key={out.id} onClick={() => navigate(`/outings?id=${out.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #a855f7', position: 'relative' }}>
+                                        <div style={{ paddingRight: '18px' }}>
+                                            <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{out.title}</div>
+                                        </div>
+                                        {isCaseOpen && (
+                                            <button onClick={(e) => handleUnlinkOuting(e, out.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 5. Linked Complaints (Denuncias) */}
+                    <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 3v18" />
+                                    <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z" />
+                                    <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z" />
+                                </svg>
+                                <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>DENUNCIAS VINCULADAS</h4>
+                            </div>
+                            {isCaseOpen && (
+                                <button onClick={openLinkComplaintModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                    Vincular
+                                </button>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {linkedComplaints.length === 0 ? (
+                                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Sin denuncias vinculadas</span>
+                            ) : (
+                                linkedComplaints.map(comp => (
+                                    <div key={comp.id} onClick={() => navigate(`/complaints?id=${comp.id}`)} style={{ padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #f59e0b', position: 'relative' }}>
+                                        <div style={{ paddingRight: '18px' }}>
+                                            <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>{comp.titulo}</div>
+                                        </div>
+                                        {isCaseOpen && (
+                                            <button onClick={(e) => handleUnlinkComplaint(e, comp.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 6. Linked Criminal Groups (Grupos Criminales) */}
+                    <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                    <circle cx="9" cy="7" r="4" />
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                </svg>
+                                <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    {t('linkedGangs') || 'GRUPOS CRIMINALES VINCULADOS'}
+                                </h4>
+                            </div>
+                            {isCaseOpen && (
+                                <button onClick={openLinkGangModal} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                    Vincular
+                                </button>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {linkedGangs.length === 0 ? (
+                                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                                    {t('noLinkedGangs') || 'Sin grupos criminales vinculados'}
+                                </span>
+                            ) : (
+                                linkedGangs.map(g => (
+                                    <div
+                                        key={g.id}
+                                        onClick={() => navigate(`/gangs?id=${g.id}`)}
+                                        style={{
+                                            padding: '0.45rem 0.55rem',
+                                            background: 'rgba(0,0,0,0.3)',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            borderLeft: `3px solid ${g.color || '#ec4899'}`,
+                                            position: 'relative'
+                                        }}
+                                    >
+                                        <div style={{ paddingRight: '18px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            {g.zones_image && (
+                                                <img src={g.zones_image} alt="" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover' }} />
+                                            )}
+                                            <div>
+                                                <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
+                                                    {g.name} {g.is_archived ? <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>[Archivado]</span> : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {isCaseOpen && (
+                                            <button onClick={(e) => handleUnlinkGang(e, g.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 7. Linked Ballistics (Coincidencias, Armas, Balas) */}
+                    <div className="mac-widget-card" style={{ padding: '0.85rem 1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="22" y1="12" x2="18" y2="12" />
+                                    <line x1="6" y1="12" x2="2" y2="12" />
+                                    <line x1="12" y1="6" x2="12" y2="2" />
+                                    <line x1="12" y1="22" x2="12" y2="18" />
+                                </svg>
+                                <h4 style={{ margin: 0, fontSize: '0.8rem', color: '#ffffff', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                    {t('linkedBallistics') || 'BALÍSTICA VINCULADA'}
+                                </h4>
+                            </div>
+                            {isCaseOpen && (
+                                <button onClick={() => openLinkBallisticsModal('coincidences')} className="mac-btn mac-btn-secondary" style={{ padding: '0.15rem 0.5rem', fontSize: '0.7rem' }}>
+                                    Vincular
+                                </button>
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                            {/* Coincidencias */}
+                            {linkedMatches.length > 0 && (
+                                <div>
+                                    <div style={{ fontSize: '0.7rem', color: '#fbbf24', fontWeight: 700, marginBottom: '0.25rem', textTransform: 'uppercase' }}>
+                                        🎯 {t('coincidences') || 'Coincidencias'} ({linkedMatches.length})
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                        {linkedMatches.map(m => {
+                                            const serial = m.numero_serie || m.serial_number || '';
+                                            const model = m.modelo || m.weapon_model || (serial ? 'Coincidencia' : 'Arma');
+                                            const bulletsCount = m.bullets_count ?? (Array.isArray(m.bullets) ? m.bullets.length : 0);
+                                            return (
+                                                <div
+                                                    key={m.weapon_id || m.id}
+                                                    onClick={() => navigate(`/ballistics?tab=coincidences&search=${encodeURIComponent(serial)}`)}
+                                                    style={{ padding: '0.45rem 0.55rem', background: 'rgba(251, 191, 36, 0.08)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #fbbf24', position: 'relative' }}
+                                                >
+                                                    <div style={{ paddingRight: '18px' }}>
+                                                        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
+                                                            {model} {serial ? <span style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.72rem' }}>({serial})</span> : ''}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                                            {bulletsCount} casquillo(s) vinculados
+                                                        </div>
+                                                    </div>
+                                                    {isCaseOpen && (
+                                                        <button onClick={(e) => handleUnlinkBallisticsMatch(e, m.weapon_id || m.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Armas */}
+                            {linkedWeapons.length > 0 && (
+                                <div>
+                                    <div style={{ fontSize: '0.7rem', color: '#fca5a5', fontWeight: 700, marginBottom: '0.25rem', textTransform: 'uppercase' }}>
+                                        🔫 {t('seizedWeapons') || 'Armas'} ({linkedWeapons.length})
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                        {linkedWeapons.map(w => (
+                                            <div
+                                                key={w.id}
+                                                onClick={() => navigate(`/ballistics?tab=weapons&search=${encodeURIComponent(w.numero_serie)}`)}
+                                                style={{ padding: '0.45rem 0.55rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #ef4444', position: 'relative' }}
+                                            >
+                                                <div style={{ paddingRight: '18px' }}>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
+                                                        {w.modelo} <span style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.72rem' }}>({w.numero_serie})</span>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{w.propietario}</div>
+                                                </div>
+                                                {isCaseOpen && (
+                                                    <button onClick={(e) => handleUnlinkBallisticsWeapon(e, w.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Casquillos */}
+                            {linkedBullets.length > 0 && (
+                                <div>
+                                    <div style={{ fontSize: '0.7rem', color: '#93c5fd', fontWeight: 700, marginBottom: '0.25rem', textTransform: 'uppercase' }}>
+                                        🔘 {t('bulletCasings') || 'Casquillos'} ({linkedBullets.length})
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                        {linkedBullets.map(b => (
+                                            <div
+                                                key={b.id}
+                                                onClick={() => navigate(`/ballistics?tab=bullets&search=${encodeURIComponent(b.numero_serie)}`)}
+                                                style={{ padding: '0.45rem 0.55rem', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px', cursor: 'pointer', borderLeft: '2px solid #3b82f6', position: 'relative' }}
+                                            >
+                                                <div style={{ paddingRight: '18px' }}>
+                                                    <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#ffffff' }}>
+                                                        {b.incidente_relacionado} <span style={{ fontFamily: 'monospace', color: '#fbbf24', fontSize: '0.72rem' }}>({b.numero_serie})</span>
+                                                    </div>
+                                                    {b.descripcion_incidente && (
+                                                        <div style={{ fontSize: '0.7rem', color: '#93c5fd', fontStyle: 'italic', marginTop: '2px' }}>
+                                                            📍 {b.descripcion_incidente}
+                                                        </div>
+                                                    )}
+                                                    {b.calibre && <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Calibre: {b.calibre}</div>}
+                                                </div>
+                                                {isCaseOpen && (
+                                                    <button onClick={(e) => handleUnlinkBallisticsBullet(e, b.id)} style={{ position: 'absolute', top: '2px', right: '4px', background: 'none', border: 'none', color: '#f87171', fontSize: '1rem', cursor: 'pointer' }} title="Desvincular">
+                                                        ✕
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {linkedMatches.length === 0 && linkedWeapons.length === 0 && linkedBullets.length === 0 && (
+                                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                                    {t('noLinkedBallistics') || 'Sin balística vinculada'}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* MODALS SECTION */}

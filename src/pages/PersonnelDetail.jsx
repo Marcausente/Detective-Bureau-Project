@@ -12,7 +12,7 @@ import '../index.css';
 // Rank Hierarchy Helper
 const getRankLevel = (rank) => {
     if (!rank) return 0;
-    const clean = String(rank).toLowerCase().trim();
+    const clean = String(rank).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
     // High Command
     if (clean === 'sheriff') return 150;
@@ -58,8 +58,8 @@ const getRankLevel = (rank) => {
     if (clean.includes('iii+')) return 50;
     if (clean.includes('iii')) return 40;
     if (clean.includes('bonus ii')) return 35;
-    if (clean.includes('ii')) return 30;
     if (clean.includes('bonus i')) return 20;
+    if (clean.includes('ii')) return 30;
     if (clean.includes('oficial') || clean.includes('deputy')) return 10;
 
     return 0;
@@ -379,7 +379,7 @@ function PersonnelDetail() {
             return;
         }
 
-        // Cannot evaluate oneself
+        // Un usuario no se evalúa a sí mismo
         if (viewerProfile.id === targetProfile.id) {
             setCanViewEvaluations(false);
             setEvaluations([]);
@@ -392,10 +392,22 @@ function PersonnelDetail() {
         const viewerLevel = getRankLevel(viewerProfile.rango);
         const targetLevel = getRankLevel(targetProfile.rango);
 
-        console.log(`Rank Check: Viewer (${viewerProfile.rango}, L${viewerLevel}, Role: ${viewerRole}) vs Target (${targetProfile.rango}, L${targetLevel})`);
+        const vClean = String(viewerProfile.rango || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        const tClean = String(targetProfile.rango || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-        // Rule: High command or viewer MUST be strictly higher than Target
-        if (isHighCommand || viewerLevel > targetLevel) {
+        // Detective II no le puede poner feedback a Detective I ("no a otros Detectives II ni a Detectives I")
+        const isViewerDetII = (vClean.includes('detective') && (vClean.includes('ii') || vClean.includes('2'))) && !vClean.includes('iii');
+        const isTargetDetI = (tClean.includes('detective') && (tClean.includes(' i') || tClean.includes(' 1') || tClean === 'detective')) && !tClean.includes('ii') && !tClean.includes('iii');
+
+        // Escala de mando:
+        // - Mandos altos siempre pueden
+        // - El evaluador debe tener un rango estrictamente superior (viewerLevel > targetLevel)
+        // - Detective II NO puede evaluar a Detective I
+        const canEvaluate = isHighCommand || (
+            viewerLevel > targetLevel && !(isViewerDetII && isTargetDetI)
+        );
+
+        if (canEvaluate) {
             setCanViewEvaluations(true);
             await fetchEvaluations(targetProfile.id);
         } else {
@@ -933,14 +945,27 @@ function PersonnelDetail() {
                         )}
                     </div>
 
-                    {/* Evaluations Section */}
+                    {/* Evaluations / Feedbacks Section (Escala de Mando) */}
                     {canViewEvaluations ? (
                         <div className="detail-section" style={{ marginTop: '2rem' }}>
-                            <h3>Officer Evaluations</h3>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                <h3 style={{ margin: 0 }}>Feedbacks y Evaluaciones del Agente</h3>
+                                <span style={{
+                                    fontSize: '0.75rem',
+                                    padding: '0.2rem 0.65rem',
+                                    borderRadius: '6px',
+                                    background: 'rgba(59, 130, 246, 0.15)',
+                                    color: '#93c5fd',
+                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                    fontWeight: 700
+                                }}>
+                                    Escala de Mando Policial
+                                </span>
+                            </div>
 
                             <div className="evaluations-list">
                                 {evaluations.length === 0 ? (
-                                    <div className="empty-evals">No evaluations recorded.</div>
+                                    <div className="empty-evals">Sin feedbacks ni evaluaciones registradas para este agente.</div>
                                 ) : (
                                     evaluations.map(ev => (
                                         <div key={ev.id} className="evaluation-card" style={{ position: 'relative' }}>
@@ -948,7 +973,7 @@ function PersonnelDetail() {
                                                 className="card-action-btn delete-btn"
                                                 style={{ position: 'absolute', top: '10px', right: '10px' }}
                                                 onClick={() => handleDeleteEvaluation(ev.id)}
-                                                title="Delete Evaluation"
+                                                title="Eliminar Feedback / Evaluación"
                                             >
                                                 🗑️
                                             </button>
@@ -964,16 +989,18 @@ function PersonnelDetail() {
 
                             {/* Add Evaluation Form */}
                             <form onSubmit={handleAddEvaluation} className="add-evaluation-form">
-                                <h4 style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Add New Evaluation</h4>
+                                <h4 style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+                                    Añadir Nuevo Feedback / Evaluación
+                                </h4>
                                 {evalError && <div className="error-text" style={{ color: '#ef4444', marginBottom: '0.5rem', fontSize: '0.9rem' }}>{evalError}</div>}
                                 <textarea
                                     name="newEvaluation"
                                     id="newEvaluation"
-                                    aria-label="New Evaluation Content"
+                                    aria-label="Contenido del Feedback / Evaluación"
                                     className="eval-textarea"
                                     value={newEvaluation}
                                     onChange={(e) => setNewEvaluation(e.target.value)}
-                                    placeholder="Write your evaluation here..."
+                                    placeholder="Escribe aquí el feedback o evaluación del agente..."
                                     rows="4"
                                 />
                                 <button
@@ -982,16 +1009,17 @@ function PersonnelDetail() {
                                     style={{ marginTop: '1rem', width: 'auto', padding: '0.5rem 1.5rem', fontSize: '0.9rem' }}
                                     disabled={evalLoading}
                                 >
-                                    {evalLoading ? 'Submitting...' : 'Submit Evaluation'}
+                                    {evalLoading ? 'Guardando...' : 'Registrar Feedback'}
                                 </button>
                             </form>
                         </div>
                     ) : (
-                        /* Optional: Message explaining why they can't see it? Or just hidden.
-                           Given the rules, keeping it hidden is cleaner, but debug text helps. */
-                        !['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente'].includes(user.rango) && (
-                            <div className="detail-section" style={{ marginTop: '2rem', opacity: 0.5 }}>
-                                <p style={{ fontStyle: 'italic', fontSize: '0.9rem' }}>Evaluations are restricted to superior ranks.</p>
+                        /* Mensaje cuando no tiene permisos en la escala de mando */
+                        !['Sheriff', 'Undersheriff', 'Assistant Sheriff', 'Division Chief', 'Comandante', 'Capitan', 'Teniente'].includes(user?.rango) && (
+                            <div className="detail-section" style={{ marginTop: '2rem', opacity: 0.6 }}>
+                                <p style={{ fontStyle: 'italic', fontSize: '0.88rem', margin: 0, color: 'var(--text-secondary)' }}>
+                                    🔒 Los feedbacks y evaluaciones de este expediente están reservados a rangos superiores en la escala de mando.
+                                </p>
                             </div>
                         )
                     )}

@@ -104,7 +104,7 @@ export default function Comandancia() {
     }, [profile]);
 
     const handleDeleteFeedback = async (id) => {
-        if (!window.confirm('¿Deseas eliminar este registro de feedback?')) return;
+        if (!window.confirm('¿Deseas eliminar definitivamente este registro de feedback?')) return;
         try {
             await supabase
                 .from('agent_feedbacks')
@@ -124,26 +124,147 @@ export default function Comandancia() {
             if (selectedFichaAgent) {
                 setSelectedFichaAgent(prev => {
                     if (!prev) return null;
-                    const updatedRec = prev.feedbacksReceived.filter(f => f.id !== id);
-                    const updatedSub = prev.feedbacksSubmitted.filter(f => f.id !== id);
-                    const pos = updatedRec.filter(f => (f.tipo || f.feedback_type || '').toLowerCase() === 'positivo').length;
-                    const neg = updatedRec.filter(f => (f.tipo || f.feedback_type || '').toLowerCase() === 'negativo').length;
-                    const mix = updatedRec.filter(f => (f.tipo || f.feedback_type || '').toLowerCase() === 'mixto').length;
+                    const cleanTarget = prev.name.trim().toLowerCase();
+                    const relevantRec = filtered.filter(f => (f.target_name || f.target_agent_name || '').trim().toLowerCase() === cleanTarget);
+                    const activeRec = relevantRec.filter(f => f.status !== 'Invalido');
+                    const invalidRec = relevantRec.filter(f => f.status === 'Invalido');
+                    const relevantSub = filtered.filter(f => (f.author_name || f.author_agent_name || '').trim().toLowerCase() === cleanTarget);
+                    const activeSub = relevantSub.filter(f => f.status !== 'Invalido');
+
+                    const pos = activeRec.filter(f => (f.tipo || f.feedback_type || '').toLowerCase() === 'positivo').length;
+                    const neg = activeRec.filter(f => (f.tipo || f.feedback_type || '').toLowerCase() === 'negativo').length;
+                    const mix = activeRec.filter(f => (f.tipo || f.feedback_type || '').toLowerCase() === 'mixto').length;
+
                     return {
                         ...prev,
-                        receivedTotal: updatedRec.length,
+                        receivedTotal: activeRec.length,
                         positivesReceived: pos,
                         negativesReceived: neg,
                         mixedReceived: mix,
                         netScore: pos - neg,
-                        submittedTotal: updatedSub.length,
-                        feedbacksReceived: updatedRec,
-                        feedbacksSubmitted: updatedSub
+                        status: activeRec.length === 0 ? 'neutral' : pos > neg ? 'positive' : neg > pos ? 'negative' : 'neutral',
+                        submittedTotal: activeSub.length,
+                        feedbacksReceived: activeRec,
+                        feedbacksSubmitted: activeSub,
+                        feedbacksInvalid: invalidRec
                     };
                 });
             }
         } catch (err) {
             console.error('Error deleting feedback:', err);
+        }
+    };
+
+    const handleToggleInvalidFeedback = async (id) => {
+        const fb = feedbacks.find(f => f.id === id);
+        if (!fb) return;
+
+        const isCurrentlyInvalid = fb.status === 'Invalido';
+        const newStatus = isCurrentlyInvalid ? 'Activo' : 'Invalido';
+        const confirmMsg = isCurrentlyInvalid
+            ? '¿Deseas restaurar este feedback? Volverá a contar en el semáforo y estadísticas del agente.'
+            : '¿Deseas marcar este feedback como INVÁLIDO?\n\nSe moverá a la carpeta de descarte y NO contará ni como positivo ni como negativo para el agente.';
+
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            const { error: updErr } = await supabase
+                .from('agent_feedbacks')
+                .update({ status: newStatus })
+                .eq('id', id);
+
+            if (updErr) {
+                console.warn('Update status error in agent_feedbacks:', updErr);
+            }
+
+            const updatedFeedbacks = feedbacks.map(f => f.id === id ? { ...f, status: newStatus } : f);
+            setFeedbacks(updatedFeedbacks);
+
+            await supabase.from('app_settings').upsert({
+                key: 'agent_feedbacks',
+                value: updatedFeedbacks,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'key' });
+
+            if (selectedFichaAgent) {
+                setSelectedFichaAgent(prev => {
+                    if (!prev) return null;
+                    const cleanTarget = prev.name.trim().toLowerCase();
+                    const relevantRec = updatedFeedbacks.filter(f => (f.target_name || f.target_agent_name || '').trim().toLowerCase() === cleanTarget);
+                    const activeRec = relevantRec.filter(f => f.status !== 'Invalido');
+                    const invalidRec = relevantRec.filter(f => f.status === 'Invalido');
+                    const relevantSub = updatedFeedbacks.filter(f => (f.author_name || f.author_agent_name || '').trim().toLowerCase() === cleanTarget);
+                    const activeSub = relevantSub.filter(f => f.status !== 'Invalido');
+
+                    const pos = activeRec.filter(f => (f.tipo || f.feedback_type || '').toLowerCase() === 'positivo').length;
+                    const neg = activeRec.filter(f => (f.tipo || f.feedback_type || '').toLowerCase() === 'negativo').length;
+                    const mix = activeRec.filter(f => (f.tipo || f.feedback_type || '').toLowerCase() === 'mixto').length;
+
+                    return {
+                        ...prev,
+                        receivedTotal: activeRec.length,
+                        positivesReceived: pos,
+                        negativesReceived: neg,
+                        mixedReceived: mix,
+                        netScore: pos - neg,
+                        status: activeRec.length === 0 ? 'neutral' : pos > neg ? 'positive' : neg > pos ? 'negative' : 'neutral',
+                        submittedTotal: activeSub.length,
+                        feedbacksReceived: activeRec,
+                        feedbacksSubmitted: activeSub,
+                        feedbacksInvalid: invalidRec
+                    };
+                });
+            }
+        } catch (err) {
+            console.error('Error toggling invalid status:', err);
+            alert('Error al modificar estado del feedback: ' + err.message);
+        }
+    };
+
+    const handleDeleteFicha = async (agentName) => {
+        if (!agentName) return;
+        const confirmDelete = window.confirm(
+            `¿Estás seguro de que deseas eliminar por completo la ficha de "${agentName}"?\n\nEsta acción eliminará todos los feedbacks asociados a este agente y reiniciará su expediente en Comandancia.`
+        );
+        if (!confirmDelete) return;
+
+        try {
+            const cleanName = agentName.trim();
+            const cleanNameLower = cleanName.toLowerCase();
+
+            // 1. Delete from agent_feedbacks table where target_name matches
+            await supabase
+                .from('agent_feedbacks')
+                .delete()
+                .ilike('target_name', cleanName);
+
+            // 2. Filter local feedbacks
+            const updatedFeedbacks = feedbacks.filter(f => {
+                const t = (f.target_name || f.target_agent_name || '').trim().toLowerCase();
+                return t !== cleanNameLower;
+            });
+            setFeedbacks(updatedFeedbacks);
+
+            // 3. Filter existingFichas
+            const updatedFichas = existingFichas.filter(f => {
+                const n = (f.agent_name || f.name || '').trim().toLowerCase();
+                return n !== cleanNameLower;
+            });
+            setExistingFichas(updatedFichas);
+
+            // 4. Update app_settings fallback
+            await supabase.from('app_settings').upsert({
+                key: 'agent_feedbacks',
+                value: updatedFeedbacks,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'key' });
+
+            if (selectedFichaAgent && selectedFichaAgent.name.trim().toLowerCase() === cleanNameLower) {
+                setSelectedFichaAgent(null);
+            }
+        } catch (err) {
+            console.error('Error deleting ficha:', err);
+            alert('Error al eliminar la ficha: ' + err.message);
         }
     };
 
@@ -155,6 +276,7 @@ export default function Comandancia() {
     };
 
     // Aggregate all agents into generic Fichas Evaluativas
+    // REGLA: Los feedbacks con status === 'Invalido' NO cuentan ni como positivos ni como negativos
     const agentFeedbackAudit = useMemo(() => {
         const map = {};
 
@@ -176,7 +298,8 @@ export default function Comandancia() {
                     negativesSubmitted: 0,
                     mixedSubmitted: 0,
                     feedbacksReceived: [],
-                    feedbacksSubmitted: []
+                    feedbacksSubmitted: [],
+                    feedbacksInvalid: []
                 };
             }
             return key;
@@ -194,22 +317,29 @@ export default function Comandancia() {
             const rawAuthor = fb.author_name || fb.author_agent_name || '';
             const authorKey = ensureAgent(rawAuthor);
 
+            const isInvalid = fb.status === 'Invalido';
             const fbType = (fb.tipo || fb.feedback_type || 'Positivo').toLowerCase();
 
             if (targetKey && map[targetKey]) {
-                map[targetKey].receivedTotal += 1;
-                map[targetKey].feedbacksReceived.push(fb);
-                if (fbType === 'positivo') map[targetKey].positivesReceived += 1;
-                else if (fbType === 'negativo') map[targetKey].negativesReceived += 1;
-                else if (fbType === 'mixto') map[targetKey].mixedReceived += 1;
+                if (isInvalid) {
+                    map[targetKey].feedbacksInvalid.push(fb);
+                } else {
+                    map[targetKey].receivedTotal += 1;
+                    map[targetKey].feedbacksReceived.push(fb);
+                    if (fbType === 'positivo') map[targetKey].positivesReceived += 1;
+                    else if (fbType === 'negativo') map[targetKey].negativesReceived += 1;
+                    else if (fbType === 'mixto') map[targetKey].mixedReceived += 1;
+                }
             }
 
             if (authorKey && map[authorKey] && authorKey !== 'anónimo' && authorKey !== 'anonimo') {
-                map[authorKey].submittedTotal += 1;
-                map[authorKey].feedbacksSubmitted.push(fb);
-                if (fbType === 'positivo') map[authorKey].positivesSubmitted += 1;
-                else if (fbType === 'negativo') map[authorKey].negativesSubmitted += 1;
-                else if (fbType === 'mixto') map[authorKey].mixedSubmitted += 1;
+                if (!isInvalid) {
+                    map[authorKey].submittedTotal += 1;
+                    map[authorKey].feedbacksSubmitted.push(fb);
+                    if (fbType === 'positivo') map[authorKey].positivesSubmitted += 1;
+                    else if (fbType === 'negativo') map[authorKey].negativesSubmitted += 1;
+                    else if (fbType === 'mixto') map[authorKey].mixedSubmitted += 1;
+                }
             }
         });
 
@@ -254,8 +384,10 @@ export default function Comandancia() {
             .sort((a, b) => (b.receivedTotal - a.receivedTotal) || (b.netScore - a.netScore));
     }, [agentFeedbackAudit, feedbackTypeFilter, feedbackSearch]);
 
+    // Feedbacks activos para la vista Cronología
     const filteredFeedbacks = useMemo(() => {
         return feedbacks.filter(f => {
+            if (f.status === 'Invalido') return false;
             const fType = (f.tipo || f.feedback_type || '').toLowerCase();
             const matchesType = feedbackTypeFilter === 'all' || fType === feedbackTypeFilter.toLowerCase();
             const matchesSearch = !feedbackSearch.trim() ||
@@ -267,18 +399,42 @@ export default function Comandancia() {
         });
     }, [feedbacks, feedbackTypeFilter, feedbackSearch]);
 
+    // Feedbacks inválidos para la carpeta separada
+    const filteredInvalidFeedbacks = useMemo(() => {
+        return feedbacks.filter(f => {
+            if (f.status !== 'Invalido') return false;
+            if (!feedbackSearch.trim()) return true;
+            const term = feedbackSearch.toLowerCase();
+            return (f.author_name && f.author_name.toLowerCase().includes(term)) ||
+                (f.target_name && f.target_name.toLowerCase().includes(term)) ||
+                (f.motivo && f.motivo.toLowerCase().includes(term)) ||
+                (f.reason && f.reason.toLowerCase().includes(term));
+        });
+    }, [feedbacks, feedbackSearch]);
+
+    // KPIs: Solo cuentan los feedbacks válidos
     const feedbackKPIs = useMemo(() => {
         let positives = 0;
         let negatives = 0;
         let mixed = 0;
+        let activeTotal = 0;
+        let invalidCount = 0;
+
         feedbacks.forEach(f => {
+            if (f.status === 'Invalido') {
+                invalidCount++;
+                return;
+            }
+            activeTotal++;
             const t = (f.tipo || f.feedback_type || '').toLowerCase();
             if (t === 'positivo') positives++;
             else if (t === 'negativo') negatives++;
             else if (t === 'mixto') mixed++;
         });
+
         return {
-            total: feedbacks.length,
+            total: activeTotal,
+            invalidCount,
             positives,
             negatives,
             mixed,
@@ -602,6 +758,35 @@ export default function Comandancia() {
                             {feedbackKPIs.netBalance >= 0 ? 'Balance positivo' : 'Balance deficitario'}
                         </div>
                     </div>
+
+                    {/* Invalid / Descartados Folder KPI Card */}
+                    <div
+                        onClick={() => setFeedbackSubView('invalid')}
+                        style={{
+                            background: feedbackSubView === 'invalid' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(15, 23, 42, 0.55)',
+                            border: feedbackSubView === 'invalid' ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: '14px',
+                            padding: '1rem 1.1rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                        }}
+                        title="Click para ver la carpeta de feedbacks descartados/inválidos"
+                    >
+                        <div style={{ fontSize: '0.72rem', color: '#fca5a5', fontWeight: 800, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            📁 Descartados / Inválidos
+                        </div>
+                        <div style={{
+                            fontSize: '1.75rem',
+                            fontWeight: 900,
+                            color: feedbackKPIs.invalidCount > 0 ? '#f87171' : '#94a3b8',
+                            marginTop: '0.25rem'
+                        }}>
+                            {feedbackKPIs.invalidCount}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.15rem' }}>
+                            No computan en estadísticas ↗
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -624,8 +809,8 @@ export default function Comandancia() {
                     borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                     paddingBottom: '1.25rem'
                 }}>
-                    {/* Subview tabs: Auditoría por Agente vs Cronología */}
-                    <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(15, 23, 42, 0.6)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    {/* Subview tabs: Auditoría por Agente vs Cronología vs Carpeta Inválidos */}
+                    <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(15, 23, 42, 0.6)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', flexWrap: 'wrap' }}>
                         <button
                             type="button"
                             onClick={() => setFeedbackSubView('audit')}
@@ -665,7 +850,28 @@ export default function Comandancia() {
                             }}
                         >
                             <span>📜</span>
-                            <span>Cronología de Informes ({filteredFeedbacks.length})</span>
+                            <span>Cronología Activa ({filteredFeedbacks.length})</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setFeedbackSubView('invalid')}
+                            style={{
+                                background: feedbackSubView === 'invalid' ? 'rgba(239, 68, 68, 0.25)' : 'transparent',
+                                border: feedbackSubView === 'invalid' ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid transparent',
+                                color: feedbackSubView === 'invalid' ? '#fca5a5' : '#94a3b8',
+                                borderRadius: '8px',
+                                padding: '0.45rem 1rem',
+                                fontSize: '0.82rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                        >
+                            <span>📁</span>
+                            <span>Carpeta de Inválidos ({filteredInvalidFeedbacks.length})</span>
                         </button>
                     </div>
 
@@ -673,7 +879,7 @@ export default function Comandancia() {
                     <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', flex: 1, maxWidth: '520px', justifyContent: 'flex-end' }}>
                         <input
                             type="text"
-                            placeholder={feedbackSubView === 'audit' ? 'Filtrar por nombre de agente...' : 'Buscar por agente, emisor o motivo...'}
+                            placeholder={feedbackSubView === 'audit' ? 'Filtrar por nombre de agente...' : feedbackSubView === 'invalid' ? 'Buscar en feedbacks descartados...' : 'Buscar por agente, emisor o motivo...'}
                             value={feedbackSearch}
                             onChange={(e) => setFeedbackSearch(e.target.value)}
                             className="form-input"
@@ -689,25 +895,27 @@ export default function Comandancia() {
                             }}
                         />
 
-                        <select
-                            value={feedbackTypeFilter}
-                            onChange={(e) => setFeedbackTypeFilter(e.target.value)}
-                            className="form-input custom-select"
-                            style={{
-                                width: 'auto',
-                                background: 'rgba(15, 23, 42, 0.65)',
-                                border: '1px solid rgba(255, 255, 255, 0.15)',
-                                borderRadius: '10px',
-                                padding: '0.45rem 0.85rem',
-                                color: '#ffffff',
-                                fontSize: '0.82rem'
-                            }}
-                        >
-                            <option value="all">Todos los tipos</option>
-                            <option value="Positivo">🌟 Solo Positivos</option>
-                            <option value="Negativo">⚠️ Solo Negativos</option>
-                            <option value="Mixto">⚖️ Solo Mixtos</option>
-                        </select>
+                        {feedbackSubView !== 'invalid' && (
+                            <select
+                                value={feedbackTypeFilter}
+                                onChange={(e) => setFeedbackTypeFilter(e.target.value)}
+                                className="form-input custom-select"
+                                style={{
+                                    width: 'auto',
+                                    background: 'rgba(15, 23, 42, 0.65)',
+                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                    borderRadius: '10px',
+                                    padding: '0.45rem 0.85rem',
+                                    color: '#ffffff',
+                                    fontSize: '0.82rem'
+                                }}
+                            >
+                                <option value="all">Todos los tipos</option>
+                                <option value="Positivo">🌟 Solo Positivos</option>
+                                <option value="Negativo">⚠️ Solo Negativos</option>
+                                <option value="Mixto">⚖️ Solo Mixtos</option>
+                            </select>
+                        )}
                     </div>
                 </div>
 
@@ -785,7 +993,7 @@ export default function Comandancia() {
                                                 <div style={{ fontWeight: 800, color: '#f8fafc', fontSize: '1rem' }}>
                                                     {entry.name}
                                                 </div>
-                                                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                                     <span style={{
                                                         padding: '1px 6px',
                                                         borderRadius: '4px',
@@ -799,6 +1007,11 @@ export default function Comandancia() {
                                                     <span style={{ color: isGreen ? '#4ade80' : isRed ? '#f87171' : '#cbd5e1' }}>
                                                         Balance: {entry.netScore > 0 ? `+${entry.netScore}` : entry.netScore}
                                                     </span>
+                                                    {entry.feedbacksInvalid && entry.feedbacksInvalid.length > 0 && (
+                                                        <span style={{ color: '#f87171', fontSize: '0.7rem', background: 'rgba(239, 68, 68, 0.12)', padding: '1px 6px', borderRadius: '4px' }}>
+                                                            📁 {entry.feedbacksInvalid.length} descartados
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -823,7 +1036,7 @@ export default function Comandancia() {
                                                     border: `1px solid ${isGreen ? 'rgba(16, 185, 129, 0.4)' : isRed ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.12)'}`
                                                 }}>
                                                     <span>{isGreen ? '🟢' : isRed ? '🔴' : '⚪'}</span>
-                                                    <span>{entry.receivedTotal} Total ({entry.positivesReceived} pos / {entry.negativesReceived} neg)</span>
+                                                    <span>{entry.receivedTotal} Válidos ({entry.positivesReceived} pos / {entry.negativesReceived} neg)</span>
                                                 </div>
                                             </div>
 
@@ -842,31 +1055,55 @@ export default function Comandancia() {
                                                 </div>
                                             </div>
 
-                                            {/* Open Generic Ficha Modal (NEVER redirects to personal!) */}
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedFichaAgent(entry);
-                                                    setModalFichaTab('received');
-                                                }}
-                                                style={{
-                                                    background: 'rgba(16, 185, 129, 0.18)',
-                                                    border: '1px solid rgba(16, 185, 129, 0.4)',
-                                                    color: '#6ee7b7',
-                                                    borderRadius: '10px',
-                                                    padding: '0.55rem 1.1rem',
-                                                    fontSize: '0.82rem',
-                                                    fontWeight: 800,
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '6px',
-                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-                                                }}
-                                            >
-                                                <span>📋</span>
-                                                <span>Ver Ficha Evaluativa</span>
-                                            </button>
+                                            {/* Action Buttons: Ver Ficha & Borrar Ficha */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedFichaAgent(entry);
+                                                        setModalFichaTab('received');
+                                                    }}
+                                                    style={{
+                                                        background: 'rgba(16, 185, 129, 0.18)',
+                                                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                                                        color: '#6ee7b7',
+                                                        borderRadius: '10px',
+                                                        padding: '0.55rem 1.1rem',
+                                                        fontSize: '0.82rem',
+                                                        fontWeight: 800,
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                                                    }}
+                                                >
+                                                    <span>📋</span>
+                                                    <span>Ver Ficha</span>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteFicha(entry.name)}
+                                                    title="Eliminar por completo la ficha y todos sus feedbacks"
+                                                    style={{
+                                                        background: 'rgba(239, 68, 68, 0.12)',
+                                                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                                                        color: '#f87171',
+                                                        borderRadius: '10px',
+                                                        padding: '0.55rem 0.85rem',
+                                                        fontSize: '0.82rem',
+                                                        fontWeight: 700,
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '5px'
+                                                    }}
+                                                >
+                                                    <span>🗑️</span>
+                                                    <span>Borrar Ficha</span>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -875,7 +1112,7 @@ export default function Comandancia() {
                     </div>
                 )}
 
-                {/* SUBVIEW 2: REGISTRO CRONOLÓGICO */}
+                {/* SUBVIEW 2: REGISTRO CRONOLÓGICO ACTIVO */}
                 {feedbackSubView === 'timeline' && (
                     <div>
                         {filteredFeedbacks.length === 0 ? (
@@ -888,7 +1125,7 @@ export default function Comandancia() {
                                 color: '#94a3b8'
                             }}>
                                 <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
-                                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc' }}>No hay feedbacks registrados con esos criterios</div>
+                                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc' }}>No hay feedbacks activos registrados con esos criterios</div>
                                 <div style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>Intenta limpiar los filtros o rellenar un nuevo informe de feedback.</div>
                             </div>
                         ) : (
@@ -938,21 +1175,51 @@ export default function Comandancia() {
                                                     </span>
                                                 </div>
 
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDeleteFeedback(fb.id)}
-                                                    style={{
-                                                        background: 'rgba(239, 68, 68, 0.12)',
-                                                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                                                        color: '#f87171',
-                                                        fontSize: '0.72rem',
-                                                        padding: '3px 9px',
-                                                        borderRadius: '6px',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    Eliminar
-                                                </button>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggleInvalidFeedback(fb.id)}
+                                                        title="Mover a la carpeta de descartados/inválidos (no cuenta en estadísticas)"
+                                                        style={{
+                                                            background: 'rgba(234, 179, 8, 0.12)',
+                                                            border: '1px solid rgba(234, 179, 8, 0.35)',
+                                                            color: '#facc15',
+                                                            fontSize: '0.72rem',
+                                                            padding: '4px 10px',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: 700,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}
+                                                    >
+                                                        <span>📁</span>
+                                                        <span>Marcar Inválido</span>
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteFeedback(fb.id)}
+                                                        title="Eliminar este feedback definitivamente"
+                                                        style={{
+                                                            background: 'rgba(239, 68, 68, 0.12)',
+                                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                            color: '#f87171',
+                                                            fontSize: '0.72rem',
+                                                            padding: '4px 10px',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: 700,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}
+                                                    >
+                                                        <span>🗑️</span>
+                                                        <span>Eliminar</span>
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.85rem', flexWrap: 'wrap', fontSize: '0.88rem' }}>
@@ -981,6 +1248,181 @@ export default function Comandancia() {
                                                 minWidth: 0,
                                                 maxWidth: '100%',
                                                 boxSizing: 'border-box'
+                                            }}>
+                                                {reasonText}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* SUBVIEW 3: CARPETA DE FEEDBACKS INVÁLIDOS / DESCARTADOS */}
+                {feedbackSubView === 'invalid' && (
+                    <div>
+                        <div style={{
+                            background: 'rgba(239, 68, 68, 0.08)',
+                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                            borderRadius: '14px',
+                            padding: '1rem 1.25rem',
+                            marginBottom: '1.25rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '10px'
+                        }}>
+                            <div>
+                                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                                    <span>📁</span>
+                                    <span>Carpeta de Feedbacks Inválidos y Descartados</span>
+                                </div>
+                                <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+                                    Estos informes están apartados: <strong>NO computan como positivos ni negativos</strong> en los semáforos ni en los expedientes de los agentes.
+                                </div>
+                            </div>
+
+                            <span style={{
+                                fontSize: '0.75rem',
+                                padding: '3px 9px',
+                                borderRadius: '6px',
+                                background: 'rgba(239, 68, 68, 0.2)',
+                                color: '#fca5a5',
+                                fontWeight: 800
+                            }}>
+                                {filteredInvalidFeedbacks.length} descartados
+                            </span>
+                        </div>
+
+                        {filteredInvalidFeedbacks.length === 0 ? (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '3rem 2rem',
+                                background: 'rgba(15, 23, 42, 0.4)',
+                                borderRadius: '16px',
+                                border: '1px dashed rgba(255, 255, 255, 0.15)',
+                                color: '#94a3b8'
+                            }}>
+                                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✨</div>
+                                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc' }}>No hay feedbacks marcados como inválidos</div>
+                                <div style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                                    Cuando marques un feedback como inválido desde la cronología o la ficha de un agente, se archivará aquí automáticamente.
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {filteredInvalidFeedbacks.map(fb => {
+                                    const targetName = fb.target_name || fb.target_agent_name || 'Agente';
+                                    const authorName = fb.author_name || fb.author_agent_name || 'Anónimo';
+                                    const dateStr = fb.fecha || (fb.created_at ? new Date(fb.created_at).toLocaleDateString() : '');
+                                    const reasonText = fb.motivo || fb.reason || '';
+
+                                    return (
+                                        <div
+                                            key={fb.id}
+                                            style={{
+                                                background: 'rgba(30, 41, 59, 0.4)',
+                                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                borderRadius: '16px',
+                                                padding: '1.25rem 1.5rem',
+                                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
+                                                maxWidth: '100%',
+                                                overflow: 'hidden',
+                                                boxSizing: 'border-box',
+                                                opacity: 0.9
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <span style={{
+                                                        fontSize: '0.72rem',
+                                                        fontWeight: 800,
+                                                        color: '#fca5a5',
+                                                        background: 'rgba(239, 68, 68, 0.18)',
+                                                        padding: '3px 10px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                        textTransform: 'uppercase'
+                                                    }}>
+                                                        🚫 Inválido / Neutralizado ({fb.tipo || 'Feedback'})
+                                                    </span>
+                                                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                                                        Fecha: {dateStr}
+                                                    </span>
+                                                </div>
+
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleToggleInvalidFeedback(fb.id)}
+                                                        title="Restaurar feedback para que vuelva a contar normalmente"
+                                                        style={{
+                                                            background: 'rgba(16, 185, 129, 0.15)',
+                                                            border: '1px solid rgba(16, 185, 129, 0.35)',
+                                                            color: '#6ee7b7',
+                                                            fontSize: '0.72rem',
+                                                            padding: '4px 10px',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: 700,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}
+                                                    >
+                                                        <span>↩️</span>
+                                                        <span>Restaurar Feedback</span>
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteFeedback(fb.id)}
+                                                        title="Eliminar este feedback definitivamente"
+                                                        style={{
+                                                            background: 'rgba(239, 68, 68, 0.15)',
+                                                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                                                            color: '#f87171',
+                                                            fontSize: '0.72rem',
+                                                            padding: '4px 10px',
+                                                            borderRadius: '6px',
+                                                            cursor: 'pointer',
+                                                            fontWeight: 700,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}
+                                                    >
+                                                        <span>🗑️</span>
+                                                        <span>Eliminar</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.85rem', flexWrap: 'wrap', fontSize: '0.88rem' }}>
+                                                <div>
+                                                    <span style={{ color: '#94a3b8' }}>Agente Afectado: </span>
+                                                    <strong style={{ color: '#f8fafc' }}>{targetName}</strong>
+                                                </div>
+                                                <div>
+                                                    <span style={{ color: '#94a3b8' }}>Emitido por: </span>
+                                                    <strong style={{ color: '#cbd5e1' }}>{authorName}</strong>
+                                                </div>
+                                            </div>
+
+                                            <div style={{
+                                                background: 'rgba(0, 0, 0, 0.25)',
+                                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                                borderRadius: '10px',
+                                                padding: '0.9rem',
+                                                color: '#cbd5e1',
+                                                fontSize: '0.86rem',
+                                                lineHeight: 1.55,
+                                                whiteSpace: 'pre-wrap',
+                                                wordBreak: 'break-all',
+                                                overflowWrap: 'anywhere',
+                                                fontStyle: 'italic'
                                             }}>
                                                 {reasonText}
                                             </div>
@@ -1144,8 +1586,8 @@ export default function Comandancia() {
                             </div>
                         </div>
 
-                        {/* Modal Tabs: Feedbacks Recibidos vs Feedbacks Emitidos */}
-                        <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.45rem', flexShrink: 0 }}>
+                        {/* Modal Tabs: Feedbacks Recibidos vs Feedbacks Emitidos vs Descartados */}
+                        <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.45rem', flexShrink: 0, flexWrap: 'wrap' }}>
                             <button
                                 type="button"
                                 onClick={() => setModalFichaTab('received')}
@@ -1179,6 +1621,23 @@ export default function Comandancia() {
                             >
                                 Informes Emitidos ({selectedFichaAgent.feedbacksSubmitted.length})
                             </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setModalFichaTab('invalid')}
+                                style={{
+                                    background: modalFichaTab === 'invalid' ? 'rgba(234, 179, 8, 0.2)' : 'transparent',
+                                    border: modalFichaTab === 'invalid' ? '1px solid rgba(234, 179, 8, 0.4)' : '1px solid transparent',
+                                    color: modalFichaTab === 'invalid' ? '#fde047' : '#94a3b8',
+                                    borderRadius: '8px',
+                                    padding: '0.35rem 0.85rem',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                📁 Descartados / Inválidos ({(selectedFichaAgent.feedbacksInvalid || []).length})
+                            </button>
                         </div>
 
                         {/* Feedbacks Scrollable List (Flexible 100% Height, Clamped to 4 lines, Click to Expand) */}
@@ -1202,7 +1661,7 @@ export default function Comandancia() {
                             {modalFichaTab === 'received' ? (
                                 selectedFichaAgent.feedbacksReceived.length === 0 ? (
                                     <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontStyle: 'italic', fontSize: '0.88rem' }}>
-                                        No hay informes de feedback recibidos para este agente.
+                                        No hay informes de feedback válidos recibidos para este agente.
                                     </div>
                                 ) : (
                                     selectedFichaAgent.feedbacksReceived.map(fb => {
@@ -1261,6 +1720,46 @@ export default function Comandancia() {
                                                         <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
                                                             {dateStr}
                                                         </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleToggleInvalidFeedback(fb.id);
+                                                            }}
+                                                            style={{
+                                                                background: 'rgba(234, 179, 8, 0.15)',
+                                                                border: '1px solid rgba(234, 179, 8, 0.35)',
+                                                                color: '#facc15',
+                                                                borderRadius: '6px',
+                                                                padding: '2px 7px',
+                                                                fontSize: '0.7rem',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer'
+                                                            }}
+                                                            title="Marcar como inválido / descartar (no contará en semáforo ni puntuación)"
+                                                        >
+                                                            📁 Invalidar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteFeedback(fb.id);
+                                                            }}
+                                                            style={{
+                                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                                border: '1px solid rgba(239, 68, 68, 0.35)',
+                                                                color: '#f87171',
+                                                                borderRadius: '6px',
+                                                                padding: '2px 7px',
+                                                                fontSize: '0.7rem',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer'
+                                                            }}
+                                                            title="Eliminar este feedback permanentemente"
+                                                        >
+                                                            🗑️ Borrar
+                                                        </button>
                                                         <span style={{ fontSize: '0.68rem', color: isExpanded ? '#34d399' : '#64748b' }}>
                                                             {isExpanded ? '▲ Contraer' : '▼ Expandir'}
                                                         </span>
@@ -1290,7 +1789,7 @@ export default function Comandancia() {
                                         );
                                     })
                                 )
-                            ) : (
+                            ) : modalFichaTab === 'submitted' ? (
                                 selectedFichaAgent.feedbacksSubmitted.length === 0 ? (
                                     <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontStyle: 'italic', fontSize: '0.88rem' }}>
                                         Este oficial no ha emitido ningún feedback a otros compañeros.
@@ -1349,6 +1848,187 @@ export default function Comandancia() {
                                                         <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
                                                             {dateStr}
                                                         </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleToggleInvalidFeedback(fb.id);
+                                                            }}
+                                                            style={{
+                                                                background: 'rgba(234, 179, 8, 0.15)',
+                                                                border: '1px solid rgba(234, 179, 8, 0.35)',
+                                                                color: '#facc15',
+                                                                borderRadius: '6px',
+                                                                padding: '2px 7px',
+                                                                fontSize: '0.7rem',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer'
+                                                            }}
+                                                            title="Marcar como inválido / descartar (no contará en semáforo ni puntuación)"
+                                                        >
+                                                            📁 Invalidar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteFeedback(fb.id);
+                                                            }}
+                                                            style={{
+                                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                                border: '1px solid rgba(239, 68, 68, 0.35)',
+                                                                color: '#f87171',
+                                                                borderRadius: '6px',
+                                                                padding: '2px 7px',
+                                                                fontSize: '0.7rem',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer'
+                                                            }}
+                                                            title="Eliminar este feedback permanentemente"
+                                                        >
+                                                            🗑️ Borrar
+                                                        </button>
+                                                        <span style={{ fontSize: '0.68rem', color: isExpanded ? '#34d399' : '#64748b' }}>
+                                                            {isExpanded ? '▲ Contraer' : '▼ Expandir'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '0.84rem',
+                                                    color: '#cbd5e1',
+                                                    lineHeight: 1.45,
+                                                    whiteSpace: 'pre-wrap',
+                                                    wordBreak: 'break-word',
+                                                    overflowWrap: 'anywhere',
+                                                    width: '100%',
+                                                    minWidth: 0,
+                                                    maxWidth: '100%',
+                                                    boxSizing: 'border-box',
+                                                    ...(isExpanded ? {} : {
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 4,
+                                                        WebkitBoxOrient: 'vertical',
+                                                        overflow: 'hidden'
+                                                    })
+                                                }}>
+                                                    {reason}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )
+                            ) : (
+                                (selectedFichaAgent.feedbacksInvalid || []).length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontStyle: 'italic', fontSize: '0.88rem' }}>
+                                        No hay feedbacks descartados ni inválidos para este agente.
+                                    </div>
+                                ) : (
+                                    (selectedFichaAgent.feedbacksInvalid || []).map(fb => {
+                                        const fbType = (fb.tipo || fb.feedback_type || 'Positivo').toLowerCase();
+                                        const isP = fbType === 'positivo';
+                                        const isN = fbType === 'negativo';
+                                        const badgeBg = isP ? 'rgba(34, 197, 94, 0.15)' : isN ? 'rgba(239, 68, 68, 0.15)' : 'rgba(234, 179, 8, 0.15)';
+                                        const badgeColor = isP ? '#4ade80' : isN ? '#f87171' : '#facc15';
+                                        const authorName = fb.author_name || fb.author_agent_name || 'Anónimo';
+                                        const dateStr = fb.fecha || (fb.created_at ? new Date(fb.created_at).toLocaleDateString() : '');
+                                        const reason = fb.motivo || fb.reason || '';
+                                        const isExpanded = Boolean(expandedFeedbacks[fb.id]);
+
+                                        return (
+                                            <div
+                                                key={fb.id}
+                                                onClick={() => toggleFeedbackExpand(fb.id)}
+                                                style={{
+                                                    background: 'rgba(234, 179, 8, 0.04)',
+                                                    border: '1px dashed rgba(234, 179, 8, 0.35)',
+                                                    borderRadius: '10px',
+                                                    padding: '0.7rem 0.95rem',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '6px',
+                                                    width: '100%',
+                                                    minWidth: 0,
+                                                    maxWidth: '100%',
+                                                    boxSizing: 'border-box',
+                                                    flexShrink: 0,
+                                                    cursor: 'pointer',
+                                                    opacity: 0.9,
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                title={isExpanded ? 'Click para contraer' : 'Click para expandir'}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', width: '100%', minWidth: 0 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{
+                                                            fontSize: '0.68rem',
+                                                            fontWeight: 800,
+                                                            padding: '2px 8px',
+                                                            borderRadius: '6px',
+                                                            background: 'rgba(234, 179, 8, 0.2)',
+                                                            color: '#facc15',
+                                                            border: '1px solid rgba(234, 179, 8, 0.4)'
+                                                        }}>
+                                                            📁 INVÁLIDO / DESCARTADO
+                                                        </span>
+                                                        <span style={{
+                                                            fontSize: '0.68rem',
+                                                            fontWeight: 800,
+                                                            padding: '2px 8px',
+                                                            borderRadius: '6px',
+                                                            background: badgeBg,
+                                                            color: badgeColor,
+                                                            textTransform: 'uppercase'
+                                                        }}>
+                                                            {isP ? 'Positivo' : isN ? 'Negativo' : 'Mixto'}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f1f5f9' }}>
+                                                            Por: {authorName}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                                            {dateStr}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleToggleInvalidFeedback(fb.id);
+                                                            }}
+                                                            style={{
+                                                                background: 'rgba(52, 211, 153, 0.15)',
+                                                                border: '1px solid rgba(52, 211, 153, 0.35)',
+                                                                color: '#34d399',
+                                                                borderRadius: '6px',
+                                                                padding: '2px 8px',
+                                                                fontSize: '0.7rem',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer'
+                                                            }}
+                                                            title="Restaurar este feedback como válido para que cuente en el semáforo y estadísticas"
+                                                        >
+                                                            ↩️ Restaurar Válido
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteFeedback(fb.id);
+                                                            }}
+                                                            style={{
+                                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                                border: '1px solid rgba(239, 68, 68, 0.35)',
+                                                                color: '#f87171',
+                                                                borderRadius: '6px',
+                                                                padding: '2px 8px',
+                                                                fontSize: '0.7rem',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer'
+                                                            }}
+                                                            title="Eliminar este feedback definitivamente"
+                                                        >
+                                                            🗑️ Borrar
+                                                        </button>
                                                         <span style={{ fontSize: '0.68rem', color: isExpanded ? '#34d399' : '#64748b' }}>
                                                             {isExpanded ? '▲ Contraer' : '▼ Expandir'}
                                                         </span>
@@ -1383,24 +2063,43 @@ export default function Comandancia() {
 
                         {/* Modal Footer (Compact) */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.65rem', flexWrap: 'wrap', gap: '10px', flexShrink: 0 }}>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    window.open(`/feedback?target=${encodeURIComponent(selectedFichaAgent.name)}`, '_blank');
-                                }}
-                                style={{
-                                    background: 'rgba(16, 185, 129, 0.15)',
-                                    border: '1px solid rgba(16, 185, 129, 0.35)',
-                                    color: '#6ee7b7',
-                                    borderRadius: '8px',
-                                    padding: '0.45rem 1rem',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 800,
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                ✍️ Rellenar Nuevo Feedback para {selectedFichaAgent.name} ↗
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        window.open(`/feedback?target=${encodeURIComponent(selectedFichaAgent.name)}`, '_blank');
+                                    }}
+                                    style={{
+                                        background: 'rgba(16, 185, 129, 0.15)',
+                                        border: '1px solid rgba(16, 185, 129, 0.35)',
+                                        color: '#6ee7b7',
+                                        borderRadius: '8px',
+                                        padding: '0.45rem 1rem',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 800,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    ✍️ Rellenar Nuevo Feedback para {selectedFichaAgent.name} ↗
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleDeleteFicha(selectedFichaAgent.name)}
+                                    style={{
+                                        background: 'rgba(239, 68, 68, 0.12)',
+                                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                                        color: '#f87171',
+                                        borderRadius: '8px',
+                                        padding: '0.45rem 0.9rem',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 800,
+                                        cursor: 'pointer'
+                                    }}
+                                    title="Eliminar la ficha completa de este agente y todos sus registros"
+                                >
+                                    🗑️ Borrar Ficha Completa
+                                </button>
+                            </div>
 
                             <button
                                 type="button"

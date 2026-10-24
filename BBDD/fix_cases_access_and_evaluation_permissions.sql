@@ -66,6 +66,8 @@ DECLARE
     target_rank TEXT;
     v_level INT;
     t_level INT;
+    v_clean TEXT;
+    t_clean TEXT;
 BEGIN
     IF viewer_id IS NULL OR target_id IS NULL THEN
         RETURN FALSE;
@@ -92,7 +94,17 @@ BEGIN
     v_level := public.get_rank_level(viewer_rank);
     t_level := public.get_rank_level(target_rank);
 
-    -- El evaluador debe tener un rango estrictamente superior al evaluado
+    v_clean := lower(trim(viewer_rank));
+    t_clean := lower(trim(target_rank));
+
+    -- Regla específica: Detective II NO le puede poner feedback a Detective I ("no a otros Detectives II ni a Detectives I")
+    IF (v_clean LIKE '%detective%ii%' OR v_clean LIKE '%detective%2%') AND v_clean NOT LIKE '%iii%' THEN
+        IF (t_clean LIKE '%detective%i%' OR t_clean LIKE '%detective%1%' OR t_clean = 'detective') AND t_clean NOT LIKE '%ii%' AND t_clean NOT LIKE '%iii%' THEN
+            RETURN FALSE;
+        END IF;
+    END IF;
+
+    -- El evaluador debe tener un rango estrictamente superior al evaluado en la escala de mando
     RETURN v_level > t_level;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
