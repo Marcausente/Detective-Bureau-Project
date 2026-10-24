@@ -909,7 +909,10 @@ export default function Comandancia() {
                                                 border: `1px solid ${pillBorder}`,
                                                 borderRadius: '16px',
                                                 padding: '1.25rem 1.5rem',
-                                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)'
+                                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+                                                maxWidth: '100%',
+                                                overflow: 'hidden',
+                                                boxSizing: 'border-box'
                                             }}
                                         >
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
@@ -966,7 +969,13 @@ export default function Comandancia() {
                                                 color: '#e2e8f0',
                                                 fontSize: '0.88rem',
                                                 lineHeight: 1.6,
-                                                whiteSpace: 'pre-wrap'
+                                                whiteSpace: 'pre-wrap',
+                                                wordBreak: 'break-all',
+                                                overflowWrap: 'anywhere',
+                                                width: '100%',
+                                                minWidth: 0,
+                                                maxWidth: '100%',
+                                                boxSizing: 'border-box'
                                             }}>
                                                 {reasonText}
                                             </div>
@@ -1000,6 +1009,8 @@ export default function Comandancia() {
                         width: '100%',
                         maxHeight: '90vh',
                         overflowY: 'auto',
+                        overflowX: 'hidden',
+                        boxSizing: 'border-box',
                         background: 'rgba(15, 23, 42, 0.96)',
                         border: '1px solid rgba(16, 185, 129, 0.4)',
                         borderRadius: '24px',
@@ -1169,7 +1180,7 @@ export default function Comandancia() {
                         </div>
 
                         {/* Feedbacks List inside Modal */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '350px', overflowY: 'auto', overflowX: 'hidden', width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
                             {modalFichaTab === 'received' ? (
                                 selectedFichaAgent.feedbacksReceived.length === 0 ? (
                                     <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontStyle: 'italic', fontSize: '0.88rem' }}>
@@ -1197,10 +1208,15 @@ export default function Comandancia() {
                                                     padding: '0.85rem 1rem',
                                                     display: 'flex',
                                                     flexDirection: 'column',
-                                                    gap: '6px'
+                                                    gap: '6px',
+                                                    width: '100%',
+                                                    minWidth: 0,
+                                                    maxWidth: '100%',
+                                                    boxSizing: 'border-box',
+                                                    overflow: 'hidden'
                                                 }}
                                             >
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', width: '100%', minWidth: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                         <span style={{
                                                             fontSize: '0.72rem',
@@ -1222,7 +1238,18 @@ export default function Comandancia() {
                                                         {dateStr}
                                                     </span>
                                                 </div>
-                                                <div style={{ fontSize: '0.88rem', color: '#e2e8f0', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                                                <div style={{
+                                                    fontSize: '0.88rem',
+                                                    color: '#e2e8f0',
+                                                    lineHeight: 1.5,
+                                                    whiteSpace: 'pre-wrap',
+                                                    wordBreak: 'break-all',
+                                                    overflowWrap: 'anywhere',
+                                                    width: '100%',
+                                                    minWidth: 0,
+                                                    maxWidth: '100%',
+                                                    boxSizing: 'border-box'
+                                                }}>
                                                     {reason}
                                                 </div>
                                             </div>
@@ -1255,10 +1282,15 @@ export default function Comandancia() {
                                                     padding: '0.85rem 1rem',
                                                     display: 'flex',
                                                     flexDirection: 'column',
-                                                    gap: '6px'
+                                                    gap: '6px',
+                                                    width: '100%',
+                                                    minWidth: 0,
+                                                    maxWidth: '100%',
+                                                    boxSizing: 'border-box',
+                                                    overflow: 'hidden'
                                                 }}
                                             >
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', width: '100%', minWidth: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                         <span style={{
                                                             fontSize: '0.72rem',
@@ -1278,7 +1310,18 @@ export default function Comandancia() {
                                                         {dateStr}
                                                     </span>
                                                 </div>
-                                                <div style={{ fontSize: '0.88rem', color: '#e2e8f0', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                                                <div style={{
+                                                    fontSize: '0.88rem',
+                                                    color: '#e2e8f0',
+                                                    lineHeight: 1.5,
+                                                    whiteSpace: 'pre-wrap',
+                                                    wordBreak: 'break-all',
+                                                    overflowWrap: 'anywhere',
+                                                    width: '100%',
+                                                    minWidth: 0,
+                                                    maxWidth: '100%',
+                                                    boxSizing: 'border-box'
+                                                }}>
                                                     {reason}
                                                 </div>
                                             </div>
