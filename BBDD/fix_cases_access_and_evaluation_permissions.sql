@@ -59,7 +59,6 @@ END $$;
 
 
 -- 2. VERIFICACIÓN DE ACCESO A EVALUACIONES (CHECK_EVALUATION_ACCESS)
-DROP FUNCTION IF EXISTS public.check_evaluation_access(UUID, UUID);
 CREATE OR REPLACE FUNCTION public.check_evaluation_access(viewer_id UUID, target_id UUID) RETURNS BOOLEAN AS $$
 DECLARE
     viewer_rank TEXT;
