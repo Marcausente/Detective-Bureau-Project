@@ -199,10 +199,18 @@ function Denuncias() {
     const fetchOpenCases = async () => {
         try {
             const { data, error } = await supabase.rpc('get_cases', { p_status_filter: 'Open' });
-            if (error) throw error;
-            setOpenCases(data || []);
+            if (!error && data) {
+                setOpenCases(data);
+                return;
+            }
+            const { data: directData } = await supabase
+                .from('cases')
+                .select('id, case_number, title, status')
+                .ilike('status', 'Open')
+                .order('case_number', { ascending: false });
+            setOpenCases(directData || []);
         } catch (err) {
-            console.error('Error fetching cases:', err);
+            console.warn('Fallback fetching open cases in Denuncias:', err);
         }
     };
 

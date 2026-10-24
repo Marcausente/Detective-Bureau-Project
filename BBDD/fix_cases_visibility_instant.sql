@@ -4,7 +4,9 @@
 -- ==============================================================================
 
 -- 1. ACTUALIZAR GET_CASES
+DROP FUNCTION IF EXISTS public.get_cases();
 DROP FUNCTION IF EXISTS public.get_cases(text);
+DROP FUNCTION IF EXISTS public.get_cases(character varying);
 
 CREATE OR REPLACE FUNCTION public.get_cases(p_status_filter TEXT DEFAULT NULL)
 RETURNS TABLE (
@@ -91,6 +93,7 @@ GRANT EXECUTE ON FUNCTION public.get_cases(TEXT) TO authenticated, service_role,
 
 -- 2. ACTUALIZAR GET_CASE_DETAILS (Con permisos de Ayudante vs Detective/Mando)
 DROP FUNCTION IF EXISTS public.get_case_details(UUID);
+DROP FUNCTION IF EXISTS public.get_case_details(TEXT);
 
 CREATE OR REPLACE FUNCTION public.get_case_details(p_case_id UUID)
 RETURNS JSON AS $$

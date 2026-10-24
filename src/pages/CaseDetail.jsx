@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { uploadImageToStorage, uploadDocumentToStorage, processHtmlImages } from '../utils/imageStorage';
@@ -10,6 +10,8 @@ import 'react-quill/dist/quill.snow.css';
 import { makeQuillModules, quillFormats } from '../utils/quillConfig';
 import { useLanguage } from '../contexts/LanguageContext';
 
+const quillModules = makeQuillModules();
+
 function CaseDetail() {
     const { t, language } = useLanguage();
     const { id } = useParams();
@@ -17,9 +19,6 @@ function CaseDetail() {
     const [caseData, setCaseData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('updates'); // updates, todo, board
-
-    // Quill config
-    const quillModules = useMemo(() => makeQuillModules(), []);
 
     // New Update State
     const [newUpdateContent, setNewUpdateContent] = useState('');
@@ -1095,9 +1094,7 @@ function CaseDetail() {
         ballistics_bullets: linkedBullets = []
     } = caseData;
 
-    const updates = useMemo(() => {
-        return [...rawUpdates].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-    }, [rawUpdates]);
+    const updates = [...rawUpdates].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
     const userRole = (currentUser?.rol || '').toLowerCase().trim();
     const isHighCommand = currentUser && ['coordinador', 'administrador', 'comisionado', 'jefatura'].includes(userRole);
