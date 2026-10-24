@@ -20,7 +20,41 @@ RETURNS TABLE (
 ) AS $$
 DECLARE
   v_uid UUID := auth.uid();
+  v_user_role TEXT;
+  v_user_rank TEXT;
+  v_user_divisions TEXT[];
+  v_can_view_all BOOLEAN := false;
 BEGIN
+  -- Obtener info del usuario actual
+  SELECT 
+    LOWER(TRIM(rol::text)), 
+    LOWER(TRIM(rango::text)), 
+    divisions 
+  INTO 
+    v_user_role, 
+    v_user_rank, 
+    v_user_divisions 
+  FROM public.users 
+  WHERE id = v_uid;
+
+  -- Detective, Comisionado, Jefatura/Coordinador, Administrador o miembros de Detective Bureau ven todos los casos
+  IF v_user_role IN ('administrador', 'coordinador', 'comisionado', 'detective', 'jefatura')
+     OR v_user_role ILIKE '%detective%'
+     OR v_user_role ILIKE '%admin%'
+     OR v_user_role ILIKE '%jefatura%'
+     OR v_user_rank ILIKE '%detective%'
+     OR v_user_rank ILIKE '%sargento%'
+     OR v_user_rank ILIKE '%teniente%'
+     OR v_user_rank ILIKE '%capit%'
+     OR v_user_rank ILIKE '%comisario%'
+     OR v_user_rank ILIKE '%jefe%'
+     OR (v_user_divisions IS NOT NULL AND EXISTS (
+         SELECT 1 FROM unnest(v_user_divisions) d WHERE d ILIKE '%detective bureau%'
+     ))
+  THEN
+     v_can_view_all := true;
+  END IF;
+
   RETURN QUERY
   SELECT
     c.id,
@@ -43,6 +77,11 @@ BEGIN
     COALESCE(c.is_pinned, false) as is_pinned
   FROM public.cases c
   WHERE (p_status_filter IS NULL OR c.status ILIKE p_status_filter)
+  AND (
+    v_can_view_all
+    OR c.created_by = v_uid
+    OR EXISTS (SELECT 1 FROM public.case_assignments ca WHERE ca.case_id = c.id AND ca.user_id = v_uid)
+  )
   ORDER BY COALESCE(c.is_pinned, false) DESC, c.case_number DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -50,13 +89,18 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION public.get_cases(TEXT) TO authenticated, service_role, anon;
 
 
--- 2. ACTUALIZAR GET_CASE_DETAILS (Con esquema real de BBDD y clave 'info')
+-- 2. ACTUALIZAR GET_CASE_DETAILS (Con permisos de Ayudante vs Detective/Mando)
 DROP FUNCTION IF EXISTS public.get_case_details(UUID);
 
 CREATE OR REPLACE FUNCTION public.get_case_details(p_case_id UUID)
 RETURNS JSON AS $$
 DECLARE
+  v_uid UUID := auth.uid();
   v_case RECORD;
+  v_user_role TEXT;
+  v_user_rank TEXT;
+  v_user_divisions TEXT[];
+  v_is_authorized BOOLEAN := false;
   v_assignments JSON;
   v_updates JSON;
   v_interrogations JSON;
@@ -72,6 +116,41 @@ BEGIN
   SELECT * INTO v_case FROM public.cases WHERE id = p_case_id;
   IF NOT FOUND OR v_case.id IS NULL THEN
      RETURN NULL;
+  END IF;
+
+  -- 2. Permisos: Ayudante solo puede ver los casos en los que está asignado o es creador
+  SELECT 
+    LOWER(TRIM(rol::text)), 
+    LOWER(TRIM(rango::text)), 
+    divisions 
+  INTO 
+    v_user_role, 
+    v_user_rank, 
+    v_user_divisions 
+  FROM public.users 
+  WHERE id = v_uid;
+
+  IF v_user_role IN ('administrador', 'coordinador', 'comisionado', 'detective', 'jefatura')
+     OR v_user_role ILIKE '%detective%'
+     OR v_user_role ILIKE '%admin%'
+     OR v_user_role ILIKE '%jefatura%'
+     OR v_user_rank ILIKE '%detective%'
+     OR v_user_rank ILIKE '%sargento%'
+     OR v_user_rank ILIKE '%teniente%'
+     OR v_user_rank ILIKE '%capit%'
+     OR v_user_rank ILIKE '%comisario%'
+     OR v_user_rank ILIKE '%jefe%'
+     OR (v_user_divisions IS NOT NULL AND EXISTS (
+         SELECT 1 FROM unnest(v_user_divisions) d WHERE d ILIKE '%detective bureau%'
+     ))
+     OR v_case.created_by = v_uid
+     OR EXISTS (SELECT 1 FROM public.case_assignments ca WHERE ca.case_id = p_case_id AND ca.user_id = v_uid)
+  THEN
+     v_is_authorized := true;
+  END IF;
+
+  IF NOT v_is_authorized THEN
+     RAISE EXCEPTION 'Access Denied: Como Ayudante solo puedes ver los casos a los que has sido asignado.';
   END IF;
 
   -- 2. Asignaciones

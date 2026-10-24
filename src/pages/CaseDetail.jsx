@@ -692,8 +692,8 @@ function CaseDetail() {
         const rank = (currentUser.rango || '').toLowerCase().trim();
         const divs = Array.isArray(currentUser.divisions) ? currentUser.divisions : [];
         if (divs.some(d => d && d.toLowerCase().includes('detective bureau'))) return true;
-        if (rank.includes('detective') || rank.includes('sargento')) return true;
-        if (['administrador', 'coordinador', 'comisionado', 'detective'].includes(r) || r.includes('detective') || r.includes('admin')) return true;
+        if (rank.includes('detective') || rank.includes('sargento') || rank.includes('teniente') || rank.includes('capit') || rank.includes('comisario') || rank.includes('jefe')) return true;
+        if (['administrador', 'coordinador', 'comisionado', 'detective', 'jefatura'].includes(r) || r.includes('detective') || r.includes('admin') || r.includes('jefatura')) return true;
         return false;
     };
 
@@ -1096,11 +1096,12 @@ function CaseDetail() {
     } = caseData;
 
     const userRole = (currentUser?.rol || '').toLowerCase().trim();
-    const isHighCommand = currentUser && ['coordinador', 'administrador', 'comisionado'].includes(userRole);
+    const isHighCommand = currentUser && ['coordinador', 'administrador', 'comisionado', 'jefatura'].includes(userRole);
     const isCreator = currentUser && info.created_by === currentUser.id;
     const isDbMember = isDetectiveBureauMember();
     const isAyudante = currentUser && userRole === 'ayudante';
     const isRestrictedAyudante = isAyudante && !isDbMember;
+    const isAssigned = Boolean(assignments && assignments.some(a => a.user_id === currentUser?.id));
     const isAssignedEncargado = Boolean(
         currentUser && 
         assignments && 
@@ -1112,6 +1113,14 @@ function CaseDetail() {
         isDbMember ||
         !['ayudante', 'invitado', 'externo'].includes(userRole)
     );
+
+    if (isRestrictedAyudante && !isCreator && !isAssigned) {
+        return (
+            <div className="mac-doc-empty">
+                <span>Acceso denegado: Como Ayudante solo puedes ver los expedientes en los que estás asignado.</span>
+            </div>
+        );
+    }
 
     const isCaseOpen = !info || !info.status || info.status.toLowerCase() === 'open' || info.status.toLowerCase() === 'abierto';
 

@@ -64,6 +64,7 @@ function Cases() {
                     location,
                     occurred_at,
                     created_at,
+                    created_by,
                     is_pinned,
                     case_assignments (
                         user_id,
@@ -81,7 +82,17 @@ function Cases() {
 
             const { data: directData, error: directErr } = await query;
             if (!directErr && directData && directData.length > 0) {
-                const formatted = directData.map(c => ({
+                const isDB = isDetectiveBureauMember();
+                const isAyudanteRestricted = currentUser && (currentUser.rol || '').toLowerCase().trim() === 'ayudante' && !isDB;
+
+                const filteredList = isAyudanteRestricted
+                    ? directData.filter(c => 
+                        c.created_by === currentUser.id ||
+                        (c.case_assignments || []).some(ca => ca.user_id === currentUser.id)
+                    )
+                    : directData;
+
+                const formatted = filteredList.map(c => ({
                     id: c.id,
                     case_number: c.case_number,
                     title: c.title,
@@ -193,8 +204,8 @@ function Cases() {
         const rank = (currentUser.rango || '').toLowerCase().trim();
         const divs = Array.isArray(currentUser.divisions) ? currentUser.divisions : [];
         if (divs.some(d => d && d.toLowerCase().includes('detective bureau'))) return true;
-        if (rank.includes('detective') || rank.includes('sargento')) return true;
-        if (['administrador', 'coordinador', 'comisionado', 'detective'].includes(r) || r.includes('detective') || r.includes('admin')) return true;
+        if (rank.includes('detective') || rank.includes('sargento') || rank.includes('teniente') || rank.includes('capit') || rank.includes('comisario') || rank.includes('jefe')) return true;
+        if (['administrador', 'coordinador', 'comisionado', 'detective', 'jefatura'].includes(r) || r.includes('detective') || r.includes('admin') || r.includes('jefatura')) return true;
         return false;
     };
 
