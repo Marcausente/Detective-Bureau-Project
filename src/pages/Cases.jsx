@@ -45,10 +45,68 @@ function Cases() {
 
     const fetchCases = async () => {
         setLoading(true);
-        const { data, error } = await supabase.rpc('get_cases', { p_status_filter: filter });
-        if (error) console.error('Error fetching cases:', error);
-        else setCases(data || []);
-        setLoading(false);
+        try {
+            const { data, error } = await supabase.rpc('get_cases', { p_status_filter: filter });
+            if (!error && data && data.length > 0) {
+                setCases(data);
+                setLoading(false);
+                return;
+            }
+
+            // Fallback: Query cases table directly if RPC returns empty or throws an error
+            let query = supabase
+                .from('cases')
+                .select(`
+                    id,
+                    case_number,
+                    title,
+                    status,
+                    location,
+                    occurred_at,
+                    created_at,
+                    is_pinned,
+                    case_assignments (
+                        user_id,
+                        users (
+                            profile_image
+                        )
+                    )
+                `)
+                .order('is_pinned', { ascending: false, nullsFirst: false })
+                .order('case_number', { ascending: false });
+
+            if (filter) {
+                query = query.ilike('status', filter);
+            }
+
+            const { data: directData, error: directErr } = await query;
+            if (!directErr && directData && directData.length > 0) {
+                const formatted = directData.map(c => ({
+                    id: c.id,
+                    case_number: c.case_number,
+                    title: c.title,
+                    status: c.status,
+                    location: c.location,
+                    occurred_at: c.occurred_at,
+                    created_at: c.created_at,
+                    is_pinned: Boolean(c.is_pinned),
+                    assigned_avatars: (c.case_assignments || [])
+                        .map(ca => ca.users?.profile_image)
+                        .filter(Boolean)
+                        .slice(0, 3)
+                }));
+                setCases(formatted);
+            } else if (data) {
+                setCases(data);
+            } else {
+                setCases([]);
+            }
+        } catch (err) {
+            console.error('Error fetching cases:', err);
+            setCases([]);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const fetchUsers = async () => {
