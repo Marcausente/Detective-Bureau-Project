@@ -160,7 +160,7 @@ function Personnel() {
                 const { data: fbData, error: fbErr } = await supabase
                     .from('agent_feedbacks')
                     .select('*')
-                    .order('feedback_date', { ascending: false });
+                    .order('created_at', { ascending: false });
 
                 if (!fbErr && fbData) {
                     setFeedbacks(fbData);

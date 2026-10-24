@@ -1101,6 +1101,11 @@ function CaseDetail() {
     const isDbMember = isDetectiveBureauMember();
     const isAyudante = currentUser && userRole === 'ayudante';
     const isRestrictedAyudante = isAyudante && !isDbMember;
+    const isAssignedEncargado = Boolean(
+        currentUser && 
+        assignments && 
+        assignments.some(a => a.user_id === currentUser.id && (a.role === 'Encargado' || a.role === 'Supervisor'))
+    );
     const canEditCase = (isHighCommand || isCreator || isAssignedEncargado || isDbMember) && !isRestrictedAyudante;
     const canChangeCaseStatus = currentUser && (
         isHighCommand ||
