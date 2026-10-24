@@ -50,13 +50,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION public.get_cases(TEXT) TO authenticated, service_role, anon;
 
 
--- 2. ACTUALIZAR GET_CASE_DETAILS
+-- 2. ACTUALIZAR GET_CASE_DETAILS (Con esquema real de BBDD y clave 'info')
 DROP FUNCTION IF EXISTS public.get_case_details(UUID);
 
 CREATE OR REPLACE FUNCTION public.get_case_details(p_case_id UUID)
 RETURNS JSON AS $$
 DECLARE
-  v_uid UUID := auth.uid();
   v_case RECORD;
   v_assignments JSON;
   v_updates JSON;
@@ -71,8 +70,8 @@ DECLARE
 BEGIN
   -- 1. Verificar si existe el caso
   SELECT * INTO v_case FROM public.cases WHERE id = p_case_id;
-  IF v_case IS NULL THEN
-     RAISE EXCEPTION 'Case not found';
+  IF NOT FOUND OR v_case.id IS NULL THEN
+     RETURN NULL;
   END IF;
 
   -- 2. Asignaciones
@@ -91,13 +90,15 @@ BEGIN
   SELECT json_agg(json_build_object(
     'id', cu.id,
     'content', cu.content,
+    'image', cu.image_url,
     'image_url', cu.image_url,
     'images', cu.images,
     'documents', cu.documents,
     'created_at', cu.created_at,
-    'author_name', u.nombre || ' ' || u.apellido,
+    'author_name', COALESCE(u.nombre || ' ' || u.apellido, 'Usuario Eliminado'),
     'author_rank', u.rango,
-    'author_avatar', u.profile_image
+    'author_avatar', u.profile_image,
+    'user_id', cu.author_id
   ) ORDER BY cu.created_at ASC) INTO v_updates
   FROM public.case_updates cu
   LEFT JOIN public.users u ON cu.author_id = u.id
@@ -106,117 +107,124 @@ BEGIN
   -- 4. Interrogatorios vinculados
   SELECT json_agg(json_build_object(
     'id', i.id,
+    'title', i.title,
     'full_name', i.full_name,
     'dni', i.dni,
     'image_url', i.image_url,
     'interrogator_id', i.interrogator_id,
     'crime', i.crime,
-    'created_at', i.created_at
-  )) INTO v_interrogations
+    'created_at', i.created_at,
+    'subjects', i.subjects
+  ) ORDER BY i.created_at DESC) INTO v_interrogations
   FROM public.interrogations i
   WHERE i.case_id = p_case_id;
 
   -- 5. Incidentes vinculados
   SELECT json_agg(json_build_object(
-    'id', inc.id,
-    'incident_number', inc.incident_number,
-    'title', inc.title,
-    'location', inc.location,
-    'incident_date', inc.incident_date,
-    'classification', inc.classification
-  )) INTO v_incidents
-  FROM public.case_incidents ci
-  JOIN public.incidents inc ON ci.incident_id = inc.id
+    'id', i.id,
+    'title', i.title,
+    'occurred_at', i.occurred_at,
+    'location', i.location
+  ) ORDER BY i.occurred_at DESC) INTO v_incidents
+  FROM public.incidents i
+  JOIN public.case_incidents ci ON ci.incident_id = i.id
   WHERE ci.case_id = p_case_id;
 
   -- 6. Salidas vinculadas
   SELECT json_agg(json_build_object(
     'id', o.id,
-    'name', o.name,
-    'date', o.date,
-    'reason', o.reason
-  )) INTO v_outings
-  FROM public.case_outings co
-  JOIN public.outings o ON co.outing_id = o.id
+    'title', o.title,
+    'occurred_at', o.occurred_at
+  ) ORDER BY o.occurred_at DESC) INTO v_outings
+  FROM public.outings o
+  JOIN public.case_outings co ON co.outing_id = o.id
   WHERE co.case_id = p_case_id;
 
   -- 7. Denuncias vinculadas
   SELECT json_agg(json_build_object(
-    'id', c.id,
-    'folio_number', c.folio_number,
-    'affair', c.affair,
-    'date', c.date,
-    'status', c.status
-  )) INTO v_complaints
-  FROM public.case_complaints cc
-  JOIN public.complaints c ON cc.complaint_id = c.id
-  WHERE cc.case_id = p_case_id;
+    'id', d.id,
+    'titulo', d.titulo,
+    'created_at', d.created_at,
+    'status', d.status
+  ) ORDER BY d.created_at DESC) INTO v_complaints
+  FROM public.denuncias d
+  WHERE d.case_id = p_case_id;
 
   -- 8. Bandas vinculadas
   SELECT json_agg(json_build_object(
     'id', g.id,
     'name', g.name,
-    'banner_url', g.banner_url,
     'color', g.color,
-    'status', g.status
-  )) INTO v_gangs
-  FROM public.case_gangs cg
-  JOIN public.gangs g ON cg.gang_id = g.id
+    'zones_image', g.zones_image,
+    'is_archived', g.is_archived
+  ) ORDER BY g.name ASC) INTO v_gangs
+  FROM public.gangs g
+  JOIN public.case_gangs cg ON cg.gang_id = g.id
   WHERE cg.case_id = p_case_id;
 
   -- 9. Coincidencias balísticas vinculadas
   SELECT json_agg(json_build_object(
-    'id', bc.id,
-    'match_name', bc.match_name,
-    'caliber', bc.caliber,
-    'created_at', bc.created_at,
-    'linked_at', cbc.linked_at
-  )) INTO v_ballistics_coincidences
-  FROM public.case_ballistics_coincidences cbc
-  JOIN public.ballistics_coincidences bc ON cbc.coincidence_id = bc.id
-  WHERE cbc.case_id = p_case_id;
+    'id', m.id,
+    'weapon_id', w.id,
+    'serial_number', w.numero_serie,
+    'numero_serie', w.numero_serie,
+    'weapon_model', w.modelo,
+    'modelo', w.modelo,
+    'weapon_owner', w.propietario,
+    'propietario', w.propietario,
+    'weapon_incident', w.incidente_relacionado,
+    'status', m.status,
+    'motivo_rechazo', m.motivo_rechazo,
+    'updated_at', m.updated_at,
+    'bullets_count', (
+        SELECT COUNT(*)
+        FROM public.ballistics_bullets b
+        WHERE LOWER(TRIM(b.numero_serie)) = LOWER(TRIM(w.numero_serie))
+    ),
+    'bullets', (
+        SELECT json_agg(json_build_object(
+            'id', b.id,
+            'incidente', b.incidente_relacionado,
+            'calibre', b.calibre,
+            'modelo_arma', b.modelo_arma,
+            'created_at', b.created_at
+        ))
+        FROM public.ballistics_bullets b
+        WHERE LOWER(TRIM(b.numero_serie)) = LOWER(TRIM(w.numero_serie))
+    )
+  ) ORDER BY m.updated_at DESC) INTO v_ballistics_coincidences
+  FROM public.ballistics_matches m
+  JOIN public.ballistics_weapons w ON m.weapon_id = w.id
+  WHERE m.case_id = p_case_id;
 
   -- 10. Armas balísticas vinculadas
   SELECT json_agg(json_build_object(
-    'id', bw.id,
-    'weapon_name', bw.weapon_name,
-    'serial_number', bw.serial_number,
-    'caliber', bw.caliber,
-    'created_at', bw.created_at,
-    'linked_at', cbw.linked_at
-  )) INTO v_ballistics_weapons
-  FROM public.case_ballistics_weapons cbw
-  JOIN public.ballistics_weapons bw ON cbw.weapon_id = bw.id
-  WHERE cbw.case_id = p_case_id;
+    'id', w.id,
+    'modelo', w.modelo,
+    'numero_serie', w.numero_serie,
+    'propietario', w.propietario,
+    'incidente_relacionado', w.incidente_relacionado,
+    'created_at', w.created_at
+  ) ORDER BY w.created_at DESC) INTO v_ballistics_weapons
+  FROM public.ballistics_weapons w
+  WHERE w.case_id = p_case_id;
 
   -- 11. Balas balísticas vinculadas
   SELECT json_agg(json_build_object(
-    'id', bb.id,
-    'caliber', bb.caliber,
-    'location', bb.location,
-    'date_found', bb.date_found,
-    'created_at', bb.created_at,
-    'linked_at', cbb.linked_at
-  )) INTO v_ballistics_bullets
-  FROM public.case_ballistics_bullets cbb
-  JOIN public.ballistics_bullets bb ON cbb.bullet_id = bb.id
-  WHERE cbb.case_id = p_case_id;
+    'id', b.id,
+    'calibre', b.calibre,
+    'numero_serie', b.numero_serie,
+    'modelo_arma', b.modelo_arma,
+    'incidente_relacionado', b.incidente_relacionado,
+    'created_at', b.created_at
+  ) ORDER BY b.created_at DESC) INTO v_ballistics_bullets
+  FROM public.ballistics_bullets b
+  WHERE b.case_id = p_case_id;
 
-  -- Construir respuesta JSON
+  -- Construir respuesta JSON (incluyendo 'info' y 'case' para compatibilidad total)
   RETURN json_build_object(
-    'case', json_build_object(
-      'id', v_case.id,
-      'case_number', v_case.case_number,
-      'title', v_case.title,
-      'status', v_case.status,
-      'location', v_case.location,
-      'occurred_at', v_case.occurred_at,
-      'description', v_case.description,
-      'created_at', v_case.created_at,
-      'image_url', v_case.image_url,
-      'documents', v_case.documents,
-      'is_pinned', COALESCE(v_case.is_pinned, false)
-    ),
+    'info', row_to_json(v_case),
+    'case', row_to_json(v_case),
     'assignments', COALESCE(v_assignments, '[]'::json),
     'updates', COALESCE(v_updates, '[]'::json),
     'interrogations', COALESCE(v_interrogations, '[]'::json),

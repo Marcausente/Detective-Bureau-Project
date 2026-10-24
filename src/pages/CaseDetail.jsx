@@ -123,15 +123,138 @@ function CaseDetail() {
 
     const loadCaseDetails = async (showLoading = true) => {
         if (showLoading) setLoading(true);
-        const { data, error } = await supabase.rpc('get_case_details', { p_case_id: id });
-        if (error) {
-            console.error('Error loading case:', error);
-        } else {
-            setCaseData(data);
-            const currentIds = data.assignments ? data.assignments.map(a => a.user_id) : [];
-            setSelectedAssignments(currentIds);
+        try {
+            const { data, error } = await supabase.rpc('get_case_details', { p_case_id: id });
+            const caseInfo = data?.info || data?.case || (data?.id ? data : null);
+
+            if (!error && caseInfo) {
+                const normalized = {
+                    ...data,
+                    info: caseInfo,
+                    case: caseInfo,
+                    assignments: data.assignments || [],
+                    updates: data.updates || [],
+                    interrogations: data.interrogations || [],
+                    incidents: data.incidents || [],
+                    outings: data.outings || [],
+                    complaints: data.complaints || [],
+                    gangs: data.gangs || [],
+                    ballistics_coincidences: data.ballistics_coincidences || [],
+                    ballistics_weapons: data.ballistics_weapons || [],
+                    ballistics_bullets: data.ballistics_bullets || []
+                };
+                setCaseData(normalized);
+                const currentIds = (normalized.assignments || []).map(a => a.user_id).filter(Boolean);
+                setSelectedAssignments(currentIds);
+                setLoading(false);
+                return;
+            }
+
+            console.warn('RPC get_case_details failed or returned no data, executing direct table fallback...', error);
+
+            // DIRECT TABLE FALLBACK
+            const { data: directCase, error: caseErr } = await supabase
+                .from('cases')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (caseErr || !directCase) {
+                console.error('Case not found directly:', caseErr);
+                setCaseData(null);
+                setLoading(false);
+                return;
+            }
+
+            // Parallel relation queries
+            const [
+                { data: assignmentsData },
+                { data: updatesData },
+                { data: interrogationsData },
+                { data: caseIncidentsData },
+                { data: caseOutingsData },
+                { data: denunciasData },
+                { data: caseGangsData },
+                { data: ballisticsMatchesData },
+                { data: ballisticsWeaponsData },
+                { data: ballisticsBulletsData }
+            ] = await Promise.all([
+                supabase.from('case_assignments').select('user_id, role, users:user_id(id, nombre, apellido, rango, profile_image)').eq('case_id', id),
+                supabase.from('case_updates').select('*, users:author_id(nombre, apellido, rango, profile_image)').eq('case_id', id).order('created_at', { ascending: true }),
+                supabase.from('interrogations').select('id, title, full_name, dni, image_url, interrogator_id, crime, created_at, subjects').eq('case_id', id).order('created_at', { ascending: false }),
+                supabase.from('case_incidents').select('incident_id, incidents:incident_id(id, title, occurred_at, location)').eq('case_id', id),
+                supabase.from('case_outings').select('outing_id, outings:outing_id(id, title, occurred_at)').eq('case_id', id),
+                supabase.from('denuncias').select('id, titulo, created_at, status').eq('case_id', id).order('created_at', { ascending: false }),
+                supabase.from('case_gangs').select('gang_id, gangs:gang_id(id, name, color, zones_image, is_archived)').eq('case_id', id),
+                supabase.from('ballistics_matches').select('id, weapon_id, status, motivo_rechazo, updated_at, ballistics_weapons:weapon_id(id, numero_serie, modelo, propietario, incidente_relacionado)').eq('case_id', id).order('updated_at', { ascending: false }),
+                supabase.from('ballistics_weapons').select('id, modelo, numero_serie, propietario, incidente_relacionado, created_at').eq('case_id', id).order('created_at', { ascending: false }),
+                supabase.from('ballistics_bullets').select('id, calibre, numero_serie, modelo_arma, incidente_relacionado, created_at').eq('case_id', id).order('created_at', { ascending: false })
+            ]);
+
+            const mappedAssignments = (assignmentsData || []).map(a => ({
+                user_id: a.user_id,
+                full_name: a.users ? `${a.users.nombre || ''} ${a.users.apellido || ''}`.trim() : 'Desconocido',
+                rank: a.users?.rango || 'Agente',
+                avatar: a.users?.profile_image,
+                role: a.role || 'Investigador'
+            }));
+
+            const mappedUpdates = (updatesData || []).map(u => ({
+                id: u.id,
+                content: u.content,
+                image: u.image_url,
+                image_url: u.image_url,
+                images: u.images,
+                documents: u.documents,
+                created_at: u.created_at,
+                author_name: u.users ? `${u.users.nombre || ''} ${u.users.apellido || ''}`.trim() : 'Usuario Eliminado',
+                author_rank: u.users?.rango || '',
+                author_avatar: u.users?.profile_image,
+                user_id: u.author_id
+            }));
+
+            const mappedIncidents = (caseIncidentsData || []).map(ci => ci.incidents).filter(Boolean);
+            const mappedOutings = (caseOutingsData || []).map(co => co.outings).filter(Boolean);
+            const mappedComplaints = (denunciasData || []).filter(Boolean);
+            const mappedGangs = (caseGangsData || []).map(cg => cg.gangs).filter(Boolean);
+            const mappedMatches = (ballisticsMatchesData || []).map(m => ({
+                id: m.id,
+                weapon_id: m.weapon_id,
+                serial_number: m.ballistics_weapons?.numero_serie,
+                numero_serie: m.ballistics_weapons?.numero_serie,
+                weapon_model: m.ballistics_weapons?.modelo,
+                modelo: m.ballistics_weapons?.modelo,
+                weapon_owner: m.ballistics_weapons?.propietario,
+                propietario: m.ballistics_weapons?.propietario,
+                weapon_incident: m.ballistics_weapons?.incidente_relacionado,
+                status: m.status,
+                motivo_rechazo: m.motivo_rechazo,
+                updated_at: m.updated_at
+            }));
+
+            const fallbackNormalized = {
+                info: directCase,
+                case: directCase,
+                assignments: mappedAssignments,
+                updates: mappedUpdates,
+                interrogations: interrogationsData || [],
+                incidents: mappedIncidents,
+                outings: mappedOutings,
+                complaints: mappedComplaints,
+                gangs: mappedGangs,
+                ballistics_coincidences: mappedMatches,
+                ballistics_weapons: ballisticsWeaponsData || [],
+                ballistics_bullets: ballisticsBulletsData || []
+            };
+
+            setCaseData(fallbackNormalized);
+            setSelectedAssignments(mappedAssignments.map(a => a.user_id).filter(Boolean));
+        } catch (err) {
+            console.error('Fatal error loading case details:', err);
+            setCaseData(null);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const openAssignModal = async () => {
@@ -938,14 +1061,14 @@ function CaseDetail() {
         </div>
     );
     
-    if (!caseData) return (
+    if (!caseData || (!caseData.info && !caseData.case)) return (
         <div className="mac-doc-empty">
             <span>No se encontró el expediente solicitado.</span>
         </div>
     );
 
+    const info = caseData.info || caseData.case || {};
     const { 
-        info, 
         assignments = [], 
         updates = [], 
         interrogations = [], 
