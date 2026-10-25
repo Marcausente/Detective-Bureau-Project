@@ -34,11 +34,46 @@ const FEEDBACK_TYPES = [
     }
 ];
 
+const COOKIE_AUTHOR_KEY = 'db_feedback_author_name';
+
+function getFeedbackAuthorCookie() {
+    try {
+        // 1. Try document.cookie
+        const match = document.cookie.match(new RegExp('(^|;\\s*)' + COOKIE_AUTHOR_KEY + '=([^;]*)'));
+        if (match && match[2]) {
+            const decoded = decodeURIComponent(match[2]).trim();
+            if (decoded) return decoded;
+        }
+        // 2. Fallback to localStorage
+        const local = localStorage.getItem(COOKIE_AUTHOR_KEY);
+        if (local && local.trim()) return local.trim();
+    } catch (e) {
+        // ignore errors
+    }
+    return '';
+}
+
+function setFeedbackAuthorCookie(name) {
+    try {
+        const trimmed = (name || '').trim();
+        if (trimmed) {
+            const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+            document.cookie = `${COOKIE_AUTHOR_KEY}=${encodeURIComponent(trimmed)}; expires=${expires}; path=/; SameSite=Lax`;
+            localStorage.setItem(COOKIE_AUTHOR_KEY, trimmed);
+        } else {
+            document.cookie = `${COOKIE_AUTHOR_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
+            localStorage.removeItem(COOKIE_AUTHOR_KEY);
+        }
+    } catch (e) {
+        // ignore errors
+    }
+}
+
 export default function PublicFeedback() {
     const navigate = useNavigate();
     const { isLSSD, branding } = useTheme();
 
-    const [authorName, setAuthorName] = useState('');
+    const [authorName, setAuthorName] = useState(() => getFeedbackAuthorCookie());
     const [targetAgentName, setTargetAgentName] = useState('');
     const [feedbackType, setFeedbackType] = useState('Positivo');
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
@@ -81,16 +116,33 @@ export default function PublicFeedback() {
 
     const loadInitialData = async () => {
         try {
-            // If user is currently signed in, prefill author name
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-                const { data: profile } = await supabase
-                    .from('users')
-                    .select('nombre, apellido, no_placa')
-                    .eq('id', session.user.id)
-                    .single();
-                if (profile) {
-                    setAuthorName(`${profile.nombre || ''} ${profile.apellido || ''}`.trim());
+            // Check if there is a target agent in URL search query (e.g. from Comandancia /feedback?target=...)
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetParam = urlParams.get('target');
+            if (targetParam && targetParam.trim()) {
+                setTargetAgentName(targetParam.trim());
+            }
+
+            // Check if authorName is already saved in cookies
+            const existingCookie = getFeedbackAuthorCookie();
+            if (existingCookie) {
+                setAuthorName(existingCookie);
+            } else {
+                // If user is currently signed in, prefill author name and save to cookie
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.user) {
+                    const { data: profile } = await supabase
+                        .from('users')
+                        .select('nombre, apellido, no_placa')
+                        .eq('id', session.user.id)
+                        .single();
+                    if (profile) {
+                        const fullName = `${profile.nombre || ''} ${profile.apellido || ''}`.trim();
+                        if (fullName) {
+                            setAuthorName(fullName);
+                            setFeedbackAuthorCookie(fullName);
+                        }
+                    }
                 }
             }
 
@@ -249,6 +301,9 @@ export default function PublicFeedback() {
 
         try {
             setSubmitting(true);
+
+            // Persist author name to cookie and localStorage upon submission
+            setFeedbackAuthorCookie(authorName.trim());
 
             const payload = {
                 id: crypto.randomUUID ? crypto.randomUUID() : `fb-${Date.now()}`,
@@ -474,28 +529,83 @@ export default function PublicFeedback() {
                             </div>
                         </div>
 
-                        {/* Step 2: Autor del Feedback */}
+                        {/* Step 2: Autor del Feedback (con persistencia en cookies) */}
                         <div style={{ marginBottom: '1.25rem' }}>
-                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.4rem' }}>
-                                2. Nombre y Apellido del Agente que rellena el Feedback
-                            </label>
-                            <input
-                                required
-                                type="text"
-                                placeholder="Ej. John Doe (o tu placa)"
-                                value={authorName}
-                                onChange={(e) => setAuthorName(e.target.value)}
-                                className="form-input"
-                                style={{
-                                    width: '100%',
-                                    background: 'rgba(15, 23, 42, 0.85)',
-                                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                                    borderRadius: '12px',
-                                    color: '#ffffff',
-                                    padding: '0.7rem 1rem',
-                                    fontSize: '0.9rem'
-                                }}
-                            />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '6px' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                                    2. Nombre y Apellido del Agente que rellena el Feedback
+                                </label>
+                                {authorName && (
+                                    <span
+                                        style={{
+                                            fontSize: '0.72rem',
+                                            color: '#6ee7b7',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            background: 'rgba(16, 185, 129, 0.12)',
+                                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                                            padding: '2px 8px',
+                                            borderRadius: '6px'
+                                        }}
+                                        title="Este nombre se guarda en las cookies de tu navegador para completarse automáticamente en futuros feedbacks"
+                                    >
+                                        <span>🍪</span>
+                                        <span>Recordado en cookies</span>
+                                    </span>
+                                )}
+                            </div>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    required
+                                    type="text"
+                                    placeholder="Ej. John Doe (o tu placa)"
+                                    value={authorName}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setAuthorName(val);
+                                        setFeedbackAuthorCookie(val);
+                                    }}
+                                    className="form-input"
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(15, 23, 42, 0.85)',
+                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        borderRadius: '12px',
+                                        color: '#ffffff',
+                                        padding: '0.7rem 2.2rem 0.7rem 1rem',
+                                        fontSize: '0.9rem',
+                                        boxSizing: 'border-box'
+                                    }}
+                                />
+                                {authorName && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setAuthorName('');
+                                            setFeedbackAuthorCookie('');
+                                        }}
+                                        title="Limpiar nombre guardado"
+                                        style={{
+                                            position: 'absolute',
+                                            right: '10px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: '#94a3b8',
+                                            cursor: 'pointer',
+                                            fontSize: '0.85rem',
+                                            padding: '4px'
+                                        }}
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.35rem' }}>
+                                Tu nombre se guarda automáticamente en tus cookies locales para que aparezca relleno siempre que abras el formulario. Puedes modificarlo o cambiarlo en cualquier momento.
+                            </div>
                         </div>
 
                         {/* Step 3: Agente hacia quien va dirigido (Fichas Evaluativas Autocomplete) */}
