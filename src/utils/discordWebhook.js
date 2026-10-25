@@ -3897,4 +3897,259 @@ export async function sendDivisionPresentationToDiscord(divisionKey, customConfi
     }
 }
 
+// =====================================================================
+// 12. COMANDANCIA FEEDBACKS DISCORD WEBHOOK FUNCTIONS
+// =====================================================================
+const LOCAL_STORAGE_KEY_COMANDANCIA_FEEDBACKS = 'discord_comandancia_feedbacks_webhook_cfg_v1';
+export const DEFAULT_COMANDANCIA_FEEDBACK_BOT_NAME = 'Comandancia • Ficha Evaluativa';
+export const DEFAULT_COMANDANCIA_FEEDBACK_CUSTOM_MSG = '📋 **Nuevo Informe de Feedback Registrado**. Se ha emitido una nueva evaluación de agente en Comandancia.';
+
+export async function getDiscordFeedbackWebhookConfig() {
+    try {
+        const cached = localStorage.getItem(LOCAL_STORAGE_KEY_COMANDANCIA_FEEDBACKS);
+        let config = null;
+        if (cached) {
+            try { config = JSON.parse(cached); } catch (e) { /* ignore */ }
+        }
+
+        const { data: directData } = await supabase
+            .from('app_settings')
+            .select('key, value')
+            .in('key', [
+                'discord_feedback_webhook_url',
+                'discord_feedback_webhook_enabled',
+                'discord_feedback_webhook_role_ping',
+                'discord_feedback_webhook_bot_name',
+                'discord_feedback_webhook_bot_avatar',
+                'discord_feedback_webhook_custom_msg'
+            ]);
+
+        if (directData && directData.length > 0) {
+            const map = {};
+            directData.forEach(r => { map[r.key] = r.value; });
+            const directConfig = {
+                webhookUrl: map['discord_feedback_webhook_url'] || '',
+                enabled: map['discord_feedback_webhook_enabled'] === 'true',
+                rolePing: map['discord_feedback_webhook_role_ping'] || '',
+                botName: map['discord_feedback_webhook_bot_name'] || DEFAULT_COMANDANCIA_FEEDBACK_BOT_NAME,
+                botAvatar: map['discord_feedback_webhook_bot_avatar'] || '',
+                customMsg: map['discord_feedback_webhook_custom_msg'] || DEFAULT_COMANDANCIA_FEEDBACK_CUSTOM_MSG
+            };
+            localStorage.setItem(LOCAL_STORAGE_KEY_COMANDANCIA_FEEDBACKS, JSON.stringify(directConfig));
+            return directConfig;
+        }
+
+        if (config) return config;
+
+        return {
+            webhookUrl: '',
+            enabled: false,
+            rolePing: '',
+            botName: DEFAULT_COMANDANCIA_FEEDBACK_BOT_NAME,
+            botAvatar: '',
+            customMsg: DEFAULT_COMANDANCIA_FEEDBACK_CUSTOM_MSG
+        };
+    } catch (err) {
+        console.error('Error in getDiscordFeedbackWebhookConfig:', err);
+        return {
+            webhookUrl: '',
+            enabled: false,
+            rolePing: '',
+            botName: DEFAULT_COMANDANCIA_FEEDBACK_BOT_NAME,
+            botAvatar: '',
+            customMsg: DEFAULT_COMANDANCIA_FEEDBACK_CUSTOM_MSG
+        };
+    }
+}
+
+export async function saveDiscordFeedbackWebhookConfig(config) {
+    try {
+        const updates = [
+            { key: 'discord_feedback_webhook_url', value: config.webhookUrl || '' },
+            { key: 'discord_feedback_webhook_enabled', value: config.enabled ? 'true' : 'false' },
+            { key: 'discord_feedback_webhook_role_ping', value: config.rolePing || '' },
+            { key: 'discord_feedback_webhook_bot_name', value: config.botName || DEFAULT_COMANDANCIA_FEEDBACK_BOT_NAME },
+            { key: 'discord_feedback_webhook_bot_avatar', value: config.botAvatar || '' },
+            { key: 'discord_feedback_webhook_custom_msg', value: config.customMsg || DEFAULT_COMANDANCIA_FEEDBACK_CUSTOM_MSG }
+        ];
+        const { error: directError } = await supabase.from('app_settings').upsert(updates, { onConflict: 'key' });
+        if (directError) throw directError;
+
+        localStorage.setItem(LOCAL_STORAGE_KEY_COMANDANCIA_FEEDBACKS, JSON.stringify({
+            webhookUrl: config.webhookUrl || '',
+            enabled: !!config.enabled,
+            rolePing: config.rolePing || '',
+            botName: config.botName || DEFAULT_COMANDANCIA_FEEDBACK_BOT_NAME,
+            botAvatar: config.botAvatar || '',
+            customMsg: config.customMsg || DEFAULT_COMANDANCIA_FEEDBACK_CUSTOM_MSG
+        }));
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error in saveDiscordFeedbackWebhookConfig:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+export async function testDiscordFeedbackWebhook(customConfig = null) {
+    const config = customConfig || await getDiscordFeedbackWebhookConfig();
+    const targetUrl = config.webhookUrl ? config.webhookUrl.trim() : '';
+
+    if (!targetUrl || !targetUrl.startsWith('https://')) {
+        throw new Error('La URL del webhook debe ser válida y comenzar con https://');
+    }
+
+    const botName = config.botName?.trim() || DEFAULT_COMANDANCIA_FEEDBACK_BOT_NAME;
+    const botAvatar = config.botAvatar?.trim() || undefined;
+    const formattedPing = formatRoleMention(config.rolePing || '');
+
+    const embed = {
+        title: '📋 PRUEBA DE CONEXIÓN: FEEDBACKS DE COMANDANCIA',
+        description: '✅ **Webhook configurado correctamente.**\nLos nuevos informes de feedback evaluativo de agentes se enviarán automáticamente a este canal.',
+        color: 0x10b981, // Verde esmeralda
+        fields: [
+            { name: '👮 Agente Evaluado de Ejemplo', value: 'Oficial Marcus Wright (#104)', inline: true },
+            { name: '✍️ Evaluador / Emisor', value: 'Sargento Otto Graves', inline: true },
+            { name: '🏷️ Calificación', value: '🌟 Positivo', inline: true },
+            { name: '📝 Motivo de Demostración', value: 'Excelente coordinación y despliegue táctico durante el operativo de patrullaje preventivo.', inline: false }
+        ],
+        footer: {
+            text: 'Comandancia General • Fichas Evaluativas • Notificaciones Automáticas',
+            icon_url: botAvatar || undefined
+        },
+        timestamp: new Date().toISOString()
+    };
+
+    const payload = {
+        username: botName,
+        avatar_url: botAvatar || undefined,
+        content: formattedPing ? `${formattedPing} 🔔 **Prueba de Conexión de Feedbacks**` : undefined,
+        allowed_mentions: { parse: ['roles', 'users', 'everyone'] },
+        embeds: [embed]
+    };
+
+    const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        let errText = '';
+        try {
+            const errJson = await response.json();
+            errText = errJson.message || JSON.stringify(errJson);
+        } catch (e) {
+            errText = `HTTP Error ${response.status} (${response.statusText})`;
+        }
+        throw new Error(`Discord rechazó el webhook: ${errText}`);
+    }
+
+    return { success: true };
+}
+
+export async function sendFeedbackToDiscord(feedbackData) {
+    try {
+        const config = await getDiscordFeedbackWebhookConfig();
+        if (!config.enabled) {
+            return { skipped: true, reason: 'Webhook disabled in config' };
+        }
+
+        const targetUrl = config.webhookUrl ? config.webhookUrl.trim() : '';
+        if (!targetUrl || !targetUrl.startsWith('https://')) {
+            return { skipped: true, reason: 'Invalid or missing webhook URL' };
+        }
+
+        const botName = config.botName?.trim() || DEFAULT_COMANDANCIA_FEEDBACK_BOT_NAME;
+        const botAvatar = config.botAvatar?.trim() || undefined;
+        const formattedPing = formatRoleMention(config.rolePing || '');
+
+        const targetName = feedbackData.target_name || feedbackData.target_agent_name || 'Agente';
+        const authorName = feedbackData.author_name || feedbackData.author_agent_name || 'Anónimo';
+        const tipo = (feedbackData.tipo || feedbackData.feedback_type || 'Positivo').toLowerCase();
+        const motivo = (feedbackData.motivo || feedbackData.reason || '').trim() || 'Sin motivo especificado.';
+        const fecha = feedbackData.fecha || new Date().toISOString().split('T')[0];
+
+        // Color & Badge per type
+        let color = 0x10b981; // Positivo (Verde esmeralda)
+        let typeBadge = '🌟 Positivo (Desempeño Favorable)';
+        if (tipo === 'negativo') {
+            color = 0xef4444; // Negativo (Rojo carmesí)
+            typeBadge = '⚠️ Negativo (Atención Requerida)';
+        } else if (tipo === 'mixto') {
+            color = 0xf59e0b; // Mixto (Ámbar / Amarillo)
+            typeBadge = '⚖️ Mixto / Neutral';
+        }
+
+        const embed = {
+            title: `📋 NUEVO INFORME EVALUATIVO: ${targetName.toUpperCase()}`,
+            description: `${config.customMsg || DEFAULT_COMANDANCIA_FEEDBACK_CUSTOM_MSG}`,
+            color: color,
+            fields: [
+                {
+                    name: '👮 Agente Evaluado',
+                    value: `**${targetName}**`,
+                    inline: true
+                },
+                {
+                    name: '✍️ Emitido Por',
+                    value: `**${authorName}**`,
+                    inline: true
+                },
+                {
+                    name: '🏷️ Tipo de Feedback',
+                    value: `**${typeBadge}**`,
+                    inline: true
+                },
+                {
+                    name: '📅 Fecha del Suceso',
+                    value: `${fecha}`,
+                    inline: true
+                },
+                {
+                    name: '📝 Observaciones y Motivo',
+                    value: motivo.length > 1024 ? motivo.substring(0, 1020) + '...' : motivo,
+                    inline: false
+                }
+            ],
+            footer: {
+                text: 'Comandancia General • Ficha Evaluativa • Detective Bureau',
+                icon_url: botAvatar || undefined
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        const payload = {
+            username: botName,
+            avatar_url: botAvatar || undefined,
+            content: formattedPing ? `${formattedPing} 📋 **Nuevo Feedback Registrado**` : undefined,
+            allowed_mentions: { parse: ['roles', 'users', 'everyone'] },
+            embeds: [embed]
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            let errText = '';
+            try {
+                const errJson = await response.json();
+                errText = errJson.message || JSON.stringify(errJson);
+            } catch (e) {
+                errText = `HTTP Error ${response.status} (${response.statusText})`;
+            }
+            console.error('Failed to send Feedback to Discord webhook:', errText);
+            return { success: false, error: errText };
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error('Error in sendFeedbackToDiscord:', err);
+        return { success: false, error: err.message };
+    }
+}
+
 

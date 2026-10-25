@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
+import { sendFeedbackToDiscord } from '../utils/discordWebhook';
 import '../index.css';
 
 const FEEDBACK_TYPES = [
@@ -405,6 +406,9 @@ export default function PublicFeedback() {
 
             // Refresh fichas in background so newly created agent is immediately available
             loadExistingFichas();
+
+            // Enviar notificación a Discord por Webhook si está configurado
+            sendFeedbackToDiscord(payload).catch(e => console.warn('Error enviando feedback a Discord:', e));
 
             setSubmitted(true);
         } catch (err) {

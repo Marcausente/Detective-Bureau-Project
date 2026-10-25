@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
+import {
+    getDiscordFeedbackWebhookConfig,
+    saveDiscordFeedbackWebhookConfig,
+    testDiscordFeedbackWebhook,
+    DEFAULT_COMANDANCIA_FEEDBACK_BOT_NAME,
+    DEFAULT_COMANDANCIA_FEEDBACK_CUSTOM_MSG,
+    sendIASanctionToDiscord,
+    getIASanctionBanners
+} from '../utils/discordWebhook';
 import '../index.css';
 
 export default function Comandancia() {
@@ -23,6 +32,39 @@ export default function Comandancia() {
     const [feedbackSearch, setFeedbackSearch] = useState('');
     const [feedbackSubView, setFeedbackSubView] = useState('audit'); // 'audit' | 'timeline'
     const [copyNotice, setCopyNotice] = useState(false);
+
+    // Discord Webhook State (Feedbacks)
+    const [showWebhookModal, setShowWebhookModal] = useState(false);
+    const [webhookConfig, setWebhookConfig] = useState({
+        webhookUrl: '',
+        enabled: false,
+        rolePing: '',
+        botName: DEFAULT_COMANDANCIA_FEEDBACK_BOT_NAME,
+        botAvatar: '',
+        customMsg: DEFAULT_COMANDANCIA_FEEDBACK_CUSTOM_MSG
+    });
+    const [savingWebhook, setSavingWebhook] = useState(false);
+    const [testingWebhook, setTestingWebhook] = useState(false);
+    const [webhookNotice, setWebhookNotice] = useState(null);
+    const [webhookError, setWebhookError] = useState(null);
+
+    // Sanctions State (Falta Leve Sargentos -> Apartado de Sanciones)
+    const [showSanctionModal, setShowSanctionModal] = useState(false);
+    const [officersList, setOfficersList] = useState([]);
+    const [sanctionForm, setSanctionForm] = useState({
+        officerName: '',
+        officerBadge: '',
+        officerRank: '',
+        reason: '',
+        sanctionApplied: 'Amonestación verbal / Advertencia formal registrada en expediente',
+        sanctionDate: new Date().toISOString().split('T')[0],
+        evidenceUrl: '',
+        notes: '',
+        sendToDiscord: true
+    });
+    const [submittingSanction, setSubmittingSanction] = useState(false);
+    const [sanctionNotice, setSanctionNotice] = useState(null);
+    const [sanctionError, setSanctionError] = useState(null);
 
     // Generic Ficha Modal State
     const [selectedFichaAgent, setSelectedFichaAgent] = useState(null);
@@ -323,10 +365,208 @@ export default function Comandancia() {
 
             // 4. Load Reactions
             await fetchReactions();
+
+            // 5. Load Discord Feedback Webhook Config
+            try {
+                const wConfig = await getDiscordFeedbackWebhookConfig();
+                if (wConfig) setWebhookConfig(wConfig);
+            } catch (wErr) {
+                console.warn('Error loading feedback webhook config:', wErr);
+            }
+
+            // 6. Load Officers list for Sanction autocompletion
+            try {
+                const { data: usersData } = await supabase
+                    .from('users')
+                    .select('id, nombre, apellido, rango, no_placa, profile_image')
+                    .order('nombre', { ascending: true });
+                if (usersData) {
+                    setOfficersList(usersData);
+                }
+            } catch (uErr) {
+                console.warn('Error loading officers for sanctions:', uErr);
+            }
         } catch (err) {
             console.error('Error loading Comandancia data:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Webhook Handlers
+    const handleSaveWebhook = async (e) => {
+        e.preventDefault();
+        setSavingWebhook(true);
+        setWebhookNotice(null);
+        setWebhookError(null);
+        try {
+            const res = await saveDiscordFeedbackWebhookConfig(webhookConfig);
+            if (res.success) {
+                setWebhookNotice('✅ Configuración del Webhook guardada exitosamente.');
+                setTimeout(() => setWebhookNotice(null), 4000);
+            } else {
+                setWebhookError('Error al guardar: ' + res.error);
+            }
+        } catch (err) {
+            setWebhookError(err.message);
+        } finally {
+            setSavingWebhook(false);
+        }
+    };
+
+    const handleTestWebhook = async () => {
+        setTestingWebhook(true);
+        setWebhookNotice(null);
+        setWebhookError(null);
+        try {
+            await testDiscordFeedbackWebhook(webhookConfig);
+            setWebhookNotice('✅ ¡Mensaje de prueba enviado con éxito a Discord!');
+            setTimeout(() => setWebhookNotice(null), 4500);
+        } catch (err) {
+            setWebhookError('Fallo en la prueba del webhook: ' + err.message);
+        } finally {
+            setTestingWebhook(false);
+        }
+    };
+
+    // Sanctions Handlers (Falta Leve Sargentos -> Sanciones)
+    const openSanctionModal = (agentName = '') => {
+        let matchedBadge = '';
+        let matchedRank = '';
+        let cleanName = (agentName || '').trim();
+
+        if (cleanName && officersList.length > 0) {
+            const found = officersList.find(u => {
+                const full = `${u.nombre || ''} ${u.apellido || ''}`.trim().toLowerCase();
+                return full === cleanName.toLowerCase();
+            });
+            if (found) {
+                matchedBadge = found.no_placa || '';
+                matchedRank = found.rango || '';
+            }
+        }
+
+        setSanctionForm({
+            officerName: cleanName,
+            officerBadge: matchedBadge,
+            officerRank: matchedRank,
+            reason: '',
+            sanctionApplied: 'Amonestación verbal / Advertencia formal registrada en expediente',
+            sanctionDate: new Date().toISOString().split('T')[0],
+            evidenceUrl: '',
+            notes: '',
+            sendToDiscord: true
+        });
+        setSanctionNotice(null);
+        setSanctionError(null);
+        setShowSanctionModal(true);
+    };
+
+    const handleSubmitSanction = async (e) => {
+        e.preventDefault();
+        if (!sanctionForm.officerName.trim()) {
+            setSanctionError('Debes indicar o seleccionar el agente sancionado.');
+            return;
+        }
+        if (!sanctionForm.reason.trim()) {
+            setSanctionError('Debes ingresar el motivo de la falta leve.');
+            return;
+        }
+
+        try {
+            setSubmittingSanction(true);
+            setSanctionNotice(null);
+            setSanctionError(null);
+
+            const authorRank = profile?.rango ? `[${profile.rango}]` : '';
+            const authorFullName = [profile?.nombre, profile?.apellido].filter(Boolean).join(' ');
+            const authorBadge = profile?.no_placa ? `(#${profile.no_placa})` : '';
+            const sanctionerStr = `${authorRank} ${authorFullName} ${authorBadge} (Comandancia)`.trim();
+
+            // 1. Obtener banner oficial de falta leve sargentos si existe
+            let activeBanner = '';
+            try {
+                const banners = await getIASanctionBanners();
+                activeBanner = banners?.leves_sargentos || '';
+            } catch (e) {
+                console.warn('Could not load IA banners:', e);
+            }
+
+            // 2. Guardar en Base de Datos de Sanciones (ia_published_sanctions)
+            let dbSuccess = false;
+            try {
+                const { error: rpcErr } = await supabase.rpc('create_ia_published_sanction', {
+                    p_sanction_type: 'leves_sargentos',
+                    p_officer_name: sanctionForm.officerName.trim(),
+                    p_officer_badge: sanctionForm.officerBadge.trim(),
+                    p_officer_rank: sanctionForm.officerRank.trim(),
+                    p_reason: sanctionForm.reason.trim(),
+                    p_sanction_applied: sanctionForm.sanctionApplied.trim(),
+                    p_sanctioner_name: sanctionerStr,
+                    p_sanction_date: sanctionForm.sanctionDate || new Date().toISOString().split('T')[0],
+                    p_evidence_url: sanctionForm.evidenceUrl.trim(),
+                    p_notes: sanctionForm.notes.trim(),
+                    p_banner_url: activeBanner,
+                    p_discord_sent: sanctionForm.sendToDiscord
+                });
+                if (!rpcErr) dbSuccess = true;
+            } catch (rpcE) {
+                console.warn('RPC create_ia_published_sanction failed, fallbacking:', rpcE);
+            }
+
+            if (!dbSuccess) {
+                // Fallback directo a tabla
+                const { error: tblErr } = await supabase.from('ia_published_sanctions').insert([{
+                    sanction_type: 'leves_sargentos',
+                    officer_name: sanctionForm.officerName.trim(),
+                    officer_badge: sanctionForm.officerBadge.trim(),
+                    officer_rank: sanctionForm.officerRank.trim(),
+                    reason: sanctionForm.reason.trim(),
+                    sanction_applied: sanctionForm.sanctionApplied.trim(),
+                    sanctioner_name: sanctionerStr,
+                    sanction_date: sanctionForm.sanctionDate || new Date().toISOString().split('T')[0],
+                    evidence_url: sanctionForm.evidenceUrl.trim(),
+                    notes: sanctionForm.notes.trim(),
+                    banner_url: activeBanner,
+                    discord_sent: sanctionForm.sendToDiscord
+                }]);
+                if (tblErr) console.warn('Direct table insert fallback warning:', tblErr);
+            }
+
+            // 3. Enviar a Discord si está marcado
+            if (sanctionForm.sendToDiscord) {
+                const resDiscord = await sendIASanctionToDiscord({
+                    sanctionType: 'leves_sargentos',
+                    officerName: sanctionForm.officerName.trim(),
+                    officerBadge: sanctionForm.officerBadge.trim(),
+                    officerRank: sanctionForm.officerRank.trim(),
+                    reason: sanctionForm.reason.trim(),
+                    sanctionApplied: sanctionForm.sanctionApplied.trim(),
+                    sanctionerName: sanctionerStr,
+                    sanctionDate: sanctionForm.sanctionDate,
+                    evidenceUrl: sanctionForm.evidenceUrl.trim(),
+                    notes: sanctionForm.notes.trim(),
+                    customBannerUrl: activeBanner,
+                    author: profile,
+                    forceSend: false
+                });
+
+                if (resDiscord && !resDiscord.success && !resDiscord.skipped) {
+                    setSanctionError('Guardado en la base de datos de sanciones, pero falló el envío a Discord: ' + resDiscord.error);
+                    return;
+                }
+            }
+
+            setSanctionNotice('✅ ¡Falta leve de sargentos registrada con éxito en el apartado de sanciones!');
+            setTimeout(() => {
+                setShowSanctionModal(false);
+                setSanctionNotice(null);
+            }, 2500);
+        } catch (err) {
+            console.error('Error submitting sanction from Comandancia:', err);
+            setSanctionError('Error al procesar la sanción: ' + err.message);
+        } finally {
+            setSubmittingSanction(false);
         }
     };
 
@@ -880,6 +1120,52 @@ export default function Comandancia() {
                     </div>
 
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <button
+                            type="button"
+                            onClick={() => setShowWebhookModal(true)}
+                            style={{
+                                background: 'rgba(99, 102, 241, 0.16)',
+                                border: '1px solid rgba(129, 140, 248, 0.38)',
+                                color: '#c7d2fe',
+                                borderRadius: '10px',
+                                padding: '0.55rem 1rem',
+                                fontSize: '0.85rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '7px',
+                                transition: 'all 0.15s ease'
+                            }}
+                            title="Configurar webhook para que los nuevos feedbacks se envíen a un canal de Discord"
+                        >
+                            <span>🔔</span>
+                            <span>Webhook Discord (Feedbacks)</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => openSanctionModal()}
+                            style={{
+                                background: 'rgba(234, 179, 8, 0.16)',
+                                border: '1px solid rgba(250, 204, 21, 0.42)',
+                                color: '#fef08a',
+                                borderRadius: '10px',
+                                padding: '0.55rem 1rem',
+                                fontSize: '0.85rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '7px',
+                                transition: 'all 0.15s ease'
+                            }}
+                            title="Enviar una falta leve de sargentos directamente al apartado oficial de Sanciones"
+                        >
+                            <span>⚖️</span>
+                            <span>Emitir Falta Leve (Sargentos)</span>
+                        </button>
+
                         <button
                             type="button"
                             onClick={() => window.open('/feedback', '_blank')}
@@ -2357,6 +2643,27 @@ export default function Comandancia() {
                                 </button>
                                 <button
                                     type="button"
+                                    onClick={() => openSanctionModal(selectedFichaAgent.name)}
+                                    style={{
+                                        background: 'rgba(234, 179, 8, 0.16)',
+                                        border: '1px solid rgba(250, 204, 21, 0.42)',
+                                        color: '#fef08a',
+                                        borderRadius: '8px',
+                                        padding: '0.45rem 0.95rem',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 800,
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                    title={`Emitir falta leve de sargentos para ${selectedFichaAgent.name}`}
+                                >
+                                    <span>⚖️</span>
+                                    <span>Sancionar (Falta Leve)</span>
+                                </button>
+                                <button
+                                    type="button"
                                     onClick={() => handleDeleteFicha(selectedFichaAgent.name)}
                                     style={{
                                         background: 'rgba(239, 68, 68, 0.12)',
@@ -2383,6 +2690,764 @@ export default function Comandancia() {
                                 Cerrar Ficha
                             </button>
                         </div>
+                    </div>
+                </div>
+            {/* ================================================================= */}
+            {/* MODAL: CONFIGURACIÓN WEBHOOK DISCORD (FEEDBACKS)                  */}
+            {/* ================================================================= */}
+            {showWebhookModal && (
+                <div
+                    className="modal-overlay"
+                    onClick={() => setShowWebhookModal(false)}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(3, 7, 18, 0.85)',
+                        backdropFilter: 'blur(10px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000,
+                        padding: '1.25rem'
+                    }}
+                >
+                    <div
+                        className="glass-panel"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            background: 'rgba(15, 23, 42, 0.96)',
+                            border: '1px solid rgba(129, 140, 248, 0.35)',
+                            borderRadius: '16px',
+                            padding: '1.75rem',
+                            maxWidth: '650px',
+                            width: '100%',
+                            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(99, 102, 241, 0.15)',
+                            maxHeight: '90vh',
+                            overflowY: 'auto'
+                        }}
+                    >
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    width: '42px',
+                                    height: '42px',
+                                    borderRadius: '10px',
+                                    background: 'rgba(99, 102, 241, 0.2)',
+                                    border: '1px solid rgba(129, 140, 248, 0.4)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '1.3rem'
+                                }}>
+                                    🔔
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: '#a5b4fc', letterSpacing: '0.08em' }}>
+                                        Notificaciones en Tiempo Real
+                                    </div>
+                                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#f8fafc' }}>
+                                        Webhook Discord — Feedbacks
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowWebhookModal(false)}
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.06)',
+                                    border: 'none',
+                                    color: '#94a3b8',
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '1.1rem'
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Description */}
+                        <p style={{ fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.5, marginBottom: '1.25rem' }}>
+                            Configura el webhook del canal de Discord donde se publicará automáticamente cada nuevo feedback (positivo, negativo o mixto) que sea enviado a Comandancia.
+                        </p>
+
+                        {/* Alerts */}
+                        {webhookNotice && (
+                            <div style={{
+                                background: 'rgba(16, 185, 129, 0.15)',
+                                border: '1px solid rgba(16, 185, 129, 0.4)',
+                                color: '#6ee7b7',
+                                padding: '0.75rem 1rem',
+                                borderRadius: '10px',
+                                fontSize: '0.84rem',
+                                fontWeight: 700,
+                                marginBottom: '1.25rem'
+                            }}>
+                                {webhookNotice}
+                            </div>
+                        )}
+
+                        {webhookError && (
+                            <div style={{
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                color: '#fca5a5',
+                                padding: '0.75rem 1rem',
+                                borderRadius: '10px',
+                                fontSize: '0.84rem',
+                                fontWeight: 700,
+                                marginBottom: '1.25rem'
+                            }}>
+                                ⚠️ {webhookError}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSaveWebhook} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                            {/* Enable Switch */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                background: 'rgba(255, 255, 255, 0.03)',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                padding: '0.9rem 1.1rem',
+                                borderRadius: '12px'
+                            }}>
+                                <div>
+                                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#f8fafc' }}>
+                                        Activar Webhook de Discord
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                        Si está desactivado, los feedbacks se registrarán en la base de datos sin notificar a Discord.
+                                    </div>
+                                </div>
+                                <label style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={webhookConfig.enabled}
+                                        onChange={(e) => setWebhookConfig(prev => ({ ...prev, enabled: e.target.checked }))}
+                                        style={{ opacity: 0, width: 0, height: 0 }}
+                                    />
+                                    <span style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        backgroundColor: webhookConfig.enabled ? '#6366f1' : 'rgba(255,255,255,0.2)',
+                                        borderRadius: '34px',
+                                        transition: '0.2s'
+                                    }}>
+                                        <span style={{
+                                            position: 'absolute',
+                                            content: '""',
+                                            height: '20px',
+                                            width: '20px',
+                                            left: webhookConfig.enabled ? '24px' : '3px',
+                                            bottom: '3px',
+                                            backgroundColor: '#ffffff',
+                                            borderRadius: '50%',
+                                            transition: '0.2s'
+                                        }} />
+                                    </span>
+                                </label>
+                            </div>
+
+                            {/* Webhook URL */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                    URL del Webhook de Discord *
+                                </label>
+                                <input
+                                    type="text"
+                                    required={webhookConfig.enabled}
+                                    placeholder="https://discord.com/api/webhooks/..."
+                                    value={webhookConfig.webhookUrl}
+                                    onChange={(e) => setWebhookConfig(prev => ({ ...prev, webhookUrl: e.target.value }))}
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(0, 0, 0, 0.35)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '10px',
+                                        padding: '0.7rem 0.95rem',
+                                        color: '#f8fafc',
+                                        fontSize: '0.85rem',
+                                        boxSizing: 'border-box',
+                                        outline: 'none'
+                                    }}
+                                />
+                            </div>
+
+                            {/* Role Ping */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                    Mención de Rol o Notificación (Opcional)
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Ej: @here, @everyone o ID del Rol (ej: 112233445566)"
+                                    value={webhookConfig.rolePing}
+                                    onChange={(e) => setWebhookConfig(prev => ({ ...prev, rolePing: e.target.value }))}
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(0, 0, 0, 0.35)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '10px',
+                                        padding: '0.7rem 0.95rem',
+                                        color: '#f8fafc',
+                                        fontSize: '0.85rem',
+                                        boxSizing: 'border-box',
+                                        outline: 'none'
+                                    }}
+                                />
+                                <span style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
+                                    Si introduces una ID numérica de rol, se convertirá automáticamente a formato &lt;@&amp;ID&gt;.
+                                </span>
+                            </div>
+
+                            {/* Bot Name and Bot Avatar Row */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                        Nombre del Bot
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Comandancia • Feedbacks LSPD"
+                                        value={webhookConfig.botName}
+                                        onChange={(e) => setWebhookConfig(prev => ({ ...prev, botName: e.target.value }))}
+                                        style={{
+                                            width: '100%',
+                                            background: 'rgba(0, 0, 0, 0.35)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '10px',
+                                            padding: '0.7rem 0.95rem',
+                                            color: '#f8fafc',
+                                            fontSize: '0.85rem',
+                                            boxSizing: 'border-box',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                        URL del Avatar del Bot (Opcional)
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="https://..."
+                                            value={webhookConfig.botAvatar}
+                                            onChange={(e) => setWebhookConfig(prev => ({ ...prev, botAvatar: e.target.value }))}
+                                            style={{
+                                                flex: 1,
+                                                background: 'rgba(0, 0, 0, 0.35)',
+                                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                borderRadius: '10px',
+                                                padding: '0.7rem 0.95rem',
+                                                color: '#f8fafc',
+                                                fontSize: '0.85rem',
+                                                boxSizing: 'border-box',
+                                                outline: 'none'
+                                            }}
+                                        />
+                                        {webhookConfig.botAvatar && (
+                                            <img
+                                                src={webhookConfig.botAvatar}
+                                                alt="Avatar preview"
+                                                style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }}
+                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Custom Message Header */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                    Mensaje / Encabezado personalizado
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="📥 **NUEVO FEEDBACK REGISTRADO EN COMANDANCIA**"
+                                    value={webhookConfig.customMsg}
+                                    onChange={(e) => setWebhookConfig(prev => ({ ...prev, customMsg: e.target.value }))}
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(0, 0, 0, 0.35)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '10px',
+                                        padding: '0.7rem 0.95rem',
+                                        color: '#f8fafc',
+                                        fontSize: '0.85rem',
+                                        boxSizing: 'border-box',
+                                        outline: 'none'
+                                    }}
+                                />
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1rem', flexWrap: 'wrap', gap: '10px' }}>
+                                <button
+                                    type="button"
+                                    onClick={handleTestWebhook}
+                                    disabled={testingWebhook || !webhookConfig.webhookUrl}
+                                    style={{
+                                        background: 'rgba(255, 255, 255, 0.08)',
+                                        border: '1px solid rgba(255, 255, 255, 0.18)',
+                                        color: '#f8fafc',
+                                        padding: '0.65rem 1.2rem',
+                                        borderRadius: '10px',
+                                        fontSize: '0.84rem',
+                                        fontWeight: 800,
+                                        cursor: (testingWebhook || !webhookConfig.webhookUrl) ? 'not-allowed' : 'pointer',
+                                        opacity: (testingWebhook || !webhookConfig.webhookUrl) ? 0.5 : 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    <span>🧪</span>
+                                    <span>{testingWebhook ? 'Enviando prueba...' : 'Probar Webhook'}</span>
+                                </button>
+
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowWebhookModal(false)}
+                                        className="login-button btn-secondary"
+                                        style={{ width: 'auto', padding: '0.65rem 1.25rem', borderRadius: '10px', fontSize: '0.84rem' }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={savingWebhook}
+                                        style={{
+                                            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            padding: '0.65rem 1.4rem',
+                                            borderRadius: '10px',
+                                            fontSize: '0.84rem',
+                                            fontWeight: 800,
+                                            cursor: savingWebhook ? 'wait' : 'pointer',
+                                            boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)'
+                                        }}
+                                    >
+                                        {savingWebhook ? 'Guardando...' : '💾 Guardar Configuración'}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* MODAL: EMITIR FALTA LEVE (SARGENTOS) HACIA SANCIONES              */}
+            {/* ================================================================= */}
+            {showSanctionModal && (
+                <div
+                    className="modal-overlay"
+                    onClick={() => setShowSanctionModal(false)}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(3, 7, 18, 0.88)',
+                        backdropFilter: 'blur(10px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000,
+                        padding: '1.25rem'
+                    }}
+                >
+                    <div
+                        className="glass-panel"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            background: 'rgba(15, 23, 42, 0.98)',
+                            border: '1px solid rgba(250, 204, 21, 0.4)',
+                            borderRadius: '16px',
+                            padding: '1.75rem',
+                            maxWidth: '700px',
+                            width: '100%',
+                            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(234, 179, 8, 0.15)',
+                            maxHeight: '92vh',
+                            overflowY: 'auto'
+                        }}
+                    >
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    width: '42px',
+                                    height: '42px',
+                                    borderRadius: '10px',
+                                    background: 'rgba(234, 179, 8, 0.2)',
+                                    border: '1px solid rgba(250, 204, 21, 0.45)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '1.3rem'
+                                }}>
+                                    ⚖️
+                                </div>
+                                <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                                        <span style={{
+                                            fontSize: '0.68rem',
+                                            fontWeight: 900,
+                                            padding: '2px 8px',
+                                            borderRadius: '6px',
+                                            background: 'rgba(16, 185, 129, 0.2)',
+                                            color: '#6ee7b7',
+                                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                                            letterSpacing: '0.06em'
+                                        }}>
+                                            🟢 SANCIONES — FALTA LEVE (SARGENTOS)
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#f8fafc' }}>
+                                        Emitir Falta Leve desde Comandancia
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowSanctionModal(false)}
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.06)',
+                                    border: 'none',
+                                    color: '#94a3b8',
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '1.1rem'
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Description */}
+                        <div style={{
+                            background: 'rgba(234, 179, 8, 0.07)',
+                            border: '1px solid rgba(250, 204, 21, 0.25)',
+                            borderRadius: '10px',
+                            padding: '0.75rem 1rem',
+                            fontSize: '0.82rem',
+                            color: '#fef08a',
+                            lineHeight: 1.45,
+                            marginBottom: '1.25rem'
+                        }}>
+                            ℹ️ Esta acción registrará la sanción con tipificación <strong>Falta Leve (Sargentos)</strong> directamente en el registro oficial de <strong>Sanciones</strong> (igual que desde Asuntos Internos) y la publicará en el canal oficial de Discord configurado si se mantiene activado.
+                        </div>
+
+                        {/* Alerts */}
+                        {sanctionNotice && (
+                            <div style={{
+                                background: 'rgba(16, 185, 129, 0.15)',
+                                border: '1px solid rgba(16, 185, 129, 0.4)',
+                                color: '#6ee7b7',
+                                padding: '0.75rem 1rem',
+                                borderRadius: '10px',
+                                fontSize: '0.84rem',
+                                fontWeight: 700,
+                                marginBottom: '1.25rem'
+                            }}>
+                                {sanctionNotice}
+                            </div>
+                        )}
+
+                        {sanctionError && (
+                            <div style={{
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                color: '#fca5a5',
+                                padding: '0.75rem 1rem',
+                                borderRadius: '10px',
+                                fontSize: '0.84rem',
+                                fontWeight: 700,
+                                marginBottom: '1.25rem'
+                            }}>
+                                ⚠️ {sanctionError}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSubmitSanction} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                            {/* Datalist for autocomplete */}
+                            <datalist id="officers-list-sanction">
+                                {officersList.map(o => (
+                                    <option
+                                        key={o.id}
+                                        value={`${o.nombre || ''} ${o.apellido || ''}`.trim()}
+                                    >
+                                        #{o.no_placa || 'S/P'} - {o.rango || 'Oficial'}
+                                    </option>
+                                ))}
+                            </datalist>
+
+                            {/* Officer Selector / Search */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                    Oficial Sancionado *
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    list="officers-list-sanction"
+                                    placeholder="Escribe o selecciona el nombre del oficial..."
+                                    value={sanctionForm.officerName}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        const found = officersList.find(u => {
+                                            const full = `${u.nombre || ''} ${u.apellido || ''}`.trim().toLowerCase();
+                                            return full === val.toLowerCase();
+                                        });
+                                        if (found) {
+                                            setSanctionForm(prev => ({
+                                                ...prev,
+                                                officerName: `${found.nombre || ''} ${found.apellido || ''}`.trim(),
+                                                officerBadge: found.no_placa || prev.officerBadge,
+                                                officerRank: found.rango || prev.officerRank
+                                            }));
+                                        } else {
+                                            setSanctionForm(prev => ({ ...prev, officerName: val }));
+                                        }
+                                    }}
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(0, 0, 0, 0.35)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '10px',
+                                        padding: '0.7rem 0.95rem',
+                                        color: '#f8fafc',
+                                        fontSize: '0.85rem',
+                                        boxSizing: 'border-box',
+                                        outline: 'none'
+                                    }}
+                                />
+                            </div>
+
+                            {/* Badge and Rank Row */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                        Placa / Identificación
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Ej: 42"
+                                        value={sanctionForm.officerBadge}
+                                        onChange={(e) => setSanctionForm(prev => ({ ...prev, officerBadge: e.target.value }))}
+                                        style={{
+                                            width: '100%',
+                                            background: 'rgba(0, 0, 0, 0.35)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '10px',
+                                            padding: '0.7rem 0.95rem',
+                                            color: '#f8fafc',
+                                            fontSize: '0.85rem',
+                                            boxSizing: 'border-box',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                        Rango Actual
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Ej: Officer II / Sergeant"
+                                        value={sanctionForm.officerRank}
+                                        onChange={(e) => setSanctionForm(prev => ({ ...prev, officerRank: e.target.value }))}
+                                        style={{
+                                            width: '100%',
+                                            background: 'rgba(0, 0, 0, 0.35)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '10px',
+                                            padding: '0.7rem 0.95rem',
+                                            color: '#f8fafc',
+                                            fontSize: '0.85rem',
+                                            boxSizing: 'border-box',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Motivo de la Sanción */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                    Motivo de la Falta Leve *
+                                </label>
+                                <textarea
+                                    required
+                                    rows={4}
+                                    placeholder="Describe con claridad los hechos que motivan la sanción leve..."
+                                    value={sanctionForm.reason}
+                                    onChange={(e) => setSanctionForm(prev => ({ ...prev, reason: e.target.value }))}
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(0, 0, 0, 0.35)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '10px',
+                                        padding: '0.7rem 0.95rem',
+                                        color: '#f8fafc',
+                                        fontSize: '0.85rem',
+                                        boxSizing: 'border-box',
+                                        outline: 'none',
+                                        resize: 'vertical'
+                                    }}
+                                />
+                            </div>
+
+                            {/* Sanción Aplicada */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                    Sanción Aplicada / Medida Correctiva
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Amonestación verbal / Advertencia formal registrada en expediente"
+                                    value={sanctionForm.sanctionApplied}
+                                    onChange={(e) => setSanctionForm(prev => ({ ...prev, sanctionApplied: e.target.value }))}
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(0, 0, 0, 0.35)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '10px',
+                                        padding: '0.7rem 0.95rem',
+                                        color: '#f8fafc',
+                                        fontSize: '0.85rem',
+                                        boxSizing: 'border-box',
+                                        outline: 'none'
+                                    }}
+                                />
+                            </div>
+
+                            {/* Fecha y Evidencias */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                        Fecha de la Sanción
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={sanctionForm.sanctionDate}
+                                        onChange={(e) => setSanctionForm(prev => ({ ...prev, sanctionDate: e.target.value }))}
+                                        style={{
+                                            width: '100%',
+                                            background: 'rgba(0, 0, 0, 0.35)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '10px',
+                                            padding: '0.7rem 0.95rem',
+                                            color: '#f8fafc',
+                                            fontSize: '0.85rem',
+                                            boxSizing: 'border-box',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                        Evidencias / Enlace (Clip, Grabación, Docs)
+                                    </label>
+                                    <input
+                                        type="url"
+                                        placeholder="https://..."
+                                        value={sanctionForm.evidenceUrl}
+                                        onChange={(e) => setSanctionForm(prev => ({ ...prev, evidenceUrl: e.target.value }))}
+                                        style={{
+                                            width: '100%',
+                                            background: 'rgba(0, 0, 0, 0.35)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '10px',
+                                            padding: '0.7rem 0.95rem',
+                                            color: '#f8fafc',
+                                            fontSize: '0.85rem',
+                                            boxSizing: 'border-box',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Checkbox Send to Discord */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                background: 'rgba(99, 102, 241, 0.12)',
+                                border: '1px solid rgba(129, 140, 248, 0.3)',
+                                padding: '0.85rem 1rem',
+                                borderRadius: '12px',
+                                cursor: 'pointer'
+                            }}
+                            onClick={() => setSanctionForm(prev => ({ ...prev, sendToDiscord: !prev.sendToDiscord }))}
+                            >
+                                <input
+                                    type="checkbox"
+                                    id="sendToDiscordCheck"
+                                    checked={sanctionForm.sendToDiscord}
+                                    onChange={(e) => setSanctionForm(prev => ({ ...prev, sendToDiscord: e.target.checked }))}
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                />
+                                <label htmlFor="sendToDiscordCheck" style={{ cursor: 'pointer', flex: 1 }}>
+                                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span>📢</span>
+                                        <span>Publicar en el canal oficial de Discord de Sanciones</span>
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: '#c7d2fe', marginTop: '2px' }}>
+                                        Enviará el embed oficial con el banner de Falta Leve (Sargentos) al canal configurado en el sistema de sanciones.
+                                    </div>
+                                </label>
+                            </div>
+
+                            {/* Sancionador Info Footer */}
+                            <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                                Emitido por: <strong>{[profile?.rango && `[${profile.rango}]`, profile?.nombre, profile?.apellido, profile?.no_placa && `(#${profile.no_placa})`].filter(Boolean).join(' ')} (Comandancia)</strong>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.8rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSanctionModal(false)}
+                                    className="login-button btn-secondary"
+                                    style={{ width: 'auto', padding: '0.65rem 1.25rem', borderRadius: '10px', fontSize: '0.84rem' }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={submittingSanction}
+                                    style={{
+                                        background: 'linear-gradient(135deg, #eab308, #ca8a04)',
+                                        color: '#0f172a',
+                                        border: 'none',
+                                        padding: '0.65rem 1.4rem',
+                                        borderRadius: '10px',
+                                        fontSize: '0.84rem',
+                                        fontWeight: 900,
+                                        cursor: submittingSanction ? 'wait' : 'pointer',
+                                        boxShadow: '0 4px 15px rgba(234, 179, 8, 0.35)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    <span>⚖️</span>
+                                    <span>{submittingSanction ? 'Registrando Sanción...' : 'Registrar y Emitir Sanción'}</span>
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
