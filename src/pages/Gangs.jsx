@@ -144,6 +144,7 @@ function Gangs() {
         const init = async () => {
             setLoading(true);
             try {
+                let uProfile = null;
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user && isMounted) {
                     const { data: profile } = await supabase
@@ -152,12 +153,13 @@ function Gangs() {
                         .eq('id', user.id)
                         .single();
                     if (profile && isMounted) {
+                        uProfile = profile;
                         setCurrentUser(profile);
                         setUserRole(profile.rol);
                     }
                 }
                 await Promise.all([
-                    loadGangs(),
+                    loadGangs(uProfile),
                     fetchUsers()
                 ]);
             } catch (err) {
@@ -206,7 +208,7 @@ function Gangs() {
     // Si NO tiene permiso para ver todo, actúa en modo Ayudante (solo nombre, mapa de zonas y enviar matrix)
     const isAyudante = !canViewAllGangData(currentUser);
 
-    const loadGangs = async () => {
+    const loadGangs = async (userProfile = currentUser) => {
         setLoading(true);
         try {
             const { data, error } = await supabase.rpc('get_gangs_data');
@@ -219,6 +221,11 @@ function Gangs() {
             } else if (data === null) {
                 setAccessDenied(true);
             } else {
+                // Si es ayudante, cargamos directamente las bandas sin procesar inteligencia pesada ni incidentes
+                if (!canViewAllGangData(userProfile || currentUser)) {
+                    setGangs(data || []);
+                    return;
+                }
                 // Fetch linked incidents to calculate day-of-week activity per gang
                 let incidentsMap = {};
                 try {
