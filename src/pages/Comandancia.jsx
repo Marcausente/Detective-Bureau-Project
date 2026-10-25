@@ -98,9 +98,10 @@ export default function Comandancia() {
         const role = (profile.rol || '').trim();
         const roleLower = role.toLowerCase();
         const isAdmin = ['administrador', 'superadmin'].includes(roleLower);
+        const isComisionado = roleLower === 'comisionado';
         const hasDivision = (profile.divisions && profile.divisions.includes('Comandancia')) ||
             (profile.subdivisions && profile.subdivisions.includes('Comandancia'));
-        return isAdmin || hasDivision;
+        return isAdmin || isComisionado || hasDivision;
     }, [profile]);
 
     const handleDeleteFeedback = async (id) => {

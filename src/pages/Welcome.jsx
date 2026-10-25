@@ -45,15 +45,17 @@ function Welcome() {
                     const sub = Array.isArray(data.subdivisions) ? data.subdivisions : [];
                     const userRoleLower = (data.rol || '').trim().toLowerCase();
                     const isAdmin = userRoleLower === 'administrador' || userRoleLower === 'superadmin';
+                    const isComisionado = userRoleLower === 'comisionado';
+                    const isCoordinador = ['coordinador', 'coordinacion', 'coordinación'].includes(userRoleLower);
 
-                    const isDB = isAdmin || div.includes('Detective Bureau');
-                    const hasComandancia = isAdmin || div.includes('Comandancia') || sub.includes('Comandancia');
-                    const hasIA = isAdmin || div.includes('Internal Affairs') || sub.includes('Internal Affairs');
-                    const hasSEB = isAdmin || div.includes('SEB') || sub.includes('SEB');
-                    const hasASD = isAdmin || div.includes('ASD') || sub.includes('ASD');
-                    const hasDOJ = isAdmin || div.includes('DOJ') || sub.includes('DOJ');
-                    const hasTraining = isAdmin || isDB || div.includes('DTP') || sub.includes('DTP');
-                    const hasCoord = ['coordinador', 'coordinacion', 'coordinación', 'comisionado', 'administrador', 'superadmin'].includes(userRoleLower);
+                    const isDB = isAdmin || isComisionado || isCoordinador || div.includes('Detective Bureau');
+                    const hasComandancia = isAdmin || isComisionado || div.includes('Comandancia') || sub.includes('Comandancia');
+                    const hasIA = isAdmin || isComisionado || div.includes('Internal Affairs') || sub.includes('Internal Affairs');
+                    const hasSEB = isAdmin || isComisionado || div.includes('SEB') || sub.includes('SEB');
+                    const hasASD = isAdmin || isComisionado || div.includes('ASD') || sub.includes('ASD');
+                    const hasDOJ = isAdmin || isComisionado || div.includes('DOJ') || sub.includes('DOJ');
+                    const hasTraining = isAdmin || isComisionado || isCoordinador || isDB || div.includes('DTP') || sub.includes('DTP');
+                    const hasCoord = isAdmin || isComisionado || isCoordinador;
 
                     if (isDB) {
                         targetRoute = '/dashboard';

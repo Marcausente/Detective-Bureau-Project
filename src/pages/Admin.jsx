@@ -552,101 +552,478 @@ function Admin() {
                                 </div>
                             </div>
 
-                            {/* BLOQUE 5: PANTALLA DE LOGIN / ACCESO */}
-                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
-                                    <span style={{ fontSize: '1.2rem' }}>🔐</span>
-                                    <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1rem', fontWeight: 700 }}>
-                                        Pantalla de Login / Acceso
-                                    </h4>
+                            {/* BLOQUE 5: PANTALLA DE LOGIN / ACCESO COMPLETA */}
+                            <div style={{ 
+                                gridColumn: '1 / -1', 
+                                background: 'rgba(15, 23, 42, 0.75)', 
+                                border: '1px solid rgba(255, 255, 255, 0.12)', 
+                                borderRadius: '16px', 
+                                padding: '1.75rem',
+                                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.37)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '0.85rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '1.5rem' }}>🔐</span>
+                                        <div>
+                                            <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1.15rem', fontWeight: 800, letterSpacing: '0.5px' }}>
+                                                Personalización de la Pantalla de Login / Acceso
+                                            </h4>
+                                            <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                                                Configura los logotipos, fondos, títulos, subtítulos, placeholders y textos de la pantalla inicial
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '6px' }}>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setBrandingForm({
+                                                ...brandingForm,
+                                                login_dept: isLSSD ? "Los Santos Sheriff's Department" : "Los Santos Police Department",
+                                                login_bureau: isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau",
+                                                login_header_logo_left: isLSSD ? "/logowebp/LSSDlogo.webp" : "/logowebp/dblogo.webp",
+                                                login_header_logo_right: isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp",
+                                                login_card_logo: isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp",
+                                                login_logo: isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp",
+                                                login_window_title: "Terminal de Autenticación Rápida",
+                                                login_card_title: "Autenticación de Agente",
+                                                login_card_subtitle: "Identifícate con tus credenciales asignadas",
+                                                login_email_placeholder: isLSSD ? "agente@lssd.com" : "agente@lspd.com",
+                                                login_button_text: "Acceder al Sistema",
+                                                login_bg: isLSSD ? "/logowebp/fondolssd.webp" : "/logowebp/indeximage.webp",
+                                                login_footer: `${isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau Division"} • Sistema Encifrado y Monitoreado`
+                                            })}
+                                            className="mac-btn mac-btn-secondary" 
+                                            style={{ fontSize: '0.75rem', padding: '0.35rem 0.7rem' }}
+                                        >
+                                            Restablecer Valores Predeterminados
+                                        </button>
+                                    </div>
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
-                                            Título del Departamento (Línea Superior)
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={brandingForm.login_dept || ''}
-                                            onChange={(e) => setBrandingForm({ ...brandingForm, login_dept: e.target.value })}
-                                            placeholder="Ej: Los Santos Sheriff's Department"
-                                            className="mac-form-input"
-                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
-                                        />
-                                    </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '2rem', alignItems: 'start' }}>
+                                    
+                                    {/* COLUMNA DE CAMPOS CONFIGURABLES */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                        
+                                        {/* 1. Fondo de Pantalla (Wallpaper) */}
+                                        <div style={{ background: 'rgba(0, 0, 0, 0.25)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '10px', padding: '1rem' }}>
+                                            <h5 style={{ margin: '0 0 0.75rem 0', color: '#38bdf8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span>🖼️</span> Fondo de Pantalla de Login (Wallpaper)
+                                            </h5>
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                {brandingForm.login_bg && (
+                                                    <img src={brandingForm.login_bg} alt="Preview Fondo" style={{ width: '56px', height: '36px', objectFit: 'cover', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)' }} />
+                                                )}
+                                                <input
+                                                    type="text"
+                                                    value={brandingForm.login_bg || ''}
+                                                    onChange={(e) => setBrandingForm({ ...brandingForm, login_bg: e.target.value })}
+                                                    placeholder="/logowebp/fondolssd.webp o URL"
+                                                    className="mac-form-input"
+                                                    style={{ flex: 1, padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
+                                                />
+                                                <label className="mac-btn mac-btn-secondary" style={{ padding: '0.55rem 0.8rem', cursor: uploadingFields['login_bg'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                    {uploadingFields['login_bg'] ? '...' : 'Subir'}
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        style={{ display: 'none' }}
+                                                        disabled={uploadingFields['login_bg']}
+                                                        onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('login_bg', e.target.files[0]); }}
+                                                    />
+                                                </label>
+                                            </div>
+                                        </div>
 
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
-                                            Título de la Unidad / Bureau (Línea Inferior)
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={brandingForm.login_bureau || ''}
-                                            onChange={(e) => setBrandingForm({ ...brandingForm, login_bureau: e.target.value })}
-                                            placeholder="Ej: Sheriff Criminal Unit Bureau"
-                                            className="mac-form-input"
-                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
-                                        />
-                                    </div>
+                                        {/* 2. Encabezado Superior (Header de Login) */}
+                                        <div style={{ background: 'rgba(0, 0, 0, 0.25)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '10px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                                            <h5 style={{ margin: 0, color: '#38bdf8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span>🏷️</span> Encabezado Superior de Login
+                                            </h5>
+                                            
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.25rem' }}>
+                                                    Título del Departamento (Línea Superior)
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={brandingForm.login_dept || ''}
+                                                    onChange={(e) => setBrandingForm({ ...brandingForm, login_dept: e.target.value })}
+                                                    placeholder="Ej: Los Santos Sheriff's Department"
+                                                    className="mac-form-input"
+                                                    style={{ width: '100%', padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
+                                                />
+                                            </div>
 
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
-                                            Logo Central de Login
-                                        </label>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                            {brandingForm.login_logo && (
-                                                <img src={brandingForm.login_logo} alt="Preview" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
-                                            )}
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.25rem' }}>
+                                                    Título de la Unidad / Bureau (Línea Inferior)
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={brandingForm.login_bureau || ''}
+                                                    onChange={(e) => setBrandingForm({ ...brandingForm, login_bureau: e.target.value })}
+                                                    placeholder="Ej: Sheriff Criminal Unit Bureau"
+                                                    className="mac-form-input"
+                                                    style={{ width: '100%', padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.25rem' }}>
+                                                    Logo Superior Izquierdo (Departamento)
+                                                </label>
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    {brandingForm.login_header_logo_left && (
+                                                        <img src={brandingForm.login_header_logo_left} alt="Logo Izq" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                                    )}
+                                                    <input
+                                                        type="text"
+                                                        value={brandingForm.login_header_logo_left || ''}
+                                                        onChange={(e) => setBrandingForm({ ...brandingForm, login_header_logo_left: e.target.value })}
+                                                        placeholder="/logowebp/LSSDlogo.webp o URL"
+                                                        className="mac-form-input"
+                                                        style={{ flex: 1, padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
+                                                    />
+                                                    <label className="mac-btn mac-btn-secondary" style={{ padding: '0.55rem 0.8rem', cursor: uploadingFields['login_header_logo_left'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                        {uploadingFields['login_header_logo_left'] ? '...' : 'Subir'}
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            style={{ display: 'none' }}
+                                                            disabled={uploadingFields['login_header_logo_left']}
+                                                            onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('login_header_logo_left', e.target.files[0]); }}
+                                                        />
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.25rem' }}>
+                                                    Logo Superior Derecho (Unidad / Bureau)
+                                                </label>
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    {(brandingForm.login_header_logo_right || brandingForm.login_logo) && (
+                                                        <img src={brandingForm.login_header_logo_right || brandingForm.login_logo} alt="Logo Der" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                                    )}
+                                                    <input
+                                                        type="text"
+                                                        value={brandingForm.login_header_logo_right || brandingForm.login_logo || ''}
+                                                        onChange={(e) => setBrandingForm({ 
+                                                            ...brandingForm, 
+                                                            login_header_logo_right: e.target.value,
+                                                            login_logo: e.target.value 
+                                                        })}
+                                                        placeholder="/logowebp/SCUB.webp o URL"
+                                                        className="mac-form-input"
+                                                        style={{ flex: 1, padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
+                                                    />
+                                                    <label className="mac-btn mac-btn-secondary" style={{ padding: '0.55rem 0.8rem', cursor: uploadingFields['login_header_logo_right'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                        {uploadingFields['login_header_logo_right'] ? '...' : 'Subir'}
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            style={{ display: 'none' }}
+                                                            disabled={uploadingFields['login_header_logo_right']}
+                                                            onChange={(e) => { 
+                                                                if (e.target.files?.[0]) {
+                                                                    handleFileUpload('login_header_logo_right', e.target.files[0]);
+                                                                    handleFileUpload('login_logo', e.target.files[0]);
+                                                                }
+                                                            }}
+                                                        />
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* 3. Tarjeta de Acceso Central macOS */}
+                                        <div style={{ background: 'rgba(0, 0, 0, 0.25)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '10px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                                            <h5 style={{ margin: 0, color: '#38bdf8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span>🪟</span> Tarjeta Central de Autenticación (macOS)
+                                            </h5>
+
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.25rem' }}>
+                                                    Título de la Barra de la Ventana (macOS Topbar)
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={brandingForm.login_window_title || ''}
+                                                    onChange={(e) => setBrandingForm({ ...brandingForm, login_window_title: e.target.value })}
+                                                    placeholder="Ej: Terminal de Autenticación Rápida"
+                                                    className="mac-form-input"
+                                                    style={{ width: '100%', padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.25rem' }}>
+                                                    Logo / Escudo Central de la Tarjeta
+                                                </label>
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    {brandingForm.login_card_logo && (
+                                                        <img src={brandingForm.login_card_logo} alt="Crest Central" style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px' }} />
+                                                    )}
+                                                    <input
+                                                        type="text"
+                                                        value={brandingForm.login_card_logo || ''}
+                                                        onChange={(e) => setBrandingForm({ ...brandingForm, login_card_logo: e.target.value })}
+                                                        placeholder="/logowebp/SCUB.webp o URL"
+                                                        className="mac-form-input"
+                                                        style={{ flex: 1, padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
+                                                    />
+                                                    <label className="mac-btn mac-btn-secondary" style={{ padding: '0.55rem 0.8rem', cursor: uploadingFields['login_card_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                        {uploadingFields['login_card_logo'] ? '...' : 'Subir'}
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            style={{ display: 'none' }}
+                                                            disabled={uploadingFields['login_card_logo']}
+                                                            onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('login_card_logo', e.target.files[0]); }}
+                                                        />
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.25rem' }}>
+                                                        Título Principal
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={brandingForm.login_card_title || ''}
+                                                        onChange={(e) => setBrandingForm({ ...brandingForm, login_card_title: e.target.value })}
+                                                        placeholder="Autenticación de Agente"
+                                                        className="mac-form-input"
+                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.25rem' }}>
+                                                        Texto del Botón
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={brandingForm.login_button_text || ''}
+                                                        onChange={(e) => setBrandingForm({ ...brandingForm, login_button_text: e.target.value })}
+                                                        placeholder="Acceder al Sistema"
+                                                        className="mac-form-input"
+                                                        style={{ width: '100%', padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.25rem' }}>
+                                                    Subtítulo / Instrucción
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={brandingForm.login_card_subtitle || ''}
+                                                    onChange={(e) => setBrandingForm({ ...brandingForm, login_card_subtitle: e.target.value })}
+                                                    placeholder="Identifícate con tus credenciales asignadas"
+                                                    className="mac-form-input"
+                                                    style={{ width: '100%', padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.25rem' }}>
+                                                    Placeholder / Ejemplo de Correo
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={brandingForm.login_email_placeholder || ''}
+                                                    onChange={(e) => setBrandingForm({ ...brandingForm, login_email_placeholder: e.target.value })}
+                                                    placeholder="matthewrosenberg@lssd.com o agente@dominio.com"
+                                                    className="mac-form-input"
+                                                    style={{ width: '100%', padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* 4. Pie de Pantalla (Footer) */}
+                                        <div style={{ background: 'rgba(0, 0, 0, 0.25)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '10px', padding: '1rem' }}>
+                                            <h5 style={{ margin: '0 0 0.75rem 0', color: '#38bdf8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span>📄</span> Texto del Pie de Pantalla (Footer)
+                                            </h5>
                                             <input
                                                 type="text"
-                                                value={brandingForm.login_logo || ''}
-                                                onChange={(e) => setBrandingForm({ ...brandingForm, login_logo: e.target.value })}
-                                                placeholder="/logowebp/SCUB.webp o URL"
+                                                value={brandingForm.login_footer || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, login_footer: e.target.value })}
+                                                placeholder="Sheriff Criminal Unit Bureau • Sistema Encifrado y Monitoreado"
                                                 className="mac-form-input"
-                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                                style={{ width: '100%', padding: '0.55rem 0.75rem', fontSize: '0.85rem' }}
                                             />
-                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['login_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
-                                                {uploadingFields['login_logo'] ? '...' : 'Subir'}
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    style={{ display: 'none' }}
-                                                    disabled={uploadingFields['login_logo']}
-                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('login_logo', e.target.files[0]); }}
-                                                />
-                                            </label>
+                                        </div>
+
+                                    </div>
+
+                                    {/* COLUMNA DERECHA: VISTA PREVIA INTERACTIVA EN TIEMPO REAL */}
+                                    <div style={{ 
+                                        position: 'sticky', 
+                                        top: '1.5rem', 
+                                        background: 'rgba(8, 12, 20, 0.95)', 
+                                        borderRadius: '16px', 
+                                        border: '1px solid rgba(255, 255, 255, 0.15)', 
+                                        padding: '1.25rem',
+                                        overflow: 'hidden',
+                                        boxShadow: '0 12px 30px rgba(0, 0, 0, 0.6)'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent-gold)', textTransform: 'uppercase', letterSpacing: '0.8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }}></span>
+                                                Vista Previa en Vivo del Login
+                                            </span>
+                                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                                Escalado interactivo
+                                            </span>
+                                        </div>
+
+                                        {/* Mockup Frame Container */}
+                                        <div style={{ 
+                                            position: 'relative', 
+                                            borderRadius: '12px', 
+                                            overflow: 'hidden', 
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            minHeight: '440px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'space-between'
+                                        }}>
+                                            {/* Wallpaper background with overlay */}
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: 0, left: 0, right: 0, bottom: 0,
+                                                backgroundImage: `url(${brandingForm.login_bg || (isLSSD ? "/logowebp/fondolssd.webp" : "/logowebp/indeximage.webp")})`,
+                                                backgroundSize: 'cover',
+                                                backgroundPosition: 'center',
+                                                zIndex: 0
+                                            }} />
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: 0, left: 0, right: 0, bottom: 0,
+                                                background: 'linear-gradient(180deg, rgba(5, 7, 15, 0.65) 0%, rgba(5, 7, 15, 0.85) 100%)',
+                                                backdropFilter: 'blur(3px)',
+                                                zIndex: 1
+                                            }} />
+
+                                            {/* Preview Content */}
+                                            <div style={{ position: 'relative', zIndex: 2, padding: '1rem', display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', gap: '1rem' }}>
+                                                
+                                                {/* Mini Top Header */}
+                                                <div style={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    justifyContent: 'space-between', 
+                                                    background: 'rgba(15, 23, 42, 0.75)', 
+                                                    border: '1px solid rgba(255, 255, 255, 0.1)', 
+                                                    borderRadius: '8px', 
+                                                    padding: '0.4rem 0.75rem',
+                                                    backdropFilter: 'blur(8px)'
+                                                }}>
+                                                    <img 
+                                                        src={brandingForm.login_header_logo_left || brandingForm.topbar_logo || (isLSSD ? "/logowebp/LSSDlogo.webp" : "/logowebp/dblogo.webp")} 
+                                                        alt="Header Left" 
+                                                        style={{ width: '22px', height: '22px', objectFit: 'contain' }}
+                                                    />
+                                                    <div style={{ textAlign: 'center', flex: 1, padding: '0 0.5rem' }}>
+                                                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {brandingForm.login_dept || (isLSSD ? "Los Santos Sheriff's Department" : "Los Santos Police Department")}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.62rem', fontWeight: 600, color: 'var(--accent-gold)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {brandingForm.login_bureau || (isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau")}
+                                                        </div>
+                                                    </div>
+                                                    <img 
+                                                        src={brandingForm.login_header_logo_right || brandingForm.login_logo || (isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp")} 
+                                                        alt="Header Right" 
+                                                        style={{ width: '22px', height: '22px', objectFit: 'contain' }}
+                                                    />
+                                                </div>
+
+                                                {/* Mini Central macOS Window Card */}
+                                                <div style={{
+                                                    background: 'rgba(15, 23, 42, 0.9)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                    borderRadius: '10px',
+                                                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                                                    overflow: 'hidden',
+                                                    maxWidth: '320px',
+                                                    margin: '0 auto',
+                                                    width: '100%'
+                                                }}>
+                                                    {/* Window Header */}
+                                                    <div style={{
+                                                        background: 'rgba(30, 41, 59, 0.85)',
+                                                        padding: '0.4rem 0.6rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                                                    }}>
+                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ff5f56' }}></span>
+                                                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ffbd2e' }}></span>
+                                                            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#27c93f' }}></span>
+                                                        </div>
+                                                        <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' }}>
+                                                            {brandingForm.login_window_title || 'Terminal de Autenticación Rápida'}
+                                                        </span>
+                                                        <div style={{ width: '25px' }} />
+                                                    </div>
+
+                                                    {/* Card Body */}
+                                                    <div style={{ padding: '0.85rem', textAlign: 'center' }}>
+                                                        <img 
+                                                            src={brandingForm.login_card_logo || brandingForm.login_logo || (isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp")} 
+                                                            alt="Crest Preview" 
+                                                            style={{ width: '38px', height: '38px', objectFit: 'contain', margin: '0 auto 0.4rem auto', display: 'block' }}
+                                                        />
+                                                        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc', marginBottom: '0.2rem' }}>
+                                                            {brandingForm.login_card_title || 'Autenticación de Agente'}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }}></span>
+                                                            <span>{brandingForm.login_card_subtitle || 'Identifícate con tus credenciales asignadas'}</span>
+                                                        </div>
+
+                                                        {/* Mock inputs */}
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.75rem' }}>
+                                                            <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', padding: '0.35rem 0.5rem', textAlign: 'left', fontSize: '0.65rem', color: '#64748b' }}>
+                                                                {brandingForm.login_email_placeholder || (isLSSD ? "matthewrosenberg@lssd.com" : "matthewrosenberg@lspd.com")}
+                                                            </div>
+                                                            <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', padding: '0.35rem 0.5rem', textAlign: 'left', fontSize: '0.65rem', color: '#64748b' }}>
+                                                                ••••••••••••
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Mock button */}
+                                                        <div style={{
+                                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                            borderRadius: '6px',
+                                                            padding: '0.4rem',
+                                                            color: 'white',
+                                                            fontWeight: 700,
+                                                            fontSize: '0.72rem',
+                                                            boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)'
+                                                        }}>
+                                                            {brandingForm.login_button_text || 'Acceder al Sistema'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Mini Footer */}
+                                                <div style={{ textAlign: 'center', fontSize: '0.62rem', color: '#94a3b8', padding: '0.25rem 0' }}>
+                                                    {brandingForm.login_footer || `${brandingForm.login_bureau || (isLSSD ? 'Sheriff Criminal Unit Bureau' : 'Detective Bureau Division')} • Sistema Encifrado y Monitoreado`}
+                                                </div>
+
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
-                                            Fondo de Pantalla de Login (Wallpaper)
-                                        </label>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                            {brandingForm.login_bg && (
-                                                <img src={brandingForm.login_bg} alt="Preview" style={{ width: '48px', height: '32px', objectFit: 'cover', background: 'rgba(0,0,0,0.5)', borderRadius: '6px' }} />
-                                            )}
-                                            <input
-                                                type="text"
-                                                value={brandingForm.login_bg || ''}
-                                                onChange={(e) => setBrandingForm({ ...brandingForm, login_bg: e.target.value })}
-                                                placeholder="/logowebp/fondolssd.webp o URL"
-                                                className="mac-form-input"
-                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
-                                            />
-                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['login_bg'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
-                                                {uploadingFields['login_bg'] ? '...' : 'Subir'}
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    style={{ display: 'none' }}
-                                                    disabled={uploadingFields['login_bg']}
-                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('login_bg', e.target.files[0]); }}
-                                                />
-                                            </label>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 

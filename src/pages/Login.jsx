@@ -53,12 +53,26 @@ function Login() {
         }
     };
 
+    // Dynamic login branding settings with responsive fallbacks
+    const loginBg = branding?.login_bg || (isLSSD ? "/logowebp/fondolssd.webp" : "/logowebp/indeximage.webp");
+    const headerLogoLeft = branding?.login_header_logo_left || branding?.topbar_logo || (isLSSD ? "/logowebp/LSSDlogo.webp" : "/logowebp/dblogo.webp");
+    const deptTitle = branding?.login_dept || (isLSSD ? "Los Santos Sheriff's Department" : "Los Santos Police Department");
+    const bureauTitle = branding?.login_bureau || (isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau");
+    const headerLogoRight = branding?.login_header_logo_right || branding?.login_logo || (isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp");
+    const windowTitle = branding?.login_window_title || "Terminal de Autenticación Rápida";
+    const cardLogo = branding?.login_card_logo || branding?.login_logo || (isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp");
+    const cardTitle = branding?.login_card_title || t('authAccess') || "Autenticación de Agente";
+    const cardSubtitle = branding?.login_card_subtitle || t('identifyYourself') || "Identifícate con tus credenciales asignadas";
+    const emailPlaceholder = branding?.login_email_placeholder || (isLSSD ? "matthewrosenberg@lssd.com" : "matthewrosenberg@lspd.com");
+    const buttonText = branding?.login_button_text || t('accessSystem') || "Acceder al Sistema";
+    const footerText = branding?.login_footer || `${bureauTitle} • Sistema Encifrado y Monitoreado`;
+
     return (
         <div className="mac-login-wrapper">
             {/* Background Ambient Mesh & Image */}
             <div className="mac-login-bg">
                 <img 
-                    src={branding?.login_bg || (isLSSD ? "/logowebp/fondolssd.webp" : "/logowebp/indeximage.webp")} 
+                    src={loginBg} 
                     alt="Department Background" 
                     className="mac-login-bg-img" 
                 />
@@ -68,20 +82,24 @@ function Login() {
             {/* Department Brand Top Header */}
             <div className="mac-login-header">
                 <img 
-                    src={branding?.topbar_logo || (isLSSD ? "/logowebp/LSSDlogo.webp" : "/logowebp/LSSDlogo.webp")} 
+                    src={headerLogoLeft} 
                     alt="Department Logo" 
                     className="mac-login-logo" 
+                    onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = isLSSD ? "/logowebp/LSSDlogo.webp" : "/logowebp/dblogo.webp";
+                    }}
                 />
                 <div className="mac-login-header-titles">
                     <span className="mac-login-dept-title">
-                        {branding?.login_dept || (isLSSD ? "Los Santos Sheriff's Department" : "Los Santos Police Department")}
+                        {deptTitle}
                     </span>
                     <span className="mac-login-bureau-title">
-                        {branding?.login_bureau || (isLSSD ? "Sheriff Criminal Unit Bureau" : "Detective Bureau")}
+                        {bureauTitle}
                     </span>
                 </div>
                 <img 
-                    src={branding?.login_logo || (isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp")} 
+                    src={headerLogoRight} 
                     alt="Bureau Crest" 
                     className="mac-login-logo" 
                     onError={(e) => {
@@ -101,7 +119,7 @@ function Login() {
                         <div className="mac-window-dot max" title="Ampliar"></div>
                     </div>
                     <span className="mac-login-window-title">
-                        Terminal de Autenticación Rápida
+                        {windowTitle}
                     </span>
                     <div style={{ width: 52 }} />
                 </div>
@@ -110,16 +128,20 @@ function Login() {
                 <div className="mac-login-body">
                     <div className="mac-login-badge-hero">
                         <img 
-                            src={isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp"} 
+                            src={cardLogo} 
                             alt="Crest" 
                             className="mac-login-crest-icon" 
+                            onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = isLSSD ? "/logowebp/SCUB.webp" : "/logowebp/dblogo.webp";
+                            }}
                         />
                         <h2 className="mac-login-headline">
-                            {t('authAccess') || 'Autenticación de Agente'}
+                            {cardTitle}
                         </h2>
                         <div className="mac-login-subtext">
                             <span className="mac-status-dot" style={{ width: 7, height: 7 }}></span>
-                            <span>{t('identifyYourself') || 'Identifícate con tus credenciales asignadas'}</span>
+                            <span>{cardSubtitle}</span>
                         </div>
                     </div>
 
@@ -160,7 +182,7 @@ function Login() {
                                     className="mac-form-input has-icon"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    placeholder={isLSSD ? "matthewrosenberg@lssd.com" : "matthewrosenberg@lspd.com"}
+                                    placeholder={emailPlaceholder}
                                     required
                                     autoFocus
                                 />
@@ -226,7 +248,7 @@ function Login() {
                                         <polyline points="10 17 15 12 10 7" />
                                         <line x1="15" y1="12" x2="3" y2="12" />
                                     </svg>
-                                    <span>{t('accessSystem') || 'Acceder al Sistema'}</span>
+                                    <span>{buttonText}</span>
                                 </>
                             )}
                         </button>
@@ -236,7 +258,7 @@ function Login() {
 
             {/* Footer System Notice */}
             <div className="mac-login-footer-bar">
-                <span>{isLSSD ? 'Sheriff Criminal Unit Bureau' : 'Detective Bureau Division'} • Sistema Encifrado y Monitoreado</span>
+                <span>{footerText}</span>
             </div>
         </div>
     );

@@ -1101,21 +1101,20 @@ function CaseDetail() {
     const isCreator = currentUser && info.created_by === currentUser.id;
     const isDbMember = isDetectiveBureauMember();
     const isAyudante = currentUser && userRole === 'ayudante';
-    const isRestrictedAyudante = isAyudante && !isDbMember;
     const isAssigned = Boolean(assignments && assignments.some(a => a.user_id === currentUser?.id));
     const isAssignedEncargado = Boolean(
         currentUser &&
         assignments &&
         assignments.some(a => a.user_id === currentUser.id && (a.role === 'Encargado' || a.role === 'Supervisor'))
     );
-    const canEditCase = (isHighCommand || isCreator || isAssignedEncargado || isDbMember) && !isRestrictedAyudante;
+    const canEditCase = (isHighCommand || isCreator || isAssignedEncargado || isDbMember) && !isAyudante;
     const canChangeCaseStatus = currentUser && (
         isHighCommand ||
         isDbMember ||
         !['ayudante', 'invitado', 'externo'].includes(userRole)
     );
 
-    if (isRestrictedAyudante && !isCreator && !isAssigned) {
+    if (isAyudante && !isCreator && !isAssigned) {
         return (
             <div className="mac-doc-empty">
                 <span>Acceso denegado: Como Ayudante solo puedes ver los expedientes en los que estás asignado.</span>

@@ -305,25 +305,46 @@ function MainLayout() {
     // - SEB: 'SEB' division
     // - Coordination: role 'Coordinador' / 'Coordinación', 'Administrador' or 'Comisionado'
     // - Admin Panel: ONLY role 'Administrador'
+    // Role & Division Access Calculation based on exact user specifications:
+    // - Administrador: Sees EVERYTHING (including Admin Panel)
+    // - Comisionado: Sees EVERYTHING EXCEPT Admin Panel
+    // - Coordinador: Sees everything EXCEPT Asuntos Internos, DOJ, SEB, Air Support, and Comandancia (which require the corresponding divisions), and NO Admin Panel
+    // - Regular users: Require the corresponding division for each specific module
     const userRole = (profile?.rol || '').trim();
     const userRoleLower = userRole.toLowerCase();
     const isAdmin = userRoleLower === 'administrador' || userRoleLower === 'superadmin';
+    const isComisionado = userRoleLower === 'comisionado';
+    const isCoordinador = ['coordinador', 'coordinacion', 'coordinación'].includes(userRoleLower);
 
     const userDivisions = Array.isArray(profile?.divisions) ? profile.divisions : [];
     const userSubdivisions = Array.isArray(profile?.subdivisions) ? profile.subdivisions : [];
 
-    const hasDBAccess = isAdmin || userDivisions.includes('Detective Bureau');
-    const hasDOJAccess = isAdmin || userDivisions.includes('DOJ') || userSubdivisions.includes('DOJ');
-    const hasWarrantsAccess = isAdmin || hasDBAccess || hasDOJAccess;
-    const hasIAAccess = isAdmin || userDivisions.includes('Internal Affairs') || userSubdivisions.includes('Internal Affairs');
-    const hasComandanciaAccess = isAdmin || userDivisions.includes('Comandancia') || userSubdivisions.includes('Comandancia');
+    const hasDBDivision = userDivisions.includes('Detective Bureau');
+    const hasDBAccess = isAdmin || isComisionado || isCoordinador || hasDBDivision;
+
+    const hasDOJDivision = userDivisions.includes('DOJ') || userSubdivisions.includes('DOJ');
+    const hasDOJAccess = isAdmin || isComisionado || hasDOJDivision;
+
+    const hasWarrantsAccess = isAdmin || isComisionado || isCoordinador || hasDBDivision || hasDOJDivision;
+
+    const hasIADivision = userDivisions.includes('Internal Affairs') || userSubdivisions.includes('Internal Affairs');
+    const hasIAAccess = isAdmin || isComisionado || hasIADivision;
+
+    const hasComandanciaDivision = userDivisions.includes('Comandancia') || userSubdivisions.includes('Comandancia');
+    const hasComandanciaAccess = isAdmin || isComisionado || hasComandanciaDivision;
+
     const hasDTPAccess = userDivisions.includes('DTP') || userSubdivisions.includes('DTP');
-    const hasTrainingAccess = isAdmin || hasDBAccess || hasDTPAccess;
-    const hasASDAccess = isAdmin || userDivisions.includes('ASD') || userSubdivisions.includes('ASD');
-    const hasSEBAccess = isAdmin || userDivisions.includes('SEB') || userSubdivisions.includes('SEB');
-    const hasCoordinationAccess = ['coordinador', 'coordinacion', 'coordinación', 'comisionado', 'administrador', 'superadmin'].includes(userRoleLower);
+    const hasTrainingAccess = isAdmin || isComisionado || isCoordinador || hasDBDivision || hasDTPAccess;
+
+    const hasASDDivision = userDivisions.includes('ASD') || userSubdivisions.includes('ASD') || userRoleLower === 'coordinador asd';
+    const hasASDAccess = isAdmin || isComisionado || hasASDDivision;
+
+    const hasSEBDivision = userDivisions.includes('SEB') || userSubdivisions.includes('SEB') || ['coordinador swat/seb', 'coordinador seb'].includes(userRoleLower);
+    const hasSEBAccess = isAdmin || isComisionado || hasSEBDivision;
+
+    const hasCoordinationAccess = isAdmin || isComisionado || isCoordinador;
     const hasAdminPanelAccess = isAdmin;
-    const hasUDAccess = isAdmin || userDivisions.some(d => ['Undercover', 'Undercover Division', 'UD'].includes(d)) || userSubdivisions.some(d => ['Undercover', 'Undercover Division', 'UD'].includes(d));
+    const hasUDAccess = isAdmin || isComisionado || isCoordinador || userDivisions.some(d => ['Undercover', 'Undercover Division', 'UD'].includes(d)) || userSubdivisions.some(d => ['Undercover', 'Undercover Division', 'UD'].includes(d));
 
     const isPathAllowed = (pathname) => {
         if (!profile) return false;

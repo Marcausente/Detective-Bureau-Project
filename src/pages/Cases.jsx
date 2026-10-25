@@ -31,25 +31,96 @@ function Cases() {
     const [currentUser, setCurrentUser] = useState(null);
 
     useEffect(() => {
-        const getCurrentUser = async () => {
+        let isMounted = true;
+        const loadInitial = async () => {
             const { data: { user } } = await supabase.auth.getUser();
+            let uProfile = null;
             if (user) {
                 const { data } = await supabase.from('users').select('id, rol, rango, divisions').eq('id', user.id).single();
-                setCurrentUser(data);
+                uProfile = data;
+                if (isMounted) setCurrentUser(data);
+            }
+            if (isMounted) {
+                fetchCases(uProfile);
+                fetchUsers();
             }
         };
-        getCurrentUser();
-        fetchCases();
-        fetchUsers();
+        loadInitial();
+        return () => { isMounted = false; };
     }, [filter]);
 
-    const fetchCases = async () => {
+    const fetchCases = async (userProfile = currentUser) => {
         setLoading(true);
         try {
+            const isAyudante = (userProfile?.rol || currentUser?.rol || '').toLowerCase().trim() === 'ayudante';
+            const userId = userProfile?.id || currentUser?.id;
+
+            // If user has the Ayudante role, strictly load only cases where they are assigned or created by them
+            if (isAyudante && userId) {
+                const { data: assignments } = await supabase
+                    .from('case_assignments')
+                    .select('case_id')
+                    .eq('user_id', userId);
+
+                const assignedIds = (assignments || []).map(a => a.case_id);
+
+                let query = supabase
+                    .from('cases')
+                    .select(`
+                        id,
+                        case_number,
+                        title,
+                        status,
+                        location,
+                        occurred_at,
+                        created_at,
+                        created_by,
+                        is_pinned,
+                        case_assignments (
+                            user_id,
+                            users (
+                                profile_image
+                            )
+                        )
+                    `)
+                    .order('is_pinned', { ascending: false, nullsFirst: false })
+                    .order('case_number', { ascending: false });
+
+                if (filter) {
+                    query = query.ilike('status', filter);
+                }
+
+                if (assignedIds.length > 0) {
+                    query = query.or(`id.in.(${assignedIds.join(',')}),created_by.eq.${userId}`);
+                } else {
+                    query = query.eq('created_by', userId);
+                }
+
+                const { data: directData, error: directErr } = await query;
+                if (!directErr && directData) {
+                    const formatted = directData.map(c => ({
+                        id: c.id,
+                        case_number: c.case_number,
+                        title: c.title,
+                        status: c.status,
+                        location: c.location,
+                        occurred_at: c.occurred_at,
+                        created_at: c.created_at,
+                        is_pinned: Boolean(c.is_pinned),
+                        assigned_avatars: (c.case_assignments || [])
+                            .map(ca => ca.users?.profile_image)
+                            .filter(Boolean)
+                            .slice(0, 3)
+                    }));
+                    setCases(formatted);
+                    return;
+                }
+            }
+
+            // Normal flow for non-ayudantes:
             const { data, error } = await supabase.rpc('get_cases', { p_status_filter: filter });
             if (!error && data && data.length > 0) {
                 setCases(data);
-                setLoading(false);
                 return;
             }
 
@@ -82,17 +153,7 @@ function Cases() {
 
             const { data: directData, error: directErr } = await query;
             if (!directErr && directData && directData.length > 0) {
-                const isDB = isDetectiveBureauMember();
-                const isAyudanteRestricted = currentUser && (currentUser.rol || '').toLowerCase().trim() === 'ayudante' && !isDB;
-
-                const filteredList = isAyudanteRestricted
-                    ? directData.filter(c => 
-                        c.created_by === currentUser.id ||
-                        (c.case_assignments || []).some(ca => ca.user_id === currentUser.id)
-                    )
-                    : directData;
-
-                const formatted = filteredList.map(c => ({
+                const formatted = directData.map(c => ({
                     id: c.id,
                     case_number: c.case_number,
                     title: c.title,
@@ -212,11 +273,14 @@ function Cases() {
     const canCreateCase = () => {
         if (!currentUser) return false;
         const r = (currentUser.rol || '').toLowerCase().trim();
-        if (['invitado', 'externo'].includes(r)) return false;
+        if (['invitado', 'externo', 'ayudante'].includes(r)) return false;
         return isDetectiveBureauMember();
     };
 
     const canPinCase = () => {
+        if (!currentUser) return false;
+        const r = (currentUser.rol || '').toLowerCase().trim();
+        if (r === 'ayudante') return false;
         return isDetectiveBureauMember();
     };
 

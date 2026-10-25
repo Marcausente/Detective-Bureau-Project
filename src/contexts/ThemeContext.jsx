@@ -18,8 +18,17 @@ export const BRANDING_PRESETS = {
         complaints_logo: '/logowebp/Generalcrimes.webp',
         login_dept: "Los Santos Sheriff's Department",
         login_bureau: 'Sheriff Criminal Unit Bureau',
+        login_header_logo_left: '/logowebp/LSSDlogo.webp',
+        login_header_logo_right: '/logowebp/SCUB.webp',
         login_logo: '/logowebp/SCUB.webp',
+        login_card_logo: '/logowebp/SCUB.webp',
+        login_window_title: 'Terminal de Autenticación Rápida',
+        login_card_title: 'Autenticación de Agente',
+        login_card_subtitle: 'Identifícate con tus credenciales asignadas',
+        login_email_placeholder: 'matthewrosenberg@lssd.com',
+        login_button_text: 'Acceder al Sistema',
         login_bg: '/logowebp/fondolssd.webp',
+        login_footer: 'Sheriff Criminal Unit Bureau • Sistema Encifrado y Monitoreado',
         gangs_nav_label: 'Bandas',
         gangs_title: 'Gangs & Narcotics Division',
         seb_nav_label: 'SEB',
@@ -89,8 +98,17 @@ export const BRANDING_PRESETS = {
         complaints_logo: '/logowebp/mcd.webp',
         login_dept: 'Los Santos Police Department',
         login_bureau: 'Detective Bureau',
+        login_header_logo_left: '/logowebp/dblogo.webp',
+        login_header_logo_right: '/logowebp/dblogo.webp',
         login_logo: '/logowebp/dblogo.webp',
+        login_card_logo: '/logowebp/dblogo.webp',
+        login_window_title: 'Terminal de Autenticación Rápida',
+        login_card_title: 'Autenticación de Agente',
+        login_card_subtitle: 'Identifícate con tus credenciales asignadas',
+        login_email_placeholder: 'matthewrosenberg@lspd.com',
+        login_button_text: 'Acceder al Sistema',
         login_bg: '/logowebp/indeximage.webp',
+        login_footer: 'Detective Bureau Division • Sistema Encifrado y Monitoreado',
         gangs_nav_label: 'Bandas',
         gangs_title: 'Gang Intelligence Unit',
         seb_nav_label: 'SWAT',
@@ -160,8 +178,17 @@ export const BRANDING_PRESETS = {
         complaints_logo: '/logowebp/LSSDlogo.webp',
         login_dept: "Los Santos County Sheriff's Department",
         login_bureau: 'División Central de Investigaciones',
+        login_header_logo_left: '/logowebp/LSSDlogo.webp',
+        login_header_logo_right: '/logowebp/LSSDlogo.webp',
         login_logo: '/logowebp/LSSDlogo.webp',
+        login_card_logo: '/logowebp/LSSDlogo.webp',
+        login_window_title: 'Terminal de Autenticación Rápida',
+        login_card_title: 'Autenticación de Agente',
+        login_card_subtitle: 'Identifícate con tus credenciales asignadas',
+        login_email_placeholder: 'agente@lssd.com',
+        login_button_text: 'Acceder al Sistema',
         login_bg: '/logowebp/fondolssd.webp',
+        login_footer: "Los Santos County Sheriff's Department • Sistema Encifrado y Monitoreado",
         gangs_nav_label: 'Gang Unit',
         gangs_title: 'Gangs & Narcotics Division (GND)',
         seb_nav_label: 'SEB',
@@ -231,8 +258,17 @@ export const BRANDING_PRESETS = {
         complaints_logo: '/logowebp/sanandreas.webp',
         login_dept: 'San Andreas Police Department',
         login_bureau: 'Investigation Headquarters',
+        login_header_logo_left: '/logowebp/sanandreas.webp',
+        login_header_logo_right: '/logowebp/sanandreas.webp',
         login_logo: '/logowebp/sanandreas.webp',
+        login_card_logo: '/logowebp/sanandreas.webp',
+        login_window_title: 'Terminal de Autenticación Rápida',
+        login_card_title: 'Autenticación de Agente',
+        login_card_subtitle: 'Identifícate con tus credenciales asignadas',
+        login_email_placeholder: 'agente@sapd.gov',
+        login_button_text: 'Acceder al Sistema',
         login_bg: '/logowebp/indeximage.webp',
+        login_footer: 'San Andreas Police Department • Sistema Encifrado y Monitoreado',
         gangs_nav_label: 'Bandas',
         gangs_title: 'State Gang Task Force',
         seb_nav_label: 'SWAT',
@@ -332,10 +368,10 @@ export function ThemeProvider({ children }) {
 
                     // Extract branding settings
                     const loadedBranding = { ...DEFAULT_BRANDING };
-                    Object.keys(DEFAULT_BRANDING).forEach(k => {
-                        const settingKey = `branding_${k}`;
-                        if (settingsMap[settingKey] !== undefined && settingsMap[settingKey] !== '') {
-                            loadedBranding[k] = settingsMap[settingKey];
+                    Object.entries(settingsMap).forEach(([key, val]) => {
+                        if (key.startsWith('branding_') && val !== undefined && val !== '') {
+                            const k = key.replace('branding_', '');
+                            loadedBranding[k] = val;
                         }
                     });
 

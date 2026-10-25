@@ -304,8 +304,8 @@ function AirSupport() {
         if (!profile) return false;
         const role = profile.rol ? profile.rol.toLowerCase().trim() : '';
         const isASDRank = profile.rango === 'ASD Agent';
-        const isASDDivision = profile.divisions && profile.divisions.includes('ASD');
-        const allowedRoles = ['coordinador', 'comisionado', 'administrador', 'superadmin', 'admin', 'coordinador asd'];
+        const isASDDivision = (profile.divisions && profile.divisions.includes('ASD')) || (profile.subdivisions && profile.subdivisions.includes('ASD'));
+        const allowedRoles = ['comisionado', 'administrador', 'superadmin', 'admin', 'coordinador asd'];
 
         return isASDRank || isASDDivision || allowedRoles.includes(role);
     };

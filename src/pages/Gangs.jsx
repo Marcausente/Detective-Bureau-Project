@@ -164,6 +164,8 @@ function Gangs() {
         return ['coordinador', 'comisionado', 'administrador', 'admin'].includes(r);
     };
 
+    const isAyudante = (userRole || '').trim().toLowerCase() === 'ayudante';
+
     const loadGangs = async () => {
         setLoading(true);
         try {
@@ -1053,6 +1055,7 @@ function Gangs() {
     };
 
     const handleViewActivity = async (type, gangId) => {
+        if (isAyudante) return;
         const targetGangId = gangId || activeGangId;
         if (!targetGangId) return;
 
@@ -1325,6 +1328,7 @@ function Gangs() {
     };
 
     const handleViewPatrolLogs = async (gangId) => {
+        if (isAyudante) return;
         setActiveGangId(gangId);
         setActiveModal('patrolTable');
         setLoadingActivity(true);
@@ -1456,6 +1460,8 @@ function Gangs() {
 
     // --- HELPER HANDLERS ---
     const openModal = (type, gangId) => {
+        if (isAyudante && type !== 'patrol') return;
+
         // Special handling for patrol modal
         if (type === 'patrol') {
             handleOpenPatrolLog(gangId);
@@ -1743,32 +1749,35 @@ function Gangs() {
                     <h2 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.015em' }}>{branding?.gangs_title || (isLSSD ? t('gndTitle') : t('giuTitle'))}</h2>
 
                     {/* Segmented Pill Tabs */}
-                    <div className="mac-doc-tabs" style={{ padding: '0.25rem' }}>
-                        <button className={`mac-doc-tab ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                            </svg>
-                            <span>{t('activeOperationTab')}</span>
-                        </button>
-                        <button className={`mac-doc-tab ${viewMode === 'archived' ? 'active' : ''}`} onClick={() => setViewMode('archived')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="21 8 21 21 3 21 3 8" />
-                                <rect x="1" y="3" width="22" height="5" />
-                                <line x1="10" y1="12" x2="14" y2="12" />
-                            </svg>
-                            <span>{t('archiveTab')}</span>
-                        </button>
-                        <button className={`mac-doc-tab ${viewMode === 'todo' ? 'active' : ''}`} onClick={() => setViewMode('todo')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M9 11l3 3L22 4" />
-                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                            </svg>
-                            <span>{t('toDoListTab')}</span>
-                        </button>
-                    </div>
+                    {!isAyudante && (
+                        <div className="mac-doc-tabs" style={{ padding: '0.25rem' }}>
+                            <button className={`mac-doc-tab ${viewMode === 'active' ? 'active' : ''}`} onClick={() => setViewMode('active')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                                </svg>
+                                <span>{t('activeOperationTab')}</span>
+                            </button>
+                            <button className={`mac-doc-tab ${viewMode === 'archived' ? 'active' : ''}`} onClick={() => setViewMode('archived')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="21 8 21 21 3 21 3 8" />
+                                    <rect x="1" y="3" width="22" height="5" />
+                                    <line x1="10" y1="12" x2="14" y2="12" />
+                                </svg>
+                                <span>{t('archiveTab')}</span>
+                            </button>
+                            <button className={`mac-doc-tab ${viewMode === 'todo' ? 'active' : ''}`} onClick={() => setViewMode('todo')} style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M9 11l3 3L22 4" />
+                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                                </svg>
+                                <span>{t('toDoListTab')}</span>
+                            </button>
+                        </div>
+                    )}
 
                     {/* SEARCH INPUT */}
-                    <div ref={searchRef} style={{ position: 'relative', width: '260px' }}>
+                    {!isAyudante && (
+                        <div ref={searchRef} style={{ position: 'relative', width: '260px' }}>
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -1903,22 +1912,25 @@ function Gangs() {
                             </div>
                         )}
                     </div>
+                    )}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <button
-                        className="mac-btn mac-btn-secondary"
-                        style={{ padding: '0.45rem 1rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.45rem', border: '1px solid rgba(255,255,255,0.18)' }}
-                        onClick={handleCopyAllGangs}
-                        title="Copiar información formateada de todos los grupos al portapapeles"
-                    >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                        </svg>
-                        <span>Copiar Información Grupos</span>
-                    </button>
-                    {viewMode === 'active' && (
+                    {!isAyudante && (
+                        <button
+                            className="mac-btn mac-btn-secondary"
+                            style={{ padding: '0.45rem 1rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.45rem', border: '1px solid rgba(255,255,255,0.18)' }}
+                            onClick={handleCopyAllGangs}
+                            title="Copiar información formateada de todos los grupos al portapapeles"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                            <span>Copiar Información Grupos</span>
+                        </button>
+                    )}
+                    {!isAyudante && viewMode === 'active' && (
                         <button
                             className="mac-btn mac-btn-primary"
                             style={{ padding: '0.45rem 1rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
@@ -1978,6 +1990,7 @@ function Gangs() {
                                 searchQuery={searchQuery}
                                 onAdd={openModal}
                                 isVIP={isVIP()}
+                                isAyudante={isAyudante}
                                 onArchive={() => handleToggleArchive(gang.gang_id, gang.is_archived)}
                                 onDelete={() => handleDeleteGang(gang.gang_id)}
                                 onViewImage={setExpandedImage}
@@ -3176,10 +3189,57 @@ function Gangs() {
 
 // --- SUB-COMPONENTS ---
 
-function GangColumn({ gang, searchQuery, onAdd, isVIP, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName, onViewGangBoard, onExportPDF, onToggleConflictStatus, onCopyGangInfo }) {
+function GangColumn({ gang, searchQuery, onAdd, isVIP, isAyudante, onArchive, onDelete, onViewImage, onEdit, onDeleteSubItem, onViewActivity, onViewMemberProfile, onEditGangName, onViewGangBoard, onExportPDF, onToggleConflictStatus, onCopyGangInfo }) {
     const { t } = useLanguage();
     const { isLSSD } = useTheme();
     const navigate = useNavigate();
+
+    if (isAyudante) {
+        return (
+            <div className="gang-column" id={`gang-col-${gang.gang_id}`}>
+                {/* Header Card */}
+                <div className="gang-header-card" style={{ borderTop: `4px solid ${gang.color}` }}>
+                    <div className="gang-header-top" style={{ justifyContent: 'center' }}>
+                        <h3 className="gang-title" style={{ color: gang.color, textAlign: 'center', width: '100%' }}>{gang.name}</h3>
+                    </div>
+
+                    <div className="gang-image-container" style={{ position: 'relative' }}>
+                        <div onClick={() => gang.zones_image && onViewImage(gang.zones_image)} style={{ width: '100%', height: '100%', cursor: gang.zones_image ? 'pointer' : 'default' }}>
+                            {gang.zones_image ? (
+                                <img src={gang.zones_image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={gang.name} />
+                            ) : (
+                                <div className="gang-image-empty">
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '0.5rem' }}>
+                                        <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+                                        <line x1="8" y1="2" x2="8" y2="18" />
+                                        <line x1="16" y1="6" x2="16" y2="22" />
+                                    </svg>
+                                    <span>{t('noZoneData')}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Send Matrix Button Card */}
+                <div className="gang-section-card" style={{ marginTop: '0.8rem' }}>
+                    <div className="gang-list-content" style={{ padding: '0.75rem' }}>
+                        <button
+                            className="mac-btn mac-btn-primary"
+                            onClick={() => onAdd('patrol', gang.gang_id)}
+                            style={{ fontSize: '0.82rem', padding: '0.65rem 1rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem', fontWeight: 600 }}
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            <span>{t('logPatrolBtn') || 'Enviar Matriz'}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
     // Helper for buttons
     const ActionButtons = ({ type, item }) => (
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px', zIndex: 10, position: 'relative' }}>
