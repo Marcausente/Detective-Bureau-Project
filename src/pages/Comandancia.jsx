@@ -2692,6 +2692,8 @@ export default function Comandancia() {
                         </div>
                     </div>
                 </div>
+            )}
+
             {/* ================================================================= */}
             {/* MODAL: CONFIGURACIÓN WEBHOOK DISCORD (FEEDBACKS)                  */}
             {/* ================================================================= */}
