@@ -15,6 +15,9 @@ export default function Comandancia() {
     const [feedbacks, setFeedbacks] = useState([]);
     const [existingFichas, setExistingFichas] = useState([]);
 
+    // Reactions State (tick, cross, hourglass) per feedback id
+    const [feedbackReactions, setFeedbackReactions] = useState({});
+
     // Feedbacks View State
     const [feedbackTypeFilter, setFeedbackTypeFilter] = useState('all'); // 'all' | 'Positivo' | 'Negativo' | 'Mixto'
     const [feedbackSearch, setFeedbackSearch] = useState('');
@@ -33,6 +36,237 @@ export default function Comandancia() {
     useEffect(() => {
         loadData();
     }, []);
+
+    const fetchReactions = async () => {
+        try {
+            const reactionsMap = {};
+            let rows = [];
+
+            // 1. Intentar obtener desde RPC batch o tabla
+            try {
+                const { data: batchData, error: batchErr } = await supabase.rpc('get_feedback_reactions_batch');
+                if (!batchErr && batchData) {
+                    rows = batchData;
+                } else {
+                    const { data: rawRows, error: rawErr } = await supabase
+                        .from('agent_feedback_reactions')
+                        .select('*');
+                    if (!rawErr && rawRows) {
+                        rows = rawRows;
+                    }
+                }
+            } catch (e) {
+                console.warn('Consulta a agent_feedback_reactions:', e);
+            }
+
+            if (rows && rows.length > 0) {
+                rows.forEach(r => {
+                    if (!reactionsMap[r.feedback_id]) {
+                        reactionsMap[r.feedback_id] = { check: [], cross: [], hourglass: [] };
+                    }
+                    if (reactionsMap[r.feedback_id][r.reaction_type]) {
+                        reactionsMap[r.feedback_id][r.reaction_type].push(r);
+                    }
+                });
+            }
+
+            // 2. Fusionar con app_settings como fallback / sincronización
+            try {
+                const { data: settingData } = await supabase
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'feedback_reactions_data')
+                    .maybeSingle();
+                if (settingData?.value) {
+                    const parsed = typeof settingData.value === 'string' ? JSON.parse(settingData.value) : settingData.value;
+                    Object.entries(parsed).forEach(([fbId, list]) => {
+                        if (!reactionsMap[fbId]) {
+                            reactionsMap[fbId] = { check: [], cross: [], hourglass: [] };
+                        }
+                        if (Array.isArray(list)) {
+                            list.forEach(item => {
+                                const type = item.reaction_type;
+                                if (reactionsMap[fbId][type]) {
+                                    const alreadyPresent = reactionsMap[fbId][type].some(x => x.user_id === item.user_id);
+                                    if (!alreadyPresent) {
+                                        reactionsMap[fbId][type].push(item);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('Fallback reactions app_settings merge:', e);
+            }
+
+            setFeedbackReactions(reactionsMap);
+        } catch (err) {
+            console.error('Error fetching reactions:', err);
+        }
+    };
+
+    const handleToggleReaction = async (feedbackId, reactionType) => {
+        if (!profile?.id) {
+            alert('Debes iniciar sesión para reaccionar.');
+            return;
+        }
+
+        const currentUid = profile.id;
+        const currentUserName = (profile.nombre ? `${profile.nombre} ${profile.apellido || ''}` : profile.username || 'Agente').trim();
+        const currentUserRank = profile.rango || '';
+        const currentUserAvatar = profile.profile_image || '';
+
+        // 1. Optimistic UI update
+        setFeedbackReactions(prev => {
+            const existingForFb = prev[feedbackId] || { check: [], cross: [], hourglass: [] };
+            const newForFb = {
+                check: existingForFb.check ? [...existingForFb.check] : [],
+                cross: existingForFb.cross ? [...existingForFb.cross] : [],
+                hourglass: existingForFb.hourglass ? [...existingForFb.hourglass] : []
+            };
+
+            // Comprobar si el usuario ya tenía alguna reacción en este feedback
+            const currentType = Object.keys(newForFb).find(type =>
+                newForFb[type].some(r => r.user_id === currentUid)
+            );
+
+            if (currentType === reactionType) {
+                // Mismo tipo -> Quitar (Toggle OFF)
+                newForFb[reactionType] = newForFb[reactionType].filter(r => r.user_id !== currentUid);
+            } else {
+                // Tipo diferente -> Quitar del tipo previo si existía
+                if (currentType) {
+                    newForFb[currentType] = newForFb[currentType].filter(r => r.user_id !== currentUid);
+                }
+                // Añadir al nuevo tipo
+                newForFb[reactionType].push({
+                    user_id: currentUid,
+                    user_name: currentUserName,
+                    user_rank: currentUserRank,
+                    user_avatar: currentUserAvatar,
+                    reaction_type: reactionType,
+                    created_at: new Date().toISOString()
+                });
+            }
+
+            return {
+                ...prev,
+                [feedbackId]: newForFb
+            };
+        });
+
+        // 2. Persistir en base de datos (RPC / Tabla)
+        try {
+            let rpcSuccess = false;
+            try {
+                const { error: rpcErr } = await supabase.rpc('toggle_feedback_reaction', {
+                    p_feedback_id: feedbackId,
+                    p_reaction_type: reactionType
+                });
+                if (!rpcErr) {
+                    rpcSuccess = true;
+                }
+            } catch (e) {
+                console.warn('RPC toggle_feedback_reaction error, intentando directo en tabla...', e);
+            }
+
+            if (!rpcSuccess) {
+                const { data: existingRow } = await supabase
+                    .from('agent_feedback_reactions')
+                    .select('id, reaction_type')
+                    .eq('feedback_id', feedbackId)
+                    .eq('user_id', currentUid)
+                    .maybeSingle();
+
+                if (existingRow) {
+                    if (existingRow.reaction_type === reactionType) {
+                        await supabase
+                            .from('agent_feedback_reactions')
+                            .delete()
+                            .eq('id', existingRow.id);
+                    } else {
+                        await supabase
+                            .from('agent_feedback_reactions')
+                            .update({
+                                reaction_type: reactionType,
+                                user_name: currentUserName,
+                                user_rank: currentUserRank,
+                                user_avatar: currentUserAvatar,
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('id', existingRow.id);
+                    }
+                } else {
+                    await supabase
+                        .from('agent_feedback_reactions')
+                        .insert({
+                            feedback_id: feedbackId,
+                            user_id: currentUid,
+                            user_name: currentUserName,
+                            user_rank: currentUserRank,
+                            user_avatar: currentUserAvatar,
+                            reaction_type: reactionType
+                        });
+                }
+            }
+        } catch (dbErr) {
+            console.warn('Fallback a app_settings para feedback_reactions_data:', dbErr);
+        }
+
+        // 3. Sincronizar en paralelo con app_settings como respaldo
+        try {
+            const { data: appSet } = await supabase
+                .from('app_settings')
+                .select('value')
+                .eq('key', 'feedback_reactions_data')
+                .maybeSingle();
+            let currentStore = {};
+            if (appSet?.value) {
+                currentStore = typeof appSet.value === 'string' ? JSON.parse(appSet.value) : appSet.value;
+            }
+
+            const existingList = Array.isArray(currentStore[feedbackId]) ? currentStore[feedbackId] : [];
+            const userExistingIndex = existingList.findIndex(r => r.user_id === currentUid);
+
+            let updatedList;
+            if (userExistingIndex >= 0) {
+                if (existingList[userExistingIndex].reaction_type === reactionType) {
+                    updatedList = existingList.filter((_, idx) => idx !== userExistingIndex);
+                } else {
+                    updatedList = existingList.map((r, idx) => idx === userExistingIndex ? {
+                        ...r,
+                        reaction_type: reactionType,
+                        user_name: currentUserName,
+                        user_rank: currentUserRank,
+                        user_avatar: currentUserAvatar,
+                        updated_at: new Date().toISOString()
+                    } : r);
+                }
+            } else {
+                updatedList = [
+                    ...existingList,
+                    {
+                        user_id: currentUid,
+                        user_name: currentUserName,
+                        user_rank: currentUserRank,
+                        user_avatar: currentUserAvatar,
+                        reaction_type: reactionType,
+                        created_at: new Date().toISOString()
+                    }
+                ];
+            }
+
+            currentStore[feedbackId] = updatedList;
+            await supabase.from('app_settings').upsert({
+                key: 'feedback_reactions_data',
+                value: currentStore,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'key' });
+        } catch (fallbackErr) {
+            console.warn('Error saving reactions fallback to app_settings:', fallbackErr);
+        }
+    };
 
     const loadData = async () => {
         try {
@@ -86,6 +320,9 @@ export default function Comandancia() {
             } catch (fErr) {
                 console.warn('get_feedback_fichas RPC not available:', fErr);
             }
+
+            // 4. Load Reactions
+            await fetchReactions();
         } catch (err) {
             console.error('Error loading Comandancia data:', err);
         } finally {
@@ -1252,6 +1489,13 @@ export default function Comandancia() {
                                             }}>
                                                 {reasonText}
                                             </div>
+
+                                            <FeedbackReactionsBar
+                                                feedbackId={fb.id}
+                                                reactions={feedbackReactions[fb.id]}
+                                                currentUserId={profile?.id}
+                                                onToggle={(type) => handleToggleReaction(fb.id, type)}
+                                            />
                                         </div>
                                     );
                                 })}
@@ -1427,6 +1671,13 @@ export default function Comandancia() {
                                             }}>
                                                 {reasonText}
                                             </div>
+
+                                            <FeedbackReactionsBar
+                                                feedbackId={fb.id}
+                                                reactions={feedbackReactions[fb.id]}
+                                                currentUserId={profile?.id}
+                                                onToggle={(type) => handleToggleReaction(fb.id, type)}
+                                            />
                                         </div>
                                     );
                                 })}
@@ -1786,6 +2037,13 @@ export default function Comandancia() {
                                                 }}>
                                                     {reason}
                                                 </div>
+
+                                                <FeedbackReactionsBar
+                                                    feedbackId={fb.id}
+                                                    reactions={feedbackReactions[fb.id]}
+                                                    currentUserId={profile?.id}
+                                                    onToggle={(type) => handleToggleReaction(fb.id, type)}
+                                                />
                                             </div>
                                         );
                                     })
@@ -1914,6 +2172,13 @@ export default function Comandancia() {
                                                 }}>
                                                     {reason}
                                                 </div>
+
+                                                <FeedbackReactionsBar
+                                                    feedbackId={fb.id}
+                                                    reactions={feedbackReactions[fb.id]}
+                                                    currentUserId={profile?.id}
+                                                    onToggle={(type) => handleToggleReaction(fb.id, type)}
+                                                />
                                             </div>
                                         );
                                     })
@@ -2055,6 +2320,13 @@ export default function Comandancia() {
                                                 }}>
                                                     {reason}
                                                 </div>
+
+                                                <FeedbackReactionsBar
+                                                    feedbackId={fb.id}
+                                                    reactions={feedbackReactions[fb.id]}
+                                                    currentUserId={profile?.id}
+                                                    onToggle={(type) => handleToggleReaction(fb.id, type)}
+                                                />
                                             </div>
                                         );
                                     })
@@ -2112,6 +2384,221 @@ export default function Comandancia() {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ----------------------------------------------------------------------
+// COMPONENTE: FeedbackReactionsBar
+// Permite reaccionar con tick (✅), cruz (❌) y reloj de arena (⏳)
+// Muestra contador y tooltip/popover de quiénes han reaccionado.
+// ----------------------------------------------------------------------
+function FeedbackReactionsBar({ feedbackId, reactions, currentUserId, onToggle }) {
+    const [hoveredType, setHoveredType] = useState(null);
+
+    const safeReactions = reactions || { check: [], cross: [], hourglass: [] };
+    const checkList = safeReactions.check || [];
+    const crossList = safeReactions.cross || [];
+    const hourglassList = safeReactions.hourglass || [];
+
+    const hasUserReacted = (list) => list.some(r => r.user_id === currentUserId);
+
+    const formatUsersTooltip = (label, list) => {
+        if (!list || list.length === 0) return `${label} (0)\nNadie ha reaccionado aún. Haz clic para reaccionar.`;
+        const names = list.map(r => `• ${r.user_name || 'Agente'}${r.user_rank ? ` (${r.user_rank})` : ''}`).join('\n');
+        return `${label} (${list.length}):\n${names}`;
+    };
+
+    const reactionButtons = [
+        {
+            type: 'check',
+            icon: '✅',
+            label: 'Conforme / Aprobado',
+            count: checkList.length,
+            list: checkList,
+            isActive: hasUserReacted(checkList),
+            activeColor: '#34d399',
+            activeBg: 'rgba(16, 185, 129, 0.22)',
+            activeBorder: 'rgba(52, 211, 153, 0.65)',
+            glow: 'rgba(16, 185, 129, 0.3)'
+        },
+        {
+            type: 'cross',
+            icon: '❌',
+            label: 'En desacuerdo / Rechazo',
+            count: crossList.length,
+            list: crossList,
+            isActive: hasUserReacted(crossList),
+            activeColor: '#f87171',
+            activeBg: 'rgba(239, 68, 68, 0.22)',
+            activeBorder: 'rgba(248, 113, 113, 0.65)',
+            glow: 'rgba(239, 68, 68, 0.3)'
+        },
+        {
+            type: 'hourglass',
+            icon: '⏳',
+            label: 'En revisión / Pendiente',
+            count: hourglassList.length,
+            list: hourglassList,
+            isActive: hasUserReacted(hourglassList),
+            activeColor: '#fbbf24',
+            activeBg: 'rgba(245, 158, 11, 0.22)',
+            activeBorder: 'rgba(251, 191, 36, 0.65)',
+            glow: 'rgba(245, 158, 11, 0.3)'
+        }
+    ];
+
+    const totalReactionsCount = checkList.length + crossList.length + hourglassList.length;
+
+    return (
+        <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+                marginTop: '6px',
+                paddingTop: '6px',
+                borderTop: '1px solid rgba(255, 255, 255, 0.07)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px',
+                width: '100%',
+                boxSizing: 'border-box'
+            }}
+        >
+            {/* Buttons Group */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                {reactionButtons.map(btn => (
+                    <div
+                        key={btn.type}
+                        style={{ position: 'relative', display: 'inline-block' }}
+                        onMouseEnter={() => setHoveredType(btn.type)}
+                        onMouseLeave={() => setHoveredType(null)}
+                    >
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onToggle(btn.type);
+                            }}
+                            title={formatUsersTooltip(btn.label, btn.list)}
+                            style={{
+                                background: btn.isActive ? btn.activeBg : 'rgba(255, 255, 255, 0.04)',
+                                border: `1px solid ${btn.isActive ? btn.activeBorder : 'rgba(255, 255, 255, 0.1)'}`,
+                                color: btn.isActive ? btn.activeColor : '#94a3b8',
+                                boxShadow: btn.isActive ? `0 0 10px ${btn.glow}` : 'none',
+                                borderRadius: '8px',
+                                padding: '3px 8px',
+                                fontSize: '0.74rem',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                            }}
+                        >
+                            <span style={{ fontSize: '0.82rem', lineHeight: 1 }}>{btn.icon}</span>
+                            <span style={{
+                                fontWeight: 800,
+                                color: btn.isActive ? btn.activeColor : (btn.count > 0 ? '#e2e8f0' : '#64748b'),
+                                minWidth: '10px',
+                                textAlign: 'center'
+                            }}>
+                                {btn.count}
+                            </span>
+                            {btn.isActive && (
+                                <span style={{ fontSize: '0.62rem', color: btn.activeColor, opacity: 0.85 }}>
+                                    ✓
+                                </span>
+                            )}
+                        </button>
+
+                        {/* Interactive floating popover showing who reacted on hover */}
+                        {hoveredType === btn.type && btn.list.length > 0 && (
+                            <div style={{
+                                position: 'absolute',
+                                bottom: 'calc(100% + 6px)',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                zIndex: 1500,
+                                background: 'rgba(15, 23, 42, 0.98)',
+                                border: `1px solid ${btn.activeBorder}`,
+                                borderRadius: '8px',
+                                padding: '6px 10px',
+                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.75)',
+                                backdropFilter: 'blur(12px)',
+                                minWidth: '190px',
+                                maxWidth: '300px',
+                                pointerEvents: 'none'
+                            }}>
+                                <div style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 800,
+                                    color: btn.activeColor,
+                                    textTransform: 'uppercase',
+                                    marginBottom: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px'
+                                }}>
+                                    <span>{btn.icon}</span>
+                                    <span>{btn.label} ({btn.list.length})</span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                    {btn.list.map((u, idx) => (
+                                        <div
+                                            key={u.user_id || idx}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                gap: '6px',
+                                                fontSize: '0.72rem',
+                                                color: '#e2e8f0'
+                                            }}
+                                        >
+                                            <span style={{ fontWeight: 600 }}>
+                                                {u.user_name || 'Agente'}
+                                                {u.user_id === currentUserId && ' (Tú)'}
+                                            </span>
+                                            {u.user_rank && (
+                                                <span style={{
+                                                    fontSize: '0.62rem',
+                                                    color: '#94a3b8',
+                                                    background: 'rgba(255, 255, 255, 0.06)',
+                                                    padding: '1px 5px',
+                                                    borderRadius: '4px'
+                                                }}>
+                                                    {u.user_rank}
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            {/* Quick Summary Pill if there are reactions */}
+            {totalReactionsCount > 0 && (
+                <div style={{
+                    fontSize: '0.68rem',
+                    color: '#94a3b8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255, 255, 255, 0.06)'
+                }}>
+                    <span>👥</span>
+                    <span>{totalReactionsCount} {totalReactionsCount === 1 ? 'reacción' : 'reacciones'}</span>
                 </div>
             )}
         </div>
