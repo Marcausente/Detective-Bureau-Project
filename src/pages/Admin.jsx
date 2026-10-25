@@ -34,9 +34,11 @@ function Admin() {
                 .eq('id', user.id)
                 .single();
 
-            const allowedRoles = ['Administrador', 'superadmin', 'Comisionado'];
-            if (error || !profile || !allowedRoles.includes(profile.rol)) {
-                navigate('/dashboard');
+            const userRole = (profile?.rol || '').trim().toLowerCase();
+            const isAdmin = userRole === 'administrador' || userRole === 'superadmin';
+
+            if (error || !profile || !isAdmin) {
+                navigate('/personnel');
             } else {
                 setLoading(false);
             }

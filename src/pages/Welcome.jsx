@@ -39,42 +39,38 @@ function Welcome() {
                 } else if (isMounted) {
                     setProfile(data);
                     
-                    // Determine target route based on division & rank
-                    let targetRoute = '/dashboard';
-                    const div = data.divisions || [];
-                    const rank = data.rango || '';
-                    const isDB = div.includes('Detective Bureau');
+                    // Determine target route based on exact division & role rules
+                    let targetRoute = '/personnel';
+                    const div = Array.isArray(data.divisions) ? data.divisions : [];
+                    const sub = Array.isArray(data.subdivisions) ? data.subdivisions : [];
+                    const userRoleLower = (data.rol || '').trim().toLowerCase();
+                    const isAdmin = userRoleLower === 'administrador' || userRoleLower === 'superadmin';
 
-                    const rankLower = (rank || '').toLowerCase();
-                    const hasIA = rank === 'Internal Affairs Agent' ||
-                        rankLower.includes('internal affairs') ||
-                        rankLower.includes('iab') ||
-                        (div.includes('Internal Affairs') && !isDB);
-
-                    const hasSEB = rank === 'SEB Agent' ||
-                        rankLower.includes('seb') ||
-                        (div.includes('SEB') && !isDB);
-
-                    const hasASD = rank === 'ASD Agent' ||
-                        rankLower.includes('asd') ||
-                        (div.includes('ASD') && !isDB);
-
-                    const hasDOJ = rank === 'Department of Justice Agent' ||
-                        rankLower.includes('doj') ||
-                        (div.includes('DOJ') && !isDB);
+                    const isDB = isAdmin || div.includes('Detective Bureau');
+                    const hasComandancia = isAdmin || div.includes('Comandancia') || sub.includes('Comandancia');
+                    const hasIA = isAdmin || div.includes('Internal Affairs') || sub.includes('Internal Affairs');
+                    const hasSEB = isAdmin || div.includes('SEB') || sub.includes('SEB');
+                    const hasASD = isAdmin || div.includes('ASD') || sub.includes('ASD');
+                    const hasDOJ = isAdmin || div.includes('DOJ') || sub.includes('DOJ');
+                    const hasTraining = isAdmin || isDB || div.includes('DTP') || sub.includes('DTP');
+                    const hasCoord = ['coordinador', 'coordinacion', 'coordinación', 'comisionado', 'administrador', 'superadmin'].includes(userRoleLower);
 
                     if (isDB) {
                         targetRoute = '/dashboard';
-                    } else if (hasIA && (rank === 'Internal Affairs Agent' || rankLower.includes('ia'))) {
+                    } else if (hasComandancia) {
+                        targetRoute = '/comandancia';
+                    } else if (hasIA) {
                         targetRoute = '/internal-affairs';
                     } else if (hasSEB) {
                         targetRoute = '/seb';
-                    } else if (hasIA) {
-                        targetRoute = '/internal-affairs';
                     } else if (hasASD) {
                         targetRoute = '/air-support';
                     } else if (hasDOJ) {
                         targetRoute = '/doj';
+                    } else if (hasTraining) {
+                        targetRoute = '/training';
+                    } else if (hasCoord) {
+                        targetRoute = '/coordination';
                     }
 
                     // Redirect after 2.5s
