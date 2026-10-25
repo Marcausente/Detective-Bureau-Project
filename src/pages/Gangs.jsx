@@ -22,6 +22,7 @@ function Gangs() {
     const [gangs, setGangs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [accessDenied, setAccessDenied] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
     const [userRole, setUserRole] = useState(null);
     const [feedbackNotice, setFeedbackNotice] = useState(null);
     const { isLSSD, branding } = useTheme();
@@ -139,18 +140,36 @@ function Gangs() {
     }, [activeBoardGang]);
 
     useEffect(() => {
-        loadGangs();
-        fetchUserRole();
-        fetchUsers();
-    }, []);
+        let isMounted = true;
+        const init = async () => {
+            setLoading(true);
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user && isMounted) {
+                    const { data: profile } = await supabase
+                        .from('users')
+                        .select('id, rol, rango, divisions, nombre, apellido')
+                        .eq('id', user.id)
+                        .single();
+                    if (profile && isMounted) {
+                        setCurrentUser(profile);
+                        setUserRole(profile.rol);
+                    }
+                }
+                await Promise.all([
+                    loadGangs(),
+                    fetchUsers()
+                ]);
+            } catch (err) {
+                console.error("Error initializing Gangs data:", err);
+            } finally {
+                if (isMounted) setLoading(false);
+            }
+        };
 
-    const fetchUserRole = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const { data } = await supabase.from('users').select('rol').eq('id', user.id).single();
-            if (data) setUserRole(data.rol);
-        }
-    };
+        init();
+        return () => { isMounted = false; };
+    }, []);
 
     const fetchUsers = async () => {
         const { data, error } = await supabase.from('users').select('id, nombre, apellido, rango').order('nombre');
@@ -159,12 +178,33 @@ function Gangs() {
     };
 
     const isVIP = () => {
-        if (!userRole) return false;
-        const r = userRole.trim().toLowerCase();
+        if (!currentUser && !userRole) return false;
+        const r = (currentUser?.rol || userRole || '').trim().toLowerCase();
         return ['coordinador', 'comisionado', 'administrador', 'admin'].includes(r);
     };
 
-    const isAyudante = (userRole || '').trim().toLowerCase() === 'ayudante';
+    // Detectives, Coordinadores, Comisionado, Administradores pueden ver todo (basado en ROL DE SISTEMA, no en el rango)
+    const canViewAllGangData = (user) => {
+        if (!user) return false;
+        const role = (user.rol || '').trim().toLowerCase();
+
+        // Rol de sistema de Ayudante -> SIEMPRE restringido
+        if (role === 'ayudante') return false;
+
+        // Roles de sistema autorizados para ver todo:
+        // Detectives, Coordinadores, Comisionado, Administradores
+        if (
+            ['administrador', 'admin', 'coordinador', 'comisionado', 'detective'].includes(role) ||
+            role.includes('detective')
+        ) {
+            return true;
+        }
+
+        return false;
+    };
+
+    // Si NO tiene permiso para ver todo, actúa en modo Ayudante (solo nombre, mapa de zonas y enviar matrix)
+    const isAyudante = !canViewAllGangData(currentUser);
 
     const loadGangs = async () => {
         setLoading(true);
@@ -1999,7 +2039,7 @@ function Gangs() {
                                 onViewActivity={handleViewActivity}
                                 onViewMemberProfile={handleOpenMemberProfile}
                                 onEditGangName={handleEditGangName}
-                                onViewGangBoard={(g) => setActiveBoardGang(g)}
+                                onViewGangBoard={(g) => { if (!isAyudante) setActiveBoardGang(g); }}
                                 onExportPDF={handleExportGangPDF}
                                 onToggleConflictStatus={handleToggleConflictStatus}
                                 onCopyGangInfo={handleCopySingleGang}
@@ -3112,7 +3152,7 @@ function Gangs() {
             )}
 
             {/* FULL SCREEN APPLE MAC OS WHITEBOARD MODAL */}
-            {activeBoardGang && (
+            {activeBoardGang && !isAyudante && (
                 <div style={{
                     position: 'fixed',
                     top: 0,
@@ -3200,7 +3240,11 @@ function GangColumn({ gang, searchQuery, onAdd, isVIP, isAyudante, onArchive, on
                 {/* Header Card */}
                 <div className="gang-header-card" style={{ borderTop: `4px solid ${gang.color}` }}>
                     <div className="gang-header-top" style={{ justifyContent: 'center' }}>
-                        <h3 className="gang-title" style={{ color: gang.color, textAlign: 'center', width: '100%' }}>{gang.name}</h3>
+                        <h3 className="gang-title" style={{ color: gang.color, textAlign: 'center', width: '100%', fontSize: '1.1rem', margin: '0.4rem 0' }}>{gang.name}</h3>
+                    </div>
+
+                    <div style={{ padding: '0.35rem 0.8rem', background: 'rgba(255,255,255,0.03)', borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '0.72rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
+                        Zonas Controladas (Mapa)
                     </div>
 
                     <div className="gang-image-container" style={{ position: 'relative' }}>
