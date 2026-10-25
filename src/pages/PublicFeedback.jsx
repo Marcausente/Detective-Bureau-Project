@@ -79,12 +79,19 @@ export default function PublicFeedback() {
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [motivo, setMotivo] = useState('');
 
-    // Fichas Evaluativas Autocomplete State
+    // Fichas Evaluativas & Agentes Autocomplete State (Shared pool)
     const [existingFichas, setExistingFichas] = useState([]);
     const [loadingFichas, setLoadingFichas] = useState(true);
+
+    // Target Autocomplete State
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const autocompleteRef = useRef(null);
+
+    // Author Autocomplete State
+    const [isAuthorDropdownOpen, setIsAuthorDropdownOpen] = useState(false);
+    const [authorHighlightedIndex, setAuthorHighlightedIndex] = useState(-1);
+    const authorAutocompleteRef = useRef(null);
 
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -99,10 +106,13 @@ export default function PublicFeedback() {
 
         loadInitialData();
 
-        // Close autocomplete when clicking outside
+        // Close autocompletes when clicking outside
         const handleClickOutside = (e) => {
             if (autocompleteRef.current && !autocompleteRef.current.contains(e.target)) {
                 setIsDropdownOpen(false);
+            }
+            if (authorAutocompleteRef.current && !authorAutocompleteRef.current.contains(e.target)) {
+                setIsAuthorDropdownOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -155,69 +165,65 @@ export default function PublicFeedback() {
     const loadExistingFichas = async () => {
         try {
             setLoadingFichas(true);
-            let fichasList = [];
+            const uniqueNames = new Set();
 
-            // 1. Try RPC get_feedback_fichas
+            // 1. Existing fichas from RPC
             const { data: rpcData, error: rpcErr } = await supabase.rpc('get_feedback_fichas');
             if (!rpcErr && rpcData && rpcData.length > 0) {
-                fichasList = rpcData.map(r => ({
-                    name: r.agent_name,
-                    count: Number(r.feedbacks_count || 0),
-                    positives: Number(r.positives_count || 0),
-                    negatives: Number(r.negatives_count || 0),
-                    mixed: Number(r.mixed_count || 0),
-                    lastDate: r.last_feedback
-                }));
-            } else {
-                // 2. Direct query fallback
-                const { data: fbData } = await supabase
-                    .from('agent_feedbacks')
-                    .select('target_name, tipo, fecha');
+                rpcData.forEach(r => {
+                    const n = (r.agent_name || '').trim();
+                    if (n) uniqueNames.add(n);
+                });
+            }
 
-                if (fbData && fbData.length > 0) {
-                    const map = {};
-                    fbData.forEach(item => {
-                        const name = (item.target_name || '').trim();
-                        if (!name) return;
-                        if (!map[name]) {
-                            map[name] = { name, count: 0, positives: 0, negatives: 0, mixed: 0, lastDate: item.fecha };
-                        }
-                        map[name].count += 1;
-                        if (item.tipo === 'Positivo') map[name].positives += 1;
-                        else if (item.tipo === 'Negativo') map[name].negatives += 1;
-                        else if (item.tipo === 'Mixto') map[name].mixed += 1;
-                    });
-                    fichasList = Object.values(map);
-                } else {
-                    // 3. Fallback to app_settings
-                    const { data: settingData } = await supabase
-                        .from('app_settings')
-                        .select('value')
-                        .eq('key', 'agent_feedbacks')
-                        .single();
+            // 2. Feedbacks table (both targets and authors)
+            const { data: fbData } = await supabase
+                .from('agent_feedbacks')
+                .select('target_name, author_name');
 
-                    if (settingData?.value) {
-                        const items = typeof settingData.value === 'string' ? JSON.parse(settingData.value) : settingData.value;
-                        if (Array.isArray(items)) {
-                            const map = {};
-                            items.forEach(item => {
-                                const name = (item.target_name || item.target_agent_name || '').trim();
-                                if (!name) return;
-                                if (!map[name]) {
-                                    map[name] = { name, count: 0, positives: 0, negatives: 0, mixed: 0, lastDate: item.fecha };
-                                }
-                                map[name].count += 1;
-                                const t = (item.tipo || item.feedback_type || '').toLowerCase();
-                                if (t === 'positivo') map[name].positives += 1;
-                                else if (t === 'negativo') map[name].negatives += 1;
-                                else if (t === 'mixto') map[name].mixed += 1;
-                            });
-                            fichasList = Object.values(map);
-                        }
+            if (fbData && fbData.length > 0) {
+                fbData.forEach(item => {
+                    const t = (item.target_name || '').trim();
+                    const a = (item.author_name || '').trim();
+                    if (t) uniqueNames.add(t);
+                    if (a) uniqueNames.add(a);
+                });
+            }
+
+            // 3. System users / personnel roster
+            const { data: usersData } = await supabase
+                .from('users')
+                .select('nombre, apellido');
+
+            if (usersData && usersData.length > 0) {
+                usersData.forEach(u => {
+                    const full = `${u.nombre || ''} ${u.apellido || ''}`.trim();
+                    if (full) uniqueNames.add(full);
+                });
+            }
+
+            // 4. Fallback to app_settings if needed
+            if (uniqueNames.size === 0) {
+                const { data: settingData } = await supabase
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'agent_feedbacks')
+                    .single();
+
+                if (settingData?.value) {
+                    const items = typeof settingData.value === 'string' ? JSON.parse(settingData.value) : settingData.value;
+                    if (Array.isArray(items)) {
+                        items.forEach(item => {
+                            const t = (item.target_name || item.target_agent_name || '').trim();
+                            const a = (item.author_name || item.author_agent_name || '').trim();
+                            if (t) uniqueNames.add(t);
+                            if (a) uniqueNames.add(a);
+                        });
                     }
                 }
             }
 
+            const fichasList = Array.from(uniqueNames).map(name => ({ name }));
             fichasList.sort((a, b) => a.name.localeCompare(b.name));
             setExistingFichas(fichasList);
         } catch (err) {
@@ -227,7 +233,7 @@ export default function PublicFeedback() {
         }
     };
 
-    // Filter suggestions based on typed text
+    // Filter suggestions based on typed text (Target)
     const filteredSuggestions = useMemo(() => {
         const q = targetAgentName.trim().toLowerCase();
         if (!q) {
@@ -236,7 +242,7 @@ export default function PublicFeedback() {
         return existingFichas.filter(f => f.name.toLowerCase().includes(q));
     }, [existingFichas, targetAgentName]);
 
-    // Check if the current typed name exactly matches an existing ficha
+    // Check if the current typed name exactly matches an existing ficha (Target)
     const matchedFicha = useMemo(() => {
         const q = targetAgentName.trim().toLowerCase();
         if (!q) return null;
@@ -276,6 +282,59 @@ export default function PublicFeedback() {
             }
         } else if (e.key === 'Escape') {
             setIsDropdownOpen(false);
+        }
+    };
+
+    // Filter suggestions based on typed text (Author)
+    const filteredAuthorSuggestions = useMemo(() => {
+        const q = authorName.trim().toLowerCase();
+        if (!q) {
+            return existingFichas.slice(0, 8);
+        }
+        return existingFichas.filter(f => f.name.toLowerCase().includes(q));
+    }, [existingFichas, authorName]);
+
+    // Check if current typed author matches an existing ficha (Author)
+    const matchedAuthorFicha = useMemo(() => {
+        const q = authorName.trim().toLowerCase();
+        if (!q) return null;
+        return existingFichas.find(f => f.name.toLowerCase() === q) || null;
+    }, [existingFichas, authorName]);
+
+    const isExistingAuthorFicha = Boolean(matchedAuthorFicha);
+
+    const handleSelectAuthor = (fichaName) => {
+        setAuthorName(fichaName);
+        setFeedbackAuthorCookie(fichaName);
+        setIsAuthorDropdownOpen(false);
+        setAuthorHighlightedIndex(-1);
+    };
+
+    const handleAuthorKeyDown = (e) => {
+        if (!isAuthorDropdownOpen) {
+            if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                setIsAuthorDropdownOpen(true);
+            }
+            return;
+        }
+
+        const maxIndex = filteredAuthorSuggestions.length - 1;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setAuthorHighlightedIndex(prev => (prev < maxIndex ? prev + 1 : 0));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setAuthorHighlightedIndex(prev => (prev > 0 ? prev - 1 : maxIndex));
+        } else if (e.key === 'Enter') {
+            if (authorHighlightedIndex >= 0 && filteredAuthorSuggestions[authorHighlightedIndex]) {
+                e.preventDefault();
+                handleSelectAuthor(filteredAuthorSuggestions[authorHighlightedIndex].name);
+            } else {
+                setIsAuthorDropdownOpen(false);
+            }
+        } else if (e.key === 'Escape') {
+            setIsAuthorDropdownOpen(false);
         }
     };
 
@@ -529,8 +588,8 @@ export default function PublicFeedback() {
                             </div>
                         </div>
 
-                        {/* Step 2: Autor del Feedback (con persistencia en cookies) */}
-                        <div style={{ marginBottom: '1.25rem' }}>
+                        {/* Step 2: Autor del Feedback (con autocompletado, selección de lista, creación de ficha y persistencia en cookies) */}
+                        <div style={{ marginBottom: '1.25rem', position: 'relative' }} ref={authorAutocompleteRef}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '6px' }}>
                                 <label style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
                                     2. Nombre y Apellido del Agente que rellena el Feedback
@@ -555,56 +614,256 @@ export default function PublicFeedback() {
                                     </span>
                                 )}
                             </div>
+
+                            {/* Autocomplete Input Container */}
                             <div style={{ position: 'relative' }}>
+                                <span style={{
+                                    position: 'absolute',
+                                    left: '1rem',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    fontSize: '1rem',
+                                    pointerEvents: 'none',
+                                    opacity: 0.7
+                                }}>
+                                    ✍️
+                                </span>
+
                                 <input
                                     required
                                     type="text"
-                                    placeholder="Ej. John Doe (o tu placa)"
+                                    autoComplete="off"
+                                    placeholder="Selecciona de la lista o escribe tu nombre..."
                                     value={authorName}
                                     onChange={(e) => {
                                         const val = e.target.value;
                                         setAuthorName(val);
                                         setFeedbackAuthorCookie(val);
+                                        setIsAuthorDropdownOpen(true);
+                                        setAuthorHighlightedIndex(-1);
                                     }}
+                                    onFocus={() => setIsAuthorDropdownOpen(true)}
+                                    onKeyDown={handleAuthorKeyDown}
                                     className="form-input"
                                     style={{
                                         width: '100%',
                                         background: 'rgba(15, 23, 42, 0.85)',
-                                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                                        border: `1px solid ${isExistingAuthorFicha ? 'rgba(16, 185, 129, 0.6)' : isAuthorDropdownOpen ? '#38bdf8' : 'rgba(255, 255, 255, 0.2)'}`,
                                         borderRadius: '12px',
                                         color: '#ffffff',
-                                        padding: '0.7rem 2.2rem 0.7rem 1rem',
-                                        fontSize: '0.9rem',
+                                        padding: '0.75rem 2.5rem 0.75rem 2.8rem',
+                                        fontSize: '0.92rem',
+                                        boxShadow: isAuthorDropdownOpen ? '0 0 15px rgba(56, 189, 248, 0.2)' : 'none',
+                                        transition: 'all 0.2s ease',
                                         boxSizing: 'border-box'
                                     }}
                                 />
+
                                 {authorName && (
                                     <button
                                         type="button"
                                         onClick={() => {
                                             setAuthorName('');
                                             setFeedbackAuthorCookie('');
+                                            setIsAuthorDropdownOpen(true);
                                         }}
                                         title="Limpiar nombre guardado"
                                         style={{
                                             position: 'absolute',
-                                            right: '10px',
+                                            right: '0.85rem',
                                             top: '50%',
                                             transform: 'translateY(-50%)',
-                                            background: 'transparent',
+                                            background: 'rgba(255, 255, 255, 0.1)',
                                             border: 'none',
                                             color: '#94a3b8',
+                                            width: '22px',
+                                            height: '22px',
+                                            borderRadius: '50%',
                                             cursor: 'pointer',
-                                            fontSize: '0.85rem',
-                                            padding: '4px'
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '0.75rem'
                                         }}
                                     >
                                         ✕
                                     </button>
                                 )}
                             </div>
-                            <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.35rem' }}>
-                                Tu nombre se guarda automáticamente en tus cookies locales para que aparezca relleno siempre que abras el formulario. Puedes modificarlo o cambiarlo en cualquier momento.
+
+                            {/* Dropdown de Autocompletado del Autor */}
+                            {isAuthorDropdownOpen && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 'calc(100% + 6px)',
+                                    left: 0,
+                                    right: 0,
+                                    zIndex: 60,
+                                    background: 'rgba(15, 23, 42, 0.98)',
+                                    backdropFilter: 'blur(20px)',
+                                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                                    borderRadius: '14px',
+                                    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.15)',
+                                    maxHeight: '260px',
+                                    overflowY: 'auto',
+                                    padding: '6px'
+                                }}>
+                                    <div style={{
+                                        padding: '6px 12px 4px 12px',
+                                        fontSize: '0.7rem',
+                                        fontWeight: 800,
+                                        letterSpacing: '0.08em',
+                                        color: '#38bdf8',
+                                        textTransform: 'uppercase',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                                    }}>
+                                        <span>Agentes / Oficiales Registrados</span>
+                                        <span>{filteredAuthorSuggestions.length} sugerencias</span>
+                                    </div>
+
+                                    {filteredAuthorSuggestions.length > 0 ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                                            {filteredAuthorSuggestions.map((ficha, idx) => {
+                                                const isHighlighted = idx === authorHighlightedIndex;
+                                                const isSelected = matchedAuthorFicha?.name.toLowerCase() === ficha.name.toLowerCase();
+
+                                                return (
+                                                    <div
+                                                        key={ficha.name}
+                                                        onClick={() => handleSelectAuthor(ficha.name)}
+                                                        onMouseEnter={() => setAuthorHighlightedIndex(idx)}
+                                                        style={{
+                                                            padding: '0.6rem 0.85rem',
+                                                            borderRadius: '10px',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            background: isHighlighted || isSelected
+                                                                ? 'linear-gradient(90deg, rgba(56, 189, 248, 0.2) 0%, rgba(30, 41, 59, 0.5) 100%)'
+                                                                : 'transparent',
+                                                            border: isHighlighted
+                                                                ? '1px solid rgba(56, 189, 248, 0.4)'
+                                                                : '1px solid transparent',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                            <div style={{
+                                                                width: '32px',
+                                                                height: '32px',
+                                                                borderRadius: '8px',
+                                                                background: 'rgba(56, 189, 248, 0.15)',
+                                                                color: '#38bdf8',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontWeight: 800,
+                                                                fontSize: '0.85rem'
+                                                            }}>
+                                                                {ficha.name[0]?.toUpperCase() || 'A'}
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#f8fafc' }}>
+                                                                    {ficha.name}
+                                                                </div>
+                                                                <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                                                    Oficial / Agente
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <span style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 700 }}>
+                                                            Seleccionar ↵
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: '0.85rem 0.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.82rem' }}>
+                                            No hay ningún agente en la lista con "{authorName}"
+                                        </div>
+                                    )}
+
+                                    {/* Opción si el autor no coincide con ningún agente existente */}
+                                    {authorName.trim().length > 0 && !isExistingAuthorFicha && (
+                                        <div
+                                            onClick={() => {
+                                                setIsAuthorDropdownOpen(false);
+                                            }}
+                                            style={{
+                                                marginTop: '4px',
+                                                padding: '0.65rem 0.85rem',
+                                                borderRadius: '10px',
+                                                background: 'rgba(245, 158, 11, 0.12)',
+                                                border: '1px dashed rgba(245, 158, 11, 0.45)',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px'
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '1rem' }}>✨</span>
+                                            <div>
+                                                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fbbf24' }}>
+                                                    Registrar como nuevo agente emisor: "{authorName.trim()}"
+                                                </div>
+                                                <div style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>
+                                                    Su ficha se creará automáticamente en Comandancia con sus informes emitidos.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Informative Status Badge below input for Author */}
+                            {authorName.trim().length > 0 && (
+                                <div style={{ marginTop: '0.5rem' }}>
+                                    {isExistingAuthorFicha ? (
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            background: 'rgba(16, 185, 129, 0.12)',
+                                            border: '1px solid rgba(16, 185, 129, 0.35)',
+                                            borderRadius: '8px',
+                                            padding: '0.45rem 0.85rem',
+                                            fontSize: '0.78rem',
+                                            color: '#86efac'
+                                        }}>
+                                            <span>🟢</span>
+                                            <span>
+                                                <strong>Agente / Ficha Registrada:</strong> El informe se vinculará a la ficha de <strong>{matchedAuthorFicha.name}</strong>.
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            background: 'rgba(245, 158, 11, 0.1)',
+                                            border: '1px solid rgba(245, 158, 11, 0.35)',
+                                            borderRadius: '8px',
+                                            padding: '0.45rem 0.85rem',
+                                            fontSize: '0.78rem',
+                                            color: '#fde047'
+                                        }}>
+                                            <span>✨</span>
+                                            <span>
+                                                <strong>Nueva Ficha de Agente:</strong> Aún no existe ficha previa para <strong>"{authorName.trim()}"</strong>. Su ficha se creará automáticamente al enviar el informe.
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.45rem' }}>
+                                Tu nombre se guarda automáticamente en tus cookies locales para que aparezca relleno siempre que abras el formulario. Puedes modificarlo o seleccionar otro oficial cuando quieras.
                             </div>
                         </div>
 
@@ -770,23 +1029,14 @@ export default function PublicFeedback() {
                                                                     {ficha.name}
                                                                 </div>
                                                                 <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                                                                    Ficha activa • {ficha.count} {ficha.count === 1 ? 'evaluación' : 'evaluaciones'}
+                                                                    Ficha de agente registrada
                                                                 </div>
                                                             </div>
                                                         </div>
 
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                            {ficha.positives > 0 && (
-                                                                <span style={{ fontSize: '0.7rem', color: '#4ade80', background: 'rgba(16, 185, 129, 0.15)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                                                                    +{ficha.positives}
-                                                                </span>
-                                                            )}
-                                                            {ficha.negatives > 0 && (
-                                                                <span style={{ fontSize: '0.7rem', color: '#f87171', background: 'rgba(239, 68, 68, 0.15)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                                                                    -{ficha.negatives}
-                                                                </span>
-                                                            )}
-                                                        </div>
+                                                        <span style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 700 }}>
+                                                            Seleccionar ↵
+                                                        </span>
                                                     </div>
                                                 );
                                             })}
@@ -846,7 +1096,7 @@ export default function PublicFeedback() {
                                         }}>
                                             <span>🟢</span>
                                             <span>
-                                                <strong>Ficha Evaluativa Existente:</strong> Este informe se acumulará al historial y balance de <strong>{matchedFicha.name}</strong> ({matchedFicha.count} evaluaciones acumuladas).
+                                                <strong>Ficha Evaluativa Existente:</strong> Este informe se registrará en el expediente de <strong>{matchedFicha.name}</strong>.
                                             </span>
                                         </div>
                                     ) : (
