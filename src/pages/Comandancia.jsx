@@ -12,6 +12,7 @@ import {
     sendIASanctionToDiscord,
     getIASanctionBanners
 } from '../utils/discordWebhook';
+import { uploadImageToStorage } from '../utils/imageStorage';
 import '../index.css';
 
 export default function Comandancia() {
@@ -45,6 +46,7 @@ export default function Comandancia() {
     });
     const [savingWebhook, setSavingWebhook] = useState(false);
     const [testingWebhook, setTestingWebhook] = useState(false);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [webhookNotice, setWebhookNotice] = useState(null);
     const [webhookError, setWebhookError] = useState(null);
 
@@ -426,6 +428,23 @@ export default function Comandancia() {
             setWebhookError('Fallo en la prueba del webhook: ' + err.message);
         } finally {
             setTestingWebhook(false);
+        }
+    };
+
+    const handleUploadBotAvatar = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            setUploadingAvatar(true);
+            setWebhookError(null);
+            const url = await uploadImageToStorage(file, 'system');
+            setWebhookConfig(prev => ({ ...prev, botAvatar: url }));
+            setWebhookNotice('✅ Avatar subido y aplicado exitosamente.');
+            setTimeout(() => setWebhookNotice(null), 4000);
+        } catch (err) {
+            setWebhookError('Error al subir avatar: ' + err.message);
+        } finally {
+            setUploadingAvatar(false);
         }
     };
 
@@ -2933,34 +2952,94 @@ export default function Comandancia() {
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
-                                        URL del Avatar del Bot (Opcional)
+                                        Avatar del Bot (Subir archivo o enlace)
                                     </label>
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        <input
-                                            type="text"
-                                            placeholder="https://..."
-                                            value={webhookConfig.botAvatar}
-                                            onChange={(e) => setWebhookConfig(prev => ({ ...prev, botAvatar: e.target.value }))}
-                                            style={{
-                                                flex: 1,
-                                                background: 'rgba(0, 0, 0, 0.35)',
-                                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {/* File Upload Button */}
+                                            <label style={{
+                                                background: uploadingAvatar ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.18)',
+                                                border: '1px solid rgba(129, 140, 248, 0.45)',
+                                                color: '#c7d2fe',
                                                 borderRadius: '10px',
-                                                padding: '0.7rem 0.95rem',
-                                                color: '#f8fafc',
-                                                fontSize: '0.85rem',
-                                                boxSizing: 'border-box',
-                                                outline: 'none'
-                                            }}
-                                        />
-                                        {webhookConfig.botAvatar && (
-                                            <img
-                                                src={webhookConfig.botAvatar}
-                                                alt="Avatar preview"
-                                                style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }}
-                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                                padding: '0.65rem 0.95rem',
+                                                fontSize: '0.8rem',
+                                                fontWeight: 800,
+                                                cursor: uploadingAvatar ? 'wait' : 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                whiteSpace: 'nowrap',
+                                                transition: 'all 0.15s ease'
+                                            }}>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    disabled={uploadingAvatar}
+                                                    onChange={handleUploadBotAvatar}
+                                                    style={{ display: 'none' }}
+                                                />
+                                                <span>{uploadingAvatar ? '⏳ Subiendo...' : '📁 Subir Imagen'}</span>
+                                            </label>
+
+                                            {/* Direct URL Input */}
+                                            <input
+                                                type="text"
+                                                placeholder="O pega una URL: https://..."
+                                                value={webhookConfig.botAvatar}
+                                                onChange={(e) => setWebhookConfig(prev => ({ ...prev, botAvatar: e.target.value }))}
+                                                style={{
+                                                    flex: 1,
+                                                    background: 'rgba(0, 0, 0, 0.35)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                    borderRadius: '10px',
+                                                    padding: '0.7rem 0.95rem',
+                                                    color: '#f8fafc',
+                                                    fontSize: '0.85rem',
+                                                    boxSizing: 'border-box',
+                                                    outline: 'none'
+                                                }}
                                             />
-                                        )}
+
+                                            {/* Avatar Preview */}
+                                            {webhookConfig.botAvatar && (
+                                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                                    <img
+                                                        src={webhookConfig.botAvatar}
+                                                        alt="Avatar preview"
+                                                        style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(129, 140, 248, 0.6)' }}
+                                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setWebhookConfig(prev => ({ ...prev, botAvatar: '' }))}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '-5px',
+                                                            right: '-5px',
+                                                            background: 'rgba(239, 68, 68, 0.9)',
+                                                            color: '#ffffff',
+                                                            border: 'none',
+                                                            borderRadius: '50%',
+                                                            width: '18px',
+                                                            height: '18px',
+                                                            fontSize: '0.65rem',
+                                                            fontWeight: 900,
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center'
+                                                        }}
+                                                        title="Eliminar avatar"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                            Puedes subir una imagen desde tu PC o pegar cualquier URL directa de imagen.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
