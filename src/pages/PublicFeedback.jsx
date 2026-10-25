@@ -165,14 +165,21 @@ export default function PublicFeedback() {
     const loadExistingFichas = async () => {
         try {
             setLoadingFichas(true);
-            const uniqueNames = new Set();
+            const namesMap = new Map();
+            const addName = (raw) => {
+                const trimmed = (raw || '').trim();
+                if (!trimmed) return;
+                const lower = trimmed.toLowerCase();
+                if (!namesMap.has(lower)) {
+                    namesMap.set(lower, trimmed);
+                }
+            };
 
             // 1. Existing fichas from RPC
             const { data: rpcData, error: rpcErr } = await supabase.rpc('get_feedback_fichas');
             if (!rpcErr && rpcData && rpcData.length > 0) {
                 rpcData.forEach(r => {
-                    const n = (r.agent_name || '').trim();
-                    if (n) uniqueNames.add(n);
+                    addName(r.agent_name);
                 });
             }
 
@@ -183,10 +190,8 @@ export default function PublicFeedback() {
 
             if (fbData && fbData.length > 0) {
                 fbData.forEach(item => {
-                    const t = (item.target_name || '').trim();
-                    const a = (item.author_name || '').trim();
-                    if (t) uniqueNames.add(t);
-                    if (a) uniqueNames.add(a);
+                    addName(item.target_name);
+                    addName(item.author_name);
                 });
             }
 
@@ -198,12 +203,12 @@ export default function PublicFeedback() {
             if (usersData && usersData.length > 0) {
                 usersData.forEach(u => {
                     const full = `${u.nombre || ''} ${u.apellido || ''}`.trim();
-                    if (full) uniqueNames.add(full);
+                    addName(full);
                 });
             }
 
             // 4. Fallback to app_settings if needed
-            if (uniqueNames.size === 0) {
+            if (namesMap.size === 0) {
                 const { data: settingData } = await supabase
                     .from('app_settings')
                     .select('value')
@@ -214,16 +219,14 @@ export default function PublicFeedback() {
                     const items = typeof settingData.value === 'string' ? JSON.parse(settingData.value) : settingData.value;
                     if (Array.isArray(items)) {
                         items.forEach(item => {
-                            const t = (item.target_name || item.target_agent_name || '').trim();
-                            const a = (item.author_name || item.author_agent_name || '').trim();
-                            if (t) uniqueNames.add(t);
-                            if (a) uniqueNames.add(a);
+                            addName(item.target_name || item.target_agent_name);
+                            addName(item.author_name || item.author_agent_name);
                         });
                     }
                 }
             }
 
-            const fichasList = Array.from(uniqueNames).map(name => ({ name }));
+            const fichasList = Array.from(namesMap.values()).map(name => ({ name }));
             fichasList.sort((a, b) => a.name.localeCompare(b.name));
             setExistingFichas(fichasList);
         } catch (err) {
@@ -661,6 +664,7 @@ export default function PublicFeedback() {
 
                                 {authorName && (
                                     <button
+                                        key="clear-author-btn"
                                         type="button"
                                         onClick={() => {
                                             setAuthorName('');
@@ -693,21 +697,25 @@ export default function PublicFeedback() {
 
                             {/* Dropdown de Autocompletado del Autor */}
                             {isAuthorDropdownOpen && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: 'calc(100% + 6px)',
-                                    left: 0,
-                                    right: 0,
-                                    zIndex: 60,
-                                    background: 'rgba(15, 23, 42, 0.98)',
-                                    backdropFilter: 'blur(20px)',
-                                    border: '1px solid rgba(56, 189, 248, 0.35)',
-                                    borderRadius: '14px',
-                                    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.15)',
-                                    maxHeight: '260px',
-                                    overflowY: 'auto',
-                                    padding: '6px'
-                                }}>
+                                <div
+                                    className="notranslate"
+                                    translate="no"
+                                    style={{
+                                        position: 'absolute',
+                                        top: 'calc(100% + 6px)',
+                                        left: 0,
+                                        right: 0,
+                                        zIndex: 60,
+                                        background: 'rgba(15, 23, 42, 0.98)',
+                                        backdropFilter: 'blur(20px)',
+                                        border: '1px solid rgba(56, 189, 248, 0.35)',
+                                        borderRadius: '14px',
+                                        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.15)',
+                                        maxHeight: '260px',
+                                        overflowY: 'auto',
+                                        padding: '6px'
+                                    }}
+                                >
                                     <div style={{
                                         padding: '6px 12px 4px 12px',
                                         fontSize: '0.7rem',
@@ -732,7 +740,7 @@ export default function PublicFeedback() {
 
                                                 return (
                                                     <div
-                                                        key={ficha.name}
+                                                        key={`author-sug-${ficha.name}-${idx}`}
                                                         onClick={() => handleSelectAuthor(ficha.name)}
                                                         onMouseEnter={() => setAuthorHighlightedIndex(idx)}
                                                         style={{
@@ -785,13 +793,14 @@ export default function PublicFeedback() {
                                         </div>
                                     ) : (
                                         <div style={{ padding: '0.85rem 0.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.82rem' }}>
-                                            No hay ningún agente en la lista con "{authorName}"
+                                            <span>No hay ningún agente en la lista con "{authorName}"</span>
                                         </div>
                                     )}
 
                                     {/* Opción si el autor no coincide con ningún agente existente */}
                                     {authorName.trim().length > 0 && !isExistingAuthorFicha && (
                                         <div
+                                            key="create-new-author-option"
                                             onClick={() => {
                                                 setIsAuthorDropdownOpen(false);
                                             }}
@@ -823,39 +832,51 @@ export default function PublicFeedback() {
 
                             {/* Informative Status Badge below input for Author */}
                             {authorName.trim().length > 0 && (
-                                <div style={{ marginTop: '0.5rem' }}>
+                                <div key="author-badge-container" className="notranslate" translate="no" style={{ marginTop: '0.5rem' }}>
                                     {isExistingAuthorFicha ? (
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            background: 'rgba(16, 185, 129, 0.12)',
-                                            border: '1px solid rgba(16, 185, 129, 0.35)',
-                                            borderRadius: '8px',
-                                            padding: '0.45rem 0.85rem',
-                                            fontSize: '0.78rem',
-                                            color: '#86efac'
-                                        }}>
+                                        <div
+                                            key={`author-registered-${matchedAuthorFicha?.name}`}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                background: 'rgba(16, 185, 129, 0.12)',
+                                                border: '1px solid rgba(16, 185, 129, 0.35)',
+                                                borderRadius: '8px',
+                                                padding: '0.45rem 0.85rem',
+                                                fontSize: '0.78rem',
+                                                color: '#86efac'
+                                            }}
+                                        >
                                             <span>🟢</span>
                                             <span>
-                                                <strong>Agente / Ficha Registrada:</strong> El informe se vinculará a la ficha de <strong>{matchedAuthorFicha.name}</strong>.
+                                                <strong>Agente / Ficha Registrada: </strong>
+                                                <span>El informe se vinculará a la ficha de </span>
+                                                <strong>{matchedAuthorFicha?.name || ''}</strong>
+                                                <span>.</span>
                                             </span>
                                         </div>
                                     ) : (
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            background: 'rgba(245, 158, 11, 0.1)',
-                                            border: '1px solid rgba(245, 158, 11, 0.35)',
-                                            borderRadius: '8px',
-                                            padding: '0.45rem 0.85rem',
-                                            fontSize: '0.78rem',
-                                            color: '#fde047'
-                                        }}>
+                                        <div
+                                            key="author-unregistered"
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                background: 'rgba(245, 158, 11, 0.1)',
+                                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                                borderRadius: '8px',
+                                                padding: '0.45rem 0.85rem',
+                                                fontSize: '0.78rem',
+                                                color: '#fde047'
+                                            }}
+                                        >
                                             <span>✨</span>
                                             <span>
-                                                <strong>Nueva Ficha de Agente:</strong> Aún no existe ficha previa para <strong>"{authorName.trim()}"</strong>. Su ficha se creará automáticamente al enviar el informe.
+                                                <strong>Nueva Ficha de Agente: </strong>
+                                                <span>Aún no existe ficha previa para </span>
+                                                <strong>{`"${authorName.trim()}"`}</strong>
+                                                <span>. Su ficha se creará automáticamente al enviar el informe.</span>
                                             </span>
                                         </div>
                                     )}
@@ -896,6 +917,7 @@ export default function PublicFeedback() {
                                     required
                                     type="text"
                                     autoComplete="off"
+                                    spellCheck="false"
                                     placeholder="Escribe el nombre del agente (ej. Matthew, Matias...)"
                                     value={targetAgentName}
                                     onChange={(e) => {
@@ -915,12 +937,14 @@ export default function PublicFeedback() {
                                         padding: '0.75rem 2.5rem 0.75rem 2.8rem',
                                         fontSize: '0.92rem',
                                         boxShadow: isDropdownOpen ? '0 0 15px rgba(56, 189, 248, 0.2)' : 'none',
-                                        transition: 'all 0.2s ease'
+                                        transition: 'all 0.2s ease',
+                                        boxSizing: 'border-box'
                                     }}
                                 />
 
                                 {targetAgentName && (
                                     <button
+                                        key="clear-target-btn"
                                         type="button"
                                         onClick={() => {
                                             setTargetAgentName('');
@@ -951,21 +975,25 @@ export default function PublicFeedback() {
 
                             {/* Autocomplete Dropdown List */}
                             {isDropdownOpen && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: 'calc(100% + 6px)',
-                                    left: 0,
-                                    right: 0,
-                                    zIndex: 50,
-                                    background: 'rgba(15, 23, 42, 0.98)',
-                                    backdropFilter: 'blur(20px)',
-                                    border: '1px solid rgba(56, 189, 248, 0.35)',
-                                    borderRadius: '14px',
-                                    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.15)',
-                                    maxHeight: '260px',
-                                    overflowY: 'auto',
-                                    padding: '6px'
-                                }}>
+                                <div
+                                    className="notranslate"
+                                    translate="no"
+                                    style={{
+                                        position: 'absolute',
+                                        top: 'calc(100% + 6px)',
+                                        left: 0,
+                                        right: 0,
+                                        zIndex: 50,
+                                        background: 'rgba(15, 23, 42, 0.98)',
+                                        backdropFilter: 'blur(20px)',
+                                        border: '1px solid rgba(56, 189, 248, 0.35)',
+                                        borderRadius: '14px',
+                                        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.15)',
+                                        maxHeight: '260px',
+                                        overflowY: 'auto',
+                                        padding: '6px'
+                                    }}
+                                >
                                     <div style={{
                                         padding: '6px 12px 4px 12px',
                                         fontSize: '0.7rem',
@@ -990,7 +1018,7 @@ export default function PublicFeedback() {
 
                                                 return (
                                                     <div
-                                                        key={ficha.name}
+                                                        key={`target-sug-${ficha.name}-${idx}`}
                                                         onClick={() => handleSelectFicha(ficha.name)}
                                                         onMouseEnter={() => setHighlightedIndex(idx)}
                                                         style={{
@@ -1043,13 +1071,14 @@ export default function PublicFeedback() {
                                         </div>
                                     ) : (
                                         <div style={{ padding: '0.85rem 0.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.82rem' }}>
-                                            No hay ninguna ficha previa con "{targetAgentName}"
+                                            <span>No hay ninguna ficha previa con "{targetAgentName}"</span>
                                         </div>
                                     )}
 
                                     {/* Option to create new Ficha if text typed doesn't match an exact ficha */}
                                     {targetAgentName.trim().length > 0 && !isExistingFicha && (
                                         <div
+                                            key="create-new-target-option"
                                             onClick={() => {
                                                 setIsDropdownOpen(false);
                                             }}
@@ -1081,39 +1110,51 @@ export default function PublicFeedback() {
 
                             {/* Informative Status Badge below input */}
                             {targetAgentName.trim().length > 0 && (
-                                <div style={{ marginTop: '0.5rem' }}>
+                                <div key="target-badge-container" className="notranslate" translate="no" style={{ marginTop: '0.5rem' }}>
                                     {isExistingFicha ? (
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            background: 'rgba(16, 185, 129, 0.12)',
-                                            border: '1px solid rgba(16, 185, 129, 0.35)',
-                                            borderRadius: '8px',
-                                            padding: '0.45rem 0.85rem',
-                                            fontSize: '0.78rem',
-                                            color: '#86efac'
-                                        }}>
+                                        <div
+                                            key={`target-registered-${matchedFicha?.name}`}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                background: 'rgba(16, 185, 129, 0.12)',
+                                                border: '1px solid rgba(16, 185, 129, 0.35)',
+                                                borderRadius: '8px',
+                                                padding: '0.45rem 0.85rem',
+                                                fontSize: '0.78rem',
+                                                color: '#86efac'
+                                            }}
+                                        >
                                             <span>🟢</span>
                                             <span>
-                                                <strong>Ficha Evaluativa Existente:</strong> Este informe se registrará en el expediente de <strong>{matchedFicha.name}</strong>.
+                                                <strong>Ficha Evaluativa Existente: </strong>
+                                                <span>Este informe se registrará en el expediente de </span>
+                                                <strong>{matchedFicha?.name || ''}</strong>
+                                                <span>.</span>
                                             </span>
                                         </div>
                                     ) : (
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            background: 'rgba(245, 158, 11, 0.1)',
-                                            border: '1px solid rgba(245, 158, 11, 0.35)',
-                                            borderRadius: '8px',
-                                            padding: '0.45rem 0.85rem',
-                                            fontSize: '0.78rem',
-                                            color: '#fde047'
-                                        }}>
+                                        <div
+                                            key="target-unregistered"
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                background: 'rgba(245, 158, 11, 0.1)',
+                                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                                borderRadius: '8px',
+                                                padding: '0.45rem 0.85rem',
+                                                fontSize: '0.78rem',
+                                                color: '#fde047'
+                                            }}
+                                        >
                                             <span>✨</span>
                                             <span>
-                                                <strong>Nueva Ficha Evaluativa:</strong> Aún no existe ficha previa para <strong>"{targetAgentName.trim()}"</strong>. Su ficha se creará automáticamente al enviar el informe.
+                                                <strong>Nueva Ficha Evaluativa: </strong>
+                                                <span>Aún no existe ficha previa para </span>
+                                                <strong>{`"${targetAgentName.trim()}"`}</strong>
+                                                <span>. Su ficha se creará automáticamente al enviar el informe.</span>
                                             </span>
                                         </div>
                                     )}
