@@ -2520,18 +2520,19 @@ function FeedbackReactionsBar({ feedbackId, reactions, currentUserId, onToggle }
                         {hoveredType === btn.type && btn.list.length > 0 && (
                             <div style={{
                                 position: 'absolute',
-                                bottom: 'calc(100% + 6px)',
-                                left: '50%',
-                                transform: 'translateX(-50%)',
-                                zIndex: 1500,
+                                bottom: 'calc(100% + 8px)',
+                                left: 0,
+                                transform: 'none',
+                                zIndex: 2000,
                                 background: 'rgba(15, 23, 42, 0.98)',
                                 border: `1px solid ${btn.activeBorder}`,
-                                borderRadius: '8px',
-                                padding: '6px 10px',
-                                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.75)',
-                                backdropFilter: 'blur(12px)',
-                                minWidth: '190px',
-                                maxWidth: '300px',
+                                borderRadius: '10px',
+                                padding: '8px 12px',
+                                boxShadow: `0 12px 32px rgba(0, 0, 0, 0.85), 0 0 15px ${btn.glow}`,
+                                backdropFilter: 'blur(16px)',
+                                width: 'max-content',
+                                minWidth: '210px',
+                                maxWidth: '320px',
                                 pointerEvents: 'none'
                             }}>
                                 <div style={{
