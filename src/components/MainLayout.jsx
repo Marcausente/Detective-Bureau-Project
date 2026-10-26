@@ -331,7 +331,10 @@ function MainLayout() {
     const hasIAAccess = isAdmin || isComisionado || hasIADivision;
 
     const hasComandanciaDivision = userDivisions.includes('Comandancia') || userSubdivisions.includes('Comandancia');
+    const userRankLower = (profile?.rango || '').trim().toLowerCase();
+    const isSargento = userRankLower.includes('sargento') || userRankLower.includes('sergeant') || userRoleLower.includes('sargento');
     const hasComandanciaAccess = isAdmin || isComisionado || hasComandanciaDivision;
+    const hasSanctionsAccess = hasIAAccess || hasComandanciaAccess || isSargento;
 
     const hasDTPAccess = userDivisions.includes('DTP') || userSubdivisions.includes('DTP');
     const hasTrainingAccess = isAdmin || isComisionado || isCoordinador || hasDBDivision || hasDTPAccess;
@@ -374,7 +377,12 @@ function MainLayout() {
             return hasComandanciaAccess;
         }
 
-        // Asuntos Internos: SOLO división asuntos internos
+        // Apartado de Sanciones: Accesible para Asuntos Internos, Comandancia y Sargentos
+        if (pathname.startsWith('/internal-affairs/sanctions')) {
+            return hasSanctionsAccess;
+        }
+
+        // Asuntos Internos: Resto de módulos SOLO división asuntos internos
         if (pathname.startsWith('/internal-affairs')) {
             return hasIAAccess;
         }

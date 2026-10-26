@@ -19,6 +19,7 @@ function IASanctions() {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('all'); // 'all', 'active', 'expired', 'clean'
     const [durations, setDurations] = useState(DEFAULT_SANCTION_DURATIONS);
+    const [currentUser, setCurrentUser] = useState(null);
 
     // Modal & CRUD State
     const [showModal, setShowModal] = useState(false);
@@ -28,7 +29,32 @@ function IASanctions() {
 
     useEffect(() => {
         loadData();
+        fetchUserProfile();
     }, []);
+
+    const fetchUserProfile = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+                if (data) setCurrentUser(data);
+            }
+        } catch (e) {
+            console.error('Error fetching user profile:', e);
+        }
+    };
+
+    const userRole = (currentUser?.rol || '').trim().toLowerCase();
+    const isAdmin = userRole === 'administrador' || userRole === 'superadmin';
+    const isComisionado = userRole === 'comisionado';
+    const userDivisions = Array.isArray(currentUser?.divisions) ? currentUser.divisions : [];
+    const userSubdivisions = Array.isArray(currentUser?.subdivisions) ? currentUser.subdivisions : [];
+    const hasIADivision = userDivisions.includes('Internal Affairs') || userSubdivisions.includes('Internal Affairs');
+    const hasIAAccess = isAdmin || isComisionado || hasIADivision;
 
     const loadData = async () => {
         setLoading(true);
@@ -188,18 +214,18 @@ function IASanctions() {
             <div className="mac-command-banner" style={{ marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(30, 27, 38, 0.75), rgba(15, 23, 42, 0.85))' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
                     <img
-                        src={isLSSD ? "/logowebp/IALSSD.webp" : "/logowebp/ialogo.webp"}
-                        alt="IA Division Logo"
+                        src={hasIAAccess ? (isLSSD ? "/logowebp/IALSSD.webp" : "/logowebp/ialogo.webp") : (isLSSD ? "/logowebp/lssdlogo.webp" : "/logowebp/dblogo.webp")}
+                        alt={hasIAAccess ? "IA Division Logo" : "Comandancia Logo"}
                         style={{
                             height: '70px',
                             width: 'auto',
-                            filter: `drop-shadow(0 4px 16px ${isLSSD ? 'rgba(74, 222, 128, 0.4)' : 'rgba(239, 68, 68, 0.45)'})`
+                            filter: `drop-shadow(0 4px 16px ${hasIAAccess ? (isLSSD ? 'rgba(74, 222, 128, 0.4)' : 'rgba(239, 68, 68, 0.45)') : 'rgba(234, 179, 8, 0.4)'})`
                         }}
                     />
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
                             <button
-                                onClick={() => navigate('/internal-affairs')}
+                                onClick={() => navigate(hasIAAccess ? '/internal-affairs' : '/comandancia')}
                                 style={{
                                     background: 'rgba(255, 255, 255, 0.08)',
                                     border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -227,18 +253,24 @@ function IASanctions() {
                                     <line x1="19" y1="12" x2="5" y2="12"/>
                                     <polyline points="12 19 5 12 12 5"/>
                                 </svg>
-                                <span>{language === 'es' ? 'Volver al Panel' : 'Back to Dashboard'}</span>
+                                <span>{hasIAAccess ? (language === 'es' ? 'Volver al Panel IA' : 'Back to IA Dashboard') : (language === 'es' ? 'Volver a Comandancia' : 'Back to Command')}</span>
                             </button>
-                            <span className="mac-status-dot" style={{ backgroundColor: '#ef4444', boxShadow: '0 0 10px #ef4444' }}></span>
-                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                                {language === 'es' ? 'División de Asuntos Internos' : 'Internal Affairs Division'}
+                            <span className="mac-status-dot" style={{ backgroundColor: hasIAAccess ? '#ef4444' : '#eab308', boxShadow: `0 0 10px ${hasIAAccess ? '#ef4444' : '#eab308'}` }}></span>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: hasIAAccess ? '#f87171' : '#fde047', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                {hasIAAccess 
+                                    ? (language === 'es' ? 'División de Asuntos Internos' : 'Internal Affairs Division')
+                                    : (language === 'es' ? 'Comandancia • Supervisión de Sargentos' : 'Command • Sergeants Supervision')}
                             </span>
                         </div>
                         <h1 style={{ fontSize: '1.6rem', fontWeight: 800, margin: '0.15rem 0', color: '#ffffff', letterSpacing: '-0.02em' }}>
-                            {language === 'es' ? 'REGISTRO DE SANCIONES' : 'DISCIPLINARY SANCTIONS REGISTRY'}
+                            {hasIAAccess 
+                                ? (language === 'es' ? 'REGISTRO DE SANCIONES' : 'DISCIPLINARY SANCTIONS REGISTRY')
+                                : (language === 'es' ? 'REGISTRO DE SANCIONES Y FALTAS DE SARGENTOS' : 'DISCIPLINARY SANCTIONS & SERGEANTS REGISTRY')}
                         </h1>
                         <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.82rem' }}>
-                            {language === 'es' ? 'Control de personal con faltas activas y expedientes disciplinarios.' : 'Control of officers with active sanctions and disciplinary records.'}
+                            {hasIAAccess
+                                ? (language === 'es' ? 'Control de personal con faltas activas y expedientes disciplinarios.' : 'Control of officers with active sanctions and disciplinary records.')
+                                : (language === 'es' ? 'Consulta de estado de vigencias de agentes y expedición de faltas leves de sargentos.' : 'Officer active sanction status inquiry and issuance of minor sergeant faults.')}
                         </p>
                     </div>
                 </div>
@@ -550,36 +582,38 @@ function IASanctions() {
                                                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
                                             </svg>
                                         </button>
-                                        <button
-                                            onClick={(e) => handleDelete(e, profile.id)}
-                                            style={{
-                                                width: '30px',
-                                                height: '30px',
-                                                borderRadius: '8px',
-                                                background: 'rgba(239, 68, 68, 0.08)',
-                                                border: '1px solid rgba(239, 68, 68, 0.22)',
-                                                color: '#f87171',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                            onMouseEnter={e => {
-                                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-                                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-                                            }}
-                                            onMouseLeave={e => {
-                                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
-                                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.22)';
-                                            }}
-                                            title={language === 'es' ? 'Eliminar Oficial' : 'Delete Officer'}
-                                        >
-                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <polyline points="3 6 5 6 21 6"/>
-                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                            </svg>
-                                        </button>
+                                        {hasIAAccess && (
+                                            <button
+                                                onClick={(e) => handleDelete(e, profile.id)}
+                                                style={{
+                                                    width: '30px',
+                                                    height: '30px',
+                                                    borderRadius: '8px',
+                                                    background: 'rgba(239, 68, 68, 0.08)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.22)',
+                                                    color: '#f87171',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                                onMouseEnter={e => {
+                                                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                                                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                                                }}
+                                                onMouseLeave={e => {
+                                                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                                                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.22)';
+                                                }}
+                                                title={language === 'es' ? 'Eliminar Oficial' : 'Delete Officer'}
+                                            >
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="3 6 5 6 21 6"/>
+                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                                </svg>
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 

@@ -8,6 +8,7 @@ import {
     fetchSanctionDurations, 
     calculateSanctionExpiry 
 } from '../utils/sanctionConfig';
+import { sendIASanctionToDiscord } from '../utils/discordWebhook';
 import '../index.css';
 
 function IASanctionProfile() {
@@ -18,6 +19,7 @@ function IASanctionProfile() {
     const [profileData, setProfileData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [durations, setDurations] = useState(DEFAULT_SANCTION_DURATIONS);
+    const [currentUser, setCurrentUser] = useState(null);
 
     // Modal State
     const [showModal, setShowModal] = useState(false);
@@ -28,13 +30,39 @@ function IASanctionProfile() {
         type: 'Media', // Default
         description: '',
         date: new Date().toISOString().split('T')[0],
-        caseId: ''
+        caseId: '',
+        sendToDiscord: true
     });
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         loadData();
+        fetchUserProfile();
     }, [id]);
+
+    const fetchUserProfile = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+                if (data) setCurrentUser(data);
+            }
+        } catch (e) {
+            console.error('Error fetching user profile:', e);
+        }
+    };
+
+    const userRole = (currentUser?.rol || '').trim().toLowerCase();
+    const isAdmin = userRole === 'administrador' || userRole === 'superadmin';
+    const isComisionado = userRole === 'comisionado';
+    const userDivisions = Array.isArray(currentUser?.divisions) ? currentUser.divisions : [];
+    const userSubdivisions = Array.isArray(currentUser?.subdivisions) ? currentUser.subdivisions : [];
+    const hasIADivision = userDivisions.includes('Internal Affairs') || userSubdivisions.includes('Internal Affairs');
+    const hasIAAccess = isAdmin || isComisionado || hasIADivision;
 
     const loadData = async () => {
         setLoading(true);
@@ -43,8 +71,28 @@ function IASanctionProfile() {
             setDurations(loadedDurations);
 
             const { data, error } = await supabase.rpc('get_ia_subject_details', { p_subject_id: id });
-            if (error) throw error;
-            setProfileData(data);
+            if (!error && data) {
+                setProfileData(data);
+            } else {
+                // Fallback to direct supabase query
+                const { data: pData, error: pErr } = await supabase
+                    .from('ia_subject_profiles')
+                    .select('*')
+                    .eq('id', id)
+                    .single();
+                if (pErr) throw pErr;
+
+                const { data: sData } = await supabase
+                    .from('ia_sanctions')
+                    .select('*')
+                    .eq('subject_id', id)
+                    .order('sanction_date', { ascending: false });
+
+                setProfileData({
+                    profile: pData,
+                    sanctions: sData || []
+                });
+            }
         } catch (err) {
             console.error('Error loading profile:', err);
             alert(language === 'es' ? 'Error al cargar el perfil del oficial.' : 'Failed to load officer profile.');
@@ -64,21 +112,33 @@ function IASanctionProfile() {
     const openForCreate = () => {
         setModalMode('create');
         setEditingId(null);
-        setFormData({ type: 'Media', description: '', date: new Date().toISOString().split('T')[0], caseId: '' });
-        loadCasesForDropdown();
+        setFormData({
+            type: hasIAAccess ? 'Media' : 'Leve (Sargentos)',
+            description: '',
+            date: new Date().toISOString().split('T')[0],
+            caseId: '',
+            sendToDiscord: true
+        });
+        if (hasIAAccess) {
+            loadCasesForDropdown();
+        }
         setShowModal(true);
     };
 
     const openForEdit = (item) => {
         setModalMode('update');
         setEditingId(item.id);
+        const itemType = item.isSargentos ? 'Leve (Sargentos)' : (item.type || 'Media');
         setFormData({
-            type: item.type || 'Media',
+            type: itemType,
             description: item.description || '',
             date: item.date,
-            caseId: item.case_id || ''
+            caseId: item.case_id || '',
+            sendToDiscord: false
         });
-        loadCasesForDropdown();
+        if (hasIAAccess) {
+            loadCasesForDropdown();
+        }
         setShowModal(true);
     };
 
@@ -86,21 +146,106 @@ function IASanctionProfile() {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const { error } = await supabase.rpc('manage_ia_sanction', {
-                p_action: modalMode,
-                p_id: editingId,
-                p_subject_id: id,
-                p_type: formData.type,
-                p_description: formData.description,
-                p_date: formData.date,
-                p_case_id: formData.caseId || null
-            });
-            if (error) throw error;
+            const isSargentosType = formData.type.toLowerCase().includes('sargento') || !hasIAAccess;
+            let dbSuccess = false;
+
+            try {
+                const { error } = await supabase.rpc('manage_ia_sanction', {
+                    p_action: modalMode,
+                    p_id: editingId,
+                    p_subject_id: id,
+                    p_type: isSargentosType ? 'Leve (Sargentos)' : formData.type,
+                    p_description: formData.description,
+                    p_date: formData.date,
+                    p_case_id: hasIAAccess ? (formData.caseId || null) : null
+                });
+                if (!error) dbSuccess = true;
+            } catch (rpcErr) {
+                console.warn('RPC manage_ia_sanction error:', rpcErr);
+            }
+
+            if (!dbSuccess) {
+                if (modalMode === 'create') {
+                    const { error: insErr } = await supabase
+                        .from('ia_sanctions')
+                        .insert({
+                            subject_id: id,
+                            sanction_type: isSargentosType ? 'Leve (Sargentos)' : formData.type,
+                            description: formData.description,
+                            sanction_date: formData.date,
+                            case_id: hasIAAccess ? (formData.caseId || null) : null,
+                            created_by: currentUser?.id || null,
+                            is_sargentos: isSargentosType
+                        });
+                    if (insErr) {
+                        // Fallback in case of check constraint on sanction_type
+                        await supabase
+                            .from('ia_sanctions')
+                            .insert({
+                                subject_id: id,
+                                sanction_type: 'Leve',
+                                description: `[Falta Leve de Sargentos] ${formData.description}`,
+                                sanction_date: formData.date,
+                                case_id: null,
+                                created_by: currentUser?.id || null
+                            });
+                    }
+                } else if (modalMode === 'update') {
+                    await supabase
+                        .from('ia_sanctions')
+                        .update({
+                            sanction_type: isSargentosType ? 'Leve (Sargentos)' : formData.type,
+                            description: formData.description,
+                            sanction_date: formData.date,
+                            case_id: hasIAAccess ? (formData.caseId || null) : null
+                        })
+                        .eq('id', editingId);
+                }
+            }
+
+            // Optional Discord Webhook Notification & Logging to Published Sanctions
+            if (formData.sendToDiscord && modalMode === 'create') {
+                try {
+                    const officerName = `${profileData?.profile?.nombre || ''} ${profileData?.profile?.apellido || ''}`.trim();
+                    const officerBadge = profileData?.profile?.no_placa || '';
+                    const authorFullName = [currentUser?.nombre, currentUser?.apellido].filter(Boolean).join(' ');
+                    const authorRank = currentUser?.rango ? `[${currentUser.rango}]` : '';
+                    const authorBadge = currentUser?.no_placa ? `(#${currentUser.no_placa})` : '';
+                    const sanctionerStr = `${authorRank} ${authorFullName} ${authorBadge} (Sargentos)`.trim();
+
+                    await sendIASanctionToDiscord({
+                        sanctionType: isSargentosType ? 'leves_sargentos' : (formData.type.toLowerCase().includes('grave') ? 'graves' : formData.type.toLowerCase().includes('media') ? 'medias' : 'leves_ia'),
+                        officerName: officerName,
+                        officerBadge: officerBadge,
+                        officerRank: '',
+                        reason: formData.description,
+                        sanctionApplied: 'Amonestación verbal / Advertencia formal registrada en expediente',
+                        sanctionerName: sanctionerStr,
+                        sanctionDate: formData.date,
+                        author: currentUser,
+                        forceSend: false
+                    });
+
+                    await supabase.from('ia_published_sanctions').insert({
+                        sanction_type: isSargentosType ? 'leves_sargentos' : 'leves_ia',
+                        officer_name: officerName,
+                        officer_badge: officerBadge,
+                        reason: formData.description,
+                        sanction_applied: 'Amonestación verbal / Advertencia formal registrada en expediente',
+                        sanctioner_name: sanctionerStr,
+                        sanction_date: formData.date,
+                        discord_sent: true,
+                        created_by: currentUser?.id || null
+                    });
+                } catch (discErr) {
+                    console.warn('Could not dispatch sanction to Discord:', discErr);
+                }
+            }
 
             setShowModal(false);
             loadData();
         } catch (err) {
-            alert((language === 'es' ? 'Error: ' : 'Error: ') + err.message);
+            alert((language === 'es' ? 'Error al guardar: ' : 'Error saving: ') + err.message);
         } finally {
             setSubmitting(false);
         }
@@ -112,11 +257,18 @@ function IASanctionProfile() {
             : 'Are you sure you want to delete this sanction record?')) return;
 
         try {
-            const { error } = await supabase.rpc('manage_ia_sanction', {
-                p_action: 'delete',
-                p_id: sanctionId
-            });
-            if (error) throw error;
+            let deleted = false;
+            try {
+                const { error } = await supabase.rpc('manage_ia_sanction', {
+                    p_action: 'delete',
+                    p_id: sanctionId
+                });
+                if (!error) deleted = true;
+            } catch (e) {}
+
+            if (!deleted) {
+                await supabase.from('ia_sanctions').delete().eq('id', sanctionId);
+            }
             loadData();
         } catch (err) {
             alert((language === 'es' ? 'Error al eliminar: ' : 'Error deleting: ') + err.message);
@@ -154,12 +306,24 @@ function IASanctionProfile() {
             color: '#38bdf8',
             bg: 'rgba(56, 189, 248, 0.15)',
             border: 'rgba(56, 189, 248, 0.35)',
-            label: language === 'es' ? 'Falta Leve' : 'Minor Offense',
+            label: language === 'es' ? 'Falta Leve (IA)' : 'Minor Offense (IA)',
             icon: (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10"/>
                     <line x1="12" y1="16" x2="12" y2="12"/>
                     <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+            )
+        },
+        'Leve (Sargentos)': {
+            color: '#22c55e',
+            bg: 'rgba(34, 197, 94, 0.15)',
+            border: 'rgba(34, 197, 94, 0.35)',
+            label: language === 'es' ? 'Falta Leve (Sargentos)' : 'Minor Offense (Sergeants)',
+            icon: (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="m9 12 2 2 4-4"/>
                 </svg>
             )
         }
@@ -170,8 +334,16 @@ function IASanctionProfile() {
         if (!profileData?.sanctions) return [];
         return profileData.sanctions.map(s => {
             const expiry = calculateSanctionExpiry(s, durations);
+            const isSargentos = expiry.isSargentos ||
+                (s.type && s.type.toLowerCase().includes('sargento')) ||
+                (s.sanction_type && s.sanction_type.toLowerCase().includes('sargento')) ||
+                Boolean(s.is_sargentos) ||
+                Boolean(s.description && (s.description.includes('[Falta Leve de Sargentos]') || s.description.includes('[Sargentos]')));
+            const displayType = isSargentos ? 'Leve (Sargentos)' : expiry.type;
             return {
                 ...s,
+                displayType,
+                isSargentos,
                 expiry
             };
         });
@@ -187,6 +359,16 @@ function IASanctionProfile() {
         const sorted = [...activeSanctions].sort((a, b) => b.expiry.expiryDate.getTime() - a.expiry.expiryDate.getTime());
         return sorted[0].expiry;
     }, [activeSanctions, hasActive]);
+
+    const countGrave = enrichedSanctions.filter(s => s.expiry.type === 'Grave').length;
+    const countMedia = enrichedSanctions.filter(s => s.expiry.type === 'Media').length;
+    const countLeve = enrichedSanctions.filter(s => s.expiry.type === 'Leve' && !s.isSargentos).length;
+    const countSargentos = enrichedSanctions.filter(s => s.isSargentos).length;
+
+    const countGraveActive = activeSanctions.filter(s => s.expiry.type === 'Grave').length;
+    const countMediaActive = activeSanctions.filter(s => s.expiry.type === 'Media').length;
+    const countLeveActive = activeSanctions.filter(s => s.expiry.type === 'Leve' && !s.isSargentos).length;
+    const countSargentosActive = activeSanctions.filter(s => s.isSargentos).length;
 
     if (loading) {
         return (
@@ -223,14 +405,6 @@ function IASanctionProfile() {
 
     const { profile } = profileData;
     const initials = `${(profile.nombre?.[0] || '').toUpperCase()}${(profile.apellido?.[0] || '').toUpperCase()}` || 'OF';
-
-    const countGrave = enrichedSanctions.filter(s => s.type === 'Grave').length;
-    const countMedia = enrichedSanctions.filter(s => s.type === 'Media').length;
-    const countLeve = enrichedSanctions.filter(s => s.type === 'Leve').length;
-
-    const countGraveActive = activeSanctions.filter(s => s.type === 'Grave').length;
-    const countMediaActive = activeSanctions.filter(s => s.type === 'Media').length;
-    const countLeveActive = activeSanctions.filter(s => s.type === 'Leve').length;
 
     return (
         <div className="mac-dashboard-container" style={{ maxWidth: '1100px' }}>
@@ -392,16 +566,16 @@ function IASanctionProfile() {
                             gap: '0.5rem',
                             padding: '0.65rem 1.25rem',
                             fontSize: '0.88rem',
-                            background: 'rgba(239, 68, 68, 0.25)',
-                            borderColor: 'rgba(239, 68, 68, 0.5)',
-                            color: '#f87171'
+                            background: !hasIAAccess ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)',
+                            borderColor: !hasIAAccess ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)',
+                            color: !hasIAAccess ? '#4ade80' : '#f87171'
                         }}
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="12" y1="5" x2="12" y2="19"/>
                             <line x1="5" y1="12" x2="19" y2="12"/>
                         </svg>
-                        <span>{language === 'es' ? 'Registrar Sanción' : 'Register Sanction'}</span>
+                        <span>{!hasIAAccess ? (language === 'es' ? 'Registrar Falta de Sargentos' : 'Register Sergeant Sanction') : (language === 'es' ? 'Registrar Sanción' : 'Register Sanction')}</span>
                     </button>
                 </div>
             </div>
@@ -409,7 +583,7 @@ function IASanctionProfile() {
             {/* Severity Breakdown Widgets */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
                 gap: '1rem',
                 marginBottom: '2rem'
             }}>
@@ -487,11 +661,11 @@ function IASanctionProfile() {
                     </div>
                 </div>
 
-                {/* Leves */}
+                {/* Leves IA */}
                 <div className="mac-widget-card" style={{ padding: '1rem 1.25rem', borderLeft: '4px solid #38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
                         <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            {language === 'es' ? 'Faltas Leves' : 'Minor Offenses'}
+                            {language === 'es' ? 'Faltas Leves (IA)' : 'Minor Offenses (IA)'}
                         </span>
                         <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>
                             {countLeve}
@@ -507,6 +681,28 @@ function IASanctionProfile() {
                             <circle cx="12" cy="12" r="10"/>
                             <line x1="12" y1="16" x2="12" y2="12"/>
                             <line x1="12" y1="8" x2="12.01" y2="8"/>
+                        </svg>
+                    </div>
+                </div>
+
+                {/* Leves Sargentos */}
+                <div className="mac-widget-card" style={{ padding: '1rem 1.25rem', borderLeft: '4px solid #22c55e', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(34, 197, 94, 0.05)' }}>
+                    <div>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {language === 'es' ? 'Leves (Sargentos)' : 'Minor (Sergeants)'}
+                        </span>
+                        <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#ffffff', marginTop: '0.2rem' }}>
+                            {countSargentos}
+                            {countSargentosActive > 0 && (
+                                <span style={{ fontSize: '0.8rem', color: '#4ade80', fontWeight: 700, marginLeft: '6px' }}>
+                                    ({countSargentosActive} {language === 'es' ? 'activas' : 'act.'})
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(34, 197, 94, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                         </svg>
                     </div>
                 </div>
@@ -539,6 +735,8 @@ function IASanctionProfile() {
                         const cfg = severityConfig[item.type] || severityConfig.Media;
                         const isLast = index === enrichedSanctions.length - 1;
                         const isSanctionActive = item.expiry.isActive;
+                        const isSargentosSanction = item.isSargentos || item.type === 'Leve (Sargentos)';
+                        const canViewDetails = hasIAAccess || isSargentosSanction;
 
                         return (
                             <div
@@ -655,88 +853,115 @@ function IASanctionProfile() {
                                             </div>
                                         </div>
 
-                                        {/* Action Buttons */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                            <button
-                                                onClick={() => openForEdit(item)}
-                                                style={{
-                                                    width: '28px',
-                                                    height: '28px',
-                                                    borderRadius: '8px',
-                                                    background: 'rgba(255, 255, 255, 0.06)',
-                                                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                                                    color: '#cbd5e1',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.2s ease'
-                                                }}
-                                                onMouseEnter={e => {
-                                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                                                    e.currentTarget.style.color = '#ffffff';
-                                                }}
-                                                onMouseLeave={e => {
-                                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
-                                                    e.currentTarget.style.color = '#cbd5e1';
-                                                }}
-                                                title={language === 'es' ? 'Editar Sanción' : 'Edit Sanction'}
-                                            >
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M12 20h9"/>
-                                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                                                </svg>
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(item.id)}
-                                                style={{
-                                                    width: '28px',
-                                                    height: '28px',
-                                                    borderRadius: '8px',
-                                                    background: 'rgba(239, 68, 68, 0.08)',
-                                                    border: '1px solid rgba(239, 68, 68, 0.2)',
-                                                    color: '#f87171',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    cursor: 'pointer',
-                                                    transition: 'all 0.2s ease'
-                                                }}
-                                                onMouseEnter={e => {
-                                                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-                                                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-                                                }}
-                                                onMouseLeave={e => {
-                                                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
-                                                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)';
-                                                }}
-                                                title={language === 'es' ? 'Eliminar Sanción' : 'Delete Sanction'}
-                                            >
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <polyline points="3 6 5 6 21 6"/>
-                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                                </svg>
-                                            </button>
+                                        {/* Action Buttons - IA can edit all; non-IA can edit/delete sargentos sanctions */}
+                                        {canViewDetails && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                <button
+                                                    onClick={() => openForEdit(item)}
+                                                    style={{
+                                                        width: '28px',
+                                                        height: '28px',
+                                                        borderRadius: '8px',
+                                                        background: 'rgba(255, 255, 255, 0.06)',
+                                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                        color: '#cbd5e1',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s ease'
+                                                    }}
+                                                    onMouseEnter={e => {
+                                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                                                        e.currentTarget.style.color = '#ffffff';
+                                                    }}
+                                                    onMouseLeave={e => {
+                                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                                                        e.currentTarget.style.color = '#cbd5e1';
+                                                    }}
+                                                    title={language === 'es' ? 'Editar Sanción' : 'Edit Sanction'}
+                                                >
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M12 20h9"/>
+                                                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(item.id)}
+                                                    style={{
+                                                        width: '28px',
+                                                        height: '28px',
+                                                        borderRadius: '8px',
+                                                        background: 'rgba(239, 68, 68, 0.08)',
+                                                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                        color: '#f87171',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s ease'
+                                                    }}
+                                                    onMouseEnter={e => {
+                                                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                                                        e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                                                    }}
+                                                    onMouseLeave={e => {
+                                                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                                                        e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                                                    }}
+                                                    title={language === 'es' ? 'Eliminar Sanción' : 'Delete Sanction'}
+                                                >
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <polyline points="3 6 5 6 21 6"/>
+                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Description Container / Confidential Shield */}
+                                    {!canViewDetails ? (
+                                        <div style={{
+                                            background: 'rgba(239, 68, 68, 0.06)',
+                                            border: '1px dashed rgba(239, 68, 68, 0.3)',
+                                            borderRadius: '10px',
+                                            padding: '0.9rem 1.1rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px',
+                                            marginBottom: '0.5rem'
+                                        }}>
+                                            <span style={{ fontSize: '1.3rem' }}>🔒</span>
+                                            <div>
+                                                <div style={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.84rem' }}>
+                                                    {language === 'es' ? 'Detalles de Sanción Clasificados' : 'Classified Sanction Details'}
+                                                </div>
+                                                <div style={{ color: '#94a3b8', fontSize: '0.78rem', marginTop: '2px' }}>
+                                                    {language === 'es' 
+                                                        ? 'Los motivos y diligencias de esta falta disciplinaria son confidenciales de Asuntos Internos.' 
+                                                        : 'The specific motive and details are confidential to Internal Affairs.'}
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div style={{
+                                            background: 'rgba(0, 0, 0, 0.25)',
+                                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                                            borderRadius: '10px',
+                                            padding: '0.9rem 1.1rem',
+                                            color: '#e2e8f0',
+                                            fontSize: '0.88rem',
+                                            lineHeight: 1.6,
+                                            whiteSpace: 'pre-line',
+                                            marginBottom: (hasIAAccess && item.case_id) ? '0.85rem' : '0.5rem'
+                                        }}>
+                                            {item.description || (language === 'es' ? "Sin descripción detallada registrada." : "No detailed description logged.")}
+                                        </div>
+                                    )}
 
-                                    {/* Description Container */}
-                                    <div style={{
-                                        background: 'rgba(0, 0, 0, 0.25)',
-                                        border: '1px solid rgba(255, 255, 255, 0.05)',
-                                        borderRadius: '10px',
-                                        padding: '0.9rem 1.1rem',
-                                        color: '#e2e8f0',
-                                        fontSize: '0.88rem',
-                                        lineHeight: 1.6,
-                                        whiteSpace: 'pre-line',
-                                        marginBottom: item.case_id ? '0.85rem' : '0.5rem'
-                                    }}>
-                                        {item.description || (language === 'es' ? "Sin descripción detallada registrada." : "No detailed description logged.")}
-                                    </div>
-
-                                    {/* Linked Case Preview */}
-                                    {item.case_id && (
+                                    {/* Linked Case Preview (Only visible to IA members) */}
+                                    {hasIAAccess && item.case_id && (
                                         <div
                                             onClick={() => navigate(`/internal-affairs/cases/${item.case_id}`)}
                                             style={{
@@ -807,7 +1032,11 @@ function IASanctionProfile() {
                                             <circle cx="12" cy="7" r="4"/>
                                         </svg>
                                         <span>{language === 'es' ? 'Registrado por:' : 'Logged by:'}</span>
-                                        <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{item.created_by_name || 'Agente de IA'}</span>
+                                        <span style={{ color: '#cbd5e1', fontWeight: 600 }}>
+                                            {canViewDetails
+                                                ? (item.created_by_name || (item.isSargentos ? 'Sargentos' : 'Agente de IA'))
+                                                : (language === 'es' ? 'Asuntos Internos (Clasificado)' : 'Internal Affairs (Classified)')}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -827,10 +1056,12 @@ function IASanctionProfile() {
                                 <div className="mac-window-dot max"></div>
                             </div>
                             <span className="mac-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={!hasIAAccess ? '#22c55e' : '#f87171'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                                 </svg>
-                                <span>{modalMode === 'create' ? (language === 'es' ? 'Registrar Sanción Disciplinaria' : 'Register Disciplinary Sanction') : (language === 'es' ? 'Editar Sanción' : 'Edit Sanction')}</span>
+                                <span>{modalMode === 'create' 
+                                    ? (!hasIAAccess ? (language === 'es' ? 'Registrar Falta Leve de Sargentos' : 'Register Sergeant Minor Sanction') : (language === 'es' ? 'Registrar Sanción Disciplinaria' : 'Register Disciplinary Sanction'))
+                                    : (language === 'es' ? 'Editar Sanción' : 'Edit Sanction')}</span>
                             </span>
                             <div style={{ width: 52 }} />
                         </div>
@@ -839,15 +1070,29 @@ function IASanctionProfile() {
                             <div className="mac-modal-body" style={{ gap: '1rem' }}>
                                 <div className="mac-form-group">
                                     <label className="mac-form-label">{language === 'es' ? 'Tipo de Sanción / Gravedad' : 'Sanction Severity Type'}</label>
-                                    <select
-                                        className="mac-form-input mac-form-select"
-                                        value={formData.type}
-                                        onChange={e => setFormData({ ...formData, type: e.target.value })}
-                                    >
-                                        <option value="Leve">{language === 'es' ? `Falta Leve (${durations.Leve} días de vigencia)` : `Minor Offense (${durations.Leve} days active)`}</option>
-                                        <option value="Media">{language === 'es' ? `Falta Media (${durations.Media} días de vigencia)` : `Moderate Offense (${durations.Media} days active)`}</option>
-                                        <option value="Grave">{language === 'es' ? `Falta Grave (${durations.Grave} días de vigencia)` : `Major Offense (${durations.Grave} days active)`}</option>
-                                    </select>
+                                    {!hasIAAccess ? (
+                                        <select
+                                            className="mac-form-input mac-form-select"
+                                            value="Leve (Sargentos)"
+                                            disabled
+                                            style={{ opacity: 0.95, cursor: 'not-allowed', color: '#4ade80', fontWeight: 700 }}
+                                        >
+                                            <option value="Leve (Sargentos)">
+                                                {language === 'es' ? `Falta Leve de Sargentos (${durations.Leve} días de vigencia)` : `Sergeants Minor Offense (${durations.Leve} days)`}
+                                            </option>
+                                        </select>
+                                    ) : (
+                                        <select
+                                            className="mac-form-input mac-form-select"
+                                            value={formData.type}
+                                            onChange={e => setFormData({ ...formData, type: e.target.value })}
+                                        >
+                                            <option value="Leve">{language === 'es' ? `Falta Leve (${durations.Leve} días de vigencia)` : `Minor Offense (${durations.Leve} days active)`}</option>
+                                            <option value="Leve (Sargentos)">{language === 'es' ? `Falta Leve (Sargentos) (${durations.Leve} días de vigencia)` : `Sergeants Minor Offense (${durations.Leve} days active)`}</option>
+                                            <option value="Media">{language === 'es' ? `Falta Media (${durations.Media} días de vigencia)` : `Moderate Offense (${durations.Media} days active)`}</option>
+                                            <option value="Grave">{language === 'es' ? `Falta Grave (${durations.Grave} días de vigencia)` : `Major Offense (${durations.Grave} days active)`}</option>
+                                        </select>
+                                    )}
                                 </div>
 
                                 <div className="mac-form-group">
@@ -871,27 +1116,54 @@ function IASanctionProfile() {
                                     <textarea
                                         className="mac-form-input"
                                         rows="4"
-                                        placeholder={language === 'es' ? 'Detalla los motivos de la sanción disciplinaria aplicada...' : 'Detail the disciplinary reasons for this sanction...'}
+                                        required
+                                        placeholder={language === 'es' ? 'Detalla los motivos de la falta disciplinaria aplicada por sargentos...' : 'Detail the disciplinary reasons for this sanction...'}
                                         value={formData.description}
                                         onChange={e => setFormData({ ...formData, description: e.target.value })}
                                     />
                                 </div>
 
-                                <div className="mac-form-group">
-                                    <label className="mac-form-label">{language === 'es' ? 'Vincular a Caso de Asuntos Internos (Opcional)' : 'Link to IA Case (Optional)'}</label>
-                                    <select
-                                        className="mac-form-input mac-form-select"
-                                        value={formData.caseId}
-                                        onChange={e => setFormData({ ...formData, caseId: e.target.value })}
-                                    >
-                                        <option value="">{language === 'es' ? '-- Sin Caso Vinculado --' : '-- No Linked Case --'}</option>
-                                        {cases.map(c => (
-                                            <option key={c.id} value={c.id}>
-                                                IA-#{String(c.case_number).padStart(3, '0')} {c.title}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                {hasIAAccess && (
+                                    <div className="mac-form-group">
+                                        <label className="mac-form-label">{language === 'es' ? 'Vincular a Caso de Asuntos Internos (Opcional)' : 'Link to IA Case (Optional)'}</label>
+                                        <select
+                                            className="mac-form-input mac-form-select"
+                                            value={formData.caseId}
+                                            onChange={e => setFormData({ ...formData, caseId: e.target.value })}
+                                        >
+                                            <option value="">{language === 'es' ? '-- Sin Caso Vinculado --' : '-- No Linked Case --'}</option>
+                                            {cases.map(c => (
+                                                <option key={c.id} value={c.id}>
+                                                    IA-#{String(c.case_number).padStart(3, '0')} {c.title}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* Discord notification toggle */}
+                                {modalMode === 'create' && (
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        padding: '0.75rem 0.9rem',
+                                        background: 'rgba(88, 101, 242, 0.1)',
+                                        border: '1px solid rgba(88, 101, 242, 0.25)',
+                                        borderRadius: '10px'
+                                    }}>
+                                        <input
+                                            type="checkbox"
+                                            id="sendToDiscordCheck"
+                                            checked={!!formData.sendToDiscord}
+                                            onChange={e => setFormData({ ...formData, sendToDiscord: e.target.checked })}
+                                            style={{ width: '16px', height: '16px', accentColor: '#5865F2', cursor: 'pointer' }}
+                                        />
+                                        <label htmlFor="sendToDiscordCheck" style={{ fontSize: '0.82rem', color: '#c7d2fe', cursor: 'pointer', margin: 0, fontWeight: 500 }}>
+                                            {language === 'es' ? 'Publicar notificación oficial en Discord' : 'Publish official notification to Discord'}
+                                        </label>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="mac-modal-actions" style={{ padding: '0 1.25rem 1.25rem 1.25rem' }}>
@@ -906,7 +1178,11 @@ function IASanctionProfile() {
                                 <button
                                     type="submit"
                                     className="mac-btn mac-btn-primary"
-                                    style={{ background: 'rgba(239, 68, 68, 0.25)', borderColor: 'rgba(239, 68, 68, 0.5)', color: '#f87171' }}
+                                    style={{ 
+                                        background: !hasIAAccess ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)', 
+                                        borderColor: !hasIAAccess ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)', 
+                                        color: !hasIAAccess ? '#4ade80' : '#f87171' 
+                                    }}
                                     disabled={submitting}
                                 >
                                     {submitting 

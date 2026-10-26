@@ -1164,7 +1164,7 @@ export default function Comandancia() {
 
                         <button
                             type="button"
-                            onClick={() => openSanctionModal()}
+                            onClick={() => navigate('/internal-affairs/sanctions')}
                             style={{
                                 background: 'rgba(234, 179, 8, 0.16)',
                                 border: '1px solid rgba(250, 204, 21, 0.42)',
@@ -1179,10 +1179,10 @@ export default function Comandancia() {
                                 gap: '7px',
                                 transition: 'all 0.15s ease'
                             }}
-                            title="Enviar una falta leve de sargentos directamente al apartado oficial de Sanciones"
+                            title="Ir al apartado de sanciones para registrar y consultar faltas de sargentos y expedientes"
                         >
                             <span>⚖️</span>
-                            <span>Emitir Falta Leve (Sargentos)</span>
+                            <span>Registrar falta de sargentos</span>
                         </button>
 
                         <button

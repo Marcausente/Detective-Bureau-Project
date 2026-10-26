@@ -53,7 +53,11 @@ export function formatDateDMY(dateObj) {
  */
 export function calculateSanctionExpiry(sanction, durations = DEFAULT_SANCTION_DURATIONS) {
     const rawType = sanction.type || sanction.sanction_type || 'Media';
-    const typeKey = rawType.includes('Grave') ? 'Grave' : rawType.includes('Leve') ? 'Leve' : 'Media';
+    const isSargentos = rawType.toLowerCase().includes('sargento') ||
+        Boolean(sanction.is_sargentos) ||
+        Boolean(sanction.description && (sanction.description.includes('[Falta Leve de Sargentos]') || sanction.description.includes('[Sargentos]')));
+
+    const typeKey = rawType.includes('Grave') ? 'Grave' : (rawType.includes('Leve') || isSargentos) ? 'Leve' : 'Media';
     const durationDays = durations[typeKey] || DEFAULT_SANCTION_DURATIONS[typeKey] || 14;
 
     const rawDateStr = sanction.date || sanction.sanction_date || sanction.created_at;
@@ -84,6 +88,8 @@ export function calculateSanctionExpiry(sanction, durations = DEFAULT_SANCTION_D
 
     return {
         type: typeKey,
+        rawType,
+        isSargentos,
         durationDays,
         startDate,
         startDateFormatted: formatDateDMY(startDate),
@@ -121,11 +127,13 @@ export function calculateSubjectStatus(subject, durations = DEFAULT_SANCTION_DUR
         latestExpiryDate = activeSanctions[0].expiry.expiryDate;
         maxDaysRemaining = activeSanctions[0].expiry.daysRemaining;
 
-        // Check if any Grave, then Media, then Leve
+        // Check if any Grave, then Media, then Leve (Sargentos) vs Leve (IA)
         if (activeSanctions.some(s => s.expiry.type === 'Grave')) {
             mostSevereActive = 'Grave';
         } else if (activeSanctions.some(s => s.expiry.type === 'Media')) {
             mostSevereActive = 'Media';
+        } else if (activeSanctions.some(s => s.expiry.isSargentos)) {
+            mostSevereActive = 'Leve (Sargentos)';
         } else {
             mostSevereActive = 'Leve';
         }
