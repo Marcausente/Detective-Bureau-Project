@@ -315,12 +315,13 @@ function MainLayout() {
     const isAdmin = userRoleLower === 'administrador' || userRoleLower === 'superadmin';
     const isComisionado = userRoleLower === 'comisionado';
     const isCoordinador = ['coordinador', 'coordinacion', 'coordinación'].includes(userRoleLower);
+    const isDetective = userRoleLower === 'detective' || userRoleLower.includes('detective');
 
     const userDivisions = Array.isArray(profile?.divisions) ? profile.divisions : [];
     const userSubdivisions = Array.isArray(profile?.subdivisions) ? profile.subdivisions : [];
 
     const hasDBDivision = userDivisions.includes('Detective Bureau');
-    const hasDBAccess = isAdmin || isComisionado || isCoordinador || hasDBDivision;
+    const hasDBAccess = isAdmin || isComisionado || isCoordinador || isDetective || hasDBDivision;
 
     const hasDOJDivision = userDivisions.includes('DOJ') || userSubdivisions.includes('DOJ');
     const hasDOJAccess = isAdmin || isComisionado || hasDOJDivision;

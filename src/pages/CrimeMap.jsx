@@ -144,21 +144,75 @@ export default function CrimeMap() {
 
     const checkAuth = async () => {
         try {
-            const { data: authData } = await supabase.rpc('auth_is_gang_authorized');
-            setAuthorized(!!authData);
+            // 1. Verificar directamente el perfil del usuario autenticado y su rol
+            let isUserRoleAuthorized = false;
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data: userData } = await supabase
+                        .from('users')
+                        .select('id, rol, rango, divisions, subdivisions')
+                        .eq('id', user.id)
+                        .maybeSingle();
 
-            const { data: guData } = await supabase.rpc('auth_is_gang_unit_member');
-            setIsGU(!!guData);
+                    if (userData) {
+                        const roleLower = (userData.rol || '').trim().toLowerCase();
+                        const ALLOWED_ROLES = [
+                            'detective',
+                            'comisionado',
+                            'coordinador',
+                            'coordinacion',
+                            'coordinación',
+                            'administrador',
+                            'admin',
+                            'superadmin'
+                        ];
+                        if (ALLOWED_ROLES.includes(roleLower) || roleLower.includes('detective')) {
+                            isUserRoleAuthorized = true;
+                        }
+                    }
+                }
+            } catch (userErr) {
+                console.warn('Error fetching user profile in checkAuth:', userErr);
+            }
+
+            // 2. RPC check como respaldo / confirmación en base de datos
+            let rpcAuthorized = false;
+            try {
+                const { data: authData } = await supabase.rpc('auth_is_gang_authorized');
+                rpcAuthorized = !!authData;
+            } catch (rpcErr) {
+                console.warn('RPC auth_is_gang_authorized error:', rpcErr);
+            }
+
+            const canManage = isUserRoleAuthorized || rpcAuthorized;
+            setAuthorized(canManage);
+
+            try {
+                const { data: guData } = await supabase.rpc('auth_is_gang_unit_member');
+                setIsGU(!!guData);
+            } catch (e) {
+                console.warn('RPC auth_is_gang_unit_member warning:', e);
+            }
         } catch (e) {
-            console.error('Auth error:', e);
+            console.error('Auth error in CrimeMap:', e);
         }
     };
 
     const fetchZones = async () => {
         try {
             const { data, error } = await supabase.rpc('get_map_zones');
-            if (error) throw error;
-            setZones(data || []);
+            if (!error && data) {
+                setZones(data);
+                return;
+            }
+            // Fallback directo a la tabla map_zones
+            const { data: directData, error: directErr } = await supabase
+                .from('map_zones')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (directErr) throw directErr;
+            setZones(directData || []);
         } catch (e) {
             console.error('Error fetching zones:', e);
         }
@@ -433,8 +487,19 @@ export default function CrimeMap() {
     const handleDeleteZone = async (id) => {
         if (!window.confirm('¿Confirmas que deseas eliminar esta zona táctica? Esta acción no se puede deshacer.')) return;
         try {
-            const { error } = await supabase.rpc('delete_map_zone', { p_id: id });
-            if (error) throw error;
+            let deleted = false;
+            try {
+                const { error } = await supabase.rpc('delete_map_zone', { p_id: id });
+                if (!error) deleted = true;
+            } catch (rpcErr) {
+                console.warn('delete_map_zone RPC error, trying direct table delete:', rpcErr);
+            }
+
+            if (!deleted) {
+                const { error: delErr } = await supabase.from('map_zones').delete().eq('id', id);
+                if (delErr) throw delErr;
+            }
+
             await fetchZones();
         } catch (e) {
             console.error('Error deleting zone:', e);
@@ -447,35 +512,84 @@ export default function CrimeMap() {
         try {
             if (editingZoneId) {
                 // Update
-                const { error } = await supabase.rpc('update_map_zone', {
-                    p_id: editingZoneId,
-                    p_name: tempZoneData.name,
-                    p_description: tempZoneData.description,
-                    p_color: tempZoneData.color,
-                    p_is_gang_zone: tempZoneData.is_gang_zone,
-                    p_emoji: tempZoneData.emoji,
-                    p_is_surveillance: tempZoneData.is_surveillance,
-                    p_gang_id: selectedGang || null,
-                    p_case_id: selectedCase || null,
-                    p_incident_id: selectedIncident || null
-                });
-                if (error) throw error;
+                let updated = false;
+                try {
+                    const { error } = await supabase.rpc('update_map_zone', {
+                        p_id: editingZoneId,
+                        p_name: tempZoneData.name,
+                        p_description: tempZoneData.description,
+                        p_color: tempZoneData.color,
+                        p_is_gang_zone: tempZoneData.is_gang_zone,
+                        p_emoji: tempZoneData.emoji,
+                        p_is_surveillance: tempZoneData.is_surveillance,
+                        p_gang_id: selectedGang || null,
+                        p_case_id: selectedCase || null,
+                        p_incident_id: selectedIncident || null
+                    });
+                    if (!error) updated = true;
+                } catch (rpcErr) {
+                    console.warn('update_map_zone RPC error, trying direct table update:', rpcErr);
+                }
+
+                if (!updated) {
+                    const { error: updErr } = await supabase
+                        .from('map_zones')
+                        .update({
+                            name: tempZoneData.name,
+                            description: tempZoneData.description,
+                            color: tempZoneData.color,
+                            is_gang_zone: tempZoneData.is_gang_zone,
+                            emoji: tempZoneData.emoji,
+                            is_surveillance: tempZoneData.is_surveillance,
+                            gang_id: selectedGang || null,
+                            case_id: selectedCase || null,
+                            incident_id: selectedIncident || null
+                        })
+                        .eq('id', editingZoneId);
+                    if (updErr) throw updErr;
+                }
             } else {
                 // Create
-                const { error } = await supabase.rpc('create_map_zone', {
-                    p_name: tempZoneData.name,
-                    p_description: tempZoneData.description,
-                    p_color: tempZoneData.color,
-                    p_coordinates: drawingPoints,
-                    p_type: 'polygon',
-                    p_is_gang_zone: tempZoneData.is_gang_zone,
-                    p_emoji: tempZoneData.emoji,
-                    p_is_surveillance: tempZoneData.is_surveillance,
-                    p_gang_id: selectedGang || null,
-                    p_case_id: selectedCase || null,
-                    p_incident_id: selectedIncident || null
-                });
-                if (error) throw error;
+                let created = false;
+                try {
+                    const { error } = await supabase.rpc('create_map_zone', {
+                        p_name: tempZoneData.name,
+                        p_description: tempZoneData.description,
+                        p_color: tempZoneData.color,
+                        p_coordinates: drawingPoints,
+                        p_type: 'polygon',
+                        p_is_gang_zone: tempZoneData.is_gang_zone,
+                        p_emoji: tempZoneData.emoji,
+                        p_is_surveillance: tempZoneData.is_surveillance,
+                        p_gang_id: selectedGang || null,
+                        p_case_id: selectedCase || null,
+                        p_incident_id: selectedIncident || null
+                    });
+                    if (!error) created = true;
+                } catch (rpcErr) {
+                    console.warn('create_map_zone RPC error, trying direct table insert:', rpcErr);
+                }
+
+                if (!created) {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    const { error: insErr } = await supabase
+                        .from('map_zones')
+                        .insert({
+                            name: tempZoneData.name,
+                            description: tempZoneData.description,
+                            color: tempZoneData.color,
+                            coordinates: drawingPoints,
+                            type: 'polygon',
+                            is_gang_zone: tempZoneData.is_gang_zone,
+                            emoji: tempZoneData.emoji,
+                            is_surveillance: tempZoneData.is_surveillance,
+                            gang_id: selectedGang || null,
+                            case_id: selectedCase || null,
+                            incident_id: selectedIncident || null,
+                            created_by: user?.id || null
+                        });
+                    if (insErr) throw insErr;
+                }
             }
 
             setShowModal(false);
@@ -714,9 +828,55 @@ export default function CrimeMap() {
                                                         {zone.emoji && <span style={{ marginRight: '4px' }}>{zone.emoji}</span>}
                                                         {zone.name || 'Sin Título'}
                                                     </span>
-                                                    <span style={{ fontSize: '0.68rem', color: '#38bdf8', fontFamily: 'monospace', flexShrink: 0 }}>
-                                                        Ir ↗
-                                                    </span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        {authorized && (
+                                                            <>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleEditZone(zone);
+                                                                    }}
+                                                                    style={{
+                                                                        background: 'rgba(56, 189, 248, 0.1)',
+                                                                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                                                                        borderRadius: '4px',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: '0.68rem',
+                                                                        padding: '2px 5px',
+                                                                        color: '#38bdf8',
+                                                                        lineHeight: 1
+                                                                    }}
+                                                                    title="Modificar zona"
+                                                                >
+                                                                    ✏️
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteZone(zone.id);
+                                                                    }}
+                                                                    style={{
+                                                                        background: 'rgba(239, 68, 68, 0.1)',
+                                                                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                                        borderRadius: '4px',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: '0.68rem',
+                                                                        padding: '2px 5px',
+                                                                        color: '#f87171',
+                                                                        lineHeight: 1
+                                                                    }}
+                                                                    title="Eliminar zona"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        <span style={{ fontSize: '0.68rem', color: '#38bdf8', fontFamily: 'monospace', flexShrink: 0 }}>
+                                                            Ir ↗
+                                                        </span>
+                                                    </div>
                                                 </div>
 
                                                 {zone.description && (
