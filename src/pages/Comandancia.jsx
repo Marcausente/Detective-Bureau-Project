@@ -552,6 +552,71 @@ export default function Comandancia() {
                 if (tblErr) console.warn('Direct table insert fallback warning:', tblErr);
             }
 
+            // 2b. Sincronizar automáticamente en el registro disciplinario oficial (ia_subject_profiles & ia_sanctions)
+            try {
+                const nameParts = sanctionForm.officerName.trim().split(' ');
+                const firstName = nameParts[0] || 'Oficial';
+                const lastName = nameParts.slice(1).join(' ') || '';
+                const badgeNum = parseInt(sanctionForm.officerBadge, 10) || 0;
+
+                let subjectId = null;
+                const { data: existingProfiles } = await supabase
+                    .from('ia_subject_profiles')
+                    .select('id, nombre, apellido, no_placa');
+
+                if (existingProfiles && existingProfiles.length > 0) {
+                    const found = existingProfiles.find(p => {
+                        if (badgeNum > 0 && Number(p.no_placa) === badgeNum) return true;
+                        const pFull = `${p.nombre || ''} ${p.apellido || ''}`.trim().toLowerCase();
+                        return pFull === sanctionForm.officerName.trim().toLowerCase();
+                    });
+                    if (found) subjectId = found.id;
+                }
+
+                if (!subjectId) {
+                    const { data: newProf, error: newProfErr } = await supabase
+                        .from('ia_subject_profiles')
+                        .insert({
+                            nombre: firstName,
+                            apellido: lastName,
+                            no_placa: badgeNum
+                        })
+                        .select('id')
+                        .maybeSingle();
+                    if (!newProfErr && newProf) {
+                        subjectId = newProf.id;
+                    }
+                }
+
+                if (subjectId) {
+                    const dateVal = sanctionForm.sanctionDate || new Date().toISOString().split('T')[0];
+                    const { error: sancErr } = await supabase
+                        .from('ia_sanctions')
+                        .insert({
+                            subject_id: subjectId,
+                            sanction_type: 'Leve (Sargentos)',
+                            description: `[Falta Leve de Sargentos] ${sanctionForm.reason.trim()}`,
+                            sanction_date: dateVal,
+                            created_by: profile?.id || null,
+                            is_sargentos: true
+                        });
+                    if (sancErr) {
+                        // Fallback con 'Leve' estándar si el check constraint de la base de datos lo requiere
+                        await supabase
+                            .from('ia_sanctions')
+                            .insert({
+                                subject_id: subjectId,
+                                sanction_type: 'Leve',
+                                description: `[Falta Leve de Sargentos] ${sanctionForm.reason.trim()}`,
+                                sanction_date: dateVal,
+                                created_by: profile?.id || null
+                            });
+                    }
+                }
+            } catch (syncErr) {
+                console.warn('Auto-sync to ia_sanctions warning:', syncErr);
+            }
+
             // 3. Enviar a Discord si está marcado
             if (sanctionForm.sendToDiscord) {
                 const resDiscord = await sendIASanctionToDiscord({
@@ -1164,11 +1229,34 @@ export default function Comandancia() {
 
                         <button
                             type="button"
-                            onClick={() => navigate('/internal-affairs/sanctions')}
+                            onClick={() => openSanctionModal()}
                             style={{
                                 background: 'rgba(234, 179, 8, 0.16)',
                                 border: '1px solid rgba(250, 204, 21, 0.42)',
                                 color: '#fef08a',
+                                borderRadius: '10px',
+                                padding: '0.55rem 1rem',
+                                fontSize: '0.85rem',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '7px',
+                                transition: 'all 0.15s ease'
+                            }}
+                            title="Publicar y anunciar una nueva sanción disciplinaria leve con embed en Discord"
+                        >
+                            <span>📢</span>
+                            <span>Anunciar nueva sanción</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => navigate('/internal-affairs/sanctions')}
+                            style={{
+                                background: 'rgba(16, 185, 129, 0.14)',
+                                border: '1px solid rgba(52, 211, 153, 0.42)',
+                                color: '#a7f3d0',
                                 borderRadius: '10px',
                                 padding: '0.55rem 1rem',
                                 fontSize: '0.85rem',
