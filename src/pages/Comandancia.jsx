@@ -483,12 +483,9 @@ export default function Comandancia() {
 
     const handleSubmitSanction = async (e) => {
         e.preventDefault();
-        if (!sanctionForm.officerName.trim()) {
-            setSanctionError('Debes indicar o seleccionar el agente sancionado.');
-            return;
-        }
-        if (!sanctionForm.reason.trim()) {
-            setSanctionError('Debes ingresar el motivo de la falta leve.');
+        const sanctionAppliedTitle = (sanctionForm.sanctionApplied || sanctionForm.reason || '').trim();
+        if (!sanctionAppliedTitle) {
+            setSanctionError('Debes ingresar la Sanción Aplicada / Medida Correctiva (Título para Discord).');
             return;
         }
 
@@ -501,6 +498,7 @@ export default function Comandancia() {
             const authorFullName = [profile?.nombre, profile?.apellido].filter(Boolean).join(' ');
             const authorBadge = profile?.no_placa ? `(#${profile.no_placa})` : '';
             const sanctionerStr = `${authorRank} ${authorFullName} ${authorBadge} (Comandancia)`.trim();
+            const sanctionDateVal = sanctionForm.sanctionDate || new Date().toISOString().split('T')[0];
 
             // 1. Obtener banner oficial de falta leve sargentos si existe
             let activeBanner = '';
@@ -511,144 +509,76 @@ export default function Comandancia() {
                 console.warn('Could not load IA banners:', e);
             }
 
-            // 2. Guardar en Base de Datos de Sanciones (ia_published_sanctions)
+            // 2. Guardar en historial de sanciones publicadas (ia_published_sanctions)
             let dbSuccess = false;
             try {
                 const { error: rpcErr } = await supabase.rpc('create_ia_published_sanction', {
                     p_sanction_type: 'leves_sargentos',
-                    p_officer_name: sanctionForm.officerName.trim(),
-                    p_officer_badge: sanctionForm.officerBadge.trim(),
-                    p_officer_rank: sanctionForm.officerRank.trim(),
-                    p_reason: sanctionForm.reason.trim(),
-                    p_sanction_applied: sanctionForm.sanctionApplied.trim(),
+                    p_officer_name: sanctionForm.officerName ? sanctionForm.officerName.trim() : '',
+                    p_officer_badge: sanctionForm.officerBadge ? sanctionForm.officerBadge.trim() : '',
+                    p_officer_rank: sanctionForm.officerRank ? sanctionForm.officerRank.trim() : '',
+                    p_reason: sanctionAppliedTitle,
+                    p_sanction_applied: sanctionAppliedTitle,
                     p_sanctioner_name: sanctionerStr,
-                    p_sanction_date: sanctionForm.sanctionDate || new Date().toISOString().split('T')[0],
-                    p_evidence_url: sanctionForm.evidenceUrl.trim(),
-                    p_notes: sanctionForm.notes.trim(),
+                    p_sanction_date: sanctionDateVal,
+                    p_evidence_url: sanctionForm.evidenceUrl ? sanctionForm.evidenceUrl.trim() : '',
+                    p_notes: sanctionForm.notes ? sanctionForm.notes.trim() : '',
                     p_banner_url: activeBanner,
-                    p_discord_sent: sanctionForm.sendToDiscord
+                    p_discord_sent: true
                 });
                 if (!rpcErr) dbSuccess = true;
             } catch (rpcE) {
-                console.warn('RPC create_ia_published_sanction failed, fallbacking:', rpcE);
+                console.warn('RPC create_ia_published_sanction fallback:', rpcE);
             }
 
             if (!dbSuccess) {
-                // Fallback directo a tabla
                 const { error: tblErr } = await supabase.from('ia_published_sanctions').insert([{
                     sanction_type: 'leves_sargentos',
-                    officer_name: sanctionForm.officerName.trim(),
-                    officer_badge: sanctionForm.officerBadge.trim(),
-                    officer_rank: sanctionForm.officerRank.trim(),
-                    reason: sanctionForm.reason.trim(),
-                    sanction_applied: sanctionForm.sanctionApplied.trim(),
+                    officer_name: sanctionForm.officerName ? sanctionForm.officerName.trim() : '',
+                    officer_badge: sanctionForm.officerBadge ? sanctionForm.officerBadge.trim() : '',
+                    officer_rank: sanctionForm.officerRank ? sanctionForm.officerRank.trim() : '',
+                    reason: sanctionAppliedTitle,
+                    sanction_applied: sanctionAppliedTitle,
                     sanctioner_name: sanctionerStr,
-                    sanction_date: sanctionForm.sanctionDate || new Date().toISOString().split('T')[0],
-                    evidence_url: sanctionForm.evidenceUrl.trim(),
-                    notes: sanctionForm.notes.trim(),
+                    sanction_date: sanctionDateVal,
+                    evidence_url: sanctionForm.evidenceUrl ? sanctionForm.evidenceUrl.trim() : '',
+                    notes: sanctionForm.notes ? sanctionForm.notes.trim() : '',
                     banner_url: activeBanner,
-                    discord_sent: sanctionForm.sendToDiscord
+                    discord_sent: true
                 }]);
-                if (tblErr) console.warn('Direct table insert fallback warning:', tblErr);
+                if (tblErr) console.warn('Direct ia_published_sanctions fallback warning:', tblErr);
             }
 
-            // 2b. Sincronizar automáticamente en el registro disciplinario oficial (ia_subject_profiles & ia_sanctions)
-            try {
-                const nameParts = sanctionForm.officerName.trim().split(' ');
-                const firstName = nameParts[0] || 'Oficial';
-                const lastName = nameParts.slice(1).join(' ') || '';
-                const badgeNum = parseInt(sanctionForm.officerBadge, 10) || 0;
+            // 3. Enviar mensaje oficial a Discord con banner y formato de Falta Leve de Sargentos
+            const resDiscord = await sendIASanctionToDiscord({
+                sanctionType: 'leves_sargentos',
+                officerName: sanctionForm.officerName ? sanctionForm.officerName.trim() : '',
+                officerBadge: sanctionForm.officerBadge ? sanctionForm.officerBadge.trim() : '',
+                officerRank: sanctionForm.officerRank ? sanctionForm.officerRank.trim() : '',
+                reason: sanctionAppliedTitle,
+                sanctionApplied: sanctionAppliedTitle,
+                sanctionerName: sanctionerStr,
+                sanctionDate: sanctionDateVal,
+                evidenceUrl: sanctionForm.evidenceUrl ? sanctionForm.evidenceUrl.trim() : '',
+                notes: sanctionForm.notes ? sanctionForm.notes.trim() : '',
+                customBannerUrl: activeBanner,
+                author: profile,
+                forceSend: true
+            });
 
-                let subjectId = null;
-                const { data: existingProfiles } = await supabase
-                    .from('ia_subject_profiles')
-                    .select('id, nombre, apellido, no_placa');
-
-                if (existingProfiles && existingProfiles.length > 0) {
-                    const found = existingProfiles.find(p => {
-                        if (badgeNum > 0 && Number(p.no_placa) === badgeNum) return true;
-                        const pFull = `${p.nombre || ''} ${p.apellido || ''}`.trim().toLowerCase();
-                        return pFull === sanctionForm.officerName.trim().toLowerCase();
-                    });
-                    if (found) subjectId = found.id;
-                }
-
-                if (!subjectId) {
-                    const { data: newProf, error: newProfErr } = await supabase
-                        .from('ia_subject_profiles')
-                        .insert({
-                            nombre: firstName,
-                            apellido: lastName,
-                            no_placa: badgeNum
-                        })
-                        .select('id')
-                        .maybeSingle();
-                    if (!newProfErr && newProf) {
-                        subjectId = newProf.id;
-                    }
-                }
-
-                if (subjectId) {
-                    const dateVal = sanctionForm.sanctionDate || new Date().toISOString().split('T')[0];
-                    const { error: sancErr } = await supabase
-                        .from('ia_sanctions')
-                        .insert({
-                            subject_id: subjectId,
-                            sanction_type: 'Leve (Sargentos)',
-                            description: `[Falta Leve de Sargentos] ${sanctionForm.reason.trim()}`,
-                            sanction_date: dateVal,
-                            created_by: profile?.id || null,
-                            is_sargentos: true
-                        });
-                    if (sancErr) {
-                        // Fallback con 'Leve' estándar si el check constraint de la base de datos lo requiere
-                        await supabase
-                            .from('ia_sanctions')
-                            .insert({
-                                subject_id: subjectId,
-                                sanction_type: 'Leve',
-                                description: `[Falta Leve de Sargentos] ${sanctionForm.reason.trim()}`,
-                                sanction_date: dateVal,
-                                created_by: profile?.id || null
-                            });
-                    }
-                }
-            } catch (syncErr) {
-                console.warn('Auto-sync to ia_sanctions warning:', syncErr);
+            if (resDiscord && !resDiscord.success && !resDiscord.skipped) {
+                setSanctionError('Aviso guardado, pero falló el envío a Discord: ' + resDiscord.error);
+                return;
             }
 
-            // 3. Enviar a Discord si está marcado
-            if (sanctionForm.sendToDiscord) {
-                const resDiscord = await sendIASanctionToDiscord({
-                    sanctionType: 'leves_sargentos',
-                    officerName: sanctionForm.officerName.trim(),
-                    officerBadge: sanctionForm.officerBadge.trim(),
-                    officerRank: sanctionForm.officerRank.trim(),
-                    reason: sanctionForm.reason.trim(),
-                    sanctionApplied: sanctionForm.sanctionApplied.trim(),
-                    sanctionerName: sanctionerStr,
-                    sanctionDate: sanctionForm.sanctionDate,
-                    evidenceUrl: sanctionForm.evidenceUrl.trim(),
-                    notes: sanctionForm.notes.trim(),
-                    customBannerUrl: activeBanner,
-                    author: profile,
-                    forceSend: false
-                });
-
-                if (resDiscord && !resDiscord.success && !resDiscord.skipped) {
-                    setSanctionError('Guardado en la base de datos de sanciones, pero falló el envío a Discord: ' + resDiscord.error);
-                    return;
-                }
-            }
-
-            setSanctionNotice('✅ ¡Falta leve de sargentos registrada con éxito en el apartado de sanciones!');
+            setSanctionNotice('✅ ¡Aviso de falta leve enviado con éxito a Discord!');
             setTimeout(() => {
                 setShowSanctionModal(false);
                 setSanctionNotice(null);
             }, 2500);
         } catch (err) {
-            console.error('Error submitting sanction from Comandancia:', err);
-            setSanctionError('Error al procesar la sanción: ' + err.message);
+            console.error('Error submitting sanction notice to Discord:', err);
+            setSanctionError('Error al enviar el aviso: ' + (err.message || err));
         } finally {
             setSubmittingSanction(false);
         }
@@ -3276,11 +3206,11 @@ export default function Comandancia() {
                                             border: '1px solid rgba(16, 185, 129, 0.4)',
                                             letterSpacing: '0.06em'
                                         }}>
-                                            🟢 SANCIONES — FALTA LEVE (SARGENTOS)
+                                            📢 DISCORD — FALTA LEVE (SARGENTOS)
                                         </span>
                                     </div>
                                     <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#f8fafc' }}>
-                                        Emitir Falta Leve desde Comandancia
+                                        Aviso de Falta Leve (Discord)
                                     </div>
                                 </div>
                             </div>
@@ -3304,16 +3234,16 @@ export default function Comandancia() {
 
                         {/* Description */}
                         <div style={{
-                            background: 'rgba(234, 179, 8, 0.07)',
-                            border: '1px solid rgba(250, 204, 21, 0.25)',
+                            background: 'rgba(59, 130, 246, 0.08)',
+                            border: '1px solid rgba(96, 165, 250, 0.25)',
                             borderRadius: '10px',
                             padding: '0.75rem 1rem',
                             fontSize: '0.82rem',
-                            color: '#fef08a',
+                            color: '#bfdbfe',
                             lineHeight: 1.45,
                             marginBottom: '1.25rem'
                         }}>
-                            ℹ️ Esta acción registrará la sanción con tipificación <strong>Falta Leve (Sargentos)</strong> directamente en el registro oficial de <strong>Sanciones</strong> (igual que desde Asuntos Internos) y la publicará en el canal oficial de Discord configurado si se mantiene activado.
+                            📢 Este formulario es <strong>únicamente para enviar el aviso al canal de Discord</strong> con el banner oficial de Falta Leve (Sargentos). No registra la falta en el expediente. Para apuntarla y computarla oficialmente en el expediente del agente, hazlo desde el botón <strong>"Registrar falta de sargentos"</strong> (apartado de Registro).
                         </div>
 
                         {/* Alerts */}
@@ -3360,16 +3290,67 @@ export default function Comandancia() {
                                 ))}
                             </datalist>
 
-                            {/* Officer Selector / Search */}
+                            {/* Sanción Aplicada / Medida Correctiva (Título Discord) */}
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
-                                    Oficial Sancionado *
+                                    Sanción Aplicada / Medida Correctiva (Título para Discord) *
                                 </label>
                                 <input
                                     type="text"
                                     required
+                                    placeholder="Ej: Amonestación verbal / Advertencia formal por retraso en servicio"
+                                    value={sanctionForm.sanctionApplied}
+                                    onChange={(e) => setSanctionForm(prev => ({ ...prev, sanctionApplied: e.target.value }))}
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(0, 0, 0, 0.35)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '10px',
+                                        padding: '0.75rem 0.95rem',
+                                        color: '#f8fafc',
+                                        fontSize: '0.85rem',
+                                        boxSizing: 'border-box',
+                                        outline: 'none'
+                                    }}
+                                />
+                                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '4px' }}>
+                                    Aparecerá como título en el embed oficial de Discord con el banner de Falta Leve de Sargentos.
+                                </div>
+                            </div>
+
+                            {/* Fecha */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                    Fecha de la Sanción / Imposición *
+                                </label>
+                                <input
+                                    type="date"
+                                    required
+                                    value={sanctionForm.sanctionDate}
+                                    onChange={(e) => setSanctionForm(prev => ({ ...prev, sanctionDate: e.target.value }))}
+                                    style={{
+                                        width: '100%',
+                                        background: 'rgba(0, 0, 0, 0.35)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '10px',
+                                        padding: '0.7rem 0.95rem',
+                                        color: '#f8fafc',
+                                        fontSize: '0.85rem',
+                                        boxSizing: 'border-box',
+                                        outline: 'none'
+                                    }}
+                                />
+                            </div>
+
+                            {/* Oficial Sancionado (Opcional, para constancia interna) */}
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
+                                    Oficial Sancionado <span style={{ color: '#94a3b8', fontWeight: 400, textTransform: 'none' }}>(Opcional, para el historial)</span>
+                                </label>
+                                <input
+                                    type="text"
                                     list="officers-list-sanction"
-                                    placeholder="Escribe o selecciona el nombre del oficial..."
+                                    placeholder="Escribe o selecciona el nombre del oficial (opcional)..."
                                     value={sanctionForm.officerName}
                                     onChange={(e) => {
                                         const val = e.target.value;
@@ -3402,181 +3383,20 @@ export default function Comandancia() {
                                 />
                             </div>
 
-                            {/* Badge and Rank Row */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
-                                        Placa / Identificación
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="Ej: 42"
-                                        value={sanctionForm.officerBadge}
-                                        onChange={(e) => setSanctionForm(prev => ({ ...prev, officerBadge: e.target.value }))}
-                                        style={{
-                                            width: '100%',
-                                            background: 'rgba(0, 0, 0, 0.35)',
-                                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                                            borderRadius: '10px',
-                                            padding: '0.7rem 0.95rem',
-                                            color: '#f8fafc',
-                                            fontSize: '0.85rem',
-                                            boxSizing: 'border-box',
-                                            outline: 'none'
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
-                                        Rango Actual
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="Ej: Officer II / Sergeant"
-                                        value={sanctionForm.officerRank}
-                                        onChange={(e) => setSanctionForm(prev => ({ ...prev, officerRank: e.target.value }))}
-                                        style={{
-                                            width: '100%',
-                                            background: 'rgba(0, 0, 0, 0.35)',
-                                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                                            borderRadius: '10px',
-                                            padding: '0.7rem 0.95rem',
-                                            color: '#f8fafc',
-                                            fontSize: '0.85rem',
-                                            boxSizing: 'border-box',
-                                            outline: 'none'
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Motivo de la Sanción */}
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
-                                    Motivo de la Falta Leve *
-                                </label>
-                                <textarea
-                                    required
-                                    rows={4}
-                                    placeholder="Describe con claridad los hechos que motivan la sanción leve..."
-                                    value={sanctionForm.reason}
-                                    onChange={(e) => setSanctionForm(prev => ({ ...prev, reason: e.target.value }))}
-                                    style={{
-                                        width: '100%',
-                                        background: 'rgba(0, 0, 0, 0.35)',
-                                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                                        borderRadius: '10px',
-                                        padding: '0.7rem 0.95rem',
-                                        color: '#f8fafc',
-                                        fontSize: '0.85rem',
-                                        boxSizing: 'border-box',
-                                        outline: 'none',
-                                        resize: 'vertical'
-                                    }}
-                                />
-                            </div>
-
-                            {/* Sanción Aplicada */}
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
-                                    Sanción Aplicada / Medida Correctiva
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="Amonestación verbal / Advertencia formal registrada en expediente"
-                                    value={sanctionForm.sanctionApplied}
-                                    onChange={(e) => setSanctionForm(prev => ({ ...prev, sanctionApplied: e.target.value }))}
-                                    style={{
-                                        width: '100%',
-                                        background: 'rgba(0, 0, 0, 0.35)',
-                                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                                        borderRadius: '10px',
-                                        padding: '0.7rem 0.95rem',
-                                        color: '#f8fafc',
-                                        fontSize: '0.85rem',
-                                        boxSizing: 'border-box',
-                                        outline: 'none'
-                                    }}
-                                />
-                            </div>
-
-                            {/* Fecha y Evidencias */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
-                                        Fecha de la Sanción
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={sanctionForm.sanctionDate}
-                                        onChange={(e) => setSanctionForm(prev => ({ ...prev, sanctionDate: e.target.value }))}
-                                        style={{
-                                            width: '100%',
-                                            background: 'rgba(0, 0, 0, 0.35)',
-                                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                                            borderRadius: '10px',
-                                            padding: '0.7rem 0.95rem',
-                                            color: '#f8fafc',
-                                            fontSize: '0.85rem',
-                                            boxSizing: 'border-box',
-                                            outline: 'none'
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
-                                        Evidencias / Enlace (Clip, Grabación, Docs)
-                                    </label>
-                                    <input
-                                        type="url"
-                                        placeholder="https://..."
-                                        value={sanctionForm.evidenceUrl}
-                                        onChange={(e) => setSanctionForm(prev => ({ ...prev, evidenceUrl: e.target.value }))}
-                                        style={{
-                                            width: '100%',
-                                            background: 'rgba(0, 0, 0, 0.35)',
-                                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                                            borderRadius: '10px',
-                                            padding: '0.7rem 0.95rem',
-                                            color: '#f8fafc',
-                                            fontSize: '0.85rem',
-                                            boxSizing: 'border-box',
-                                            outline: 'none'
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Checkbox Send to Discord */}
+                            {/* Informative Discord Notice */}
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '10px',
-                                background: 'rgba(99, 102, 241, 0.12)',
-                                border: '1px solid rgba(129, 140, 248, 0.3)',
+                                background: 'rgba(16, 185, 129, 0.08)',
+                                border: '1px solid rgba(16, 185, 129, 0.25)',
                                 padding: '0.85rem 1rem',
-                                borderRadius: '12px',
-                                cursor: 'pointer'
-                            }}
-                            onClick={() => setSanctionForm(prev => ({ ...prev, sendToDiscord: !prev.sendToDiscord }))}
-                            >
-                                <input
-                                    type="checkbox"
-                                    id="sendToDiscordCheck"
-                                    checked={sanctionForm.sendToDiscord}
-                                    onChange={(e) => setSanctionForm(prev => ({ ...prev, sendToDiscord: e.target.checked }))}
-                                    onClick={(e) => e.stopPropagation()}
-                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                />
-                                <label htmlFor="sendToDiscordCheck" style={{ cursor: 'pointer', flex: 1 }}>
-                                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <span>📢</span>
-                                        <span>Publicar en el canal oficial de Discord de Sanciones</span>
-                                    </div>
-                                    <div style={{ fontSize: '0.72rem', color: '#c7d2fe', marginTop: '2px' }}>
-                                        Enviará el embed oficial con el banner de Falta Leve (Sargentos) al canal configurado en el sistema de sanciones.
-                                    </div>
-                                </label>
+                                borderRadius: '12px'
+                            }}>
+                                <span style={{ fontSize: '1.2rem' }}>📢</span>
+                                <div style={{ fontSize: '0.78rem', color: '#a7f3d0' }}>
+                                    Se enviará directamente al canal oficial de Discord configurado para Sanciones con el banner de <strong>Falta Leve (Sargentos)</strong>.
+                                </div>
                             </div>
 
                             {/* Sancionador Info Footer */}
@@ -3598,22 +3418,22 @@ export default function Comandancia() {
                                     type="submit"
                                     disabled={submittingSanction}
                                     style={{
-                                        background: 'linear-gradient(135deg, #eab308, #ca8a04)',
-                                        color: '#0f172a',
+                                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                                        color: '#ffffff',
                                         border: 'none',
                                         padding: '0.65rem 1.4rem',
                                         borderRadius: '10px',
                                         fontSize: '0.84rem',
                                         fontWeight: 900,
                                         cursor: submittingSanction ? 'wait' : 'pointer',
-                                        boxShadow: '0 4px 15px rgba(234, 179, 8, 0.35)',
+                                        boxShadow: '0 4px 15px rgba(16, 185, 129, 0.35)',
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '6px'
                                     }}
                                 >
-                                    <span>⚖️</span>
-                                    <span>{submittingSanction ? 'Registrando Sanción...' : 'Registrar y Emitir Sanción'}</span>
+                                    <span>📢</span>
+                                    <span>{submittingSanction ? 'Enviando a Discord...' : 'Enviar Aviso a Discord'}</span>
                                 </button>
                             </div>
                         </form>
