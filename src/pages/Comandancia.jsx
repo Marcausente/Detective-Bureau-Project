@@ -449,28 +449,14 @@ export default function Comandancia() {
     };
 
     // Sanctions Handlers (Falta Leve Sargentos -> Sanciones)
-    const openSanctionModal = (agentName = '') => {
-        let matchedBadge = '';
-        let matchedRank = '';
-        let cleanName = (agentName || '').trim();
-
-        if (cleanName && officersList.length > 0) {
-            const found = officersList.find(u => {
-                const full = `${u.nombre || ''} ${u.apellido || ''}`.trim().toLowerCase();
-                return full === cleanName.toLowerCase();
-            });
-            if (found) {
-                matchedBadge = found.no_placa || '';
-                matchedRank = found.rango || '';
-            }
-        }
-
+    // Sanctions Handlers (Falta Leve Sargentos -> Aviso Discord)
+    const openSanctionModal = () => {
         setSanctionForm({
-            officerName: cleanName,
-            officerBadge: matchedBadge,
-            officerRank: matchedRank,
+            officerName: '',
+            officerBadge: '',
+            officerRank: '',
             reason: '',
-            sanctionApplied: 'Amonestación verbal / Advertencia formal registrada en expediente',
+            sanctionApplied: '',
             sanctionDate: new Date().toISOString().split('T')[0],
             evidenceUrl: '',
             notes: '',
@@ -514,15 +500,15 @@ export default function Comandancia() {
             try {
                 const { error: rpcErr } = await supabase.rpc('create_ia_published_sanction', {
                     p_sanction_type: 'leves_sargentos',
-                    p_officer_name: sanctionForm.officerName ? sanctionForm.officerName.trim() : '',
-                    p_officer_badge: sanctionForm.officerBadge ? sanctionForm.officerBadge.trim() : '',
-                    p_officer_rank: sanctionForm.officerRank ? sanctionForm.officerRank.trim() : '',
+                    p_officer_name: '',
+                    p_officer_badge: '',
+                    p_officer_rank: '',
                     p_reason: sanctionAppliedTitle,
                     p_sanction_applied: sanctionAppliedTitle,
                     p_sanctioner_name: sanctionerStr,
                     p_sanction_date: sanctionDateVal,
-                    p_evidence_url: sanctionForm.evidenceUrl ? sanctionForm.evidenceUrl.trim() : '',
-                    p_notes: sanctionForm.notes ? sanctionForm.notes.trim() : '',
+                    p_evidence_url: '',
+                    p_notes: '',
                     p_banner_url: activeBanner,
                     p_discord_sent: true
                 });
@@ -534,15 +520,15 @@ export default function Comandancia() {
             if (!dbSuccess) {
                 const { error: tblErr } = await supabase.from('ia_published_sanctions').insert([{
                     sanction_type: 'leves_sargentos',
-                    officer_name: sanctionForm.officerName ? sanctionForm.officerName.trim() : '',
-                    officer_badge: sanctionForm.officerBadge ? sanctionForm.officerBadge.trim() : '',
-                    officer_rank: sanctionForm.officerRank ? sanctionForm.officerRank.trim() : '',
+                    officer_name: '',
+                    officer_badge: '',
+                    officer_rank: '',
                     reason: sanctionAppliedTitle,
                     sanction_applied: sanctionAppliedTitle,
                     sanctioner_name: sanctionerStr,
                     sanction_date: sanctionDateVal,
-                    evidence_url: sanctionForm.evidenceUrl ? sanctionForm.evidenceUrl.trim() : '',
-                    notes: sanctionForm.notes ? sanctionForm.notes.trim() : '',
+                    evidence_url: '',
+                    notes: '',
                     banner_url: activeBanner,
                     discord_sent: true
                 }]);
@@ -552,15 +538,15 @@ export default function Comandancia() {
             // 3. Enviar mensaje oficial a Discord con banner y formato de Falta Leve de Sargentos
             const resDiscord = await sendIASanctionToDiscord({
                 sanctionType: 'leves_sargentos',
-                officerName: sanctionForm.officerName ? sanctionForm.officerName.trim() : '',
-                officerBadge: sanctionForm.officerBadge ? sanctionForm.officerBadge.trim() : '',
-                officerRank: sanctionForm.officerRank ? sanctionForm.officerRank.trim() : '',
+                officerName: '',
+                officerBadge: '',
+                officerRank: '',
                 reason: sanctionAppliedTitle,
                 sanctionApplied: sanctionAppliedTitle,
                 sanctionerName: sanctionerStr,
                 sanctionDate: sanctionDateVal,
-                evidenceUrl: sanctionForm.evidenceUrl ? sanctionForm.evidenceUrl.trim() : '',
-                notes: sanctionForm.notes ? sanctionForm.notes.trim() : '',
+                evidenceUrl: '',
+                notes: '',
                 customBannerUrl: activeBanner,
                 author: profile,
                 forceSend: true
@@ -3278,18 +3264,6 @@ export default function Comandancia() {
                         )}
 
                         <form onSubmit={handleSubmitSanction} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-                            {/* Datalist for autocomplete */}
-                            <datalist id="officers-list-sanction">
-                                {officersList.map(o => (
-                                    <option
-                                        key={o.id}
-                                        value={`${o.nombre || ''} ${o.apellido || ''}`.trim()}
-                                    >
-                                        #{o.no_placa || 'S/P'} - {o.rango || 'Oficial'}
-                                    </option>
-                                ))}
-                            </datalist>
-
                             {/* Sanción Aplicada / Medida Correctiva (Título Discord) */}
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
@@ -3328,47 +3302,6 @@ export default function Comandancia() {
                                     required
                                     value={sanctionForm.sanctionDate}
                                     onChange={(e) => setSanctionForm(prev => ({ ...prev, sanctionDate: e.target.value }))}
-                                    style={{
-                                        width: '100%',
-                                        background: 'rgba(0, 0, 0, 0.35)',
-                                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                                        borderRadius: '10px',
-                                        padding: '0.7rem 0.95rem',
-                                        color: '#f8fafc',
-                                        fontSize: '0.85rem',
-                                        boxSizing: 'border-box',
-                                        outline: 'none'
-                                    }}
-                                />
-                            </div>
-
-                            {/* Oficial Sancionado (Opcional, para constancia interna) */}
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: '#cbd5e1', marginBottom: '6px' }}>
-                                    Oficial Sancionado <span style={{ color: '#94a3b8', fontWeight: 400, textTransform: 'none' }}>(Opcional, para el historial)</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    list="officers-list-sanction"
-                                    placeholder="Escribe o selecciona el nombre del oficial (opcional)..."
-                                    value={sanctionForm.officerName}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        const found = officersList.find(u => {
-                                            const full = `${u.nombre || ''} ${u.apellido || ''}`.trim().toLowerCase();
-                                            return full === val.toLowerCase();
-                                        });
-                                        if (found) {
-                                            setSanctionForm(prev => ({
-                                                ...prev,
-                                                officerName: `${found.nombre || ''} ${found.apellido || ''}`.trim(),
-                                                officerBadge: found.no_placa || prev.officerBadge,
-                                                officerRank: found.rango || prev.officerRank
-                                            }));
-                                        } else {
-                                            setSanctionForm(prev => ({ ...prev, officerName: val }));
-                                        }
-                                    }}
                                     style={{
                                         width: '100%',
                                         background: 'rgba(0, 0, 0, 0.35)',
