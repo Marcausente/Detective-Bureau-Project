@@ -748,54 +748,54 @@ export default function PlantillaRosterTable({
                                 </th>
 
                                 {/* User info */}
-                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '60px', minWidth: '55px', maxWidth: '65px' }}>
+                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '58px', minWidth: '52px', maxWidth: '62px' }}>
                                     Usuario
                                 </th>
-                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '78px', minWidth: '68px', maxWidth: '82px' }}>
+                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '68px', minWidth: '60px', maxWidth: '72px' }}>
                                     Correo
                                 </th>
-                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '60px', minWidth: '55px', maxWidth: '65px' }}>
+                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '58px', minWidth: '52px', maxWidth: '62px' }}>
                                     Apellido
                                 </th>
-                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '55px', minWidth: '50px', maxWidth: '60px' }}>
+                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '52px', minWidth: '48px', maxWidth: '56px' }}>
                                     Nombre
                                 </th>
-                                <th style={{ padding: '3px 2px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '40px', minWidth: '38px' }}>
+                                <th style={{ padding: '3px 1px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '38px', minWidth: '36px' }}>
                                     # Placa
                                 </th>
-                                <th style={{ padding: '3px 4px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '95px', minWidth: '85px', maxWidth: '105px' }}>
+                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '74px', minWidth: '68px', maxWidth: '78px' }}>
                                     Rango
                                 </th>
 
                                 {/* Divisions columns */}
                                 {divisions.map(div => {
                                     const rawShort = (div.short_name || div.name || '').trim();
-                                    const displayShort = rawShort.length > 5 ? rawShort.substring(0, 4) : rawShort;
+                                    const displayShort = rawShort.length > 4 ? rawShort.substring(0, 3) : rawShort;
                                     return (
                                         <th
                                             key={div.id || div.name}
                                             style={{
-                                                padding: '2px 1px',
+                                                padding: '2px 0px',
                                                 textAlign: 'center',
-                                                width: '28px',
-                                                minWidth: '26px',
-                                                maxWidth: '30px',
+                                                width: '24px',
+                                                minWidth: '23px',
+                                                maxWidth: '25px',
                                                 color: div.color || '#34d399',
-                                                fontSize: '0.58rem',
+                                                fontSize: '0.52rem',
                                                 fontWeight: 900,
-                                                letterSpacing: '-0.02em',
-                                                borderLeft: '1px solid rgba(255, 255, 255, 0.06)',
-                                                lineHeight: 1.1
+                                                letterSpacing: '-0.03em',
+                                                borderLeft: '1px solid rgba(255, 255, 255, 0.05)',
+                                                lineHeight: 1
                                             }}
                                             title={`${div.name} (${div.short_name || ''})`}
                                         >
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
                                                 {div.badge_image_url ? (
-                                                    <img src={div.badge_image_url} alt="" style={{ width: '13px', height: '13px', objectFit: 'contain' }} />
+                                                    <img src={div.badge_image_url} alt="" style={{ width: '12px', height: '12px', objectFit: 'contain' }} />
                                                 ) : (
-                                                    <span style={{ fontSize: '0.62rem' }}>🏢</span>
+                                                    <span style={{ fontSize: '0.58rem' }}>🏢</span>
                                                 )}
-                                                <span style={{ overflow: 'hidden', textOverflow: 'clip', whiteSpace: 'nowrap', maxWidth: '27px' }}>
+                                                <span style={{ overflow: 'hidden', textOverflow: 'clip', whiteSpace: 'nowrap', maxWidth: '23px' }}>
                                                     {displayShort}
                                                 </span>
                                             </div>
@@ -804,38 +804,38 @@ export default function PlantillaRosterTable({
                                 })}
 
                                 {/* Activity Status */}
-                                <th style={{ padding: '3px 2px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '56px', minWidth: '52px', borderLeft: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                <th style={{ padding: '3px 2px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '64px', minWidth: '60px', maxWidth: '66px', borderLeft: '1px solid rgba(255, 255, 255, 0.1)' }}>
                                     Activo
                                 </th>
 
                                 {/* Valoración / Acotación */}
-                                <th style={{ padding: '3px 2px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '88px', minWidth: '80px', borderLeft: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                                    Valoración
+                                <th style={{ padding: '3px 1px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '64px', minWidth: '58px', maxWidth: '68px', borderLeft: '1px solid rgba(255, 255, 255, 0.06)' }} title="Valoración / Acotación de Fila">
+                                    Val.
                                 </th>
 
                                 {/* Faltas IA */}
-                                <th style={{ padding: '3px 3px', textAlign: 'center', color: '#f87171', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', width: '66px', minWidth: '60px' }}>
-                                    Faltas IA
+                                <th style={{ padding: '3px 1px', textAlign: 'center', color: '#f87171', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', width: '44px', minWidth: '40px', maxWidth: '48px' }} title="Faltas de Asuntos Internos">
+                                    F. IA
                                 </th>
 
                                 {/* Dias sin ascender */}
-                                <th style={{ padding: '3px 2px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', width: '40px', minWidth: '36px' }}>
+                                <th style={{ padding: '3px 1px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', width: '38px', minWidth: '34px' }}>
                                     Días
                                 </th>
 
                                 {/* Fecha ultimo ascenso */}
-                                <th style={{ padding: '3px 3px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', width: '62px', minWidth: '58px' }}>
-                                    F. Ascenso
+                                <th style={{ padding: '3px 2px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', width: '54px', minWidth: '50px' }}>
+                                    F. Asc.
                                 </th>
 
                                 {/* Notas */}
-                                <th style={{ padding: '3px 4px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '80px', minWidth: '70px', maxWidth: '95px' }}>
+                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '65px', minWidth: '55px', maxWidth: '75px' }}>
                                     Notas
                                 </th>
 
                                 {/* Actions */}
-                                <th style={{ padding: '3px 2px', textAlign: 'center', color: '#94a3b8', fontSize: '0.62rem', textTransform: 'uppercase', width: '48px', minWidth: '44px' }}>
-                                    Acciones
+                                <th style={{ padding: '3px 1px', textAlign: 'center', color: '#94a3b8', fontSize: '0.62rem', textTransform: 'uppercase', width: '44px', minWidth: '40px' }}>
+                                    Acc.
                                 </th>
                             </tr>
                         </thead>
@@ -951,17 +951,17 @@ export default function PlantillaRosterTable({
                                             </td>
 
                                             {/* Usuario */}
-                                            <td style={{ padding: '2px 2px', width: '60px', minWidth: '55px', maxWidth: '65px' }} title={agent.username}>
+                                            <td style={{ padding: '2px 2px', width: '58px', minWidth: '52px', maxWidth: '62px' }} title={agent.username}>
                                                 <div style={{
                                                     color: agent.username ? '#f8fafc' : '#64748b',
                                                     fontWeight: 600,
-                                                    fontSize: '0.70rem',
-                                                    maxWidth: '65px',
+                                                    fontSize: '0.68rem',
+                                                    maxWidth: '62px',
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis',
                                                     whiteSpace: 'nowrap'
                                                 }}>
-                                                    {agent.username || (isPlaceholder ? <span style={{ color: '#eab308', fontStyle: 'italic', fontSize: '0.66rem' }}>[Reserv.]</span> : '—')}
+                                                    {agent.username || (isPlaceholder ? <span style={{ color: '#eab308', fontStyle: 'italic', fontSize: '0.64rem' }}>[Reserv.]</span> : '—')}
                                                 </div>
                                             </td>
 
@@ -969,7 +969,7 @@ export default function PlantillaRosterTable({
                                             {(() => {
                                                 const isCopied = copiedEmailAgentId === (agent.id || index);
                                                 return (
-                                                    <td style={{ padding: '2px 2px', width: '78px', minWidth: '68px', maxWidth: '82px' }}>
+                                                    <td style={{ padding: '2px 2px', width: '68px', minWidth: '60px', maxWidth: '72px' }}>
                                                         <div
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -977,17 +977,17 @@ export default function PlantillaRosterTable({
                                                             }}
                                                             style={{
                                                                 color: isCopied ? '#34d399' : (agent.email ? '#94a3b8' : '#475569'),
-                                                                fontSize: '0.67rem',
-                                                                maxWidth: '82px',
+                                                                fontSize: '0.65rem',
+                                                                maxWidth: '72px',
                                                                 overflow: 'hidden',
                                                                 textOverflow: 'ellipsis',
                                                                 whiteSpace: 'nowrap',
                                                                 cursor: agent.email ? 'pointer' : 'default',
                                                                 display: 'flex',
                                                                 alignItems: 'center',
-                                                                gap: '3px',
+                                                                gap: '2px',
                                                                 borderRadius: '4px',
-                                                                padding: '1px 3px',
+                                                                padding: '1px 2px',
                                                                 transition: 'all 0.15s ease',
                                                                 background: isCopied ? 'rgba(16, 185, 129, 0.25)' : 'transparent',
                                                                 border: isCopied ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid transparent'
@@ -1009,7 +1009,7 @@ export default function PlantillaRosterTable({
                                                             title={isCopied ? '¡Correo copiado al portapapeles!' : (agent.email ? `📋 Clic para copiar: ${agent.email}` : 'Sin correo registrado')}
                                                         >
                                                             {isCopied ? (
-                                                                <span style={{ fontWeight: 800, fontSize: '0.64rem', color: '#34d399' }}>✓ ¡Copiado!</span>
+                                                                <span style={{ fontWeight: 800, fontSize: '0.62rem', color: '#34d399' }}>✓ Copiado</span>
                                                             ) : (
                                                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.email || '—'}</span>
                                                             )}
@@ -1019,12 +1019,12 @@ export default function PlantillaRosterTable({
                                             })()}
 
                                             {/* Apellido */}
-                                            <td style={{ padding: '2px 2px', width: '60px', minWidth: '55px', maxWidth: '65px' }} title={agent.apellido}>
+                                            <td style={{ padding: '2px 2px', width: '58px', minWidth: '52px', maxWidth: '62px' }} title={agent.apellido}>
                                                 <div style={{
                                                     color: agent.apellido ? '#f8fafc' : '#64748b',
                                                     fontWeight: 800,
-                                                    fontSize: '0.72rem',
-                                                    maxWidth: '65px',
+                                                    fontSize: '0.70rem',
+                                                    maxWidth: '62px',
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis',
                                                     whiteSpace: 'nowrap'
@@ -1034,11 +1034,11 @@ export default function PlantillaRosterTable({
                                             </td>
 
                                             {/* Nombre */}
-                                            <td style={{ padding: '2px 2px', width: '55px', minWidth: '50px', maxWidth: '60px' }} title={agent.nombre}>
+                                            <td style={{ padding: '2px 2px', width: '52px', minWidth: '48px', maxWidth: '56px' }} title={agent.nombre}>
                                                 <div style={{
                                                     color: agent.nombre ? '#cbd5e1' : '#64748b',
-                                                    fontSize: '0.72rem',
-                                                    maxWidth: '60px',
+                                                    fontSize: '0.70rem',
+                                                    maxWidth: '56px',
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis',
                                                     whiteSpace: 'nowrap'
@@ -1048,14 +1048,14 @@ export default function PlantillaRosterTable({
                                             </td>
 
                                             {/* # Placa */}
-                                            <td style={{ padding: '2px 2px', textAlign: 'center', width: '40px', minWidth: '38px' }}>
+                                            <td style={{ padding: '2px 1px', textAlign: 'center', width: '38px', minWidth: '36px' }}>
                                                 <span style={{
-                                                    fontSize: '0.72rem',
+                                                    fontSize: '0.70rem',
                                                     fontWeight: 900,
                                                     color: isPlaceholder ? '#fbbf24' : '#60a5fa',
                                                     background: isPlaceholder ? 'rgba(234, 179, 8, 0.15)' : 'rgba(59, 130, 246, 0.12)',
-                                                    padding: '1px 3px',
-                                                    borderRadius: '4px',
+                                                    padding: '1px 2px',
+                                                    borderRadius: '3px',
                                                     border: isPlaceholder ? '1px dashed rgba(234, 179, 8, 0.4)' : '1px solid rgba(59, 130, 246, 0.3)'
                                                 }}>
                                                     {agent.no_placa || 'S/P'}
@@ -1063,30 +1063,31 @@ export default function PlantillaRosterTable({
                                             </td>
 
                                             {/* Rango (with badge image) */}
-                                            <td style={{ padding: '2px 4px', width: '95px', minWidth: '85px', maxWidth: '105px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                            <td style={{ padding: '2px 3px', width: '74px', minWidth: '68px', maxWidth: '78px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                                                     {rankObj?.badge_image_url ? (
                                                         <div style={{
-                                                            width: '15px',
-                                                            height: '15px',
-                                                            borderRadius: '3px',
-                                                            background: 'rgba(15, 23, 42, 0.8)',
-                                                            border: `1px solid ${rankObj.color || 'rgba(255, 255, 255, 0.2)'}`,
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            overflow: 'hidden',
-                                                            flexShrink: 0
+                                                             width: '13px',
+                                                             height: '13px',
+                                                             borderRadius: '2px',
+                                                             background: 'rgba(15, 23, 42, 0.8)',
+                                                             border: `1px solid ${rankObj.color || 'rgba(255, 255, 255, 0.2)'}`,
+                                                             display: 'flex',
+                                                             alignItems: 'center',
+                                                             justifyContent: 'center',
+                                                             overflow: 'hidden',
+                                                             flexShrink: 0
                                                         }}>
                                                             <img src={rankObj.badge_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                                         </div>
                                                     ) : (
-                                                        <span style={{ fontSize: '0.70rem' }}>🎖️</span>
+                                                        <span style={{ fontSize: '0.62rem' }}>🎖️</span>
                                                     )}
                                                     <span style={{
-                                                        fontSize: '0.72rem',
+                                                        fontSize: '0.68rem',
                                                         fontWeight: 800,
                                                         color: rankObj?.color || '#f8fafc',
+                                                        maxWidth: '54px',
                                                         overflow: 'hidden',
                                                         textOverflow: 'ellipsis',
                                                         whiteSpace: 'nowrap'
@@ -1108,9 +1109,9 @@ export default function PlantillaRosterTable({
                                                         style={{
                                                             padding: '1px 0px',
                                                             textAlign: 'center',
-                                                            width: '28px',
-                                                            minWidth: '26px',
-                                                            maxWidth: '30px',
+                                                            width: '24px',
+                                                            minWidth: '23px',
+                                                            maxWidth: '25px',
                                                             cursor: 'pointer',
                                                             borderLeft: '1px solid rgba(255, 255, 255, 0.05)',
                                                             background: hasDiv ? 'rgba(16, 185, 129, 0.15)' : 'transparent'
@@ -1122,22 +1123,22 @@ export default function PlantillaRosterTable({
                                                                 <img
                                                                     src={div.badge_image_url}
                                                                     alt={div.short_name}
-                                                                    style={{ width: '14px', height: '14px', objectFit: 'contain', display: 'inline-block', verticalAlign: 'middle' }}
+                                                                    style={{ width: '13px', height: '13px', objectFit: 'contain', display: 'inline-block', verticalAlign: 'middle' }}
                                                                 />
                                                             ) : (
-                                                                <span style={{ fontSize: '0.66rem', color: div.color || '#34d399', fontWeight: 900, lineHeight: 1 }}>
+                                                                <span style={{ fontSize: '0.62rem', color: div.color || '#34d399', fontWeight: 900, lineHeight: 1 }}>
                                                                     ✓
                                                                 </span>
                                                             )
                                                         ) : (
-                                                            <span style={{ color: 'rgba(255, 255, 255, 0.05)', fontSize: '0.55rem' }}>·</span>
+                                                            <span style={{ color: 'rgba(255, 255, 255, 0.05)', fontSize: '0.52rem' }}>·</span>
                                                         )}
                                                     </td>
                                                 );
                                             })}
 
                                             {/* Actividad */}
-                                            <td style={{ padding: '2px 2px', textAlign: 'center', width: '54px', borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                            <td style={{ padding: '2px 2px', textAlign: 'center', width: '64px', minWidth: '60px', maxWidth: '66px', borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
                                                 {(() => {
                                                     const act = (agent.activity_status || 'Activo').toLowerCase();
                                                     const isActivo = !act.includes('inactiv') && !act.includes('no activ') && !act.includes('poco') && !act.includes('vacacion');
@@ -1152,11 +1153,11 @@ export default function PlantillaRosterTable({
                                                                 border: isActivo ? '1px solid rgba(16, 185, 129, 0.45)' : (isPoco ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid rgba(239, 68, 68, 0.45)'),
                                                                 color: isActivo ? '#34d399' : (isPoco ? '#fbbf24' : '#f87171'),
                                                                 borderRadius: '4px',
-                                                                padding: '1px 2px',
-                                                                fontSize: '0.65rem',
+                                                                padding: '1px 3px',
+                                                                fontSize: '0.67rem',
                                                                 fontWeight: 800,
                                                                 cursor: 'pointer',
-                                                                width: '52px'
+                                                                width: '58px'
                                                             }}
                                                         >
                                                             <option value="Activo">🟢 Si</option>
@@ -1168,7 +1169,7 @@ export default function PlantillaRosterTable({
                                             </td>
 
                                             {/* Valoración / Acotación Quick Selector */}
-                                            <td style={{ padding: '2px 2px', textAlign: 'center', width: '88px', minWidth: '80px', borderLeft: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                                            <td style={{ padding: '2px 1px', textAlign: 'center', width: '64px', minWidth: '58px', maxWidth: '68px', borderLeft: '1px solid rgba(255, 255, 255, 0.06)' }}>
                                                 <select
                                                     value={agent.valoracion || ''}
                                                     onChange={e => handleQuickChangeValoracion(agent, e.target.value)}
@@ -1178,16 +1179,16 @@ export default function PlantillaRosterTable({
                                                         color: hasVal ? '#ffffff' : '#94a3b8',
                                                         borderRadius: '4px',
                                                         padding: '1px 2px',
-                                                        fontSize: '0.64rem',
+                                                        fontSize: '0.63rem',
                                                         fontWeight: 800,
                                                         cursor: 'pointer',
-                                                        width: '84px',
-                                                        maxWidth: '84px',
+                                                        width: '58px',
+                                                        maxWidth: '60px',
                                                         textOverflow: 'ellipsis'
                                                     }}
                                                     title={valObj?.description ? `${valObj.name}: ${valObj.description}` : 'Asignar valoración / acotación a toda la fila'}
                                                 >
-                                                    <option value="" style={{ background: '#0f172a', color: '#94a3b8' }}>— Ninguna —</option>
+                                                    <option value="" style={{ background: '#0f172a', color: '#94a3b8' }}>—</option>
                                                     {activeValoraciones.map(v => (
                                                         <option key={v.id || v.name} value={v.name} style={{ background: '#0f172a', color: v.color || '#f8fafc' }}>
                                                             ● {v.name}
@@ -1197,16 +1198,16 @@ export default function PlantillaRosterTable({
                                             </td>
 
                                             {/* Faltas IA (Linked IA status indicator) */}
-                                            <td style={{ padding: '2px 3px', textAlign: 'center', width: '68px', minWidth: '60px' }}>
+                                            <td style={{ padding: '2px 1px', textAlign: 'center', width: '44px', minWidth: '40px', maxWidth: '48px' }}>
                                                 {iaStatus.hasActive ? (
                                                     <div
                                                         style={{
                                                             background: 'rgba(239, 68, 68, 0.2)',
                                                             border: '1px solid rgba(239, 68, 68, 0.5)',
                                                             color: '#f87171',
-                                                            borderRadius: '5px',
-                                                            padding: '1px 4px',
-                                                            fontSize: '0.64rem',
+                                                            borderRadius: '4px',
+                                                            padding: '1px 3px',
+                                                            fontSize: '0.63rem',
                                                             fontWeight: 800,
                                                             display: 'inline-flex',
                                                             alignItems: 'center',
@@ -1215,15 +1216,14 @@ export default function PlantillaRosterTable({
                                                         title={`Falta activa en IA: ${iaStatus.mostSevereActive}. Expira: ${iaStatus.latestExpiryDateFormatted || ''} (${iaStatus.maxDaysRemaining}d restantes)`}
                                                     >
                                                         <span>⚠️ {iaStatus.activeCount}</span>
-                                                        <span style={{ fontSize: '0.58rem', color: '#fca5a5' }}>({iaStatus.maxDaysRemaining}d)</span>
                                                     </div>
                                                 ) : (
                                                     <span style={{
-                                                        fontSize: '0.65rem',
+                                                        fontSize: '0.64rem',
                                                         color: '#6ee7b7',
                                                         background: 'rgba(16, 185, 129, 0.1)',
-                                                        padding: '1px 4px',
-                                                        borderRadius: '4px',
+                                                        padding: '1px 3px',
+                                                        borderRadius: '3px',
                                                         fontWeight: 700
                                                     }}>
                                                         ✅ 0
@@ -1232,42 +1232,42 @@ export default function PlantillaRosterTable({
                                             </td>
 
                                             {/* Días sin ascender (Color coded) */}
-                                            <td style={{ padding: '2px 2px', textAlign: 'center', width: '40px', minWidth: '36px' }}>
+                                            <td style={{ padding: '2px 1px', textAlign: 'center', width: '38px', minWidth: '34px' }}>
                                                 <span style={{
-                                                    fontSize: '0.70rem',
+                                                    fontSize: '0.68rem',
                                                     fontWeight: 900,
                                                     background: promoDays.bg,
                                                     border: promoDays.border,
                                                     color: promoDays.color,
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px'
+                                                    padding: '1px 3px',
+                                                    borderRadius: '3px'
                                                 }}>
                                                     {promoDays.days}d
                                                 </span>
                                             </td>
 
                                             {/* Fecha último ascenso */}
-                                            <td style={{ padding: '2px 3px', textAlign: 'center', fontSize: '0.66rem', width: '62px', minWidth: '58px', color: agent.last_promotion_date ? '#cbd5e1' : '#64748b' }}>
+                                            <td style={{ padding: '2px 2px', textAlign: 'center', fontSize: '0.64rem', width: '54px', minWidth: '50px', color: agent.last_promotion_date ? '#cbd5e1' : '#64748b' }}>
                                                 {agent.last_promotion_date ? agent.last_promotion_date.split('T')[0].split('-').reverse().slice(0, 2).join('/') : '—'}
                                             </td>
 
                                             {/* Notas */}
-                                            <td style={{ padding: '2px 4px', width: '80px', minWidth: '70px', maxWidth: '95px' }} title={agent.notes}>
+                                            <td style={{ padding: '2px 3px', width: '65px', minWidth: '55px', maxWidth: '75px' }} title={agent.notes}>
                                                 <div style={{
-                                                    maxWidth: '95px',
+                                                    maxWidth: '75px',
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis',
                                                     whiteSpace: 'nowrap',
                                                     color: agent.notes ? '#cbd5e1' : '#475569',
-                                                    fontSize: '0.67rem'
+                                                    fontSize: '0.66rem'
                                                 }}>
                                                     {agent.notes || '—'}
                                                 </div>
                                             </td>
 
                                             {/* Acciones */}
-                                            <td style={{ padding: '2px 2px', textAlign: 'center', width: '48px', minWidth: '44px' }}>
-                                                <div style={{ display: 'inline-flex', gap: '3px' }}>
+                                            <td style={{ padding: '2px 1px', textAlign: 'center', width: '44px', minWidth: '40px' }}>
+                                                <div style={{ display: 'inline-flex', gap: '2px' }}>
                                                     <button
                                                         type="button"
                                                         onClick={() => handleOpenEditAgent(agent)}
