@@ -39,6 +39,29 @@ export const DEFAULT_DIVISIONS = [
 
 export const INITIAL_SAMPLE_AGENTS = [];
 
+export const DEFAULT_VALORACIONES = [
+    { id: 'val-1', name: 'Ascenso', color: '#10b981', description: 'Listo para ascenso', order_index: 1 },
+    { id: 'val-2', name: 'Val. Ascenso', color: '#3b82f6', description: 'En periodo de valoración', order_index: 2 },
+    { id: 'val-3', name: 'Observación', color: '#f59e0b', description: 'Bajo seguimiento u observación', order_index: 3 },
+    { id: 'val-4', name: 'Degrado / Falta de actividad', color: '#ef4444', description: 'Posible degradación o falta de actividad', order_index: 4 }
+];
+
+/**
+ * Converts Hex color string to RGBA string with alpha transparency
+ */
+export function hexToRgba(hex, alpha = 0.2) {
+    if (!hex) return `rgba(255, 255, 255, ${alpha})`;
+    let clean = String(hex).replace('#', '').trim();
+    if (clean.length === 3) {
+        clean = clean.split('').map(c => c + c).join('');
+    }
+    if (clean.length !== 6) return `rgba(255, 255, 255, ${alpha})`;
+    const r = parseInt(clean.substring(0, 2), 16);
+    const g = parseInt(clean.substring(2, 4), 16);
+    const b = parseInt(clean.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 /**
  * Helper to safely parse JSON arrays from app_settings (handles both string and native array)
  */
@@ -516,6 +539,7 @@ export async function savePlantillaAgent(agentData) {
             rank_name: (agentData.rank_name || '').trim(),
             divisions: Array.isArray(agentData.divisions) ? agentData.divisions : [],
             activity_status: agentData.activity_status || 'Activo',
+            valoracion: (agentData.valoracion || '').trim(),
             last_promotion_date: agentData.last_promotion_date || null,
             notes: (agentData.notes || '').trim(),
             avatar_url: agentData.avatar_url || '',
@@ -638,6 +662,111 @@ export async function updateAgentsOrder(reorderedAgents) {
         return updates;
     } catch (err) {
         console.error('Error in updateAgentsOrder:', err);
+        throw err;
+    }
+}
+
+/**
+ * Fetches all Valoraciones / Acotaciones
+ */
+export async function fetchPlantillaValoraciones() {
+    try {
+        const { data: appData, error: appError } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'plantilla_valoraciones')
+            .maybeSingle();
+
+        if (!appError && appData) {
+            const parsed = parseSettingsArray(appData.value);
+            if (parsed !== null && parsed.length > 0) {
+                return parsed.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+            }
+        }
+
+        return DEFAULT_VALORACIONES;
+    } catch (err) {
+        console.warn('fetchPlantillaValoraciones fallback:', err);
+        return DEFAULT_VALORACIONES;
+    }
+}
+
+/**
+ * Saves (Insert or Update) a Valoracion / Acotacion
+ */
+export async function savePlantillaValoracion(valData) {
+    try {
+        const valId = valData.id || crypto.randomUUID();
+        const payload = {
+            id: valId,
+            name: valData.name.trim(),
+            color: valData.color || '#10b981',
+            description: (valData.description || '').trim(),
+            order_index: Number(valData.order_index) || 1,
+            updated_at: new Date().toISOString()
+        };
+
+        const list = await fetchPlantillaValoraciones();
+        const existingIndex = list.findIndex(v => v.id === payload.id);
+        let updatedList;
+        if (existingIndex >= 0) {
+            updatedList = [...list];
+            updatedList[existingIndex] = payload;
+        } else {
+            updatedList = [...list, payload];
+        }
+
+        await supabase.from('app_settings').upsert({
+            key: 'plantilla_valoraciones',
+            value: JSON.stringify(updatedList),
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+
+        return payload;
+    } catch (err) {
+        console.error('Error in savePlantillaValoracion:', err);
+        throw err;
+    }
+}
+
+/**
+ * Deletes a Valoracion / Acotacion
+ */
+export async function deletePlantillaValoracion(valId) {
+    try {
+        const list = await fetchPlantillaValoraciones();
+        const updated = list.filter(v => v.id !== valId);
+        await supabase.from('app_settings').upsert({
+            key: 'plantilla_valoraciones',
+            value: JSON.stringify(updated),
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+        return true;
+    } catch (err) {
+        console.error('Error in deletePlantillaValoracion:', err);
+        throw err;
+    }
+}
+
+/**
+ * Updates order of Valoraciones / Acotaciones
+ */
+export async function updateValoracionesOrder(reordered) {
+    try {
+        const updates = reordered.map((item, index) => ({
+            ...item,
+            order_index: index + 1
+        }));
+
+        await supabase.from('app_settings').upsert({
+            key: 'plantilla_valoraciones',
+            value: JSON.stringify(updates),
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+
+        return updates;
+    } catch (err) {
+        console.error('Error in updateValoracionesOrder:', err);
         throw err;
     }
 }

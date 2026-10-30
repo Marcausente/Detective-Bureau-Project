@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import { uploadImageToStorage } from '../../utils/imageStorage';
-import { calculatePromotionDays } from '../../services/plantillaService';
+import { calculatePromotionDays, DEFAULT_VALORACIONES, hexToRgba } from '../../services/plantillaService';
 
-export default function PlantillaAgentModal({ agent, ranks, divisions, onClose, onSave }) {
+export default function PlantillaAgentModal({ agent, ranks, divisions, valoraciones = [], onClose, onSave }) {
     const isEdit = Boolean(agent && agent.id);
     const [saving, setSaving] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+    const availableValoraciones = valoraciones && valoraciones.length > 0 ? valoraciones : DEFAULT_VALORACIONES;
 
     // Form state
     const [formData, setFormData] = useState({
@@ -18,6 +20,7 @@ export default function PlantillaAgentModal({ agent, ranks, divisions, onClose, 
         rank_name: agent?.rank_name || (ranks?.[0]?.name || ''),
         divisions: Array.isArray(agent?.divisions) ? agent.divisions : [],
         activity_status: agent?.activity_status || 'Activo',
+        valoracion: agent?.valoracion || '',
         last_promotion_date: agent?.last_promotion_date ? agent.last_promotion_date.split('T')[0] : '',
         notes: agent?.notes || '',
         avatar_url: agent?.avatar_url || '',
@@ -522,6 +525,64 @@ export default function PlantillaAgentModal({ agent, ranks, divisions, onClose, 
                                 </select>
                             </div>
                         </div>
+
+                        {/* Valoración / Acotación de Fila */}
+                        {(() => {
+                            const valObj = availableValoraciones.find(v => (v.name || '').trim().toLowerCase() === (formData.valoracion || '').trim().toLowerCase());
+                            return (
+                                <div style={{
+                                    background: valObj ? hexToRgba(valObj.color, 0.15) : 'rgba(30, 41, 59, 0.45)',
+                                    border: valObj ? `1px solid ${valObj.color}` : '1px solid rgba(255, 255, 255, 0.1)',
+                                    borderLeft: valObj ? `5px solid ${valObj.color}` : '5px solid rgba(255, 255, 255, 0.1)',
+                                    borderRadius: '12px',
+                                    padding: '0.85rem 1rem',
+                                    transition: 'all 0.2s ease'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                        <label style={{ fontSize: '0.74rem', fontWeight: 800, color: '#f8fafc', textTransform: 'uppercase' }}>
+                                            🏷️ Valoración / Acotación de Fila
+                                        </label>
+                                        {valObj && (
+                                            <span style={{
+                                                fontSize: '0.72rem',
+                                                fontWeight: 900,
+                                                background: hexToRgba(valObj.color, 0.35),
+                                                border: `1px solid ${valObj.color}`,
+                                                color: '#ffffff',
+                                                padding: '2px 8px',
+                                                borderRadius: '5px'
+                                            }}>
+                                                ● Toda la fila se marcará en {valObj.name}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <select
+                                        value={formData.valoracion}
+                                        onChange={e => setFormData({ ...formData, valoracion: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            background: 'rgba(15, 23, 42, 0.85)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '8px',
+                                            padding: '0.55rem 0.75rem',
+                                            color: '#f8fafc',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 700
+                                        }}
+                                    >
+                                        <option value="">— Ninguna (Fila sin marcar) —</option>
+                                        {availableValoraciones.map(v => (
+                                            <option key={v.id || v.name} value={v.name}>
+                                                ● {v.name} {v.description ? `(${v.description})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <span style={{ display: 'block', fontSize: '0.72rem', color: valObj ? '#cbd5e1' : '#94a3b8', marginTop: '4px' }}>
+                                        {valObj ? (valObj.description || `La fila de este agente se destacará completamente en color ${valObj.color}`) : 'Permite marcar toda la fila en verde (Ascenso), azul (Val. Ascenso), amarillo (Observación), rojo (Degrado), etc.'}
+                                    </span>
+                                </div>
+                            );
+                        })()}
 
                         {/* Promotion Dates and Calculation Indicator */}
                         <div style={{

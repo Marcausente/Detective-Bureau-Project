@@ -5,22 +5,27 @@ import {
     sortAgentsByRankHierarchy,
     updateAgentsOrder,
     savePlantillaAgent,
-    deletePlantillaAgent
+    deletePlantillaAgent,
+    DEFAULT_VALORACIONES,
+    hexToRgba
 } from '../../services/plantillaService';
 import PlantillaAgentModal from './PlantillaAgentModal';
 import PlantillaRanksManager from './PlantillaRanksManager';
 import PlantillaDivisionsManager from './PlantillaDivisionsManager';
+import PlantillaValoracionesManager from './PlantillaValoracionesManager';
 import PlantillaAnalytics from './PlantillaAnalytics';
 
 export default function PlantillaRosterTable({
     agents = [],
     ranks = [],
     divisions = [],
+    valoraciones = [],
     iaStatusMap,
     currentUser,
     onAgentsUpdated,
     onRanksUpdated,
     onDivisionsUpdated,
+    onValoracionesUpdated,
     onRefreshIA
 }) {
     const { isLSSD, branding } = useTheme();
@@ -31,13 +36,21 @@ export default function PlantillaRosterTable({
 
     const [showRanksManager, setShowRanksManager] = useState(false);
     const [showDivisionsManager, setShowDivisionsManager] = useState(false);
+    const [showValoracionesManager, setShowValoracionesManager] = useState(false);
     const [showAnalytics, setShowAnalytics] = useState(false);
+
+    // Copied email feedback state (agent id)
+    const [copiedEmailAgentId, setCopiedEmailAgentId] = useState(null);
+
+    // Active valoraciones fallback
+    const activeValoraciones = valoraciones && valoraciones.length > 0 ? valoraciones : DEFAULT_VALORACIONES;
 
     // Filter & Search state
     const [searchTerm, setSearchTerm] = useState('');
     const [rankFilter, setRankFilter] = useState('all');
     const [divisionFilter, setDivisionFilter] = useState('all');
     const [activityFilter, setActivityFilter] = useState('all');
+    const [valoracionFilter, setValoracionFilter] = useState('all');
     const [iaSanctionFilter, setIaSanctionFilter] = useState('all'); // 'all' | 'active_only'
 
     // Open Add Agent modal
@@ -144,6 +157,47 @@ export default function PlantillaRosterTable({
         }
     };
 
+    // Quick change valoracion / acotacion status (colors the whole row)
+    const handleQuickChangeValoracion = async (agent, newValoracion) => {
+        const updatedAgent = { ...agent, valoracion: newValoracion };
+        try {
+            const saved = await savePlantillaAgent(updatedAgent);
+            const updatedList = agents.map(a => a.id === agent.id ? saved : a);
+            if (onAgentsUpdated) onAgentsUpdated(updatedList);
+        } catch (err) {
+            alert('Error actualizando valoración: ' + err.message);
+        }
+    };
+
+    // Copy agent email to clipboard
+    const handleCopyEmail = (agentEmail, agentId) => {
+        if (!agentEmail || !agentEmail.trim()) return;
+        const cleanEmail = agentEmail.trim();
+        if (navigator?.clipboard?.writeText) {
+            navigator.clipboard.writeText(cleanEmail).catch(err => {
+                console.warn('Clipboard write failed:', err);
+            });
+        } else {
+            const textArea = document.createElement('textarea');
+            textArea.value = cleanEmail;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+            } catch (e) {
+                console.warn('Fallback copy failed:', e);
+            }
+            document.body.removeChild(textArea);
+        }
+        setCopiedEmailAgentId(agentId);
+        setTimeout(() => {
+            setCopiedEmailAgentId(null);
+        }, 1800);
+    };
+
     // Quick toggle division for agent
     const handleQuickToggleDivision = async (agent, divCode) => {
         const currentDivs = Array.isArray(agent.divisions) ? agent.divisions : [];
@@ -201,6 +255,17 @@ export default function PlantillaRosterTable({
                 if (activityFilter === 'Inactivo' && !act.includes('inactiv') && !act.includes('no activ')) return false;
             }
 
+            // Valoracion filter
+            if (valoracionFilter !== 'all') {
+                if (valoracionFilter === 'none') {
+                    if (agent.valoracion && agent.valoracion.trim()) return false;
+                } else {
+                    if ((agent.valoracion || '').trim().toLowerCase() !== valoracionFilter.trim().toLowerCase()) {
+                        return false;
+                    }
+                }
+            }
+
             // IA Sanctions filter
             if (iaSanctionFilter === 'active_only') {
                 const ia = iaStatusMap?.getAgentStatus ? iaStatusMap.getAgentStatus(agent) : null;
@@ -209,7 +274,7 @@ export default function PlantillaRosterTable({
 
             return true;
         });
-    }, [agents, searchTerm, rankFilter, divisionFilter, activityFilter, iaSanctionFilter, iaStatusMap]);
+    }, [agents, searchTerm, rankFilter, divisionFilter, activityFilter, valoracionFilter, iaSanctionFilter, iaStatusMap]);
 
     // Ranks count for mini-summary box
     const ranksMiniSummary = useMemo(() => {
@@ -488,6 +553,28 @@ export default function PlantillaRosterTable({
                         <option value="Inactivo">🔴 Solo Inactivos</option>
                     </select>
 
+                    {/* Valoración Filter */}
+                    <select
+                        value={valoracionFilter}
+                        onChange={e => setValoracionFilter(e.target.value)}
+                        style={{
+                            background: 'rgba(15, 23, 42, 0.8)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: '6px',
+                            padding: '0.24rem 0.5rem',
+                            color: '#f8fafc',
+                            fontSize: '0.73rem'
+                        }}
+                    >
+                        <option value="all">🏷️ Valoraciones</option>
+                        <option value="none">⚪ Sin Valoración</option>
+                        {activeValoraciones.map(v => (
+                            <option key={v.id || v.name} value={v.name}>
+                                ● {v.name}
+                            </option>
+                        ))}
+                    </select>
+
                     {/* Toggle Faltas IA Activas Filter */}
                     <button
                         type="button"
@@ -578,6 +665,28 @@ export default function PlantillaRosterTable({
                     >
                         <span>🏢</span>
                         <span>Gestionar Divisiones</span>
+                    </button>
+
+                    {/* Manage Valoraciones / Acotaciones */}
+                    <button
+                        type="button"
+                        onClick={() => setShowValoracionesManager(true)}
+                        style={{
+                            background: 'rgba(234, 179, 8, 0.15)',
+                            border: '1px solid rgba(250, 204, 21, 0.35)',
+                            color: '#fef08a',
+                            padding: '0.32rem 0.65rem',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                            fontSize: '0.74rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                        }}
+                    >
+                        <span>🏷️</span>
+                        <span>Gestionar Acotaciones</span>
                     </button>
 
                     {/* View Analytics */}
@@ -699,6 +808,11 @@ export default function PlantillaRosterTable({
                                     Activo
                                 </th>
 
+                                {/* Valoración / Acotación */}
+                                <th style={{ padding: '3px 2px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '88px', minWidth: '80px', borderLeft: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                                    Valoración
+                                </th>
+
                                 {/* Faltas IA */}
                                 <th style={{ padding: '3px 3px', textAlign: 'center', color: '#f87171', fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', width: '66px', minWidth: '60px' }}>
                                     Faltas IA
@@ -729,7 +843,7 @@ export default function PlantillaRosterTable({
                         <tbody>
                             {filteredAgents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={14 + divisions.length} style={{ padding: '2.5rem 1rem', textAlign: 'center', color: '#94a3b8' }}>
+                                    <td colSpan={15 + divisions.length} style={{ padding: '2.5rem 1rem', textAlign: 'center', color: '#94a3b8' }}>
                                         <div style={{ fontSize: '1.5rem', marginBottom: '0.4rem' }}>📋</div>
                                         <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f8fafc' }}>
                                             No se encontraron agentes en la plantilla con los filtros actuales
@@ -746,17 +860,30 @@ export default function PlantillaRosterTable({
                                     const iaStatus = iaStatusMap?.getAgentStatus ? iaStatusMap.getAgentStatus(agent) : { hasActive: false, activeCount: 0 };
                                     const isPlaceholder = agent.is_placeholder || (!agent.nombre && !agent.apellido);
 
+                                    // Valoración / Acotación matching & row color styling
+                                    const valObj = activeValoraciones.find(v => (v.name || '').trim().toLowerCase() === (agent.valoracion || '').trim().toLowerCase());
+                                    const hasVal = Boolean(valObj && valObj.color);
+                                    const valColor = hasVal ? valObj.color : null;
+                                    const defaultBg = isPlaceholder ? 'rgba(234, 179, 8, 0.03)' : (index % 2 === 0 ? 'rgba(15, 23, 42, 0.3)' : 'transparent');
+                                    const rowBg = hasVal
+                                        ? `linear-gradient(90deg, ${hexToRgba(valColor, 0.30)} 0%, ${hexToRgba(valColor, 0.12)} 100%)`
+                                        : defaultBg;
+                                    const rowHoverBg = hasVal
+                                        ? `linear-gradient(90deg, ${hexToRgba(valColor, 0.40)} 0%, ${hexToRgba(valColor, 0.20)} 100%)`
+                                        : (isPlaceholder ? 'rgba(234, 179, 8, 0.08)' : 'rgba(255, 255, 255, 0.04)');
+
                                     return (
                                         <tr
                                             key={agent.id || index}
                                             style={{
-                                                borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
-                                                background: isPlaceholder ? 'rgba(234, 179, 8, 0.03)' : (index % 2 === 0 ? 'rgba(15, 23, 42, 0.3)' : 'transparent'),
-                                                transition: 'background 0.1s ease',
+                                                borderBottom: hasVal ? `1px solid ${hexToRgba(valColor, 0.45)}` : '1px solid rgba(255, 255, 255, 0.04)',
+                                                background: rowBg,
+                                                boxShadow: hasVal ? `inset 4px 0 0 0 ${valColor}` : 'none',
+                                                transition: 'background 0.12s ease',
                                                 height: '32px'
                                             }}
-                                            onMouseEnter={e => e.currentTarget.style.background = isPlaceholder ? 'rgba(234, 179, 8, 0.08)' : 'rgba(255, 255, 255, 0.04)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = isPlaceholder ? 'rgba(234, 179, 8, 0.03)' : (index % 2 === 0 ? 'rgba(15, 23, 42, 0.3)' : 'transparent')}
+                                            onMouseEnter={e => e.currentTarget.style.background = rowHoverBg}
+                                            onMouseLeave={e => e.currentTarget.style.background = rowBg}
                                         >
                                             {/* Move Reorder */}
                                             <td style={{ padding: '2px 2px', textAlign: 'center' }}>
@@ -838,19 +965,58 @@ export default function PlantillaRosterTable({
                                                 </div>
                                             </td>
 
-                                            {/* Correo */}
-                                            <td style={{ padding: '2px 2px', width: '78px', minWidth: '68px', maxWidth: '82px' }} title={agent.email}>
-                                                <div style={{
-                                                    color: agent.email ? '#94a3b8' : '#475569',
-                                                    fontSize: '0.67rem',
-                                                    maxWidth: '82px',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap'
-                                                }}>
-                                                    {agent.email || '—'}
-                                                </div>
-                                            </td>
+                                            {/* Correo (Click/Hover para copiar al portapapeles) */}
+                                            {(() => {
+                                                const isCopied = copiedEmailAgentId === (agent.id || index);
+                                                return (
+                                                    <td style={{ padding: '2px 2px', width: '78px', minWidth: '68px', maxWidth: '82px' }}>
+                                                        <div
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleCopyEmail(agent.email, agent.id || index);
+                                                            }}
+                                                            style={{
+                                                                color: isCopied ? '#34d399' : (agent.email ? '#94a3b8' : '#475569'),
+                                                                fontSize: '0.67rem',
+                                                                maxWidth: '82px',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                                cursor: agent.email ? 'pointer' : 'default',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '3px',
+                                                                borderRadius: '4px',
+                                                                padding: '1px 3px',
+                                                                transition: 'all 0.15s ease',
+                                                                background: isCopied ? 'rgba(16, 185, 129, 0.25)' : 'transparent',
+                                                                border: isCopied ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid transparent'
+                                                            }}
+                                                            onMouseEnter={e => {
+                                                                if (agent.email && !isCopied) {
+                                                                    e.currentTarget.style.color = '#38bdf8';
+                                                                    e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)';
+                                                                    e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.35)';
+                                                                }
+                                                            }}
+                                                            onMouseLeave={e => {
+                                                                if (!isCopied) {
+                                                                    e.currentTarget.style.color = agent.email ? '#94a3b8' : '#475569';
+                                                                    e.currentTarget.style.background = 'transparent';
+                                                                    e.currentTarget.style.borderColor = 'transparent';
+                                                                }
+                                                            }}
+                                                            title={isCopied ? '¡Correo copiado al portapapeles!' : (agent.email ? `📋 Clic para copiar: ${agent.email}` : 'Sin correo registrado')}
+                                                        >
+                                                            {isCopied ? (
+                                                                <span style={{ fontWeight: 800, fontSize: '0.64rem', color: '#34d399' }}>✓ ¡Copiado!</span>
+                                                            ) : (
+                                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.email || '—'}</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                );
+                                            })()}
 
                                             {/* Apellido */}
                                             <td style={{ padding: '2px 2px', width: '60px', minWidth: '55px', maxWidth: '65px' }} title={agent.apellido}>
@@ -1001,6 +1167,35 @@ export default function PlantillaRosterTable({
                                                 })()}
                                             </td>
 
+                                            {/* Valoración / Acotación Quick Selector */}
+                                            <td style={{ padding: '2px 2px', textAlign: 'center', width: '88px', minWidth: '80px', borderLeft: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                                                <select
+                                                    value={agent.valoracion || ''}
+                                                    onChange={e => handleQuickChangeValoracion(agent, e.target.value)}
+                                                    style={{
+                                                        background: hasVal ? hexToRgba(valColor, 0.35) : 'rgba(15, 23, 42, 0.85)',
+                                                        border: hasVal ? `1px solid ${valColor}` : '1px solid rgba(255, 255, 255, 0.15)',
+                                                        color: hasVal ? '#ffffff' : '#94a3b8',
+                                                        borderRadius: '4px',
+                                                        padding: '1px 2px',
+                                                        fontSize: '0.64rem',
+                                                        fontWeight: 800,
+                                                        cursor: 'pointer',
+                                                        width: '84px',
+                                                        maxWidth: '84px',
+                                                        textOverflow: 'ellipsis'
+                                                    }}
+                                                    title={valObj?.description ? `${valObj.name}: ${valObj.description}` : 'Asignar valoración / acotación a toda la fila'}
+                                                >
+                                                    <option value="" style={{ background: '#0f172a', color: '#94a3b8' }}>— Ninguna —</option>
+                                                    {activeValoraciones.map(v => (
+                                                        <option key={v.id || v.name} value={v.name} style={{ background: '#0f172a', color: v.color || '#f8fafc' }}>
+                                                            ● {v.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </td>
+
                                             {/* Faltas IA (Linked IA status indicator) */}
                                             <td style={{ padding: '2px 3px', textAlign: 'center', width: '68px', minWidth: '60px' }}>
                                                 {iaStatus.hasActive ? (
@@ -1126,6 +1321,7 @@ export default function PlantillaRosterTable({
                     agent={selectedAgentForEdit}
                     ranks={ranks}
                     divisions={divisions}
+                    valoraciones={activeValoraciones}
                     onClose={() => {
                         setShowAgentModal(false);
                         setSelectedAgentForEdit(null);
@@ -1150,6 +1346,15 @@ export default function PlantillaRosterTable({
                     divisions={divisions}
                     onClose={() => setShowDivisionsManager(false)}
                     onDivisionsUpdated={onDivisionsUpdated}
+                />
+            )}
+
+            {/* Valoraciones / Acotaciones Manager Modal */}
+            {showValoracionesManager && (
+                <PlantillaValoracionesManager
+                    valoraciones={activeValoraciones}
+                    onClose={() => setShowValoracionesManager(false)}
+                    onValoracionesUpdated={onValoracionesUpdated}
                 />
             )}
 

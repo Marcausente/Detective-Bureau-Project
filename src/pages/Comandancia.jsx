@@ -18,6 +18,7 @@ import {
     fetchPlantillaRanks,
     fetchPlantillaDivisions,
     fetchPlantillaAgents,
+    fetchPlantillaValoraciones,
     fetchActiveIASanctionsMap
 } from '../services/plantillaService';
 import '../index.css';
@@ -37,6 +38,7 @@ export default function Comandancia() {
     const [plantillaAgents, setPlantillaAgents] = useState([]);
     const [plantillaRanks, setPlantillaRanks] = useState([]);
     const [plantillaDivisions, setPlantillaDivisions] = useState([]);
+    const [plantillaValoraciones, setPlantillaValoraciones] = useState([]);
     const [iaSanctionsMap, setIaSanctionsMap] = useState(null);
 
     const [feedbacks, setFeedbacks] = useState([]);
@@ -417,15 +419,17 @@ export default function Comandancia() {
 
     const loadPlantillaData = async () => {
         try {
-            const [loadedRanks, loadedDivs, loadedAgents, loadedIAMap] = await Promise.all([
+            const [loadedRanks, loadedDivs, loadedAgents, loadedVals, loadedIAMap] = await Promise.all([
                 fetchPlantillaRanks(),
                 fetchPlantillaDivisions(),
                 fetchPlantillaAgents(),
+                fetchPlantillaValoraciones(),
                 fetchActiveIASanctionsMap()
             ]);
             setPlantillaRanks(loadedRanks);
             setPlantillaDivisions(loadedDivs);
             setPlantillaAgents(loadedAgents);
+            setPlantillaValoraciones(loadedVals);
             setIaSanctionsMap(loadedIAMap);
         } catch (pErr) {
             console.warn('Error loading Plantilla data:', pErr);
@@ -1217,11 +1221,13 @@ export default function Comandancia() {
                     agents={plantillaAgents}
                     ranks={plantillaRanks}
                     divisions={plantillaDivisions}
+                    valoraciones={plantillaValoraciones}
                     iaStatusMap={iaSanctionsMap}
                     currentUser={profile}
                     onAgentsUpdated={setPlantillaAgents}
                     onRanksUpdated={setPlantillaRanks}
                     onDivisionsUpdated={setPlantillaDivisions}
+                    onValoracionesUpdated={setPlantillaValoraciones}
                     onRefreshIA={loadPlantillaData}
                 />
             )}
