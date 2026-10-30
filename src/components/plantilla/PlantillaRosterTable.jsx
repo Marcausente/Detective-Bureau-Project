@@ -6,10 +6,13 @@ import {
     updateAgentsOrder,
     savePlantillaAgent,
     deletePlantillaAgent,
+    savePlantillaDivider,
+    deletePlantillaDivider,
     DEFAULT_VALORACIONES,
     hexToRgba
 } from '../../services/plantillaService';
 import PlantillaAgentModal from './PlantillaAgentModal';
+import PlantillaDividerModal from './PlantillaDividerModal';
 import PlantillaRanksManager from './PlantillaRanksManager';
 import PlantillaDivisionsManager from './PlantillaDivisionsManager';
 import PlantillaValoracionesManager from './PlantillaValoracionesManager';
@@ -33,6 +36,10 @@ export default function PlantillaRosterTable({
     // Modals state
     const [showAgentModal, setShowAgentModal] = useState(false);
     const [selectedAgentForEdit, setSelectedAgentForEdit] = useState(null);
+
+    const [showDividerModal, setShowDividerModal] = useState(false);
+    const [selectedDividerForEdit, setSelectedDividerForEdit] = useState(null);
+    const [dividerInsertIndex, setDividerInsertIndex] = useState(null);
 
     const [showRanksManager, setShowRanksManager] = useState(false);
     const [showDivisionsManager, setShowDivisionsManager] = useState(false);
@@ -104,6 +111,64 @@ export default function PlantillaRosterTable({
             if (onAgentsUpdated) onAgentsUpdated(updated);
         } catch (err) {
             alert('Error eliminando agente: ' + err.message);
+        }
+    };
+
+    // Open Add Divider Modal
+    const handleOpenAddDivider = (insertIdx = null) => {
+        setSelectedDividerForEdit(null);
+        setDividerInsertIndex(insertIdx);
+        setShowDividerModal(true);
+    };
+
+    // Open Edit Divider Modal
+    const handleOpenEditDivider = (divider) => {
+        setSelectedDividerForEdit(divider);
+        setShowDividerModal(true);
+    };
+
+    // Save Divider handler
+    const handleSaveDivider = async (dividerData, insertPosition) => {
+        let updatedList = [...agents];
+        if (dividerData.id && selectedDividerForEdit) {
+            updatedList = updatedList.map(a => a.id === dividerData.id ? { ...a, ...dividerData } : a);
+        } else {
+            const newDivider = {
+                id: `div-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                ...dividerData
+            };
+            if (insertPosition === 'start') {
+                updatedList = [newDivider, ...updatedList];
+            } else if (insertPosition === 'end' || insertPosition === null || insertPosition === undefined) {
+                updatedList = [...updatedList, newDivider];
+            } else if (typeof insertPosition === 'number') {
+                const insertAt = insertPosition + 1;
+                updatedList.splice(insertAt, 0, newDivider);
+            }
+        }
+
+        updatedList = updatedList.map((item, idx) => ({ ...item, order_index: idx + 1 }));
+        if (onAgentsUpdated) onAgentsUpdated(updatedList);
+        try {
+            await savePlantillaDivider(dividerData);
+            await updateAgentsOrder(updatedList);
+        } catch (err) {
+            console.error('Error saving divider:', err);
+        }
+    };
+
+    // Delete Divider handler
+    const handleDeleteDivider = async (divider) => {
+        const title = divider.title || divider.nombre || 'esta sección';
+        if (!window.confirm(`¿Seguro que deseas eliminar la barra divisoria "${title}"?\n\nLos agentes que contiene no se eliminarán.`)) return;
+
+        const updatedList = agents.filter(a => a.id !== divider.id).map((item, idx) => ({ ...item, order_index: idx + 1 }));
+        if (onAgentsUpdated) onAgentsUpdated(updatedList);
+        try {
+            await deletePlantillaDivider(divider.id);
+            await updateAgentsOrder(updatedList);
+        } catch (err) {
+            console.error('Error deleting divider:', err);
         }
     };
 
@@ -220,6 +285,18 @@ export default function PlantillaRosterTable({
     // Filter agents
     const filteredAgents = useMemo(() => {
         return agents.filter(agent => {
+            // Dividers handling
+            if (agent.is_divider) {
+                if (searchTerm.trim()) {
+                    return (agent.title || agent.nombre || '').toLowerCase().includes(searchTerm.toLowerCase());
+                }
+                // When filtering by a concrete rank, division, activity, or valoracion, hide dividers so only matching agents appear
+                if (rankFilter !== 'all' || divisionFilter !== 'all' || activityFilter !== 'all' || valoracionFilter !== 'all' || iaSanctionFilter !== 'all') {
+                    return false;
+                }
+                return true;
+            }
+
             // Text search
             if (searchTerm.trim()) {
                 const term = searchTerm.toLowerCase();
@@ -280,6 +357,7 @@ export default function PlantillaRosterTable({
     const ranksMiniSummary = useMemo(() => {
         return ranks.slice(0, 8).map(r => {
             const count = agents.filter(a =>
+                !a.is_divider &&
                 !a.is_placeholder &&
                 (a.rank_name || '').trim().toLowerCase() === r.name.trim().toLowerCase()
             ).length;
@@ -289,7 +367,7 @@ export default function PlantillaRosterTable({
 
     // Counts for summary bar
     const summaryKPIs = useMemo(() => {
-        const assigned = agents.filter(a => !a.is_placeholder || (a.nombre || a.apellido));
+        const assigned = agents.filter(a => !a.is_divider && (!a.is_placeholder || (a.nombre || a.apellido)));
         let activos = 0;
         let poco = 0;
         let inactivos = 0;
@@ -623,6 +701,30 @@ export default function PlantillaRosterTable({
                         <span>Añadir Agente / Fila</span>
                     </button>
 
+                    {/* Add Section Divider */}
+                    <button
+                        type="button"
+                        onClick={() => handleOpenAddDivider()}
+                        style={{
+                            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.85), rgba(37, 99, 235, 0.95))',
+                            color: '#ffffff',
+                            border: '1px solid rgba(147, 197, 253, 0.4)',
+                            padding: '0.32rem 0.7rem',
+                            borderRadius: '6px',
+                            fontWeight: 800,
+                            fontSize: '0.74rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
+                        }}
+                        title="Añadir una barra divisoria para separar agentes por apartados (Jefatura, Sargentos, Detectives...)"
+                    >
+                        <span>📑</span>
+                        <span>Añadir Sección / Divisoria</span>
+                    </button>
+
                     {/* Manage Ranks */}
                     <button
                         type="button"
@@ -748,22 +850,22 @@ export default function PlantillaRosterTable({
                                 </th>
 
                                 {/* User info */}
-                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '58px', minWidth: '52px', maxWidth: '62px' }}>
+                                <th style={{ padding: '3px 3px', color: '#cbd5e1', fontSize: '0.67rem', fontWeight: 800, textTransform: 'uppercase', width: '75px', minWidth: '65px' }}>
                                     Usuario
                                 </th>
-                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '68px', minWidth: '60px', maxWidth: '72px' }}>
+                                <th style={{ padding: '3px 3px', color: '#cbd5e1', fontSize: '0.67rem', fontWeight: 800, textTransform: 'uppercase', width: '95px', minWidth: '85px' }}>
                                     Correo
                                 </th>
-                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '58px', minWidth: '52px', maxWidth: '62px' }}>
+                                <th style={{ padding: '3px 3px', color: '#cbd5e1', fontSize: '0.67rem', fontWeight: 800, textTransform: 'uppercase', width: '70px', minWidth: '60px' }}>
                                     Apellido
                                 </th>
-                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '52px', minWidth: '48px', maxWidth: '56px' }}>
+                                <th style={{ padding: '3px 3px', color: '#cbd5e1', fontSize: '0.67rem', fontWeight: 800, textTransform: 'uppercase', width: '60px', minWidth: '52px' }}>
                                     Nombre
                                 </th>
-                                <th style={{ padding: '3px 1px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '38px', minWidth: '36px' }}>
+                                <th style={{ padding: '3px 1px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.67rem', fontWeight: 800, textTransform: 'uppercase', width: '38px', minWidth: '36px' }}>
                                     # Placa
                                 </th>
-                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '74px', minWidth: '68px', maxWidth: '78px' }}>
+                                <th style={{ padding: '3px 4px', color: '#cbd5e1', fontSize: '0.67rem', fontWeight: 800, textTransform: 'uppercase', width: '130px', minWidth: '120px' }}>
                                     Rango
                                 </th>
 
@@ -829,12 +931,12 @@ export default function PlantillaRosterTable({
                                 </th>
 
                                 {/* Notas */}
-                                <th style={{ padding: '3px 2px', color: '#cbd5e1', fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', width: '65px', minWidth: '55px', maxWidth: '75px' }}>
+                                <th style={{ padding: '3px 4px', color: '#cbd5e1', fontSize: '0.67rem', fontWeight: 800, textTransform: 'uppercase', width: 'auto', minWidth: '150px' }}>
                                     Notas
                                 </th>
 
                                 {/* Actions */}
-                                <th style={{ padding: '3px 1px', textAlign: 'center', color: '#94a3b8', fontSize: '0.62rem', textTransform: 'uppercase', width: '44px', minWidth: '40px' }}>
+                                <th style={{ padding: '3px 1px', textAlign: 'center', color: '#94a3b8', fontSize: '0.62rem', textTransform: 'uppercase', width: '56px', minWidth: '50px' }}>
                                     Acc.
                                 </th>
                             </tr>
@@ -855,6 +957,158 @@ export default function PlantillaRosterTable({
                                 </tr>
                             ) : (
                                 filteredAgents.map((agent, index) => {
+                                    // SECTION / DIVIDER ROW
+                                    if (agent.is_divider) {
+                                        const dividerColor = agent.color || '#3b82f6';
+                                        let sectionAgentCount = 0;
+                                        for (let i = index + 1; i < filteredAgents.length; i++) {
+                                            if (filteredAgents[i].is_divider) break;
+                                            sectionAgentCount++;
+                                        }
+
+                                        return (
+                                            <tr
+                                                key={agent.id || `div-${index}`}
+                                                style={{
+                                                    background: `linear-gradient(90deg, ${hexToRgba(dividerColor, 0.28)} 0%, rgba(15, 23, 42, 0.95) 45%, rgba(15, 23, 42, 0.98) 100%)`,
+                                                    borderTop: `2px solid ${dividerColor}`,
+                                                    borderBottom: `1px solid ${hexToRgba(dividerColor, 0.45)}`,
+                                                    height: '34px',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                            >
+                                                {/* Ord / Reorder Arrows */}
+                                                <td style={{ padding: '2px 2px', textAlign: 'center', width: '20px' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                                                        <button
+                                                            type="button"
+                                                            disabled={index === 0}
+                                                            onClick={() => handleMoveAgent(index, -1)}
+                                                            style={{
+                                                                background: 'transparent',
+                                                                border: 'none',
+                                                                color: index === 0 ? '#334155' : '#94a3b8',
+                                                                cursor: index === 0 ? 'default' : 'pointer',
+                                                                fontSize: '0.55rem',
+                                                                lineHeight: 1,
+                                                                padding: 0
+                                                            }}
+                                                            title="Mover sección arriba"
+                                                        >
+                                                            ▲
+                                                        </button>
+                                                        <span style={{ fontSize: '0.58rem', color: dividerColor, fontWeight: 900, lineHeight: 1 }}>
+                                                            §
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            disabled={index === agents.length - 1}
+                                                            onClick={() => handleMoveAgent(index, 1)}
+                                                            style={{
+                                                                background: 'transparent',
+                                                                border: 'none',
+                                                                color: index === agents.length - 1 ? '#334155' : '#94a3b8',
+                                                                cursor: index === agents.length - 1 ? 'default' : 'pointer',
+                                                                fontSize: '0.55rem',
+                                                                lineHeight: 1,
+                                                                padding: 0
+                                                            }}
+                                                            title="Mover sección abajo"
+                                                        >
+                                                            ▼
+                                                        </button>
+                                                    </div>
+                                                </td>
+
+                                                {/* Spanning cell for section banner */}
+                                                <td
+                                                    colSpan={14 + divisions.length}
+                                                    style={{ padding: '3px 10px' }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <span style={{ fontSize: '1rem', lineHeight: 1 }}>
+                                                                {agent.icon || '📁'}
+                                                            </span>
+                                                            <span style={{
+                                                                fontSize: '0.80rem',
+                                                                fontWeight: 900,
+                                                                letterSpacing: '0.08em',
+                                                                textTransform: 'uppercase',
+                                                                color: '#ffffff',
+                                                                textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+                                                            }}>
+                                                                {agent.title || agent.nombre || 'SECCIÓN'}
+                                                            </span>
+                                                            <span style={{
+                                                                fontSize: '0.60rem',
+                                                                fontWeight: 800,
+                                                                padding: '2px 7px',
+                                                                borderRadius: '10px',
+                                                                background: hexToRgba(dividerColor, 0.35),
+                                                                color: '#f8fafc',
+                                                                border: `1px solid ${hexToRgba(dividerColor, 0.65)}`
+                                                            }}>
+                                                                {sectionAgentCount} {sectionAgentCount === 1 ? 'agente' : 'agentes'}
+                                                            </span>
+                                                            <div style={{
+                                                                width: '50px',
+                                                                height: '2px',
+                                                                background: `linear-gradient(90deg, ${dividerColor}, transparent)`,
+                                                                borderRadius: '2px'
+                                                            }} />
+                                                        </div>
+
+                                                        {/* Actions for divider */}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenEditDivider(agent)}
+                                                                style={{
+                                                                    background: 'rgba(255, 255, 255, 0.08)',
+                                                                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                                    color: '#cbd5e1',
+                                                                    borderRadius: '4px',
+                                                                    padding: '2px 6px',
+                                                                    fontSize: '0.65rem',
+                                                                    fontWeight: 700,
+                                                                    cursor: 'pointer',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '3px'
+                                                                }}
+                                                                title="Editar nombre/color de sección"
+                                                            >
+                                                                <span>✏️</span>
+                                                                <span style={{ fontSize: '0.62rem' }}>Editar</span>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteDivider(agent)}
+                                                                style={{
+                                                                    background: 'rgba(239, 68, 68, 0.15)',
+                                                                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                                                                    color: '#f87171',
+                                                                    borderRadius: '4px',
+                                                                    padding: '2px 6px',
+                                                                    fontSize: '0.65rem',
+                                                                    fontWeight: 700,
+                                                                    cursor: 'pointer',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '3px'
+                                                                }}
+                                                                title="Eliminar esta barra divisoria"
+                                                            >
+                                                                <span>🗑️</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+
                                     const rankObj = ranks.find(r => (r.name || '').trim().toLowerCase() === (agent.rank_name || '').trim().toLowerCase());
                                     const promoDays = calculatePromotionDays(agent.last_promotion_date);
                                     const iaStatus = iaStatusMap?.getAgentStatus ? iaStatusMap.getAgentStatus(agent) : { hasActive: false, activeCount: 0 };
@@ -951,17 +1205,16 @@ export default function PlantillaRosterTable({
                                             </td>
 
                                             {/* Usuario */}
-                                            <td style={{ padding: '2px 2px', width: '58px', minWidth: '52px', maxWidth: '62px' }} title={agent.username}>
+                                            <td style={{ padding: '2px 3px', width: '75px', minWidth: '65px' }} title={agent.username}>
                                                 <div style={{
                                                     color: agent.username ? '#f8fafc' : '#64748b',
                                                     fontWeight: 600,
-                                                    fontSize: '0.68rem',
-                                                    maxWidth: '62px',
+                                                    fontSize: '0.70rem',
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis',
                                                     whiteSpace: 'nowrap'
                                                 }}>
-                                                    {agent.username || (isPlaceholder ? <span style={{ color: '#eab308', fontStyle: 'italic', fontSize: '0.64rem' }}>[Reserv.]</span> : '—')}
+                                                    {agent.username || (isPlaceholder ? <span style={{ color: '#eab308', fontStyle: 'italic', fontSize: '0.66rem' }}>[Reserv.]</span> : '—')}
                                                 </div>
                                             </td>
 
@@ -969,7 +1222,7 @@ export default function PlantillaRosterTable({
                                             {(() => {
                                                 const isCopied = copiedEmailAgentId === (agent.id || index);
                                                 return (
-                                                    <td style={{ padding: '2px 2px', width: '68px', minWidth: '60px', maxWidth: '72px' }}>
+                                                    <td style={{ padding: '2px 3px', width: '95px', minWidth: '85px' }}>
                                                         <div
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -977,17 +1230,16 @@ export default function PlantillaRosterTable({
                                                             }}
                                                             style={{
                                                                 color: isCopied ? '#34d399' : (agent.email ? '#94a3b8' : '#475569'),
-                                                                fontSize: '0.65rem',
-                                                                maxWidth: '72px',
+                                                                fontSize: '0.67rem',
                                                                 overflow: 'hidden',
                                                                 textOverflow: 'ellipsis',
                                                                 whiteSpace: 'nowrap',
                                                                 cursor: agent.email ? 'pointer' : 'default',
                                                                 display: 'flex',
                                                                 alignItems: 'center',
-                                                                gap: '2px',
+                                                                gap: '3px',
                                                                 borderRadius: '4px',
-                                                                padding: '1px 2px',
+                                                                padding: '1px 3px',
                                                                 transition: 'all 0.15s ease',
                                                                 background: isCopied ? 'rgba(16, 185, 129, 0.25)' : 'transparent',
                                                                 border: isCopied ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid transparent'
@@ -1009,7 +1261,7 @@ export default function PlantillaRosterTable({
                                                             title={isCopied ? '¡Correo copiado al portapapeles!' : (agent.email ? `📋 Clic para copiar: ${agent.email}` : 'Sin correo registrado')}
                                                         >
                                                             {isCopied ? (
-                                                                <span style={{ fontWeight: 800, fontSize: '0.62rem', color: '#34d399' }}>✓ Copiado</span>
+                                                                <span style={{ fontWeight: 800, fontSize: '0.64rem', color: '#34d399' }}>✓ Copiado</span>
                                                             ) : (
                                                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{agent.email || '—'}</span>
                                                             )}
@@ -1019,12 +1271,11 @@ export default function PlantillaRosterTable({
                                             })()}
 
                                             {/* Apellido */}
-                                            <td style={{ padding: '2px 2px', width: '58px', minWidth: '52px', maxWidth: '62px' }} title={agent.apellido}>
+                                            <td style={{ padding: '2px 3px', width: '70px', minWidth: '60px' }} title={agent.apellido}>
                                                 <div style={{
                                                     color: agent.apellido ? '#f8fafc' : '#64748b',
                                                     fontWeight: 800,
-                                                    fontSize: '0.70rem',
-                                                    maxWidth: '62px',
+                                                    fontSize: '0.72rem',
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis',
                                                     whiteSpace: 'nowrap'
@@ -1034,11 +1285,10 @@ export default function PlantillaRosterTable({
                                             </td>
 
                                             {/* Nombre */}
-                                            <td style={{ padding: '2px 2px', width: '52px', minWidth: '48px', maxWidth: '56px' }} title={agent.nombre}>
+                                            <td style={{ padding: '2px 3px', width: '60px', minWidth: '52px' }} title={agent.nombre}>
                                                 <div style={{
                                                     color: agent.nombre ? '#cbd5e1' : '#64748b',
-                                                    fontSize: '0.70rem',
-                                                    maxWidth: '56px',
+                                                    fontSize: '0.72rem',
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis',
                                                     whiteSpace: 'nowrap'
@@ -1063,12 +1313,12 @@ export default function PlantillaRosterTable({
                                             </td>
 
                                             {/* Rango (with badge image) */}
-                                            <td style={{ padding: '2px 3px', width: '74px', minWidth: '68px', maxWidth: '78px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                            <td style={{ padding: '2px 4px', width: '130px', minWidth: '120px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                                     {rankObj?.badge_image_url ? (
                                                         <div style={{
-                                                             width: '13px',
-                                                             height: '13px',
+                                                             width: '14px',
+                                                             height: '14px',
                                                              borderRadius: '2px',
                                                              background: 'rgba(15, 23, 42, 0.8)',
                                                              border: `1px solid ${rankObj.color || 'rgba(255, 255, 255, 0.2)'}`,
@@ -1081,15 +1331,12 @@ export default function PlantillaRosterTable({
                                                             <img src={rankObj.badge_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                                         </div>
                                                     ) : (
-                                                        <span style={{ fontSize: '0.62rem' }}>🎖️</span>
+                                                        <span style={{ fontSize: '0.66rem', flexShrink: 0 }}>🎖️</span>
                                                     )}
                                                     <span style={{
-                                                        fontSize: '0.68rem',
+                                                        fontSize: '0.70rem',
                                                         fontWeight: 800,
                                                         color: rankObj?.color || '#f8fafc',
-                                                        maxWidth: '54px',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
                                                         whiteSpace: 'nowrap'
                                                     }} title={agent.rank_name}>
                                                         {agent.rank_name || 'Sin Rango'}
@@ -1252,21 +1499,20 @@ export default function PlantillaRosterTable({
                                             </td>
 
                                             {/* Notas */}
-                                            <td style={{ padding: '2px 3px', width: '65px', minWidth: '55px', maxWidth: '75px' }} title={agent.notes}>
+                                            <td style={{ padding: '2px 4px', width: 'auto', minWidth: '150px' }} title={agent.notes}>
                                                 <div style={{
-                                                    maxWidth: '75px',
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis',
                                                     whiteSpace: 'nowrap',
                                                     color: agent.notes ? '#cbd5e1' : '#475569',
-                                                    fontSize: '0.66rem'
+                                                    fontSize: '0.68rem'
                                                 }}>
                                                     {agent.notes || '—'}
                                                 </div>
                                             </td>
 
                                             {/* Acciones */}
-                                            <td style={{ padding: '2px 1px', textAlign: 'center', width: '44px', minWidth: '40px' }}>
+                                            <td style={{ padding: '2px 1px', textAlign: 'center', width: '56px', minWidth: '50px' }}>
                                                 <div style={{ display: 'inline-flex', gap: '2px' }}>
                                                     <button
                                                         type="button"
@@ -1276,7 +1522,7 @@ export default function PlantillaRosterTable({
                                                             border: '1px solid rgba(255, 255, 255, 0.15)',
                                                             color: '#cbd5e1',
                                                             borderRadius: '4px',
-                                                            padding: '1px 4px',
+                                                            padding: '1px 3px',
                                                             fontSize: '0.65rem',
                                                             fontWeight: 700,
                                                             cursor: 'pointer'
@@ -1287,13 +1533,30 @@ export default function PlantillaRosterTable({
                                                     </button>
                                                     <button
                                                         type="button"
+                                                        onClick={() => handleOpenAddDivider(index)}
+                                                        style={{
+                                                            background: 'rgba(59, 130, 246, 0.12)',
+                                                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                                                            color: '#93c5fd',
+                                                            borderRadius: '4px',
+                                                            padding: '1px 3px',
+                                                            fontSize: '0.62rem',
+                                                            fontWeight: 700,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                        title="Insertar barra divisoria debajo de este agente"
+                                                    >
+                                                        📑
+                                                    </button>
+                                                    <button
+                                                        type="button"
                                                         onClick={() => handleDeleteAgent(agent)}
                                                         style={{
                                                             background: 'rgba(239, 68, 68, 0.08)',
                                                             border: '1px solid rgba(239, 68, 68, 0.25)',
                                                             color: '#fca5a5',
                                                             borderRadius: '4px',
-                                                            padding: '1px 4px',
+                                                            padding: '1px 3px',
                                                             fontSize: '0.65rem',
                                                             fontWeight: 700,
                                                             cursor: 'pointer'
@@ -1327,6 +1590,22 @@ export default function PlantillaRosterTable({
                         setSelectedAgentForEdit(null);
                     }}
                     onSave={handleSaveAgent}
+                />
+            )}
+
+            {/* Section Divider Modal */}
+            {showDividerModal && (
+                <PlantillaDividerModal
+                    isOpen={showDividerModal}
+                    divider={selectedDividerForEdit}
+                    initialInsertIndex={dividerInsertIndex}
+                    agents={agents}
+                    onClose={() => {
+                        setShowDividerModal(false);
+                        setSelectedDividerForEdit(null);
+                        setDividerInsertIndex(null);
+                    }}
+                    onSave={handleSaveDivider}
                 />
             )}
 

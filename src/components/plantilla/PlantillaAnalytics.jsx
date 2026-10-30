@@ -3,8 +3,9 @@ import { useMemo } from 'react';
 export default function PlantillaAnalytics({ agents = [], ranks = [], divisions = [], iaStatusMap, onClose }) {
     // Analytics calculations
     const stats = useMemo(() => {
-        const assignedAgents = agents.filter(a => !a.is_placeholder || (a.nombre || a.apellido));
-        const placeholders = agents.filter(a => a.is_placeholder && !a.nombre && !a.apellido);
+        const realAgents = agents.filter(a => !a.is_divider);
+        const assignedAgents = realAgents.filter(a => !a.is_placeholder || (a.nombre || a.apellido));
+        const placeholders = realAgents.filter(a => a.is_placeholder && !a.nombre && !a.apellido);
 
         const totalAssigned = assignedAgents.length;
         const totalPlaceholders = placeholders.length;
@@ -70,7 +71,7 @@ export default function PlantillaAnalytics({ agents = [], ranks = [], divisions 
         return {
             totalAssigned,
             totalPlaceholders,
-            totalAll: agents.length,
+            totalAll: realAgents.length,
             activos,
             pocoActivos,
             inactivos,

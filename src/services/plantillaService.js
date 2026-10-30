@@ -498,7 +498,30 @@ export async function fetchPlantillaAgents() {
             .order('order_index', { ascending: true });
 
         if (!error && data && data.length > 0) {
-            return data;
+            return data.map(item => {
+                if (item.is_divider) {
+                    return {
+                        ...item,
+                        is_divider: true,
+                        title: item.divider_title || item.title || item.nombre,
+                        color: item.divider_color || item.color || '#3b82f6',
+                        icon: item.divider_icon || item.icon || '📁'
+                    };
+                }
+                if (item.notes && typeof item.notes === 'string' && item.notes.startsWith('{"is_divider":true')) {
+                    try {
+                        const meta = JSON.parse(item.notes);
+                        return {
+                            ...item,
+                            is_divider: true,
+                            title: meta.title || item.nombre,
+                            color: meta.color || '#3b82f6',
+                            icon: meta.icon || '📁'
+                        };
+                    } catch (e) { /* ignore */ }
+                }
+                return item;
+            });
         }
 
         const { data: appData, error: appError } = await supabase
@@ -522,29 +545,34 @@ export async function fetchPlantillaAgents() {
 }
 
 /**
- * Saves (Insert or Update) an Agent in Plantilla
+ * Saves (Insert or Update) an Agent or Divider in Plantilla
  */
 export async function savePlantillaAgent(agentData) {
     try {
         let saved = null;
         const agentId = agentData.id && isUUID(agentData.id) ? agentData.id : (agentData.id || crypto.randomUUID());
+        const isDivider = Boolean(agentData.is_divider);
+        const dividerTitle = (agentData.title || agentData.divider_title || agentData.nombre || '').trim().toUpperCase();
+        const dividerColor = agentData.color || agentData.divider_color || '#3b82f6';
+        const dividerIcon = agentData.icon || agentData.divider_icon || '📁';
+
         const payload = {
             id: agentId,
-            username: (agentData.username || '').trim(),
-            email: (agentData.email || '').trim(),
-            nombre: (agentData.nombre || '').trim(),
-            apellido: (agentData.apellido || '').trim(),
-            no_placa: (agentData.no_placa || '').trim(),
-            rank_id: agentData.rank_id || null,
-            rank_name: (agentData.rank_name || '').trim(),
-            divisions: Array.isArray(agentData.divisions) ? agentData.divisions : [],
-            activity_status: agentData.activity_status || 'Activo',
-            valoracion: (agentData.valoracion || '').trim(),
-            last_promotion_date: agentData.last_promotion_date || null,
-            notes: (agentData.notes || '').trim(),
-            avatar_url: agentData.avatar_url || '',
+            username: isDivider ? '' : (agentData.username || '').trim(),
+            email: isDivider ? '' : (agentData.email || '').trim(),
+            nombre: isDivider ? dividerTitle : (agentData.nombre || '').trim(),
+            apellido: isDivider ? '' : (agentData.apellido || '').trim(),
+            no_placa: isDivider ? '' : (agentData.no_placa || '').trim(),
+            rank_id: isDivider ? null : (agentData.rank_id || null),
+            rank_name: isDivider ? '' : (agentData.rank_name || '').trim(),
+            divisions: isDivider ? [] : (Array.isArray(agentData.divisions) ? agentData.divisions : []),
+            activity_status: isDivider ? 'Activo' : (agentData.activity_status || 'Activo'),
+            valoracion: isDivider ? '' : (agentData.valoracion || '').trim(),
+            last_promotion_date: isDivider ? null : (agentData.last_promotion_date || null),
+            notes: isDivider ? JSON.stringify({ is_divider: true, title: dividerTitle, color: dividerColor, icon: dividerIcon }) : (agentData.notes || '').trim(),
+            avatar_url: isDivider ? '' : (agentData.avatar_url || ''),
             order_index: Number(agentData.order_index) || 0,
-            is_placeholder: Boolean(agentData.is_placeholder),
+            is_placeholder: isDivider ? true : Boolean(agentData.is_placeholder),
             updated_at: new Date().toISOString()
         };
 
@@ -575,7 +603,17 @@ export async function savePlantillaAgent(agentData) {
             }
         }
 
-        const finalAgent = saved || { ...agentData, ...payload };
+        const finalAgent = {
+            ...agentData,
+            ...payload,
+            ...(saved || {}),
+            ...(isDivider ? {
+                is_divider: true,
+                title: dividerTitle,
+                color: dividerColor,
+                icon: dividerIcon
+            } : {})
+        };
 
         // Mirror in app_settings
         try {
@@ -605,7 +643,20 @@ export async function savePlantillaAgent(agentData) {
 }
 
 /**
- * Deletes an Agent from Plantilla
+ * Saves a Divider row in Plantilla
+ */
+export async function savePlantillaDivider(dividerData) {
+    return savePlantillaAgent({
+        ...dividerData,
+        is_divider: true,
+        title: (dividerData.title || dividerData.nombre || 'SECCIÓN').trim().toUpperCase(),
+        color: dividerData.color || '#3b82f6',
+        icon: dividerData.icon || '📁'
+    });
+}
+
+/**
+ * Deletes an Agent or Divider from Plantilla
  */
 export async function deletePlantillaAgent(agentId) {
     try {
@@ -629,6 +680,8 @@ export async function deletePlantillaAgent(agentId) {
         throw err;
     }
 }
+
+export const deletePlantillaDivider = deletePlantillaAgent;
 
 /**
  * Updates agents order
@@ -780,30 +833,57 @@ export function sortAgentsByRankHierarchy(agents, ranks) {
         rankOrderMap[r.name.trim().toLowerCase()] = r.order_index;
     });
 
-    const sorted = [...agents].sort((a, b) => {
-        const rankA = (a.rank_name || '').trim().toLowerCase();
-        const rankB = (b.rank_name || '').trim().toLowerCase();
-        const orderA = rankOrderMap[rankA] !== undefined ? rankOrderMap[rankA] : 999;
-        const orderB = rankOrderMap[rankB] !== undefined ? rankOrderMap[rankB] : 999;
+    const sortSubgroup = (group) => {
+        return [...group].sort((a, b) => {
+            const rankA = (a.rank_name || '').trim().toLowerCase();
+            const rankB = (b.rank_name || '').trim().toLowerCase();
+            const orderA = rankOrderMap[rankA] !== undefined ? rankOrderMap[rankA] : 999;
+            const orderB = rankOrderMap[rankB] !== undefined ? rankOrderMap[rankB] : 999;
 
-        if (orderA !== orderB) {
-            return orderA - orderB;
+            if (orderA !== orderB) {
+                return orderA - orderB;
+            }
+
+            // Secondary sort: Placa numerical ascending
+            const placaA = parseInt(a.no_placa, 10);
+            const placaB = parseInt(b.no_placa, 10);
+            if (!isNaN(placaA) && !isNaN(placaB)) {
+                return placaA - placaB;
+            }
+
+            // Fallback: Apellido, Nombre
+            const nameA = `${a.apellido || ''} ${a.nombre || ''}`.trim().toLowerCase();
+            const nameB = `${b.apellido || ''} ${b.nombre || ''}`.trim().toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+    };
+
+    // If there are dividers, sort agents within their respective sections
+    const hasDividers = agents.some(a => a.is_divider);
+    if (!hasDividers) {
+        return sortSubgroup(agents).map((a, index) => ({ ...a, order_index: index + 1 }));
+    }
+
+    const result = [];
+    let currentSection = [];
+
+    agents.forEach(item => {
+        if (item.is_divider) {
+            if (currentSection.length > 0) {
+                result.push(...sortSubgroup(currentSection));
+                currentSection = [];
+            }
+            result.push(item);
+        } else {
+            currentSection.push(item);
         }
-
-        // Secondary sort: Placa numerical ascending
-        const placaA = parseInt(a.no_placa, 10);
-        const placaB = parseInt(b.no_placa, 10);
-        if (!isNaN(placaA) && !isNaN(placaB)) {
-            return placaA - placaB;
-        }
-
-        // Fallback: Apellido, Nombre
-        const nameA = `${a.apellido || ''} ${a.nombre || ''}`.trim().toLowerCase();
-        const nameB = `${b.apellido || ''} ${b.nombre || ''}`.trim().toLowerCase();
-        return nameA.localeCompare(nameB);
     });
 
-    return sorted.map((a, index) => ({ ...a, order_index: index + 1 }));
+    if (currentSection.length > 0) {
+        result.push(...sortSubgroup(currentSection));
+    }
+
+    return result.map((a, index) => ({ ...a, order_index: index + 1 }));
 }
 
 /**
