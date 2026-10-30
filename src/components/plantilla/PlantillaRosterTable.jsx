@@ -97,6 +97,12 @@ export default function PlantillaRosterTable({
             }
         } else {
             if (onAgentsUpdated) onAgentsUpdated(updatedList);
+            try {
+                const persisted = await updateAgentsOrder(updatedList);
+                if (onAgentsUpdated) onAgentsUpdated(persisted);
+            } catch (err) {
+                console.error('Error persisting agents list:', err);
+            }
         }
     };
 
@@ -107,8 +113,9 @@ export default function PlantillaRosterTable({
 
         try {
             await deletePlantillaAgent(agent.id);
-            const updated = agents.filter(a => a.id !== agent.id);
+            const updated = agents.filter(a => a.id !== agent.id).map((item, idx) => ({ ...item, order_index: idx + 1 }));
             if (onAgentsUpdated) onAgentsUpdated(updated);
+            await updateAgentsOrder(updated);
         } catch (err) {
             alert('Error eliminando agente: ' + err.message);
         }
@@ -131,11 +138,22 @@ export default function PlantillaRosterTable({
     const handleSaveDivider = async (dividerData, insertPosition) => {
         let updatedList = [...agents];
         if (dividerData.id && selectedDividerForEdit) {
-            updatedList = updatedList.map(a => a.id === dividerData.id ? { ...a, ...dividerData } : a);
+            updatedList = updatedList.map(a => a.id === dividerData.id ? {
+                ...a,
+                ...dividerData,
+                is_divider: true,
+                title: (dividerData.title || dividerData.nombre || a.title || a.nombre || 'SECCIÓN').trim().toUpperCase(),
+                color: dividerData.color || a.color || '#3b82f6',
+                icon: dividerData.icon || a.icon || '📁'
+            } : a);
         } else {
             const newDivider = {
                 id: `div-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-                ...dividerData
+                ...dividerData,
+                is_divider: true,
+                title: (dividerData.title || dividerData.nombre || 'SECCIÓN').trim().toUpperCase(),
+                color: dividerData.color || '#3b82f6',
+                icon: dividerData.icon || '📁'
             };
             if (insertPosition === 'start') {
                 updatedList = [newDivider, ...updatedList];
@@ -150,7 +168,6 @@ export default function PlantillaRosterTable({
         updatedList = updatedList.map((item, idx) => ({ ...item, order_index: idx + 1 }));
         if (onAgentsUpdated) onAgentsUpdated(updatedList);
         try {
-            await savePlantillaDivider(dividerData);
             await updateAgentsOrder(updatedList);
         } catch (err) {
             console.error('Error saving divider:', err);

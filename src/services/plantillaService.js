@@ -488,10 +488,25 @@ export async function deletePlantillaDivision(divisionId) {
 }
 
 /**
- * Fetches all Agents in the Plantilla
+ * Fetches all Agents in the Plantilla (prioritizes app_settings for full divider and custom order support)
  */
 export async function fetchPlantillaAgents() {
     try {
+        // 1. Check app_settings FIRST as primary source of truth for full roster with dividers
+        const { data: appData, error: appError } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'plantilla_agents')
+            .maybeSingle();
+
+        if (!appError && appData) {
+            const parsed = parseSettingsArray(appData.value);
+            if (parsed !== null && parsed.length > 0) {
+                return parsed.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+            }
+        }
+
+        // 2. Fallback to plantilla_agents table if app_settings is empty
         const { data, error } = await supabase
             .from('plantilla_agents')
             .select('*')
@@ -524,19 +539,6 @@ export async function fetchPlantillaAgents() {
             });
         }
 
-        const { data: appData, error: appError } = await supabase
-            .from('app_settings')
-            .select('value')
-            .eq('key', 'plantilla_agents')
-            .maybeSingle();
-
-        if (!appError && appData) {
-            const parsed = parseSettingsArray(appData.value);
-            if (parsed !== null) {
-                return parsed.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
-            }
-        }
-
         return [];
     } catch (err) {
         console.warn('fetchPlantillaAgents fallback:', err);
@@ -549,14 +551,14 @@ export async function fetchPlantillaAgents() {
  */
 export async function savePlantillaAgent(agentData) {
     try {
-        let saved = null;
         const agentId = agentData.id && isUUID(agentData.id) ? agentData.id : (agentData.id || crypto.randomUUID());
         const isDivider = Boolean(agentData.is_divider);
         const dividerTitle = (agentData.title || agentData.divider_title || agentData.nombre || '').trim().toUpperCase();
         const dividerColor = agentData.color || agentData.divider_color || '#3b82f6';
         const dividerIcon = agentData.icon || agentData.divider_icon || '📁';
 
-        const payload = {
+        const finalAgent = {
+            ...agentData,
             id: agentId,
             username: isDivider ? '' : (agentData.username || '').trim(),
             email: isDivider ? '' : (agentData.email || '').trim(),
@@ -573,49 +575,14 @@ export async function savePlantillaAgent(agentData) {
             avatar_url: isDivider ? '' : (agentData.avatar_url || ''),
             order_index: Number(agentData.order_index) || 0,
             is_placeholder: isDivider ? true : Boolean(agentData.is_placeholder),
+            is_divider: isDivider,
+            title: isDivider ? dividerTitle : undefined,
+            color: isDivider ? dividerColor : undefined,
+            icon: isDivider ? dividerIcon : undefined,
             updated_at: new Date().toISOString()
         };
 
-        if (isUUID(agentData.id)) {
-            try {
-                const { data, error } = await supabase
-                    .from('plantilla_agents')
-                    .update(payload)
-                    .eq('id', agentData.id)
-                    .select()
-                    .maybeSingle();
-                if (!error && data) saved = data;
-            } catch (e) {
-                console.warn('DB update agent warning:', e);
-            }
-        }
-
-        if (!saved && isUUID(agentId)) {
-            try {
-                const { data, error } = await supabase
-                    .from('plantilla_agents')
-                    .insert([payload])
-                    .select()
-                    .maybeSingle();
-                if (!error && data) saved = data;
-            } catch (e) {
-                console.warn('DB insert agent warning:', e);
-            }
-        }
-
-        const finalAgent = {
-            ...agentData,
-            ...payload,
-            ...(saved || {}),
-            ...(isDivider ? {
-                is_divider: true,
-                title: dividerTitle,
-                color: dividerColor,
-                icon: dividerIcon
-            } : {})
-        };
-
-        // Mirror in app_settings
+        // 1. Save directly into app_settings as primary robust store
         try {
             const allAgents = await fetchPlantillaAgents();
             const existingIndex = allAgents.findIndex(a => a.id === finalAgent.id);
@@ -633,6 +600,33 @@ export async function savePlantillaAgent(agentData) {
             }, { onConflict: 'key' });
         } catch (e) {
             console.warn('app_settings agents mirror warning:', e);
+        }
+
+        // 2. Safe background attempt to mirror into Postgres plantilla_agents table (without invalid columns)
+        if (isUUID(agentId)) {
+            const dbPayload = {
+                id: finalAgent.id,
+                username: finalAgent.username,
+                email: finalAgent.email,
+                nombre: finalAgent.nombre,
+                apellido: finalAgent.apellido,
+                no_placa: finalAgent.no_placa,
+                rank_id: finalAgent.rank_id,
+                rank_name: finalAgent.rank_name,
+                divisions: finalAgent.divisions,
+                activity_status: finalAgent.activity_status,
+                last_promotion_date: finalAgent.last_promotion_date,
+                notes: finalAgent.notes,
+                avatar_url: finalAgent.avatar_url,
+                order_index: finalAgent.order_index,
+                is_placeholder: finalAgent.is_placeholder,
+                updated_at: finalAgent.updated_at
+            };
+            try {
+                await supabase.from('plantilla_agents').upsert(dbPayload);
+            } catch (e) {
+                console.warn('DB upsert agent mirror warning:', e);
+            }
         }
 
         return finalAgent;
@@ -693,24 +687,28 @@ export async function updateAgentsOrder(reorderedAgents) {
             order_index: index + 1
         }));
 
-        for (const item of updates) {
-            if (isUUID(item.id)) {
-                try {
-                    await supabase
-                        .from('plantilla_agents')
-                        .update({ order_index: item.order_index, updated_at: new Date().toISOString() })
-                        .eq('id', item.id);
-                } catch (e) {
-                    console.warn('DB update agent order warning:', e);
-                }
-            }
-        }
-
-        await supabase.from('app_settings').upsert({
+        // Always save to app_settings as primary store
+        const { error: appErr } = await supabase.from('app_settings').upsert({
             key: 'plantilla_agents',
             value: JSON.stringify(updates),
             updated_at: new Date().toISOString()
         }, { onConflict: 'key' });
+
+        if (appErr) {
+            console.warn('app_settings updateAgentsOrder warning:', appErr);
+        }
+
+        // Background sync to Postgres table if rows have UUIDs
+        for (const item of updates) {
+            if (isUUID(item.id)) {
+                supabase
+                    .from('plantilla_agents')
+                    .update({ order_index: item.order_index, updated_at: new Date().toISOString() })
+                    .eq('id', item.id)
+                    .then(() => {})
+                    .catch(() => {});
+            }
+        }
 
         return updates;
     } catch (err) {
