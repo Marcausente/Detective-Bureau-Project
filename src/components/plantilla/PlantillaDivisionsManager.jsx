@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { uploadImageToStorage } from '../../utils/imageStorage';
-import { savePlantillaDivision, deletePlantillaDivision } from '../../services/plantillaService';
+import { savePlantillaDivision, deletePlantillaDivision, updateDivisionsOrder } from '../../services/plantillaService';
 
 export default function PlantillaDivisionsManager({ divisions, onClose, onDivisionsUpdated }) {
     const [divisionsList, setDivisionsList] = useState(divisions || []);
@@ -68,20 +68,33 @@ export default function PlantillaDivisionsManager({ divisions, onClose, onDivisi
             setSaving(true);
             const payload = {
                 ...(editingDivision ? { id: editingDivision.id } : {}),
-                ...formData
+                ...formData,
+                name: formData.name.trim(),
+                short_name: (formData.short_name || formData.name.substring(0, 5)).trim()
             };
             const saved = await savePlantillaDivision(payload);
             let updatedList;
             if (editingDivision) {
                 updatedList = divisionsList.map(d => d.id === editingDivision.id ? saved : d);
             } else {
-                updatedList = [...divisionsList, saved].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+                const exists = divisionsList.some(d => d.id === saved.id || (d.name && d.name.trim().toLowerCase() === saved.name.trim().toLowerCase()));
+                if (exists) {
+                    updatedList = divisionsList.map(d => (d.id === saved.id || (d.name && d.name.trim().toLowerCase() === saved.name.trim().toLowerCase())) ? saved : d);
+                } else {
+                    updatedList = [...divisionsList, saved];
+                }
             }
-            setDivisionsList(updatedList);
+            updatedList = updatedList
+                .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+                .map((d, i) => ({ ...d, order_index: i + 1 }));
+
+            const persisted = await updateDivisionsOrder(updatedList);
+            setDivisionsList(persisted);
             setIsCreating(false);
             setEditingDivision(null);
-            if (onDivisionsUpdated) onDivisionsUpdated(updatedList);
+            if (onDivisionsUpdated) onDivisionsUpdated(persisted);
         } catch (err) {
+            console.error('Error guardando división:', err);
             alert('Error guardando división: ' + err.message);
         } finally {
             setSaving(false);
@@ -92,10 +105,12 @@ export default function PlantillaDivisionsManager({ divisions, onClose, onDivisi
         if (!window.confirm(`¿Seguro que deseas eliminar la división "${div.name}"? Los agentes que la tengan asignada perderán esta marca.`)) return;
         try {
             await deletePlantillaDivision(div.id);
-            const updated = divisionsList.filter(d => d.id !== div.id);
-            setDivisionsList(updated);
-            if (onDivisionsUpdated) onDivisionsUpdated(updated);
+            const updated = divisionsList.filter(d => d.id !== div.id).map((d, i) => ({ ...d, order_index: i + 1 }));
+            const persisted = await updateDivisionsOrder(updated);
+            setDivisionsList(persisted);
+            if (onDivisionsUpdated) onDivisionsUpdated(persisted);
         } catch (err) {
+            console.error('Error al eliminar división:', err);
             alert('Error al eliminar división: ' + err.message);
         }
     };

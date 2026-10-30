@@ -69,20 +69,32 @@ export default function PlantillaRanksManager({ ranks, onClose, onRanksUpdated, 
             setSaving(true);
             const payload = {
                 ...(editingRank ? { id: editingRank.id } : {}),
-                ...formData
+                ...formData,
+                name: formData.name.trim()
             };
             const saved = await savePlantillaRank(payload);
             let updatedList;
             if (editingRank) {
                 updatedList = ranksList.map(r => r.id === editingRank.id ? saved : r);
             } else {
-                updatedList = [...ranksList, saved].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+                const exists = ranksList.some(r => r.id === saved.id || (r.name && r.name.trim().toLowerCase() === saved.name.trim().toLowerCase()));
+                if (exists) {
+                    updatedList = ranksList.map(r => (r.id === saved.id || (r.name && r.name.trim().toLowerCase() === saved.name.trim().toLowerCase())) ? saved : r);
+                } else {
+                    updatedList = [...ranksList, saved];
+                }
             }
-            setRanksList(updatedList);
+            updatedList = updatedList
+                .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+                .map((r, i) => ({ ...r, order_index: i + 1 }));
+
+            const persisted = await updateRanksOrder(updatedList);
+            setRanksList(persisted);
             setIsCreating(false);
             setEditingRank(null);
-            if (onRanksUpdated) onRanksUpdated(updatedList);
+            if (onRanksUpdated) onRanksUpdated(persisted);
         } catch (err) {
+            console.error('Error guardando rango:', err);
             alert('Error guardando rango: ' + err.message);
         } finally {
             setSaving(false);
@@ -93,10 +105,12 @@ export default function PlantillaRanksManager({ ranks, onClose, onRanksUpdated, 
         if (!window.confirm(`¿Seguro que deseas eliminar el rango "${rank.name}"?`)) return;
         try {
             await deletePlantillaRank(rank.id);
-            const updated = ranksList.filter(r => r.id !== rank.id);
-            setRanksList(updated);
-            if (onRanksUpdated) onRanksUpdated(updated);
+            const updated = ranksList.filter(r => r.id !== rank.id).map((r, i) => ({ ...r, order_index: i + 1 }));
+            const persisted = await updateRanksOrder(updated);
+            setRanksList(persisted);
+            if (onRanksUpdated) onRanksUpdated(persisted);
         } catch (err) {
+            console.error('Error al eliminar rango:', err);
             alert('Error al eliminar rango: ' + err.message);
         }
     };

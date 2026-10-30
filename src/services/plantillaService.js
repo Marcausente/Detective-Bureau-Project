@@ -184,20 +184,11 @@ export function calculatePromotionDays(lastPromotionDate) {
 }
 
 /**
- * Fetches all Ranks
+ * Fetches all Ranks (prioritizes app_settings for full custom order and reliable editing)
  */
 export async function fetchPlantillaRanks() {
     try {
-        const { data, error } = await supabase
-            .from('plantilla_ranks')
-            .select('*')
-            .order('order_index', { ascending: true });
-
-        if (!error && data && data.length > 0) {
-            return data;
-        }
-
-        // Fallback to app_settings
+        // 1. Check app_settings FIRST as primary source of truth
         const { data: appData, error: appError } = await supabase
             .from('app_settings')
             .select('value')
@@ -209,6 +200,16 @@ export async function fetchPlantillaRanks() {
             if (parsed !== null && parsed.length > 0) {
                 return parsed.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
             }
+        }
+
+        // 2. Fallback to plantilla_ranks table
+        const { data, error } = await supabase
+            .from('plantilla_ranks')
+            .select('*')
+            .order('order_index', { ascending: true });
+
+        if (!error && data && data.length > 0) {
+            return data;
         }
 
         return DEFAULT_RANKS;
@@ -223,7 +224,6 @@ export async function fetchPlantillaRanks() {
  */
 export async function savePlantillaRank(rankData) {
     try {
-        let savedRank = null;
         const rankId = rankData.id && isUUID(rankData.id) ? rankData.id : (rankData.id || crypto.randomUUID());
         const payload = {
             id: rankId,
@@ -235,53 +235,54 @@ export async function savePlantillaRank(rankData) {
             updated_at: new Date().toISOString()
         };
 
-        if (isUUID(rankData.id)) {
-            try {
-                const { data, error } = await supabase
-                    .from('plantilla_ranks')
-                    .update(payload)
-                    .eq('id', rankData.id)
-                    .select()
-                    .maybeSingle();
-                if (!error && data) savedRank = data;
-            } catch (e) {
-                console.warn('DB update rank warning:', e);
-            }
-        }
+        const finalRank = { ...rankData, ...payload };
 
-        if (!savedRank && isUUID(rankId)) {
-            try {
-                const { data, error } = await supabase
-                    .from('plantilla_ranks')
-                    .insert([payload])
-                    .select()
-                    .maybeSingle();
-                if (!error && data) savedRank = data;
-            } catch (e) {
-                console.warn('DB insert rank warning:', e);
-            }
-        }
-
-        const finalRank = savedRank || { ...rankData, ...payload };
-
-        // Also update in app_settings fallback
+        // 1. Save directly into app_settings as primary store
         try {
-            const ranks = await fetchPlantillaRanks();
-            const existingIndex = ranks.findIndex(r => r.id === finalRank.id);
+            const currentRanks = await fetchPlantillaRanks();
+            const existingIndex = currentRanks.findIndex(r => r.id === finalRank.id || (r.name && r.name.trim().toLowerCase() === finalRank.name.toLowerCase()));
             let updatedList;
             if (existingIndex >= 0) {
-                updatedList = [...ranks];
-                updatedList[existingIndex] = finalRank;
+                updatedList = [...currentRanks];
+                updatedList[existingIndex] = { ...updatedList[existingIndex], ...finalRank };
             } else {
-                updatedList = [...ranks, finalRank];
+                updatedList = [...currentRanks, finalRank];
             }
-            await supabase.from('app_settings').upsert({
+
+            updatedList = updatedList
+                .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+                .map((r, i) => ({ ...r, order_index: i + 1 }));
+
+            const { error: appErr } = await supabase.from('app_settings').upsert({
                 key: 'plantilla_ranks',
                 value: JSON.stringify(updatedList),
                 updated_at: new Date().toISOString()
             }, { onConflict: 'key' });
+
+            if (appErr) {
+                console.error('Error saving ranks to app_settings:', appErr);
+                throw appErr;
+            }
         } catch (e) {
-            console.warn('app_settings ranks mirror warning:', e);
+            console.error('app_settings ranks save error:', e);
+            throw e;
+        }
+
+        // 2. Safe background attempt to mirror to Postgres plantilla_ranks table
+        if (isUUID(finalRank.id)) {
+            supabase
+                .from('plantilla_ranks')
+                .upsert({
+                    id: finalRank.id,
+                    name: finalRank.name,
+                    category: finalRank.category,
+                    badge_image_url: finalRank.badge_image_url,
+                    color: finalRank.color,
+                    order_index: finalRank.order_index,
+                    updated_at: finalRank.updated_at
+                })
+                .then(() => {})
+                .catch(e => console.warn('DB rank mirror warning:', e));
         }
 
         return finalRank;
@@ -296,21 +297,31 @@ export async function savePlantillaRank(rankData) {
  */
 export async function deletePlantillaRank(rankId) {
     try {
-        if (isUUID(rankId)) {
-            try {
-                await supabase.from('plantilla_ranks').delete().eq('id', rankId);
-            } catch (e) {
-                console.warn('DB delete rank warning:', e);
-            }
-        }
-        // Update app_settings
-        const ranks = await fetchPlantillaRanks();
-        const updated = ranks.filter(r => r.id !== rankId);
-        await supabase.from('app_settings').upsert({
+        const currentRanks = await fetchPlantillaRanks();
+        const updated = currentRanks
+            .filter(r => r.id !== rankId)
+            .map((r, i) => ({ ...r, order_index: i + 1 }));
+
+        const { error: appErr } = await supabase.from('app_settings').upsert({
             key: 'plantilla_ranks',
             value: JSON.stringify(updated),
             updated_at: new Date().toISOString()
         }, { onConflict: 'key' });
+
+        if (appErr) {
+            console.error('Error deleting rank from app_settings:', appErr);
+            throw appErr;
+        }
+
+        if (isUUID(rankId)) {
+            supabase
+                .from('plantilla_ranks')
+                .delete()
+                .eq('id', rankId)
+                .then(() => {})
+                .catch(e => console.warn('DB delete rank warning:', e));
+        }
+
         return true;
     } catch (err) {
         console.error('Error in deletePlantillaRank:', err);
@@ -328,24 +339,28 @@ export async function updateRanksOrder(reorderedRanks) {
             order_index: index + 1
         }));
 
-        for (const item of updates) {
-            if (isUUID(item.id)) {
-                try {
-                    await supabase
-                        .from('plantilla_ranks')
-                        .update({ order_index: item.order_index, updated_at: new Date().toISOString() })
-                        .eq('id', item.id);
-                } catch (e) {
-                    console.warn('DB update order rank warning:', e);
-                }
-            }
-        }
-
-        await supabase.from('app_settings').upsert({
+        const { error: appErr } = await supabase.from('app_settings').upsert({
             key: 'plantilla_ranks',
             value: JSON.stringify(updates),
             updated_at: new Date().toISOString()
         }, { onConflict: 'key' });
+
+        if (appErr) {
+            console.error('Error updating ranks order in app_settings:', appErr);
+            throw appErr;
+        }
+
+        // Background update Postgres for rows with UUIDs
+        for (const item of updates) {
+            if (isUUID(item.id)) {
+                supabase
+                    .from('plantilla_ranks')
+                    .update({ order_index: item.order_index, updated_at: new Date().toISOString() })
+                    .eq('id', item.id)
+                    .then(() => {})
+                    .catch(() => {});
+            }
+        }
 
         return updates;
     } catch (err) {
@@ -355,19 +370,11 @@ export async function updateRanksOrder(reorderedRanks) {
 }
 
 /**
- * Fetches all Divisions
+ * Fetches all Divisions (prioritizes app_settings for custom divisions)
  */
 export async function fetchPlantillaDivisions() {
     try {
-        const { data, error } = await supabase
-            .from('plantilla_divisions')
-            .select('*')
-            .order('order_index', { ascending: true });
-
-        if (!error && data && data.length > 0) {
-            return data;
-        }
-
+        // 1. Check app_settings FIRST as primary source of truth
         const { data: appData, error: appError } = await supabase
             .from('app_settings')
             .select('value')
@@ -379,6 +386,16 @@ export async function fetchPlantillaDivisions() {
             if (parsed !== null && parsed.length > 0) {
                 return parsed.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
             }
+        }
+
+        // 2. Fallback to plantilla_divisions table
+        const { data, error } = await supabase
+            .from('plantilla_divisions')
+            .select('*')
+            .order('order_index', { ascending: true });
+
+        if (!error && data && data.length > 0) {
+            return data;
         }
 
         return DEFAULT_DIVISIONS;
@@ -393,7 +410,6 @@ export async function fetchPlantillaDivisions() {
  */
 export async function savePlantillaDivision(divData) {
     try {
-        let saved = null;
         const divId = divData.id && isUUID(divData.id) ? divData.id : (divData.id || crypto.randomUUID());
         const payload = {
             id: divId,
@@ -405,53 +421,54 @@ export async function savePlantillaDivision(divData) {
             updated_at: new Date().toISOString()
         };
 
-        if (isUUID(divData.id)) {
-            try {
-                const { data, error } = await supabase
-                    .from('plantilla_divisions')
-                    .update(payload)
-                    .eq('id', divData.id)
-                    .select()
-                    .maybeSingle();
-                if (!error && data) saved = data;
-            } catch (e) {
-                console.warn('DB update division warning:', e);
-            }
-        }
+        const finalDiv = { ...divData, ...payload };
 
-        if (!saved && isUUID(divId)) {
-            try {
-                const { data, error } = await supabase
-                    .from('plantilla_divisions')
-                    .insert([payload])
-                    .select()
-                    .maybeSingle();
-                if (!error && data) saved = data;
-            } catch (e) {
-                console.warn('DB insert division warning:', e);
-            }
-        }
-
-        const finalDiv = saved || { ...divData, ...payload };
-
-        // Update app_settings
+        // 1. Update app_settings first as primary store
         try {
-            const divisions = await fetchPlantillaDivisions();
-            const existingIndex = divisions.findIndex(d => d.id === finalDiv.id);
+            const currentDivisions = await fetchPlantillaDivisions();
+            const existingIndex = currentDivisions.findIndex(d => d.id === finalDiv.id || (d.name && d.name.trim().toLowerCase() === finalDiv.name.toLowerCase()));
             let updatedList;
             if (existingIndex >= 0) {
-                updatedList = [...divisions];
-                updatedList[existingIndex] = finalDiv;
+                updatedList = [...currentDivisions];
+                updatedList[existingIndex] = { ...updatedList[existingIndex], ...finalDiv };
             } else {
-                updatedList = [...divisions, finalDiv];
+                updatedList = [...currentDivisions, finalDiv];
             }
-            await supabase.from('app_settings').upsert({
+
+            updatedList = updatedList
+                .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+                .map((d, i) => ({ ...d, order_index: i + 1 }));
+
+            const { error: appErr } = await supabase.from('app_settings').upsert({
                 key: 'plantilla_divisions',
                 value: JSON.stringify(updatedList),
                 updated_at: new Date().toISOString()
             }, { onConflict: 'key' });
+
+            if (appErr) {
+                console.error('Error saving division to app_settings:', appErr);
+                throw appErr;
+            }
         } catch (e) {
-            console.warn('app_settings divisions mirror warning:', e);
+            console.error('app_settings divisions save error:', e);
+            throw e;
+        }
+
+        // 2. Background mirror to Postgres
+        if (isUUID(finalDiv.id)) {
+            supabase
+                .from('plantilla_divisions')
+                .upsert({
+                    id: finalDiv.id,
+                    name: finalDiv.name,
+                    short_name: finalDiv.short_name,
+                    badge_image_url: finalDiv.badge_image_url,
+                    color: finalDiv.color,
+                    order_index: finalDiv.order_index,
+                    updated_at: finalDiv.updated_at
+                })
+                .then(() => {})
+                .catch(e => console.warn('DB division mirror warning:', e));
         }
 
         return finalDiv;
@@ -466,23 +483,66 @@ export async function savePlantillaDivision(divData) {
  */
 export async function deletePlantillaDivision(divisionId) {
     try {
-        if (isUUID(divisionId)) {
-            try {
-                await supabase.from('plantilla_divisions').delete().eq('id', divisionId);
-            } catch (e) {
-                console.warn('DB delete division warning:', e);
-            }
-        }
-        const divisions = await fetchPlantillaDivisions();
-        const updated = divisions.filter(d => d.id !== divisionId);
-        await supabase.from('app_settings').upsert({
+        const currentDivisions = await fetchPlantillaDivisions();
+        const updated = currentDivisions
+            .filter(d => d.id !== divisionId)
+            .map((d, i) => ({ ...d, order_index: i + 1 }));
+
+        const { error: appErr } = await supabase.from('app_settings').upsert({
             key: 'plantilla_divisions',
             value: JSON.stringify(updated),
             updated_at: new Date().toISOString()
         }, { onConflict: 'key' });
+
+        if (appErr) throw appErr;
+
+        if (isUUID(divisionId)) {
+            supabase
+                .from('plantilla_divisions')
+                .delete()
+                .eq('id', divisionId)
+                .then(() => {})
+                .catch(e => console.warn('DB delete division warning:', e));
+        }
         return true;
     } catch (err) {
         console.error('Error in deletePlantillaDivision:', err);
+        throw err;
+    }
+}
+
+/**
+ * Reorders Divisions
+ */
+export async function updateDivisionsOrder(reorderedDivisions) {
+    try {
+        const updates = reorderedDivisions.map((d, index) => ({
+            ...d,
+            order_index: index + 1
+        }));
+
+        const { error: appErr } = await supabase.from('app_settings').upsert({
+            key: 'plantilla_divisions',
+            value: JSON.stringify(updates),
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+
+        if (appErr) throw appErr;
+
+        for (const item of updates) {
+            if (isUUID(item.id)) {
+                supabase
+                    .from('plantilla_divisions')
+                    .update({ order_index: item.order_index, updated_at: new Date().toISOString() })
+                    .eq('id', item.id)
+                    .then(() => {})
+                    .catch(() => {});
+            }
+        }
+
+        return updates;
+    } catch (err) {
+        console.error('Error in updateDivisionsOrder:', err);
         throw err;
     }
 }
