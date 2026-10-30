@@ -13,6 +13,13 @@ import {
     getIASanctionBanners
 } from '../utils/discordWebhook';
 import { uploadImageToStorage } from '../utils/imageStorage';
+import PlantillaRosterTable from '../components/plantilla/PlantillaRosterTable';
+import {
+    fetchPlantillaRanks,
+    fetchPlantillaDivisions,
+    fetchPlantillaAgents,
+    fetchActiveIASanctionsMap
+} from '../services/plantillaService';
 import '../index.css';
 
 export default function Comandancia() {
@@ -22,6 +29,16 @@ export default function Comandancia() {
 
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    // Comandancia Main Tabs: 'plantilla' | 'feedbacks'
+    const [activeComandanciaTab, setActiveComandanciaTab] = useState('plantilla');
+
+    // Plantilla de Agentes State
+    const [plantillaAgents, setPlantillaAgents] = useState([]);
+    const [plantillaRanks, setPlantillaRanks] = useState([]);
+    const [plantillaDivisions, setPlantillaDivisions] = useState([]);
+    const [iaSanctionsMap, setIaSanctionsMap] = useState(null);
+
     const [feedbacks, setFeedbacks] = useState([]);
     const [existingFichas, setExistingFichas] = useState([]);
 
@@ -388,10 +405,30 @@ export default function Comandancia() {
             } catch (uErr) {
                 console.warn('Error loading officers for sanctions:', uErr);
             }
+
+            // 7. Load Plantilla Data (Ranks, Divisions, Agents, IA Sanctions)
+            await loadPlantillaData();
         } catch (err) {
             console.error('Error loading Comandancia data:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadPlantillaData = async () => {
+        try {
+            const [loadedRanks, loadedDivs, loadedAgents, loadedIAMap] = await Promise.all([
+                fetchPlantillaRanks(),
+                fetchPlantillaDivisions(),
+                fetchPlantillaAgents(),
+                fetchActiveIASanctionsMap()
+            ]);
+            setPlantillaRanks(loadedRanks);
+            setPlantillaDivisions(loadedDivs);
+            setPlantillaAgents(loadedAgents);
+            setIaSanctionsMap(loadedIAMap);
+        } catch (pErr) {
+            console.warn('Error loading Plantilla data:', pErr);
         }
     };
 
@@ -983,9 +1020,98 @@ export default function Comandancia() {
     }
 
     return (
-        <div className="mac-dashboard-container" style={{ maxWidth: '1440px', margin: '0 auto', padding: '1.5rem 2rem' }}>
-            {/* Header Banner - Apple macOS Style */}
-            <div className="mac-command-banner" style={{
+        <div
+            id={activeComandanciaTab === 'plantilla' ? 'plantilla-page' : 'comandancia-page'}
+            className="mac-dashboard-container"
+            style={{
+                maxWidth: activeComandanciaTab === 'plantilla' ? '100%' : '1440px',
+                width: '100%',
+                margin: activeComandanciaTab === 'plantilla' ? '0' : '0 auto',
+                padding: activeComandanciaTab === 'plantilla' ? '0.2rem 0.25rem' : '1.5rem 2rem',
+                transition: 'all 0.2s ease'
+            }}
+        >
+            {/* COMANDANCIA MAIN NAVIGATION TABS */}
+            <div style={{
+                display: 'flex',
+                gap: '0.65rem',
+                marginBottom: activeComandanciaTab === 'plantilla' ? '0.75rem' : '1.5rem',
+                background: 'rgba(15, 23, 42, 0.75)',
+                padding: '6px',
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                width: 'fit-content',
+                backdropFilter: 'blur(16px)',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)'
+            }}>
+                <button
+                    type="button"
+                    onClick={() => setActiveComandanciaTab('plantilla')}
+                    style={{
+                        background: activeComandanciaTab === 'plantilla' ? 'linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(202, 138, 4, 0.35))' : 'transparent',
+                        border: activeComandanciaTab === 'plantilla' ? '1px solid rgba(234, 179, 8, 0.55)' : '1px solid transparent',
+                        color: activeComandanciaTab === 'plantilla' ? '#fef08a' : '#94a3b8',
+                        padding: '0.55rem 1.25rem',
+                        borderRadius: '12px',
+                        fontWeight: 800,
+                        fontSize: '0.88rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.15s ease'
+                    }}
+                >
+                    <span>📋</span>
+                    <span>Plantilla de Agentes</span>
+                    <span style={{
+                        fontSize: '0.72rem',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        background: activeComandanciaTab === 'plantilla' ? 'rgba(234, 179, 8, 0.35)' : 'rgba(255, 255, 255, 0.08)',
+                        color: activeComandanciaTab === 'plantilla' ? '#fef08a' : '#cbd5e1',
+                        fontWeight: 900
+                    }}>
+                        {plantillaAgents.length}
+                    </span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => setActiveComandanciaTab('feedbacks')}
+                    style={{
+                        background: activeComandanciaTab === 'feedbacks' ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.35))' : 'transparent',
+                        border: activeComandanciaTab === 'feedbacks' ? '1px solid rgba(16, 185, 129, 0.55)' : '1px solid transparent',
+                        color: activeComandanciaTab === 'feedbacks' ? '#6ee7b7' : '#94a3b8',
+                        padding: '0.55rem 1.25rem',
+                        borderRadius: '12px',
+                        fontWeight: 800,
+                        fontSize: '0.88rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.15s ease'
+                    }}
+                >
+                    <span>💬</span>
+                    <span>Feedbacks y Desempeño</span>
+                    <span style={{
+                        fontSize: '0.72rem',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        background: activeComandanciaTab === 'feedbacks' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(255, 255, 255, 0.08)',
+                        color: activeComandanciaTab === 'feedbacks' ? '#a7f3d0' : '#cbd5e1',
+                        fontWeight: 900
+                    }}>
+                        {feedbacks.length}
+                    </span>
+                </button>
+            </div>
+
+            {/* Header Banner - Apple macOS Style (Only in Feedbacks view) */}
+            {activeComandanciaTab === 'feedbacks' && (
+                <div className="mac-command-banner" style={{
                 position: 'relative',
                 overflow: 'hidden',
                 background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(59, 130, 246, 0.12) 50%, rgba(15, 23, 42, 0.95) 100%)',
@@ -1083,7 +1209,26 @@ export default function Comandancia() {
                     </div>
                 </div>
             </div>
+            )}
 
+            {/* TAB CONTENT: PLANTILLA DE AGENTES */}
+            {activeComandanciaTab === 'plantilla' && (
+                <PlantillaRosterTable
+                    agents={plantillaAgents}
+                    ranks={plantillaRanks}
+                    divisions={plantillaDivisions}
+                    iaStatusMap={iaSanctionsMap}
+                    currentUser={profile}
+                    onAgentsUpdated={setPlantillaAgents}
+                    onRanksUpdated={setPlantillaRanks}
+                    onDivisionsUpdated={setPlantillaDivisions}
+                    onRefreshIA={loadPlantillaData}
+                />
+            )}
+
+            {/* TAB CONTENT: FEEDBACKS Y DESEMPEÑO */}
+            {activeComandanciaTab === 'feedbacks' && (
+                <>
             {/* THE ONLY COUNTER: Feedbacks de Agentes & Breakdown */}
             <div style={{
                 background: 'rgba(30, 41, 59, 0.5)',
@@ -1995,6 +2140,8 @@ export default function Comandancia() {
                     </div>
                 )}
             </div>
+            </>
+            )}
 
             {/* GENERIC FICHA EVALUATIVA MODAL (Dedicated Self-Contained Ficha in Comandancia) */}
             {selectedFichaAgent && (

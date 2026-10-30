@@ -1030,6 +1030,11 @@ body {
   overflow: hidden;
 }
 
+/* Plantilla LSSD - Full-width ultra-compact roster sheet expanding fully to sides */
+.content-body:has(#plantilla-page) {
+  padding: 0.4rem 0.5rem 1.5rem 0.5rem;
+}
+
 /* Placeholder Page */
 .placeholder-page {
   text-align: center;

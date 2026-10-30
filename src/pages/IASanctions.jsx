@@ -8,6 +8,8 @@ import {
     fetchSanctionDurations, 
     calculateSubjectStatus 
 } from '../utils/sanctionConfig';
+import { fetchPlantillaAgents } from '../services/plantillaService';
+import IASanctionModalWithPlantillaPicker from '../components/plantilla/IASanctionModalWithPlantillaPicker';
 import '../index.css';
 
 function IASanctions() {
@@ -23,7 +25,12 @@ function IASanctions() {
 
     // Modal & CRUD State
     const [showModal, setShowModal] = useState(false);
-    const [formData, setFormData] = useState({ nombre: '', apellido: '', no_placa: '' });
+    const [showDirectSanctionModal, setShowDirectSanctionModal] = useState(false);
+    const [plantillaAgents, setPlantillaAgents] = useState([]);
+    const [selectedPlantillaAgent, setSelectedPlantillaAgent] = useState(null);
+    const [agentPickerSearch, setAgentPickerSearch] = useState('');
+    const [isAgentPickerOpen, setIsAgentPickerOpen] = useState(false);
+    const [formData, setFormData] = useState({ nombre: '', apellido: '', no_placa: '', plantilla_agent_id: null });
     const [loadingAction, setLoadingAction] = useState(false);
     const [editingId, setEditingId] = useState(null);
 
@@ -64,6 +71,13 @@ function IASanctions() {
             setDurations(loadedDurations);
 
             // Try loading full profiles with sanctions
+            try {
+                const pAgents = await fetchPlantillaAgents();
+                setPlantillaAgents(pAgents || []);
+            } catch (pE) {
+                console.warn('Error fetching plantilla agents for IA:', pE);
+            }
+
             let loadedProfiles = [];
 
             const { data: fullData, error: fullError } = await supabase.rpc('get_ia_subjects_full');
@@ -114,14 +128,22 @@ function IASanctions() {
 
     const openForCreate = () => {
         setEditingId(null);
-        setFormData({ nombre: '', apellido: '', no_placa: '' });
+        setSelectedPlantillaAgent(null);
+        setFormData({ nombre: '', apellido: '', no_placa: '', plantilla_agent_id: null });
         setShowModal(true);
     };
 
     const openForEdit = (e, profile) => {
         e.stopPropagation();
         setEditingId(profile.id);
-        setFormData({ nombre: profile.nombre, apellido: profile.apellido, no_placa: profile.no_placa });
+        setFormData({
+            nombre: profile.nombre,
+            apellido: profile.apellido,
+            no_placa: profile.no_placa,
+            plantilla_agent_id: profile.plantilla_agent_id || null
+        });
+        const linked = plantillaAgents.find(a => a.id === profile.plantilla_agent_id);
+        setSelectedPlantillaAgent(linked || null);
         setShowModal(true);
     };
 
@@ -130,20 +152,53 @@ function IASanctions() {
         setLoadingAction(true);
         try {
             if (editingId) {
-                const { error } = await supabase.rpc('update_ia_subject_profile', {
-                    p_id: editingId,
-                    p_nombre: formData.nombre.trim(),
-                    p_apellido: formData.apellido.trim(),
-                    p_no_placa: formData.no_placa.trim()
-                });
-                if (error) throw error;
+                let updated = false;
+                try {
+                    const { error: directErr } = await supabase
+                        .from('ia_subject_profiles')
+                        .update({
+                            nombre: formData.nombre.trim(),
+                            apellido: formData.apellido.trim(),
+                            no_placa: formData.no_placa.trim(),
+                            plantilla_agent_id: formData.plantilla_agent_id || null
+                        })
+                        .eq('id', editingId);
+                    if (!directErr) updated = true;
+                } catch (e) {
+                    console.warn('Direct update fallback:', e);
+                }
+                if (!updated) {
+                    const { error } = await supabase.rpc('update_ia_subject_profile', {
+                        p_id: editingId,
+                        p_nombre: formData.nombre.trim(),
+                        p_apellido: formData.apellido.trim(),
+                        p_no_placa: formData.no_placa.trim()
+                    });
+                    if (error) throw error;
+                }
             } else {
-                const { error } = await supabase.rpc('create_ia_subject_profile', {
-                    p_nombre: formData.nombre.trim(),
-                    p_apellido: formData.apellido.trim(),
-                    p_no_placa: formData.no_placa.trim()
-                });
-                if (error) throw error;
+                let inserted = false;
+                try {
+                    const { error: directErr } = await supabase
+                        .from('ia_subject_profiles')
+                        .insert([{
+                            nombre: formData.nombre.trim(),
+                            apellido: formData.apellido.trim(),
+                            no_placa: formData.no_placa.trim(),
+                            plantilla_agent_id: formData.plantilla_agent_id || null
+                        }]);
+                    if (!directErr) inserted = true;
+                } catch (e) {
+                    console.warn('Direct insert fallback:', e);
+                }
+                if (!inserted) {
+                    const { error } = await supabase.rpc('create_ia_subject_profile', {
+                        p_nombre: formData.nombre.trim(),
+                        p_apellido: formData.apellido.trim(),
+                        p_no_placa: formData.no_placa.trim()
+                    });
+                    if (error) throw error;
+                }
             }
             setShowModal(false);
             loadData();
@@ -313,6 +368,30 @@ function IASanctions() {
                             <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
                         <span>{language === 'es' ? 'Nuevo Oficial' : 'New Officer'}</span>
+                    </button>
+
+                    {/* Direct Register Sanction Button with Plantilla Autocomplete */}
+                    <button
+                        type="button"
+                        className="mac-btn"
+                        onClick={() => setShowDirectSanctionModal(true)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.55rem 1.1rem',
+                            background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                            border: 'none',
+                            color: '#ffffff',
+                            fontWeight: 800,
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)'
+                        }}
+                        title="Registra una sanción seleccionando con autocompletado un agente de la plantilla o creando un perfil nuevo"
+                    >
+                        <span>⚖️</span>
+                        <span>{language === 'es' ? 'Registrar Sanción' : 'Register Sanction'}</span>
                     </button>
                 </div>
             </div>
@@ -532,12 +611,37 @@ function IASanctions() {
                                                 {profile.nombre} {profile.apellido}
                                             </div>
 
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '0.2rem', color: '#94a3b8', fontSize: '0.8rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '0.2rem', color: '#94a3b8', fontSize: '0.8rem', flexWrap: 'wrap' }}>
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-gold, #f59e0b)' }}>
                                                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                                                 </svg>
                                                 <span>{language === 'es' ? 'Placa: ' : 'Badge: '}</span>
                                                 <span style={{ color: 'var(--accent-gold, #f59e0b)', fontWeight: 600 }}>#{profile.no_placa}</span>
+
+                                                {/* Plantilla link badge if linked */}
+                                                {(() => {
+                                                    const linked = plantillaAgents.find(a =>
+                                                        (profile.plantilla_agent_id && a.id === profile.plantilla_agent_id) ||
+                                                        (profile.no_placa && a.no_placa && a.no_placa.trim() === profile.no_placa.trim())
+                                                    );
+                                                    if (linked) {
+                                                        return (
+                                                            <span style={{
+                                                                fontSize: '0.68rem',
+                                                                fontWeight: 800,
+                                                                background: 'rgba(59, 130, 246, 0.15)',
+                                                                border: '1px solid rgba(59, 130, 246, 0.35)',
+                                                                color: '#93c5fd',
+                                                                padding: '1px 6px',
+                                                                borderRadius: '4px',
+                                                                marginLeft: '4px'
+                                                            }} title={`Vinculado a plantilla: ${linked.rank_name || 'Agente'}`}>
+                                                                🔗 {linked.rank_name || 'Plantilla'}
+                                                            </span>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
                                             </div>
                                         </div>
                                     </div>
@@ -723,6 +827,116 @@ function IASanctions() {
 
                         <form onSubmit={handleSave}>
                             <div className="mac-modal-body" style={{ gap: '1rem' }}>
+                                {/* Autocomplete picker from Plantilla */}
+                                <div className="mac-form-group">
+                                    <label className="mac-form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>{language === 'es' ? 'Seleccionar Agente de Plantilla' : 'Select from Roster'}</span>
+                                        <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{language === 'es' ? '(Opcional)' : '(Optional)'}</span>
+                                    </label>
+                                    <div style={{ position: 'relative' }}>
+                                        <input
+                                            className="mac-form-input"
+                                            placeholder={language === 'es' ? 'Buscar agente en la plantilla...' : 'Search agent in roster...'}
+                                            value={agentPickerSearch}
+                                            onFocus={() => setIsAgentPickerOpen(true)}
+                                            onChange={e => {
+                                                setAgentPickerSearch(e.target.value);
+                                                setIsAgentPickerOpen(true);
+                                            }}
+                                        />
+                                        {isAgentPickerOpen && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                marginTop: '4px',
+                                                background: '#1e293b',
+                                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                borderRadius: '8px',
+                                                maxHeight: '160px',
+                                                overflowY: 'auto',
+                                                zIndex: 100,
+                                                padding: '4px',
+                                                boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+                                            }}>
+                                                {plantillaAgents
+                                                    .filter(a => {
+                                                        if (a.is_placeholder && !a.nombre) return false;
+                                                        if (!agentPickerSearch.trim()) return true;
+                                                        const t = agentPickerSearch.toLowerCase();
+                                                        return `${a.nombre || ''} ${a.apellido || ''} ${a.no_placa || ''}`.toLowerCase().includes(t);
+                                                    })
+                                                    .slice(0, 8)
+                                                    .map(ag => (
+                                                        <div
+                                                            key={ag.id}
+                                                            onClick={() => {
+                                                                setSelectedPlantillaAgent(ag);
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    nombre: ag.nombre || '',
+                                                                    apellido: ag.apellido || '',
+                                                                    no_placa: ag.no_placa || '',
+                                                                    plantilla_agent_id: ag.id
+                                                                }));
+                                                                setAgentPickerSearch(`${ag.nombre || ''} ${ag.apellido || ''}`.trim());
+                                                                setIsAgentPickerOpen(false);
+                                                            }}
+                                                            style={{
+                                                                padding: '6px 8px',
+                                                                borderRadius: '6px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.78rem',
+                                                                color: '#f8fafc',
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                alignItems: 'center'
+                                                            }}
+                                                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+                                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                        >
+                                                            <span>{ag.nombre} {ag.apellido}</span>
+                                                            <span style={{ color: '#60a5fa', fontSize: '0.7rem' }}>#{ag.no_placa} • {ag.rank_name}</span>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {selectedPlantillaAgent ? (
+                                        <div style={{
+                                            marginTop: '6px',
+                                            background: 'rgba(16, 185, 129, 0.15)',
+                                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                                            borderRadius: '6px',
+                                            padding: '4px 8px',
+                                            fontSize: '0.72rem',
+                                            color: '#6ee7b7',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between'
+                                        }}>
+                                            <span>🔗 {language === 'es' ? 'Vinculado a Plantilla:' : 'Linked to Roster:'} #{selectedPlantillaAgent.no_placa} {selectedPlantillaAgent.nombre} {selectedPlantillaAgent.apellido}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedPlantillaAgent(null);
+                                                    setFormData(prev => ({ ...prev, plantilla_agent_id: null }));
+                                                    setAgentPickerSearch('');
+                                                }}
+                                                style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '0.75rem' }}
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div style={{ marginTop: '4px', fontSize: '0.7rem', color: '#94a3b8' }}>
+                                            ℹ️ {language === 'es' ? 'Si no está en la plantilla, escribe abajo los datos y se creará sin vincular.' : 'If not in roster, fill below and an unlinked profile will be created.'}
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="mac-form-group">
                                     <label className="mac-form-label">{language === 'es' ? 'Nombre' : 'First Name'}</label>
                                     <input
@@ -783,6 +997,18 @@ function IASanctions() {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* Direct Sanction Modal with Plantilla Autocomplete */}
+            {showDirectSanctionModal && (
+                <IASanctionModalWithPlantillaPicker
+                    plantillaAgents={plantillaAgents}
+                    currentUser={currentUser}
+                    onClose={() => setShowDirectSanctionModal(false)}
+                    onSanctionCreated={() => {
+                        loadData();
+                    }}
+                />
             )}
         </div>
     );
