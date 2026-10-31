@@ -61,6 +61,10 @@ export default function PlantillaRosterTable({
     const [agentToArchive, setAgentToArchive] = useState(null);
     const [archivedCount, setArchivedCount] = useState(0);
 
+    // Drag and drop state (for instant reordering of agents and sections)
+    const [draggedItemId, setDraggedItemId] = useState(null);
+    const [dragOverInfo, setDragOverInfo] = useState(null); // { id, isAfter }
+
     // Load initial count of archived members
     useEffect(() => {
         fetchArchivedAgents()
@@ -276,19 +280,100 @@ export default function PlantillaRosterTable({
         }
     };
 
-    // Manual Reorder: Move up / down (allows user to alter a concrete agent's position)
-    const handleMoveAgent = async (index, direction) => {
-        const targetIndex = index + direction;
+    // Helper to reorder array by moving an item before or after another item
+    const reorderArray = (list, fromId, toId, isAfter = false) => {
+        const fromIndex = list.findIndex(item => item.id === fromId);
+        if (fromIndex === -1) return list;
+        const itemToMove = list[fromIndex];
+
+        const withoutItem = list.filter((_, idx) => idx !== fromIndex);
+        let targetIndex = withoutItem.findIndex(item => item.id === toId);
+        if (targetIndex === -1) return list;
+
+        if (isAfter) {
+            targetIndex += 1;
+        }
+
+        withoutItem.splice(targetIndex, 0, itemToMove);
+        return withoutItem.map((item, idx) => ({ ...item, order_index: idx + 1 }));
+    };
+
+    // Drag and Drop handlers
+    const handleDragStart = (e, item) => {
+        if (['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+            e.preventDefault();
+            return;
+        }
+        setDraggedItemId(item.id);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', item.id);
+    };
+
+    const handleDragOver = (e, item) => {
+        if (!draggedItemId || draggedItemId === item.id) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const isAfter = (e.clientY - rect.top) > (rect.height / 2);
+
+        if (!dragOverInfo || dragOverInfo.id !== item.id || dragOverInfo.isAfter !== isAfter) {
+            setDragOverInfo({ id: item.id, isAfter });
+        }
+    };
+
+    const handleDragLeave = (e, item) => {
+        const related = e.relatedTarget;
+        if (e.currentTarget.contains(related)) return;
+        if (dragOverInfo?.id === item.id) {
+            setDragOverInfo(null);
+        }
+    };
+
+    const handleDrop = async (e, targetItem) => {
+        e.preventDefault();
+        if (!draggedItemId || draggedItemId === targetItem.id) {
+            setDraggedItemId(null);
+            setDragOverInfo(null);
+            return;
+        }
+
+        const isAfter = dragOverInfo?.isAfter || false;
+        const reordered = reorderArray(agents, draggedItemId, targetItem.id, isAfter);
+
+        setDraggedItemId(null);
+        setDragOverInfo(null);
+
+        if (onAgentsUpdated) onAgentsUpdated(reordered);
+        try {
+            const persisted = await updateAgentsOrder(reordered);
+            if (onAgentsUpdated) onAgentsUpdated(persisted);
+        } catch (err) {
+            console.error('Error persisting drag and drop reorder:', err);
+        }
+    };
+
+    const handleDragEnd = () => {
+        setDraggedItemId(null);
+        setDragOverInfo(null);
+    };
+
+    // Manual Reorder: Move up / down by 1 position using arrows
+    const handleMoveAgent = async (agentId, direction) => {
+        const currentIndex = agents.findIndex(a => a.id === agentId);
+        if (currentIndex === -1) return;
+        const targetIndex = currentIndex + direction;
         if (targetIndex < 0 || targetIndex >= agents.length) return;
 
         const updated = [...agents];
-        const temp = updated[index];
-        updated[index] = updated[targetIndex];
+        const temp = updated[currentIndex];
+        updated[currentIndex] = updated[targetIndex];
         updated[targetIndex] = temp;
 
-        if (onAgentsUpdated) onAgentsUpdated(updated);
+        const reindexed = updated.map((item, idx) => ({ ...item, order_index: idx + 1 }));
+        if (onAgentsUpdated) onAgentsUpdated(reindexed);
         try {
-            const persisted = await updateAgentsOrder(updated);
+            const persisted = await updateAgentsOrder(reindexed);
             if (onAgentsUpdated) onAgentsUpdated(persisted);
         } catch (e) {
             console.error('Error reordering agents:', e);
@@ -895,6 +980,27 @@ export default function PlantillaRosterTable({
                         <span>Ordenar por Placa</span>
                     </button>
 
+                    {/* Drag & Drop Reorder Tip */}
+                    <div
+                        style={{
+                            background: 'rgba(56, 189, 248, 0.08)',
+                            border: '1px solid rgba(56, 189, 248, 0.22)',
+                            color: '#7dd3fc',
+                            padding: '0.30rem 0.55rem',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                            fontSize: '0.68rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            userSelect: 'none'
+                        }}
+                        title="Arrastra cualquier sección o agente desde el icono ⠿ para recolocarlo al instante"
+                    >
+                        <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>⠿</span>
+                        <span>Arrastra para reordenar</span>
+                    </div>
+
                     {/* Manage Ranks */}
                     <button
                         type="button"
@@ -1046,7 +1152,7 @@ export default function PlantillaRosterTable({
                                 zIndex: 10
                             }}>
                                 {/* Move Reorder Column */}
-                                <th style={{ padding: '3px 1px', textAlign: 'center', width: '20px', minWidth: '18px', maxWidth: '20px', color: '#94a3b8', fontSize: '0.60rem', textTransform: 'uppercase' }}>
+                                <th style={{ padding: '3px 1px', textAlign: 'center', width: '30px', minWidth: '28px', maxWidth: '34px', color: '#94a3b8', fontSize: '0.60rem', textTransform: 'uppercase' }} title="Arrastra el icono ⠿ para reordenar secciones o agentes libremente">
                                     Ord
                                 </th>
 
@@ -1190,57 +1296,104 @@ export default function PlantillaRosterTable({
                                             sectionAgentCount++;
                                         }
 
+                                        const isBeingDragged = draggedItemId === agent.id;
+                                        const isOverThis = dragOverInfo?.id === agent.id;
+
+                                        let dropBorderTop = undefined;
+                                        let dropBorderBottom = undefined;
+                                        let dropBoxShadow = undefined;
+
+                                        if (isOverThis) {
+                                            if (dragOverInfo.isAfter) {
+                                                dropBorderBottom = '3px solid #38bdf8';
+                                                dropBoxShadow = '0 3px 12px rgba(56, 189, 248, 0.45)';
+                                            } else {
+                                                dropBorderTop = '3px solid #38bdf8';
+                                                dropBoxShadow = '0 -3px 12px rgba(56, 189, 248, 0.45)';
+                                            }
+                                        }
+
                                         return (
                                             <tr
                                                 key={agent.id || `div-${index}`}
+                                                draggable={true}
+                                                onDragStart={(e) => handleDragStart(e, agent)}
+                                                onDragOver={(e) => handleDragOver(e, agent)}
+                                                onDragLeave={(e) => handleDragLeave(e, agent)}
+                                                onDrop={(e) => handleDrop(e, agent)}
+                                                onDragEnd={handleDragEnd}
                                                 style={{
-                                                    background: `linear-gradient(90deg, ${hexToRgba(dividerColor, 0.28)} 0%, rgba(15, 23, 42, 0.95) 45%, rgba(15, 23, 42, 0.98) 100%)`,
-                                                    borderTop: `2px solid ${dividerColor}`,
-                                                    borderBottom: `1px solid ${hexToRgba(dividerColor, 0.45)}`,
+                                                    background: isOverThis 
+                                                        ? 'linear-gradient(90deg, rgba(56, 189, 248, 0.35) 0%, rgba(15, 23, 42, 0.95) 100%)' 
+                                                        : `linear-gradient(90deg, ${hexToRgba(dividerColor, 0.28)} 0%, rgba(15, 23, 42, 0.95) 45%, rgba(15, 23, 42, 0.98) 100%)`,
+                                                    borderTop: dropBorderTop || `2px solid ${dividerColor}`,
+                                                    borderBottom: dropBorderBottom || `1px solid ${hexToRgba(dividerColor, 0.45)}`,
+                                                    boxShadow: dropBoxShadow || 'none',
+                                                    opacity: isBeingDragged ? 0.35 : 1,
                                                     height: '34px',
-                                                    transition: 'all 0.15s ease'
+                                                    transition: 'all 0.12s ease'
                                                 }}
                                             >
-                                                {/* Ord / Reorder Arrows */}
-                                                <td style={{ padding: '2px 2px', textAlign: 'center', width: '20px' }}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
-                                                        <button
-                                                            type="button"
-                                                            disabled={index === 0}
-                                                            onClick={() => handleMoveAgent(index, -1)}
-                                                            style={{
-                                                                background: 'transparent',
-                                                                border: 'none',
-                                                                color: index === 0 ? '#334155' : '#94a3b8',
-                                                                cursor: index === 0 ? 'default' : 'pointer',
-                                                                fontSize: '0.55rem',
-                                                                lineHeight: 1,
-                                                                padding: 0
-                                                            }}
-                                                            title="Mover sección arriba"
-                                                        >
-                                                            ▲
-                                                        </button>
-                                                        <span style={{ fontSize: '0.58rem', color: dividerColor, fontWeight: 900, lineHeight: 1 }}>
-                                                            §
+                                                {/* Ord / Reorder Handle & Arrows */}
+                                                <td
+                                                    style={{
+                                                        padding: '2px 2px',
+                                                        textAlign: 'center',
+                                                        width: '30px',
+                                                        cursor: 'grab',
+                                                        userSelect: 'none'
+                                                    }}
+                                                    title="Arrastra para mover la sección completa arriba o abajo (o usa las flechas)"
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}>
+                                                        <span style={{
+                                                            fontSize: '0.75rem',
+                                                            color: dividerColor,
+                                                            cursor: 'grab',
+                                                            lineHeight: 1,
+                                                            padding: '1px'
+                                                        }}>
+                                                            ⠿
                                                         </span>
-                                                        <button
-                                                            type="button"
-                                                            disabled={index === agents.length - 1}
-                                                            onClick={() => handleMoveAgent(index, 1)}
-                                                            style={{
-                                                                background: 'transparent',
-                                                                border: 'none',
-                                                                color: index === agents.length - 1 ? '#334155' : '#94a3b8',
-                                                                cursor: index === agents.length - 1 ? 'default' : 'pointer',
-                                                                fontSize: '0.55rem',
-                                                                lineHeight: 1,
-                                                                padding: 0
-                                                            }}
-                                                            title="Mover sección abajo"
-                                                        >
-                                                            ▼
-                                                        </button>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0px' }}>
+                                                            <button
+                                                                type="button"
+                                                                disabled={index === 0}
+                                                                onClick={(e) => { e.stopPropagation(); handleMoveAgent(agent.id, -1); }}
+                                                                style={{
+                                                                    background: 'transparent',
+                                                                    border: 'none',
+                                                                    color: index === 0 ? '#334155' : '#94a3b8',
+                                                                    cursor: index === 0 ? 'default' : 'pointer',
+                                                                    fontSize: '0.50rem',
+                                                                    lineHeight: 1,
+                                                                    padding: 0
+                                                                }}
+                                                                title="Mover sección arriba"
+                                                            >
+                                                                ▲
+                                                            </button>
+                                                            <span style={{ fontSize: '0.58rem', color: dividerColor, fontWeight: 900, lineHeight: 1 }}>
+                                                                §
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                disabled={index === filteredAgents.length - 1}
+                                                                onClick={(e) => { e.stopPropagation(); handleMoveAgent(agent.id, 1); }}
+                                                                style={{
+                                                                    background: 'transparent',
+                                                                    border: 'none',
+                                                                    color: index === filteredAgents.length - 1 ? '#334155' : '#94a3b8',
+                                                                    cursor: index === filteredAgents.length - 1 ? 'default' : 'pointer',
+                                                                    fontSize: '0.50rem',
+                                                                    lineHeight: 1,
+                                                                    padding: 0
+                                                                }}
+                                                                title="Mover sección abajo"
+                                                            >
+                                                                ▼
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </td>
 
@@ -1350,59 +1503,108 @@ export default function PlantillaRosterTable({
                                         ? `linear-gradient(90deg, ${hexToRgba(valColor, 0.40)} 0%, ${hexToRgba(valColor, 0.20)} 100%)`
                                         : (isPlaceholder ? 'rgba(234, 179, 8, 0.08)' : 'rgba(255, 255, 255, 0.04)');
 
+                                    const isBeingDragged = draggedItemId === agent.id;
+                                    const isOverThis = dragOverInfo?.id === agent.id;
+
+                                    let dropBorderTop = undefined;
+                                    let dropBorderBottom = undefined;
+                                    let dropBoxShadow = undefined;
+
+                                    if (isOverThis) {
+                                        if (dragOverInfo.isAfter) {
+                                            dropBorderBottom = '3px solid #38bdf8';
+                                            dropBoxShadow = '0 3px 10px rgba(56, 189, 248, 0.45)';
+                                        } else {
+                                            dropBorderTop = '3px solid #38bdf8';
+                                            dropBoxShadow = '0 -3px 10px rgba(56, 189, 248, 0.45)';
+                                        }
+                                    }
+
                                     return (
                                         <tr
                                             key={agent.id || index}
+                                            draggable={true}
+                                            onDragStart={(e) => handleDragStart(e, agent)}
+                                            onDragOver={(e) => handleDragOver(e, agent)}
+                                            onDragLeave={(e) => handleDragLeave(e, agent)}
+                                            onDrop={(e) => handleDrop(e, agent)}
+                                            onDragEnd={handleDragEnd}
                                             style={{
-                                                borderBottom: hasVal ? `1px solid ${hexToRgba(valColor, 0.45)}` : '1px solid rgba(255, 255, 255, 0.04)',
-                                                background: rowBg,
-                                                boxShadow: hasVal ? `inset 4px 0 0 0 ${valColor}` : 'none',
-                                                transition: 'background 0.12s ease',
+                                                borderBottom: dropBorderBottom || (hasVal ? `1px solid ${hexToRgba(valColor, 0.45)}` : '1px solid rgba(255, 255, 255, 0.04)'),
+                                                borderTop: dropBorderTop || undefined,
+                                                background: isOverThis 
+                                                    ? 'rgba(56, 189, 248, 0.16)' 
+                                                    : (isBeingDragged ? 'rgba(59, 130, 246, 0.1)' : rowBg),
+                                                boxShadow: dropBoxShadow || (hasVal ? `inset 4px 0 0 0 ${valColor}` : 'none'),
+                                                opacity: isBeingDragged ? 0.35 : 1,
+                                                transition: 'background 0.12s ease, opacity 0.12s ease',
                                                 height: '32px'
                                             }}
-                                            onMouseEnter={e => e.currentTarget.style.background = rowHoverBg}
-                                            onMouseLeave={e => e.currentTarget.style.background = rowBg}
+                                            onMouseEnter={e => {
+                                                if (!isBeingDragged && !isOverThis) e.currentTarget.style.background = rowHoverBg;
+                                            }}
+                                            onMouseLeave={e => {
+                                                if (!isBeingDragged && !isOverThis) e.currentTarget.style.background = rowBg;
+                                            }}
                                         >
                                             {/* Move Reorder */}
-                                            <td style={{ padding: '2px 2px', textAlign: 'center' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
-                                                    <button
-                                                        type="button"
-                                                        disabled={index === 0}
-                                                        onClick={() => handleMoveAgent(index, -1)}
-                                                        style={{
-                                                            background: 'transparent',
-                                                            border: 'none',
-                                                            color: index === 0 ? '#334155' : '#94a3b8',
-                                                            cursor: index === 0 ? 'default' : 'pointer',
-                                                            fontSize: '0.55rem',
-                                                            lineHeight: 1,
-                                                            padding: 0
-                                                        }}
-                                                        title="Mover arriba"
-                                                    >
-                                                        ▲
-                                                    </button>
-                                                    <span style={{ fontSize: '0.62rem', color: '#64748b', fontWeight: 700, lineHeight: 1 }}>
-                                                        {index + 1}
+                                            <td style={{
+                                                padding: '2px 2px',
+                                                textAlign: 'center',
+                                                width: '30px',
+                                                minWidth: '28px',
+                                                cursor: 'grab',
+                                                userSelect: 'none'
+                                            }} title="Arrastra el icono ⠿ para recolocar este agente en cualquier posición (o usa las flechas)">
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}>
+                                                    <span style={{
+                                                        fontSize: '0.75rem',
+                                                        color: '#64748b',
+                                                        cursor: 'grab',
+                                                        lineHeight: 1,
+                                                        padding: '1px'
+                                                    }}>
+                                                        ⠿
                                                     </span>
-                                                    <button
-                                                        type="button"
-                                                        disabled={index === agents.length - 1}
-                                                        onClick={() => handleMoveAgent(index, 1)}
-                                                        style={{
-                                                            background: 'transparent',
-                                                            border: 'none',
-                                                            color: index === agents.length - 1 ? '#334155' : '#94a3b8',
-                                                            cursor: index === agents.length - 1 ? 'default' : 'pointer',
-                                                            fontSize: '0.55rem',
-                                                            lineHeight: 1,
-                                                            padding: 0
-                                                        }}
-                                                        title="Mover abajo"
-                                                    >
-                                                        ▼
-                                                    </button>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0px' }}>
+                                                        <button
+                                                            type="button"
+                                                            disabled={index === 0}
+                                                            onClick={(e) => { e.stopPropagation(); handleMoveAgent(agent.id, -1); }}
+                                                            style={{
+                                                                background: 'transparent',
+                                                                border: 'none',
+                                                                color: index === 0 ? '#334155' : '#94a3b8',
+                                                                cursor: index === 0 ? 'default' : 'pointer',
+                                                                fontSize: '0.50rem',
+                                                                lineHeight: 1,
+                                                                padding: 0
+                                                            }}
+                                                            title="Mover arriba"
+                                                        >
+                                                            ▲
+                                                        </button>
+                                                        <span style={{ fontSize: '0.60rem', color: '#64748b', fontWeight: 700, lineHeight: 1 }}>
+                                                            {index + 1}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            disabled={index === filteredAgents.length - 1}
+                                                            onClick={(e) => { e.stopPropagation(); handleMoveAgent(agent.id, 1); }}
+                                                            style={{
+                                                                background: 'transparent',
+                                                                border: 'none',
+                                                                color: index === filteredAgents.length - 1 ? '#334155' : '#94a3b8',
+                                                                cursor: index === filteredAgents.length - 1 ? 'default' : 'pointer',
+                                                                fontSize: '0.50rem',
+                                                                lineHeight: 1,
+                                                                padding: 0
+                                                            }}
+                                                            title="Mover abajo"
+                                                        >
+                                                            ▼
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </td>
 
