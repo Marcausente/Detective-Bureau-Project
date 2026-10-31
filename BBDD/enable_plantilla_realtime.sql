@@ -12,6 +12,7 @@ DECLARE
     target_tables TEXT[] := ARRAY[
         'app_settings',
         'plantilla_agents',
+        'plantilla_archived_agents',
         'plantilla_ranks',
         'plantilla_divisions',
         'ia_sanctions',
@@ -49,3 +50,4 @@ BEGIN
         END IF;
     END LOOP;
 END $$;
+

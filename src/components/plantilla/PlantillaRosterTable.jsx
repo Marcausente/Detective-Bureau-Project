@@ -12,6 +12,8 @@ import {
     deletePlantillaAgent,
     savePlantillaDivider,
     deletePlantillaDivider,
+    archivePlantillaAgent,
+    fetchArchivedAgents,
     DEFAULT_VALORACIONES,
     hexToRgba
 } from '../../services/plantillaService';
@@ -21,6 +23,8 @@ import PlantillaRanksManager from './PlantillaRanksManager';
 import PlantillaDivisionsManager from './PlantillaDivisionsManager';
 import PlantillaValoracionesManager from './PlantillaValoracionesManager';
 import PlantillaAnalytics from './PlantillaAnalytics';
+import PlantillaArchiveModal from './PlantillaArchiveModal';
+import PlantillaArchivedMembersModal from './PlantillaArchivedMembersModal';
 
 export default function PlantillaRosterTable({
     agents = [],
@@ -50,6 +54,19 @@ export default function PlantillaRosterTable({
     const [showDivisionsManager, setShowDivisionsManager] = useState(false);
     const [showValoracionesManager, setShowValoracionesManager] = useState(false);
     const [showAnalytics, setShowAnalytics] = useState(false);
+
+    // Archived Members / Bajas state
+    const [showArchivedModal, setShowArchivedModal] = useState(false);
+    const [showArchiveModal, setShowArchiveModal] = useState(false);
+    const [agentToArchive, setAgentToArchive] = useState(null);
+    const [archivedCount, setArchivedCount] = useState(0);
+
+    // Load initial count of archived members
+    useEffect(() => {
+        fetchArchivedAgents()
+            .then(data => setArchivedCount(data?.length || 0))
+            .catch(() => {});
+    }, []);
 
     // Copied email feedback state (agent id)
     const [copiedEmailAgentId, setCopiedEmailAgentId] = useState(null);
@@ -162,6 +179,33 @@ export default function PlantillaRosterTable({
         } catch (err) {
             alert('Error eliminando agente: ' + err.message);
         }
+    };
+
+    // Open Archive agent modal
+    const handleOpenArchiveAgent = (agent) => {
+        setAgentToArchive(agent);
+        setShowArchiveModal(true);
+    };
+
+    // Confirm archive agent
+    const handleConfirmArchive = async ({ agent, reason, isBanned, archivedBy }) => {
+        try {
+            await archivePlantillaAgent(agent, { reason, isBanned, archivedBy });
+            const updated = agents.filter(a => a.id !== agent.id).map((item, idx) => ({ ...item, order_index: idx + 1 }));
+            if (onAgentsUpdated) onAgentsUpdated(updated);
+            await updateAgentsOrder(updated);
+            setArchivedCount(prev => prev + 1);
+        } catch (err) {
+            console.error('Error archivando agente:', err);
+            throw err;
+        }
+    };
+
+    // Restore agent back from archive
+    const handleAgentRestored = (restoredAgent) => {
+        const updated = [...agents, restoredAgent].map((item, idx) => ({ ...item, order_index: idx + 1 }));
+        if (onAgentsUpdated) onAgentsUpdated(updated);
+        setArchivedCount(prev => Math.max(0, prev - 1));
     };
 
     // Open Add Divider Modal
@@ -938,6 +982,42 @@ export default function PlantillaRosterTable({
                         <span>📊</span>
                         <span>Analíticas & Gráfica</span>
                     </button>
+
+                    {/* Antiguos Miembros / Archivo de Bajas */}
+                    <button
+                        type="button"
+                        onClick={() => setShowArchivedModal(true)}
+                        style={{
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            border: '1px solid rgba(251, 191, 36, 0.35)',
+                            color: '#fef08a',
+                            padding: '0.32rem 0.65rem',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                            fontSize: '0.74rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                        }}
+                        title="Ver registro histórico de antiguos miembros y bajas de la facción"
+                    >
+                        <span>🗄️</span>
+                        <span>Antiguos Miembros</span>
+                        {archivedCount > 0 && (
+                            <span style={{
+                                background: 'rgba(245, 158, 11, 0.35)',
+                                color: '#fde047',
+                                fontSize: '0.62rem',
+                                fontWeight: 900,
+                                padding: '1px 5px',
+                                borderRadius: '9999px',
+                                border: '1px solid rgba(245, 158, 11, 0.5)'
+                            }}>
+                                {archivedCount}
+                            </span>
+                        )}
+                    </button>
                 </div>
             </div>
 
@@ -1080,7 +1160,7 @@ export default function PlantillaRosterTable({
                                 </th>
 
                                 {/* Actions */}
-                                <th style={{ padding: '3px 1px', textAlign: 'center', color: '#94a3b8', fontSize: '0.62rem', textTransform: 'uppercase', width: '56px', minWidth: '50px' }}>
+                                <th style={{ padding: '3px 1px', textAlign: 'center', color: '#94a3b8', fontSize: '0.62rem', textTransform: 'uppercase', width: '74px', minWidth: '68px' }}>
                                     Acc.
                                 </th>
                             </tr>
@@ -1670,8 +1750,8 @@ export default function PlantillaRosterTable({
                                             </td>
 
                                             {/* Acciones */}
-                                            <td style={{ padding: '2px 1px', textAlign: 'center', width: '56px', minWidth: '50px' }}>
-                                                <div style={{ display: 'inline-flex', gap: '2px' }}>
+                                            <td style={{ padding: '2px 1px', textAlign: 'center', width: '74px', minWidth: '68px' }}>
+                                                <div style={{ display: 'inline-flex', gap: '2px', alignItems: 'center' }}>
                                                     <button
                                                         type="button"
                                                         onClick={() => handleOpenEditAgent(agent)}
@@ -1689,6 +1769,25 @@ export default function PlantillaRosterTable({
                                                     >
                                                         ✏️
                                                     </button>
+                                                    {!agent.is_placeholder && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenArchiveAgent(agent)}
+                                                            style={{
+                                                                background: 'rgba(245, 158, 11, 0.12)',
+                                                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                                                color: '#fcd34d',
+                                                                borderRadius: '4px',
+                                                                padding: '1px 3px',
+                                                                fontSize: '0.65rem',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer'
+                                                            }}
+                                                            title="Archivar agente (baja de facción y guardar en antiguos miembros)"
+                                                        >
+                                                            🗄️
+                                                        </button>
+                                                    )}
                                                     <button
                                                         type="button"
                                                         onClick={() => handleOpenAddDivider(index)}
@@ -1804,6 +1903,30 @@ export default function PlantillaRosterTable({
                     divisions={divisions}
                     iaStatusMap={iaStatusMap}
                     onClose={() => setShowAnalytics(false)}
+                />
+            )}
+
+            {/* Archive Agent Confirmation Modal */}
+            {showArchiveModal && agentToArchive && (
+                <PlantillaArchiveModal
+                    isOpen={showArchiveModal}
+                    agent={agentToArchive}
+                    currentUser={currentUser}
+                    onClose={() => {
+                        setShowArchiveModal(false);
+                        setAgentToArchive(null);
+                    }}
+                    onConfirmArchive={handleConfirmArchive}
+                />
+            )}
+
+            {/* Archived Members (Antiguos Miembros) Management Modal */}
+            {showArchivedModal && (
+                <PlantillaArchivedMembersModal
+                    isOpen={showArchivedModal}
+                    currentUser={currentUser}
+                    onClose={() => setShowArchivedModal(false)}
+                    onAgentRestored={handleAgentRestored}
                 />
             )}
 

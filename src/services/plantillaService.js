@@ -1330,3 +1330,221 @@ export async function fetchActiveIASanctionsMap() {
     }
 }
 
+/**
+ * Fetches all archived agents (antiguos miembros)
+ */
+export async function fetchArchivedAgents() {
+    try {
+        // 1. Check app_settings first for full resilience
+        const { data: appData, error: appError } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'plantilla_archived_agents')
+            .maybeSingle();
+
+        if (!appError && appData?.value) {
+            const parsed = parseSettingsArray(appData.value);
+            if (parsed !== null) {
+                return parsed.sort((a, b) => new Date(b.archived_at || 0) - new Date(a.archived_at || 0));
+            }
+        }
+
+        // 2. Fallback to Postgres table if exists
+        try {
+            const { data, error } = await supabase
+                .from('plantilla_archived_agents')
+                .select('*')
+                .order('archived_at', { ascending: false });
+
+            if (!error && data && data.length > 0) {
+                return data;
+            }
+        } catch (dbErr) {
+            // table might not exist yet
+        }
+
+        return [];
+    } catch (err) {
+        console.warn('fetchArchivedAgents fallback:', err);
+        return [];
+    }
+}
+
+/**
+ * Archives an agent:
+ * - Removes from active plantilla_agents
+ * - Saves into plantilla_archived_agents (in app_settings and postgres table)
+ */
+export async function archivePlantillaAgent(agent, { reason = '', isBanned = false, archivedBy = '' } = {}) {
+    try {
+        const archivedRecord = {
+            id: isUUID(agent.id) ? agent.id : (agent.id || crypto.randomUUID()),
+            agent_id: agent.id || null,
+            username: (agent.username || '').trim(),
+            email: (agent.email || '').trim(),
+            nombre: (agent.nombre || '').trim(),
+            apellido: (agent.apellido || '').trim(),
+            no_placa: (agent.no_placa || '').trim(),
+            rank_name: (agent.rank_name || agent.rango || '').trim(),
+            avatar_url: agent.avatar_url || '',
+            divisions: Array.isArray(agent.divisions) ? agent.divisions : [],
+            reason: (reason || '').trim(),
+            is_banned: Boolean(isBanned),
+            archived_by: (archivedBy || '').trim(),
+            archived_at: new Date().toISOString()
+        };
+
+        // 1. Remove from active agents
+        await deletePlantillaAgent(agent.id);
+
+        // 2. Add to archived list in app_settings
+        const currentArchived = await fetchArchivedAgents();
+        const existingIdx = currentArchived.findIndex(a => a.id === archivedRecord.id || a.agent_id === archivedRecord.id);
+        let updatedArchived;
+        if (existingIdx >= 0) {
+            updatedArchived = [...currentArchived];
+            updatedArchived[existingIdx] = archivedRecord;
+        } else {
+            updatedArchived = [archivedRecord, ...currentArchived];
+        }
+
+        await supabase.from('app_settings').upsert({
+            key: 'plantilla_archived_agents',
+            value: JSON.stringify(updatedArchived),
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+
+        // 3. Mirror to Postgres table if exists
+        try {
+            await supabase.from('plantilla_archived_agents').upsert({
+                id: isUUID(archivedRecord.id) ? archivedRecord.id : crypto.randomUUID(),
+                agent_id: isUUID(archivedRecord.agent_id) ? archivedRecord.agent_id : null,
+                username: archivedRecord.username,
+                email: archivedRecord.email,
+                nombre: archivedRecord.nombre,
+                apellido: archivedRecord.apellido,
+                no_placa: archivedRecord.no_placa,
+                rank_name: archivedRecord.rank_name,
+                avatar_url: archivedRecord.avatar_url,
+                reason: archivedRecord.reason,
+                is_banned: archivedRecord.is_banned,
+                archived_by: archivedRecord.archived_by,
+                archived_at: archivedRecord.archived_at
+            });
+        } catch (mirrorErr) {
+            console.warn('plantilla_archived_agents table mirror warning:', mirrorErr);
+        }
+
+        return archivedRecord;
+    } catch (err) {
+        console.error('Error in archivePlantillaAgent:', err);
+        throw err;
+    }
+}
+
+/**
+ * Updates an archived agent record (note/reason, is_banned status)
+ */
+export async function updateArchivedAgent(archivedId, updates) {
+    try {
+        const currentArchived = await fetchArchivedAgents();
+        const index = currentArchived.findIndex(a => a.id === archivedId);
+        if (index === -1) throw new Error('Archived agent not found');
+
+        const updatedRecord = {
+            ...currentArchived[index],
+            ...updates,
+            updated_at: new Date().toISOString()
+        };
+
+        const updatedList = [...currentArchived];
+        updatedList[index] = updatedRecord;
+
+        await supabase.from('app_settings').upsert({
+            key: 'plantilla_archived_agents',
+            value: JSON.stringify(updatedList),
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+
+        // Mirror to DB if id is UUID
+        if (isUUID(archivedId)) {
+            try {
+                await supabase.from('plantilla_archived_agents').update({
+                    reason: updatedRecord.reason,
+                    is_banned: updatedRecord.is_banned,
+                    updated_at: updatedRecord.updated_at
+                }).eq('id', archivedId);
+            } catch (e) {
+                console.warn('plantilla_archived_agents update mirror warning:', e);
+            }
+        }
+
+        return updatedRecord;
+    } catch (err) {
+        console.error('Error in updateArchivedAgent:', err);
+        throw err;
+    }
+}
+
+/**
+ * Permanently deletes an archived agent record
+ */
+export async function deleteArchivedAgent(archivedId) {
+    try {
+        const currentArchived = await fetchArchivedAgents();
+        const updatedList = currentArchived.filter(a => a.id !== archivedId);
+
+        await supabase.from('app_settings').upsert({
+            key: 'plantilla_archived_agents',
+            value: JSON.stringify(updatedList),
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+
+        if (isUUID(archivedId)) {
+            try {
+                await supabase.from('plantilla_archived_agents').delete().eq('id', archivedId);
+            } catch (e) {
+                console.warn('DB delete archived agent warning:', e);
+            }
+        }
+
+        return true;
+    } catch (err) {
+        console.error('Error in deleteArchivedAgent:', err);
+        throw err;
+    }
+}
+
+/**
+ * Restores an archived agent back to active plantilla
+ */
+export async function restoreArchivedAgent(archivedRecord) {
+    try {
+        // 1. Remove from archived list
+        await deleteArchivedAgent(archivedRecord.id);
+
+        // 2. Re-create as active agent in plantilla
+        const agentToRestore = {
+            id: archivedRecord.agent_id && isUUID(archivedRecord.agent_id) ? archivedRecord.agent_id : crypto.randomUUID(),
+            username: archivedRecord.username,
+            email: archivedRecord.email,
+            nombre: archivedRecord.nombre,
+            apellido: archivedRecord.apellido,
+            no_placa: archivedRecord.no_placa,
+            rank_name: archivedRecord.rank_name,
+            divisions: Array.isArray(archivedRecord.divisions) ? archivedRecord.divisions : [],
+            activity_status: 'Activo',
+            notes: `Restaurado de antiguos miembros el ${new Date().toLocaleDateString('es-ES')}`,
+            avatar_url: archivedRecord.avatar_url || '',
+            is_placeholder: false
+        };
+
+        const restored = await savePlantillaAgent(agentToRestore);
+        return restored;
+    } catch (err) {
+        console.error('Error restoring archived agent:', err);
+        throw err;
+    }
+}
+
+
