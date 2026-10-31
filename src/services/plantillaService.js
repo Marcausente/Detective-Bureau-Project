@@ -1062,100 +1062,130 @@ export function findClosestDividerForBadge(targetPlaca, dividers = [], dividerSe
 }
 
 /**
- * Inserts a new agent into the list of agents:
- * - Preserves the exact positions of all existing dividers and sections (including items before the first divider).
- * - Identifies the section whose members have the closest badge number (or matching rank).
- * - Inserts the agent inside that section, sorted numerically by badge number.
+ * Places or substitutes an agent in the roster:
+ * 1. If an existing placeholder/casilla reservada with the exact badge number exists:
+ *    Automatically replaces that placeholder in-place and marks its ID to be deleted.
+ * 2. Otherwise:
+ *    Identifies the correct section (based on divider title / rank match, or badge range proximity)
+ *    and inserts the agent inside that section, sorted numerically by badge number.
+ *    Dividers NEVER move down unexpectedly when new agents are added.
  */
-export function insertAgentByClosestBadge(newAgent, currentAgents = []) {
-    const cleanList = currentAgents.filter(a => a.id !== newAgent.id);
+export function placeOrSubstituteAgent(agentToPlace, currentAgents = []) {
+    const targetPlaca = parseBadgeNum(agentToPlace.no_placa);
+    const targetPlacaStr = (agentToPlace.no_placa || '').trim();
+    const targetRank = (agentToPlace.rank_name || '').toLowerCase();
 
-    // Build blocks: Block 0 (items before any divider), Block 1 (after divider 1), etc.
-    const blocks = [];
-    let currentBlock = { divider: null, agents: [] };
-    blocks.push(currentBlock);
+    // 1. Placeholder / Casilla Reservada substitution
+    if (targetPlacaStr && !agentToPlace.is_placeholder) {
+        const placeholderIndex = currentAgents.findIndex(a =>
+            !a.is_divider &&
+            Boolean(a.is_placeholder || (!a.nombre?.trim() && !a.apellido?.trim())) &&
+            a.id !== agentToPlace.id &&
+            (
+                (!isNaN(targetPlaca) && parseBadgeNum(a.no_placa) === targetPlaca) ||
+                ((a.no_placa || '').trim().toLowerCase() === targetPlacaStr.toLowerCase())
+            )
+        );
 
-    cleanList.forEach(item => {
-        if (item.is_divider) {
-            currentBlock = { divider: item, agents: [] };
-            blocks.push(currentBlock);
-        } else {
-            currentBlock.agents.push(item);
-        }
-    });
-
-    const targetPlaca = parseBadgeNum(newAgent.no_placa);
-    const targetRank = (newAgent.rank_name || '').toLowerCase();
-
-    // Find the winning block
-    let bestBlockIndex = -1;
-    let bestDistance = Infinity;
-    let bestRefPlate = null;
-
-    blocks.forEach((block, bIdx) => {
-        // If block has divider and title matches rank, prioritize it if it's empty
-        if (block.divider) {
-            const title = (block.divider.title || block.divider.nombre || '').toLowerCase();
-            if (targetRank && title && (targetRank.includes(title) || title.includes(targetRank))) {
-                if (block.agents.length === 0) {
-                    bestBlockIndex = bIdx;
-                    bestDistance = -1;
-                    return;
-                }
-            }
-        }
-
-        if (bestDistance === -1) return;
-
-        block.agents.forEach(agent => {
-            const plate = parseBadgeNum(agent.no_placa);
-            if (isNaN(plate)) return;
-
-            const dist = Math.abs(targetPlaca - plate);
-            if (dist < bestDistance) {
-                bestDistance = dist;
-                bestBlockIndex = bIdx;
-                bestRefPlate = plate;
-            } else if (dist === bestDistance && bestBlockIndex !== -1) {
-                // Desempate desde arriba:
-                if (plate <= targetPlaca && bestRefPlate > targetPlaca) {
-                    bestBlockIndex = bIdx;
-                    bestRefPlate = plate;
-                } else if ((plate <= targetPlaca) === (bestRefPlate <= targetPlaca)) {
-                    if (bIdx < bestBlockIndex) {
-                        bestBlockIndex = bIdx;
-                        bestRefPlate = plate;
-                    }
-                }
-            }
-        });
-    });
-
-    // If still no block found, choose block matching rank or last block
-    if (bestBlockIndex === -1) {
-        if (targetRank) {
-            bestBlockIndex = blocks.findIndex(b => {
-                if (!b.divider) return false;
-                const title = (b.divider.title || b.divider.nombre || '').toLowerCase();
-                return title && (targetRank.includes(title) || title.includes(targetRank));
-            });
-        }
-        if (bestBlockIndex === -1) {
-            bestBlockIndex = blocks.length - 1;
+        if (placeholderIndex >= 0) {
+            const replaced = currentAgents[placeholderIndex];
+            const listWithoutSelf = currentAgents.filter(a => a.id !== agentToPlace.id);
+            const targetIdx = listWithoutSelf.findIndex(a => a.id === replaced.id);
+            const updated = [...listWithoutSelf];
+            updated[targetIdx] = { ...agentToPlace };
+            return {
+                updatedList: updated.map((item, idx) => ({ ...item, order_index: idx + 1 })),
+                replacedPlaceholderId: replaced.id
+            };
         }
     }
 
-    blocks[bestBlockIndex].agents.push(newAgent);
+    // 2. Regular section-based placement
+    const cleanList = currentAgents.filter(a => a.id !== agentToPlace.id);
 
-    const result = [];
-    blocks.forEach(block => {
-        if (block.divider) {
-            result.push(block.divider);
+    // Build sections:
+    const sections = [];
+    let currentSec = { divider: null, agents: [] };
+    sections.push(currentSec);
+
+    cleanList.forEach(item => {
+        if (item.is_divider) {
+            currentSec = { divider: item, agents: [] };
+            sections.push(currentSec);
+        } else {
+            currentSec.agents.push(item);
         }
-        result.push(...sortSubgroup(block.agents));
     });
 
-    return result.map((item, idx) => ({ ...item, order_index: idx + 1 }));
+    let bestSecIdx = -1;
+    let bestScore = -Infinity;
+
+    sections.forEach((sec, sIdx) => {
+        let score = 0;
+        const divTitle = (sec.divider?.title || sec.divider?.nombre || '').toLowerCase();
+
+        // Rank match with divider title
+        if (targetRank && divTitle && (targetRank.includes(divTitle) || divTitle.includes(targetRank))) {
+            score += 5000;
+        }
+
+        const plates = sec.agents.map(a => parseBadgeNum(a.no_placa)).filter(n => !isNaN(n));
+
+        if (plates.length > 0) {
+            const minPlate = Math.min(...plates);
+            const maxPlate = Math.max(...plates);
+
+            if (!isNaN(targetPlaca)) {
+                if (targetPlaca >= minPlate && targetPlaca <= maxPlate) {
+                    score += 2000; // Directly in this section's badge range!
+                } else {
+                    const minDist = Math.min(...plates.map(p => Math.abs(targetPlaca - p)));
+                    score += Math.max(0, 1000 - minDist);
+                }
+            }
+        } else if (sec.divider) {
+            // Empty section with a divider
+            let prevMax = -Infinity;
+            for (let prevIdx = sIdx - 1; prevIdx >= 0; prevIdx--) {
+                const prevPlates = sections[prevIdx].agents.map(a => parseBadgeNum(a.no_placa)).filter(n => !isNaN(n));
+                if (prevPlates.length > 0) {
+                    prevMax = Math.max(...prevPlates);
+                    break;
+                }
+            }
+
+            if (!isNaN(targetPlaca) && prevMax !== -Infinity && targetPlaca > prevMax) {
+                score += 1500;
+            }
+        }
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestSecIdx = sIdx;
+        }
+    });
+
+    if (bestSecIdx === -1) {
+        bestSecIdx = sections.length - 1;
+    }
+
+    sections[bestSecIdx].agents.push(agentToPlace);
+
+    const result = [];
+    sections.forEach(sec => {
+        if (sec.divider) result.push(sec.divider);
+        result.push(...sortSubgroup(sec.agents));
+    });
+
+    return {
+        updatedList: result.map((item, idx) => ({ ...item, order_index: idx + 1 })),
+        replacedPlaceholderId: null
+    };
+}
+
+export function insertAgentByClosestBadge(newAgent, currentAgents = []) {
+    const res = placeOrSubstituteAgent(newAgent, currentAgents);
+    return res.updatedList;
 }
 
 /**

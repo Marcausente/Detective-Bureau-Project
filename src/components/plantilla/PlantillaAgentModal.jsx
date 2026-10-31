@@ -3,7 +3,7 @@ import { supabase } from '../../supabaseClient';
 import { uploadImageToStorage } from '../../utils/imageStorage';
 import { calculatePromotionDays, DEFAULT_VALORACIONES, hexToRgba } from '../../services/plantillaService';
 
-export default function PlantillaAgentModal({ agent, ranks, divisions, valoraciones = [], onClose, onSave }) {
+export default function PlantillaAgentModal({ agent, agents = [], ranks, divisions, valoraciones = [], onClose, onSave }) {
     const isEdit = Boolean(agent && agent.id);
     const [saving, setSaving] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -110,6 +110,30 @@ export default function PlantillaAgentModal({ agent, ranks, divisions, valoracio
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            const cleanPlaca = (formData.no_placa || '').trim();
+            if (cleanPlaca && !formData.is_placeholder) {
+                const targetPlacaNum = parseInt(cleanPlaca.replace(/\D/g, ''), 10);
+                const conflict = agents.find(a => {
+                    if (a.is_divider) return false;
+                    // Reservations / placeholders can be substituted, so they are not real conflicts
+                    if (a.is_placeholder || (!a.nombre?.trim() && !a.apellido?.trim())) return false;
+                    if (agent?.id && a.id === agent.id) return false;
+                    const aPlaca = (a.no_placa || '').trim();
+                    if (!aPlaca) return false;
+                    const aPlacaNum = parseInt(aPlaca.replace(/\D/g, ''), 10);
+                    if (!isNaN(targetPlacaNum) && !isNaN(aPlacaNum)) {
+                        return targetPlacaNum === aPlacaNum;
+                    }
+                    return aPlaca.toLowerCase() === cleanPlaca.toLowerCase();
+                });
+
+                if (conflict) {
+                    const conflictName = `${conflict.nombre || ''} ${conflict.apellido || ''}`.trim() || conflict.username || 'otro agente';
+                    alert(`⚠️ El número de placa #${cleanPlaca} ya está ocupado por ${conflictName}.\nNo es posible asignar una placa duplicada a otro agente activo.`);
+                    return;
+                }
+            }
+
             setSaving(true);
             const rankObj = ranks.find(r => r.name.toLowerCase() === (formData.rank_name || '').toLowerCase());
             const payload = {

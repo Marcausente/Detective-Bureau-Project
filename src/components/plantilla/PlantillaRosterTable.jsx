@@ -5,6 +5,7 @@ import {
     calculatePromotionDays,
     sortAgentsByRankHierarchy,
     sortAgentsByBadge,
+    placeOrSubstituteAgent,
     insertAgentByClosestBadge,
     updateAgentsOrder,
     savePlantillaAgent,
@@ -76,33 +77,75 @@ export default function PlantillaRosterTable({
         setShowAgentModal(true);
     };
 
-    // Save agent handler (grouped into closest badge section on creation, manual positions preserved on edit)
+    // Save agent handler:
+    // - Validates duplicate badge against other real agents
+    // - If target badge is a reserved slot (casilla reservada), substitutes it in-place and deletes the placeholder
+    // - If badge was changed or new agent, repositions agent automatically by numeric badge order into matching section
+    // - If badge was not changed on edit, preserves exact manual position
     const handleSaveAgent = async (agentData) => {
         const isNewAgent = !agentData.id;
-        const saved = await savePlantillaAgent(agentData);
-        let updatedList;
+        const cleanPlaca = (agentData.no_placa || '').trim();
+        const targetPlacaNum = parseInt(cleanPlaca.replace(/\D/g, ''), 10);
 
-        if (isNewAgent) {
-            // Detección inteligente: se agrupa en el bloque de la placa más cercana (y desde arriba en empates)
-            updatedList = insertAgentByClosestBadge(saved, agents);
-            if (onAgentsUpdated) onAgentsUpdated(updatedList);
-            try {
-                const persisted = await updateAgentsOrder(updatedList);
-                if (onAgentsUpdated) onAgentsUpdated(persisted);
-            } catch (err) {
-                console.error('Error auto-ordering agents by closest badge:', err);
+        // 1. Duplicate check guard: Prevent setting a badge already used by another active/real agent
+        if (cleanPlaca && !agentData.is_placeholder) {
+            const conflict = agents.find(a => {
+                if (a.is_divider) return false;
+                if (a.is_placeholder || (!a.nombre?.trim() && !a.apellido?.trim())) return false;
+                if (agentData.id && a.id === agentData.id) return false;
+                const aPlaca = (a.no_placa || '').trim();
+                if (!aPlaca) return false;
+                const aPlacaNum = parseInt(aPlaca.replace(/\D/g, ''), 10);
+                if (!isNaN(targetPlacaNum) && !isNaN(aPlacaNum)) {
+                    return targetPlacaNum === aPlacaNum;
+                }
+                return aPlaca.toLowerCase() === cleanPlaca.toLowerCase();
+            });
+
+            if (conflict) {
+                const conflictName = `${conflict.nombre || ''} ${conflict.apellido || ''}`.trim() || conflict.username || 'otro agente';
+                alert(`⚠️ El número de placa #${cleanPlaca} ya está ocupado por ${conflictName}.\nNo es posible asignar una placa duplicada a otro agente activo.`);
+                return;
             }
+        }
+
+        // 2. Persist the agent data
+        const saved = await savePlantillaAgent(agentData);
+
+        // 3. Check if badge changed on edit
+        const oldAgent = !isNewAgent ? agents.find(a => a.id === agentData.id) : null;
+        const badgeChanged = isNewAgent || (oldAgent && (oldAgent.no_placa || '').trim() !== cleanPlaca);
+
+        let updatedList;
+        let replacedPlaceholderId = null;
+
+        if (badgeChanged) {
+            // Reposition agent by badge or substitute placeholder
+            const placement = placeOrSubstituteAgent(saved, agents);
+            updatedList = placement.updatedList;
+            replacedPlaceholderId = placement.replacedPlaceholderId;
         } else {
-            // En edición, preservar la posición actual del agente
+            // Badge didn't change: update in-place preserving position
             updatedList = agents.map(a => a.id === agentData.id ? saved : a);
             updatedList = updatedList.map((item, idx) => ({ ...item, order_index: idx + 1 }));
-            if (onAgentsUpdated) onAgentsUpdated(updatedList);
+        }
+
+        // 4. If a placeholder was substituted, delete it from database / settings
+        if (replacedPlaceholderId) {
             try {
-                const persisted = await updateAgentsOrder(updatedList);
-                if (onAgentsUpdated) onAgentsUpdated(persisted);
+                await deletePlantillaAgent(replacedPlaceholderId);
             } catch (err) {
-                console.error('Error persisting agents list:', err);
+                console.warn('Error deleting substituted placeholder:', err);
             }
+        }
+
+        // 5. Update UI immediately and persist order to backend
+        if (onAgentsUpdated) onAgentsUpdated(updatedList);
+        try {
+            const persisted = await updateAgentsOrder(updatedList);
+            if (onAgentsUpdated) onAgentsUpdated(persisted);
+        } catch (err) {
+            console.error('Error auto-ordering agents list:', err);
         }
     };
 
@@ -1674,6 +1717,7 @@ export default function PlantillaRosterTable({
             {showAgentModal && (
                 <PlantillaAgentModal
                     agent={selectedAgentForEdit}
+                    agents={agents}
                     ranks={ranks}
                     divisions={divisions}
                     valoraciones={activeValoraciones}
