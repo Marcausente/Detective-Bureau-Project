@@ -946,7 +946,8 @@ export function sortAgentsByRankHierarchy(agents, ranks) {
 
 /**
  * Sorts agents by badge number (# placa) ascending.
- * If dividers exist, sorts agents within their respective sections.
+ * Intelligently places agents in their matching section (Jefatura, Comisionado, Sargentos, Deputy, Trainee)
+ * and sorts agents within each section by # placa.
  */
 export function sortAgentsByBadge(agents) {
     const parseBadgeNum = (placa) => {
@@ -984,28 +985,107 @@ export function sortAgentsByBadge(agents) {
         });
     };
 
-    const hasDividers = agents.some(a => a.is_divider);
-    if (!hasDividers) {
+    const dividers = agents.filter(item => item.is_divider);
+    if (dividers.length === 0) {
         return sortSubgroup(agents).map((a, index) => ({ ...a, order_index: index + 1 }));
     }
 
-    const result = [];
-    let currentSection = [];
+    // Helper to match an agent to a section divider based on rank and badge number
+    const matchDividerForAgent = (agent) => {
+        const rank = (agent.rank_name || '').toLowerCase();
+        const placa = parseBadgeNum(agent.no_placa);
 
+        // 1. Match by rank keywords
+        if (rank.includes('sargento') || rank.includes('sergeant')) {
+            const d = dividers.find(div => (div.title || div.nombre || '').toLowerCase().includes('sargento'));
+            if (d) return d.id;
+        }
+        if (rank.includes('trainee') || rank.includes('cadete')) {
+            const d = dividers.find(div => {
+                const t = (div.title || div.nombre || '').toLowerCase();
+                return t.includes('trainee') || t.includes('cadete');
+            });
+            if (d) return d.id;
+        }
+        if (rank.includes('deputy') && !rank.includes('trainee')) {
+            const d = dividers.find(div => {
+                const t = (div.title || div.nombre || '').toLowerCase();
+                return t.includes('deputy') && !t.includes('trainee') && !t.includes('cadete');
+            });
+            if (d) return d.id;
+        }
+        if (rank.includes('teniente') || rank.includes('capitán') || rank.includes('capitan')) {
+            const d = dividers.find(div => {
+                const t = (div.title || div.nombre || '').toLowerCase();
+                return t.includes('comisionado') || t.includes('command') || t.includes('mando');
+            });
+            if (d) return d.id;
+        }
+        if (rank.includes('sheriff') && !rank.includes('deputy')) {
+            const d = dividers.find(div => {
+                const t = (div.title || div.nombre || '').toLowerCase();
+                return t.includes('jefatura');
+            });
+            if (d) return d.id;
+        }
+
+        // 2. Match by placa ranges if rank didn't match
+        if (!isNaN(placa)) {
+            if (placa >= 900) {
+                const d = dividers.find(div => (div.title || div.nombre || '').toLowerCase().includes('trainee'));
+                if (d) return d.id;
+            } else if (placa >= 800) {
+                const d = dividers.find(div => {
+                    const t = (div.title || div.nombre || '').toLowerCase();
+                    return t.includes('deputy') && !t.includes('trainee');
+                });
+                if (d) return d.id;
+            } else if (placa >= 708 && placa < 800) {
+                const d = dividers.find(div => (div.title || div.nombre || '').toLowerCase().includes('sargento'));
+                if (d) return d.id;
+            } else if (placa >= 700 && placa < 708) {
+                const d = dividers.find(div => (div.title || div.nombre || '').toLowerCase().includes('comisionado'));
+                if (d) return d.id;
+            } else if (placa < 700) {
+                const d = dividers.find(div => (div.title || div.nombre || '').toLowerCase().includes('jefatura'));
+                if (d) return d.id;
+            }
+        }
+
+        return null;
+    };
+
+    // Partition agents into their matching divider sections
+    const sections = {};
+    dividers.forEach(d => {
+        sections[d.id] = [];
+    });
+    const unassigned = [];
+
+    let currentDivId = null;
     agents.forEach(item => {
         if (item.is_divider) {
-            if (currentSection.length > 0) {
-                result.push(...sortSubgroup(currentSection));
-                currentSection = [];
-            }
-            result.push(item);
+            currentDivId = item.id;
         } else {
-            currentSection.push(item);
+            const matchedId = matchDividerForAgent(item);
+            const targetId = matchedId || currentDivId;
+            if (targetId && sections[targetId]) {
+                sections[targetId].push(item);
+            } else {
+                unassigned.push(item);
+            }
         }
     });
 
-    if (currentSection.length > 0) {
-        result.push(...sortSubgroup(currentSection));
+    const result = [];
+    dividers.forEach(div => {
+        result.push(div);
+        const group = sections[div.id] || [];
+        result.push(...sortSubgroup(group));
+    });
+
+    if (unassigned.length > 0) {
+        result.push(...sortSubgroup(unassigned));
     }
 
     return result.map((a, index) => ({ ...a, order_index: index + 1 }));
