@@ -75,7 +75,7 @@ export default function PlantillaAnalytics({ agents = [], ranks = [], divisions 
         return {
             totalAssigned,
             totalPlaceholders,
-            totalAll: realAgents.length,
+            totalAll: totalAssigned + totalPlaceholders,
             activos,
             pocoActivos,
             inactivos,
