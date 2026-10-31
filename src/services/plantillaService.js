@@ -1062,143 +1062,127 @@ export function findClosestDividerForBadge(targetPlaca, dividers = [], dividerSe
 }
 
 /**
- * Inserts a new agent into the list of agents, placing them under the section
- * of the closest badge number, and sorting that section numerically.
+ * Inserts a new agent into the list of agents:
+ * - Preserves the exact positions of all existing dividers and sections (including items before the first divider).
+ * - Identifies the section whose members have the closest badge number (or matching rank).
+ * - Inserts the agent inside that section, sorted numerically by badge number.
  */
 export function insertAgentByClosestBadge(newAgent, currentAgents = []) {
     const cleanList = currentAgents.filter(a => a.id !== newAgent.id);
-    const dividers = cleanList.filter(item => item.is_divider);
 
-    if (dividers.length === 0) {
-        return sortSubgroup([...cleanList, newAgent]).map((a, idx) => ({ ...a, order_index: idx + 1 }));
-    }
-
-    // Dividir cleanList en secciones existentes
-    const sections = {};
-    dividers.forEach(d => { sections[d.id] = []; });
-    let currentDivId = dividers[0]?.id || null;
+    // Build blocks: Block 0 (items before any divider), Block 1 (after divider 1), etc.
+    const blocks = [];
+    let currentBlock = { divider: null, agents: [] };
+    blocks.push(currentBlock);
 
     cleanList.forEach(item => {
         if (item.is_divider) {
-            currentDivId = item.id;
-        } else if (currentDivId && sections[currentDivId]) {
-            sections[currentDivId].push(item);
+            currentBlock = { divider: item, agents: [] };
+            blocks.push(currentBlock);
+        } else {
+            currentBlock.agents.push(item);
         }
     });
 
     const targetPlaca = parseBadgeNum(newAgent.no_placa);
-    const targetDividerId = findClosestDividerForBadge(targetPlaca, dividers, sections, newAgent.rank_name);
+    const targetRank = (newAgent.rank_name || '').toLowerCase();
 
-    if (sections[targetDividerId]) {
-        sections[targetDividerId].push(newAgent);
-    } else {
-        sections[dividers[0].id].push(newAgent);
-    }
+    // Find the winning block
+    let bestBlockIndex = -1;
+    let bestDistance = Infinity;
+    let bestRefPlate = null;
 
-    const result = [];
-    dividers.forEach(div => {
-        result.push(div);
-        const group = sections[div.id] || [];
-        result.push(...sortSubgroup(group));
+    blocks.forEach((block, bIdx) => {
+        // If block has divider and title matches rank, prioritize it if it's empty
+        if (block.divider) {
+            const title = (block.divider.title || block.divider.nombre || '').toLowerCase();
+            if (targetRank && title && (targetRank.includes(title) || title.includes(targetRank))) {
+                if (block.agents.length === 0) {
+                    bestBlockIndex = bIdx;
+                    bestDistance = -1;
+                    return;
+                }
+            }
+        }
+
+        if (bestDistance === -1) return;
+
+        block.agents.forEach(agent => {
+            const plate = parseBadgeNum(agent.no_placa);
+            if (isNaN(plate)) return;
+
+            const dist = Math.abs(targetPlaca - plate);
+            if (dist < bestDistance) {
+                bestDistance = dist;
+                bestBlockIndex = bIdx;
+                bestRefPlate = plate;
+            } else if (dist === bestDistance && bestBlockIndex !== -1) {
+                // Desempate desde arriba:
+                if (plate <= targetPlaca && bestRefPlate > targetPlaca) {
+                    bestBlockIndex = bIdx;
+                    bestRefPlate = plate;
+                } else if ((plate <= targetPlaca) === (bestRefPlate <= targetPlaca)) {
+                    if (bIdx < bestBlockIndex) {
+                        bestBlockIndex = bIdx;
+                        bestRefPlate = plate;
+                    }
+                }
+            }
+        });
     });
 
-    return result.map((a, index) => ({ ...a, order_index: index + 1 }));
+    // If still no block found, choose block matching rank or last block
+    if (bestBlockIndex === -1) {
+        if (targetRank) {
+            bestBlockIndex = blocks.findIndex(b => {
+                if (!b.divider) return false;
+                const title = (b.divider.title || b.divider.nombre || '').toLowerCase();
+                return title && (targetRank.includes(title) || title.includes(targetRank));
+            });
+        }
+        if (bestBlockIndex === -1) {
+            bestBlockIndex = blocks.length - 1;
+        }
+    }
+
+    blocks[bestBlockIndex].agents.push(newAgent);
+
+    const result = [];
+    blocks.forEach(block => {
+        if (block.divider) {
+            result.push(block.divider);
+        }
+        result.push(...sortSubgroup(block.agents));
+    });
+
+    return result.map((item, idx) => ({ ...item, order_index: idx + 1 }));
 }
 
 /**
- * Groups and sorts the roster by badge number:
- * Always associates each agent to the section of the closest badge number,
- * breaking ties "desde arriba" (approaching from smaller/preceding plate).
+ * Groups and sorts the roster by badge number within each section:
+ * Preserves the exact positions of all sections and dividers created by the user,
+ * and sorts agents within each section numerically by badge number.
  */
 export function sortAgentsByBadge(agents) {
-    const dividers = agents.filter(item => item.is_divider);
-    if (dividers.length === 0) {
-        return sortSubgroup(agents).map((a, index) => ({ ...a, order_index: index + 1 }));
-    }
-
-    // 1. Agrupar los agentes según el divisor inmediatamente superior actual
-    const currentSections = {};
-    dividers.forEach(d => { currentSections[d.id] = []; });
-    let currentDivId = dividers[0]?.id || null;
+    const blocks = [];
+    let currentBlock = { divider: null, agents: [] };
+    blocks.push(currentBlock);
 
     agents.forEach(item => {
         if (item.is_divider) {
-            currentDivId = item.id;
-        } else if (currentDivId && currentSections[currentDivId]) {
-            currentSections[currentDivId].push(item);
+            currentBlock = { divider: item, agents: [] };
+            blocks.push(currentBlock);
+        } else {
+            currentBlock.agents.push(item);
         }
     });
 
-    // 2. Para cada agente, calcular a qué divisor pertenece según la placa más cercana
-    const targetSections = {};
-    dividers.forEach(d => { targetSections[d.id] = []; });
-
-    const allAgents = agents.filter(item => !item.is_divider);
-
-    allAgents.forEach(agent => {
-        const targetPlaca = parseBadgeNum(agent.no_placa);
-        let myDivId = dividers[0]?.id;
-        for (const d of dividers) {
-            if (currentSections[d.id]?.some(a => a.id === agent.id)) {
-                myDivId = d.id;
-                break;
-            }
-        }
-
-        // Si el agente no tiene número de placa, permanece en su sección actual
-        if (isNaN(targetPlaca)) {
-            targetSections[myDivId].push(agent);
-            return;
-        }
-
-        // Distancia a otros agentes dentro de su propio divisor actual
-        let currentSecMinDist = Infinity;
-        const mySecAgents = currentSections[myDivId] || [];
-        mySecAgents.forEach(other => {
-            if (other.id === agent.id) return;
-            const p = parseBadgeNum(other.no_placa);
-            if (!isNaN(p)) {
-                const d = Math.abs(targetPlaca - p);
-                if (d < currentSecMinDist) currentSecMinDist = d;
-            }
-        });
-
-        // Si es el único en su sección, conserva su sección
-        if (currentSecMinDist === Infinity && mySecAgents.length === 1) {
-            targetSections[myDivId].push(agent);
-            return;
-        }
-
-        // Buscar si otro bloque tiene una placa estrictamente más cercana (ej. un agente fuera de lugar)
-        let bestDistance = currentSecMinDist;
-        let bestDividerId = myDivId;
-
-        dividers.forEach((div, divIdx) => {
-            if (div.id === myDivId) return; // ya evaluado
-            const secAgents = currentSections[div.id] || [];
-            secAgents.forEach(other => {
-                if (other.id && agent.id && other.id === agent.id) return;
-                const otherPlate = parseBadgeNum(other.no_placa);
-                if (isNaN(otherPlate)) return;
-
-                const dist = Math.abs(targetPlaca - otherPlate);
-
-                if (dist < bestDistance) {
-                    bestDistance = dist;
-                    bestDividerId = div.id;
-                }
-            });
-        });
-
-        targetSections[bestDividerId].push(agent);
-    });
-
-    // 3. Reconstruir lista ordenada manteniendo los divisores y ordenando cada subgrupo por placa
     const result = [];
-    dividers.forEach(div => {
-        result.push(div);
-        const group = targetSections[div.id] || [];
-        result.push(...sortSubgroup(group));
+    blocks.forEach(block => {
+        if (block.divider) {
+            result.push(block.divider);
+        }
+        result.push(...sortSubgroup(block.agents));
     });
 
     return result.map((a, index) => ({ ...a, order_index: index + 1 }));

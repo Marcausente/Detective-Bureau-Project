@@ -64,32 +64,6 @@ export default function PlantillaRosterTable({
     const [valoracionFilter, setValoracionFilter] = useState('all');
     const [iaSanctionFilter, setIaSanctionFilter] = useState('all'); // 'all' | 'active_only'
 
-    // Auto-align out-of-order agents on load (e.g. if an agent like 709 was appended below 800s)
-    useEffect(() => {
-        if (!agents || agents.length === 0) return;
-        const hasSevereMisplacement = agents.some((a, idx) => {
-            if (a.is_divider || !a.no_placa) return false;
-            const num = parseInt(String(a.no_placa).replace(/\D/g, ''), 10);
-            if (isNaN(num)) return false;
-            for (let j = 0; j < idx; j++) {
-                const prev = agents[j];
-                if (!prev.is_divider && prev.no_placa) {
-                    const prevNum = parseInt(String(prev.no_placa).replace(/\D/g, ''), 10);
-                    if (!isNaN(prevNum) && prevNum > num + 50) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        });
-
-        if (hasSevereMisplacement) {
-            const corrected = sortAgentsByBadge(agents);
-            if (onAgentsUpdated) onAgentsUpdated(corrected);
-            updateAgentsOrder(corrected).catch(err => console.warn('Auto-align order warning:', err));
-        }
-    }, [agents?.length]);
-
     // Open Add Agent modal
     const handleOpenAddAgent = () => {
         setSelectedAgentForEdit(null);
