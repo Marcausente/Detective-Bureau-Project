@@ -19,7 +19,8 @@ import {
     fetchPlantillaDivisions,
     fetchPlantillaAgents,
     fetchPlantillaValoraciones,
-    fetchActiveIASanctionsMap
+    fetchActiveIASanctionsMap,
+    parseSettingsArray
 } from '../services/plantillaService';
 import '../index.css';
 
@@ -98,6 +99,100 @@ export default function Comandancia() {
 
     useEffect(() => {
         loadData();
+
+        // Suscripción Realtime en vivo para sincronización multiusuario sin recargar
+        const channel = supabase
+            .channel('comandancia_realtime_sync')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'app_settings' },
+                (payload) => {
+                    const row = payload.new || payload.old;
+                    if (!row || !row.key) return;
+
+                    if (row.key === 'plantilla_agents') {
+                        if (row.value) {
+                            const parsed = parseSettingsArray(row.value);
+                            if (parsed) {
+                                setPlantillaAgents(parsed.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+                                return;
+                            }
+                        }
+                        fetchPlantillaAgents().then(setPlantillaAgents).catch(() => {});
+                    } else if (row.key === 'plantilla_ranks') {
+                        if (row.value) {
+                            const parsed = parseSettingsArray(row.value);
+                            if (parsed) {
+                                setPlantillaRanks(parsed.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+                                return;
+                            }
+                        }
+                        fetchPlantillaRanks().then(setPlantillaRanks).catch(() => {});
+                    } else if (row.key === 'plantilla_divisions') {
+                        if (row.value) {
+                            const parsed = parseSettingsArray(row.value);
+                            if (parsed) {
+                                setPlantillaDivisions(parsed.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+                                return;
+                            }
+                        }
+                        fetchPlantillaDivisions().then(setPlantillaDivisions).catch(() => {});
+                    } else if (row.key === 'plantilla_valoraciones') {
+                        if (row.value) {
+                            const parsed = parseSettingsArray(row.value);
+                            if (parsed) {
+                                setPlantillaValoraciones(parsed.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+                                return;
+                            }
+                        }
+                        fetchPlantillaValoraciones().then(setPlantillaValoraciones).catch(() => {});
+                    } else if (row.key === 'feedback_reactions_data') {
+                        fetchReactions();
+                    } else if (row.key === 'agent_feedbacks') {
+                        loadFeedbacksList();
+                    }
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'plantilla_agents' },
+                () => {
+                    fetchPlantillaAgents().then(setPlantillaAgents).catch(() => {});
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'ia_sanctions' },
+                () => {
+                    fetchActiveIASanctionsMap().then(setIaSanctionsMap).catch(() => {});
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'ia_subject_profiles' },
+                () => {
+                    fetchActiveIASanctionsMap().then(setIaSanctionsMap).catch(() => {});
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'agent_feedbacks' },
+                () => {
+                    loadFeedbacksList();
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'agent_feedback_reactions' },
+                () => {
+                    fetchReactions();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     const fetchReactions = async () => {
@@ -331,6 +426,33 @@ export default function Comandancia() {
         }
     };
 
+    const loadFeedbacksList = async () => {
+        let loadedFeedbacks = [];
+        try {
+            const { data: fbData, error: fbErr } = await supabase
+                .from('agent_feedbacks')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (!fbErr && fbData) {
+                loadedFeedbacks = fbData;
+            } else {
+                const { data: fbSetting } = await supabase
+                    .from('app_settings')
+                    .select('value')
+                    .eq('key', 'agent_feedbacks')
+                    .single();
+                if (fbSetting?.value) {
+                    loadedFeedbacks = typeof fbSetting.value === 'string'
+                        ? JSON.parse(fbSetting.value)
+                        : fbSetting.value;
+                }
+            }
+        } catch (fbE) {
+            console.warn('Error fetching feedbacks:', fbE);
+        }
+        setFeedbacks(loadedFeedbacks || []);
+    };
+
     const loadData = async () => {
         try {
             setLoading(true);
@@ -348,31 +470,8 @@ export default function Comandancia() {
                 .single();
             setProfile(myProfile);
 
-            // 2. Load Feedbacks from agent_feedbacks (or fallback to app_settings)
-            let loadedFeedbacks = [];
-            try {
-                const { data: fbData, error: fbErr } = await supabase
-                    .from('agent_feedbacks')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-                if (!fbErr && fbData) {
-                    loadedFeedbacks = fbData;
-                } else {
-                    const { data: fbSetting } = await supabase
-                        .from('app_settings')
-                        .select('value')
-                        .eq('key', 'agent_feedbacks')
-                        .single();
-                    if (fbSetting?.value) {
-                        loadedFeedbacks = typeof fbSetting.value === 'string'
-                            ? JSON.parse(fbSetting.value)
-                            : fbSetting.value;
-                    }
-                }
-            } catch (fbE) {
-                console.warn('Error fetching feedbacks:', fbE);
-            }
-            setFeedbacks(loadedFeedbacks || []);
+            // 2. Load Feedbacks
+            await loadFeedbacksList();
 
             // 3. Load Fichas from RPC if available
             try {

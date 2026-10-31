@@ -533,6 +533,29 @@ export default function PlantillaRosterTable({
                             <span style={{ fontSize: '0.68rem', color: '#64748b' }}>
                                 (Roster Jerárquico)
                             </span>
+                            <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.60rem',
+                                fontWeight: 800,
+                                color: '#34d399',
+                                background: 'rgba(16, 185, 129, 0.12)',
+                                border: '1px solid rgba(16, 185, 129, 0.35)',
+                                padding: '1px 6px',
+                                borderRadius: '9999px',
+                                letterSpacing: '0.04em'
+                            }} title="Sincronización en vivo activa (Supabase Realtime)">
+                                <span style={{
+                                    width: '6px',
+                                    height: '6px',
+                                    borderRadius: '50%',
+                                    backgroundColor: '#10b981',
+                                    boxShadow: '0 0 6px #10b981',
+                                    display: 'inline-block'
+                                }} />
+                                EN VIVO
+                            </span>
                         </div>
                     </div>
                 </div>

@@ -65,7 +65,7 @@ export function hexToRgba(hex, alpha = 0.2) {
 /**
  * Helper to safely parse JSON arrays from app_settings (handles both string and native array)
  */
-function parseSettingsArray(val) {
+export function parseSettingsArray(val) {
     if (!val) return null;
     if (Array.isArray(val)) return val;
     if (typeof val === 'string') {
