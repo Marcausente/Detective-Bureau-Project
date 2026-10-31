@@ -23,7 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_ia_subject_profiles_plantilla_agent
 ON public.ia_subject_profiles(plantilla_agent_id);
 
 -- 2. Actualizar get_ia_subjects_full para incluir plantilla_agent_id
-CREATE OR REPLACE FUNCTION get_ia_subjects_full()
+CREATE OR REPLACE FUNCTION public.get_ia_subjects_full()
 RETURNS JSON AS $$
 DECLARE
   v_result JSON;
@@ -60,14 +60,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION get_ia_subjects_full TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_ia_subjects_full() TO authenticated, service_role;
 
--- 3. Actualizar create_ia_subject_profile con soporte para plantilla_agent_id
-CREATE OR REPLACE FUNCTION create_ia_subject_profile(
+-- 3. Funciones create_ia_subject_profile (con y sin plantilla_agent_id)
+-- Eliminar versiones anteriores de forma limpia
+DROP FUNCTION IF EXISTS public.create_ia_subject_profile(TEXT, TEXT, TEXT, UUID);
+DROP FUNCTION IF EXISTS public.create_ia_subject_profile(TEXT, TEXT, TEXT);
+
+-- Función principal con 4 parámetros
+CREATE OR REPLACE FUNCTION public.create_ia_subject_profile(
   p_nombre TEXT,
   p_apellido TEXT,
   p_no_placa TEXT,
-  p_plantilla_agent_id UUID DEFAULT NULL
+  p_plantilla_agent_id UUID
 )
 RETURNS UUID AS $$
 DECLARE
@@ -80,15 +85,33 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION create_ia_subject_profile TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_ia_subject_profile(TEXT, TEXT, TEXT, UUID) TO authenticated, service_role;
 
--- 4. Actualizar update_ia_subject_profile con soporte para plantilla_agent_id
-CREATE OR REPLACE FUNCTION update_ia_subject_profile(
+-- Sobrecarga de compatibilidad con 3 parámetros para código existente
+CREATE OR REPLACE FUNCTION public.create_ia_subject_profile(
+  p_nombre TEXT,
+  p_apellido TEXT,
+  p_no_placa TEXT
+)
+RETURNS UUID AS $$
+BEGIN
+  RETURN public.create_ia_subject_profile(p_nombre, p_apellido, p_no_placa, NULL::UUID);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.create_ia_subject_profile(TEXT, TEXT, TEXT) TO authenticated, service_role;
+
+-- 4. Funciones update_ia_subject_profile (con y sin plantilla_agent_id)
+DROP FUNCTION IF EXISTS public.update_ia_subject_profile(UUID, TEXT, TEXT, TEXT, UUID);
+DROP FUNCTION IF EXISTS public.update_ia_subject_profile(UUID, TEXT, TEXT, TEXT);
+
+-- Función principal con 5 parámetros
+CREATE OR REPLACE FUNCTION public.update_ia_subject_profile(
   p_id UUID,
   p_nombre TEXT,
   p_apellido TEXT,
   p_no_placa TEXT,
-  p_plantilla_agent_id UUID DEFAULT NULL
+  p_plantilla_agent_id UUID
 )
 RETURNS VOID AS $$
 BEGIN
@@ -102,5 +125,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION update_ia_subject_profile TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_ia_subject_profile(UUID, TEXT, TEXT, TEXT, UUID) TO authenticated, service_role;
 
+-- Sobrecarga de compatibilidad con 4 parámetros
+CREATE OR REPLACE FUNCTION public.update_ia_subject_profile(
+  p_id UUID,
+  p_nombre TEXT,
+  p_apellido TEXT,
+  p_no_placa TEXT
+)
+RETURNS VOID AS $$
+BEGIN
+  PERFORM public.update_ia_subject_profile(p_id, p_nombre, p_apellido, p_no_placa, NULL::UUID);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.update_ia_subject_profile(UUID, TEXT, TEXT, TEXT) TO authenticated, service_role;
