@@ -49,8 +49,7 @@ export default function IASanctionModalWithPlantillaPicker({
     }, []);
 
     const filteredAgents = plantillaAgents.filter(a => {
-        if (a.is_divider) return false;
-        if (a.is_placeholder && !a.nombre && !a.apellido) return false;
+        if (a.is_divider || a.is_placeholder || (!a.nombre?.trim() && !a.apellido?.trim())) return false;
         if (!searchTerm.trim()) return true;
         const term = searchTerm.toLowerCase();
         const fullName = `${a.nombre || ''} ${a.apellido || ''}`.toLowerCase();

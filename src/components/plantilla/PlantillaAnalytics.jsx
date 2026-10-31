@@ -3,9 +3,13 @@ import { useMemo } from 'react';
 export default function PlantillaAnalytics({ agents = [], ranks = [], divisions = [], iaStatusMap, onClose }) {
     // Analytics calculations
     const stats = useMemo(() => {
-        const realAgents = agents.filter(a => !a.is_divider);
-        const assignedAgents = realAgents.filter(a => !a.is_placeholder || (a.nombre || a.apellido));
-        const placeholders = realAgents.filter(a => a.is_placeholder && !a.nombre && !a.apellido);
+        const isRealAgent = (a) => {
+            if (!a || a.is_divider || a.is_placeholder) return false;
+            return Boolean((a.nombre || '').trim() || (a.apellido || '').trim() || (a.username || '').trim());
+        };
+
+        const assignedAgents = agents.filter(isRealAgent);
+        const placeholders = agents.filter(a => !a.is_divider && (a.is_placeholder || (!a.nombre?.trim() && !a.apellido?.trim())));
 
         const totalAssigned = assignedAgents.length;
         const totalPlaceholders = placeholders.length;

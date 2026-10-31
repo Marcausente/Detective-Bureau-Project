@@ -354,6 +354,7 @@ export default function PlantillaRosterTable({
 
             // Activity filter
             if (activityFilter !== 'all') {
+                if (agent.is_placeholder || (!agent.nombre && !agent.apellido)) return false;
                 const act = (agent.activity_status || 'Activo').toLowerCase();
                 if (activityFilter === 'Activo' && !act.includes('activ')) return false;
                 if (activityFilter === 'Poco activa' && (!act.includes('poco') && !act.includes('vacacion'))) return false;
@@ -381,12 +382,20 @@ export default function PlantillaRosterTable({
         });
     }, [agents, searchTerm, rankFilter, divisionFilter, activityFilter, valoracionFilter, iaSanctionFilter, iaStatusMap]);
 
+    // Helper to identify real agents vs reserved spaces / dividers
+    const isRealAgent = (a) => {
+        if (!a || a.is_divider || a.is_placeholder) return false;
+        const nombre = (a.nombre || '').trim();
+        const apellido = (a.apellido || '').trim();
+        const username = (a.username || '').trim();
+        return Boolean(nombre || apellido || username);
+    };
+
     // Ranks count for mini-summary box
     const ranksMiniSummary = useMemo(() => {
         return ranks.slice(0, 8).map(r => {
             const count = agents.filter(a =>
-                !a.is_divider &&
-                !a.is_placeholder &&
+                isRealAgent(a) &&
                 (a.rank_name || '').trim().toLowerCase() === r.name.trim().toLowerCase()
             ).length;
             return { name: r.name, count };
@@ -395,13 +404,13 @@ export default function PlantillaRosterTable({
 
     // Counts for summary bar
     const summaryKPIs = useMemo(() => {
-        const assigned = agents.filter(a => !a.is_divider && (!a.is_placeholder || (a.nombre || a.apellido)));
+        const realAgents = agents.filter(isRealAgent);
         let activos = 0;
         let poco = 0;
         let inactivos = 0;
         let conFaltas = 0;
 
-        assigned.forEach(a => {
+        realAgents.forEach(a => {
             const st = (a.activity_status || 'Activo').toLowerCase();
             if (st.includes('inactiv') || st.includes('no activ')) inactivos++;
             else if (st.includes('poco') || st.includes('vacacion')) poco++;
@@ -414,7 +423,7 @@ export default function PlantillaRosterTable({
         });
 
         return {
-            total: assigned.length,
+            total: realAgents.length,
             activos,
             poco,
             inactivos,

@@ -1076,7 +1076,7 @@ export default function Comandancia() {
                         color: activeComandanciaTab === 'plantilla' ? '#fef08a' : '#cbd5e1',
                         fontWeight: 900
                     }}>
-                        {plantillaAgents.length}
+                        {plantillaAgents.filter(a => !a.is_divider && !a.is_placeholder && Boolean((a.nombre || '').trim() || (a.apellido || '').trim() || (a.username || '').trim())).length}
                     </span>
                 </button>
 

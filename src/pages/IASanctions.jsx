@@ -936,7 +936,7 @@ function IASanctions() {
                                             }}>
                                                 {plantillaAgents
                                                     .filter(a => {
-                                                        if (a.is_placeholder && !a.nombre) return false;
+                                                        if (a.is_divider || a.is_placeholder || (!a.nombre?.trim() && !a.apellido?.trim())) return false;
                                                         if (!agentPickerSearch.trim()) return true;
                                                         const t = agentPickerSearch.toLowerCase();
                                                         return `${a.nombre || ''} ${a.apellido || ''} ${a.no_placa || ''}`.toLowerCase().includes(t);
