@@ -9,6 +9,7 @@ import {
     calculateSanctionExpiry 
 } from '../utils/sanctionConfig';
 import { sendIASanctionToDiscord } from '../utils/discordWebhook';
+import { fetchPlantillaAgents } from '../services/plantillaService';
 import '../index.css';
 
 function IASanctionProfile() {
@@ -17,6 +18,7 @@ function IASanctionProfile() {
     const { isLSSD } = useTheme();
     const { language } = useLanguage();
     const [profileData, setProfileData] = useState(null);
+    const [plantillaAgents, setPlantillaAgents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [durations, setDurations] = useState(DEFAULT_SANCTION_DURATIONS);
     const [currentUser, setCurrentUser] = useState(null);
@@ -70,9 +72,19 @@ function IASanctionProfile() {
             const loadedDurations = await fetchSanctionDurations();
             setDurations(loadedDurations);
 
+            let pAgents = [];
+            try {
+                pAgents = (await fetchPlantillaAgents()) || [];
+                setPlantillaAgents(pAgents);
+            } catch (pE) {
+                console.warn('Could not load plantilla agents:', pE);
+            }
+
+            let loadedProfileObj = null;
+
             const { data, error } = await supabase.rpc('get_ia_subject_details', { p_subject_id: id });
             if (!error && data) {
-                setProfileData(data);
+                loadedProfileObj = data;
             } else {
                 // Fallback to direct supabase query
                 const { data: pData, error: pErr } = await supabase
@@ -88,11 +100,34 @@ function IASanctionProfile() {
                     .eq('subject_id', id)
                     .order('sanction_date', { ascending: false });
 
-                setProfileData({
+                loadedProfileObj = {
                     profile: pData,
                     sanctions: sData || []
-                });
+                };
             }
+
+            if (loadedProfileObj?.profile) {
+                const p = loadedProfileObj.profile;
+                if (!p.plantilla_agent_id && pAgents.length > 0) {
+                    const pFull = `${p.nombre || ''} ${p.apellido || ''}`.trim().toLowerCase();
+                    const matched = pAgents.find(a => {
+                        if (a.is_divider) return false;
+                        const aFull = `${a.nombre || ''} ${a.apellido || ''}`.trim().toLowerCase();
+                        if (pFull && aFull && pFull === aFull) return true;
+                        if (p.no_placa && a.no_placa && p.no_placa.trim() === a.no_placa.trim() && p.no_placa.trim() !== 'S/P') return true;
+                        return false;
+                    });
+                    if (matched) {
+                        p.plantilla_agent_id = matched.id;
+                        supabase.from('ia_subject_profiles')
+                            .update({ plantilla_agent_id: matched.id })
+                            .eq('id', id)
+                            .then(() => {});
+                    }
+                }
+            }
+
+            setProfileData(loadedProfileObj);
         } catch (err) {
             console.error('Error loading profile:', err);
             alert(language === 'es' ? 'Error al cargar el perfil del oficial.' : 'Failed to load officer profile.');
@@ -100,6 +135,19 @@ function IASanctionProfile() {
             setLoading(false);
         }
     };
+
+    const linkedAgent = useMemo(() => {
+        const p = profileData?.profile;
+        if (!p || !plantillaAgents || plantillaAgents.length === 0) return null;
+        return plantillaAgents.find(a =>
+            (p.plantilla_agent_id && a.id === p.plantilla_agent_id) ||
+            (!p.plantilla_agent_id && p.no_placa && a.no_placa && a.no_placa.trim() === p.no_placa.trim() && p.no_placa.trim() !== 'S/P')
+        ) || null;
+    }, [profileData, plantillaAgents]);
+
+    const liveBadge = linkedAgent?.no_placa || profileData?.profile?.no_placa || 'S/P';
+    const liveName = linkedAgent ? `${linkedAgent.nombre || ''} ${linkedAgent.apellido || ''}`.trim() : `${profileData?.profile?.nombre || ''} ${profileData?.profile?.apellido || ''}`.trim();
+    const liveRank = linkedAgent?.rank_name || null;
 
     const loadCasesForDropdown = async () => {
         const { data, error } = await supabase.rpc('get_ia_cases_dropdown');
@@ -206,8 +254,8 @@ function IASanctionProfile() {
             // Optional Discord Webhook Notification & Logging to Published Sanctions
             if (formData.sendToDiscord && modalMode === 'create') {
                 try {
-                    const officerName = `${profileData?.profile?.nombre || ''} ${profileData?.profile?.apellido || ''}`.trim();
-                    const officerBadge = profileData?.profile?.no_placa || '';
+                    const officerName = liveName;
+                    const officerBadge = liveBadge !== 'S/P' ? liveBadge : '';
                     const authorFullName = [currentUser?.nombre, currentUser?.apellido].filter(Boolean).join(' ');
                     const authorRank = currentUser?.rango ? `[${currentUser.rango}]` : '';
                     const authorBadge = currentUser?.no_placa ? `(#${currentUser.no_placa})` : '';
@@ -217,7 +265,7 @@ function IASanctionProfile() {
                         sanctionType: isSargentosType ? 'leves_sargentos' : (formData.type.toLowerCase().includes('grave') ? 'graves' : formData.type.toLowerCase().includes('media') ? 'medias' : 'leves_ia'),
                         officerName: officerName,
                         officerBadge: officerBadge,
-                        officerRank: '',
+                        officerRank: liveRank || '',
                         reason: formData.description,
                         sanctionApplied: 'Amonestación verbal / Advertencia formal registrada en expediente',
                         sanctionerName: sanctionerStr,
@@ -404,7 +452,10 @@ function IASanctionProfile() {
     }
 
     const { profile } = profileData;
-    const initials = `${(profile.nombre?.[0] || '').toUpperCase()}${(profile.apellido?.[0] || '').toUpperCase()}` || 'OF';
+    const nameParts = liveName.split(' ').filter(Boolean);
+    const initials = nameParts.length >= 2 
+        ? `${nameParts[0][0].toUpperCase()}${nameParts[nameParts.length - 1][0].toUpperCase()}`
+        : `${(profile?.nombre?.[0] || 'O').toUpperCase()}${(profile?.apellido?.[0] || 'F').toUpperCase()}`;
 
     return (
         <div className="mac-dashboard-container" style={{ maxWidth: '1100px' }}>
@@ -505,8 +556,26 @@ function IASanctionProfile() {
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                                 </svg>
-                                <span>{language === 'es' ? 'Placa: ' : 'Badge: '}#{profile.no_placa}</span>
+                                <span>{language === 'es' ? 'Placa: ' : 'Badge: '}#{liveBadge}</span>
                             </span>
+
+                            {linkedAgent && (
+                                <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    background: 'rgba(59, 130, 246, 0.15)',
+                                    border: '1px solid rgba(59, 130, 246, 0.35)',
+                                    color: '#93c5fd',
+                                    padding: '0.2rem 0.65rem',
+                                    borderRadius: '12px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 700
+                                }} title={`Vinculado por ID a la plantilla (${linkedAgent.rank_name || 'Agente'}). La placa se actualiza sola si cambia en la plantilla.`}>
+                                    🔗 {linkedAgent.rank_name || 'Plantilla'}
+                                </span>
+                            )}
+
                             <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>•</span>
                             <span style={{ fontSize: '0.78rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 {language === 'es' ? 'Sujeto Registrado' : 'Registered Subject'}
@@ -514,7 +583,7 @@ function IASanctionProfile() {
                         </div>
 
                         <h1 style={{ fontSize: '1.9rem', fontWeight: 800, margin: '0 0 0.4rem 0', color: '#ffffff', letterSpacing: '-0.02em' }}>
-                            {profile.nombre} {profile.apellido}
+                            {liveName}
                         </h1>
 
                         {/* Active Sanction Expiration Alert in Header */}

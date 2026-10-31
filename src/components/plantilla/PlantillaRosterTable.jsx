@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
     calculatePromotionDays,
@@ -33,6 +34,7 @@ export default function PlantillaRosterTable({
     onRefreshIA
 }) {
     const { isLSSD, branding } = useTheme();
+    const navigate = useNavigate();
 
     // Modals state
     const [showAgentModal, setShowAgentModal] = useState(false);
@@ -1540,8 +1542,14 @@ export default function PlantillaRosterTable({
                                                 </select>
                                             </td>
 
-                                            {/* Faltas IA (Linked IA status indicator) */}
-                                            <td style={{ padding: '2px 1px', textAlign: 'center', width: '44px', minWidth: '40px', maxWidth: '48px' }}>
+                                            {/* Faltas IA (Linked IA status indicator - Clickable to open IA dossier) */}
+                                            <td
+                                                style={{ padding: '2px 1px', textAlign: 'center', width: '44px', minWidth: '40px', maxWidth: '48px', cursor: 'pointer' }}
+                                                onClick={() => navigate(iaStatus?.profileId ? `/internal-affairs/sanctions/${iaStatus.profileId}` : '/internal-affairs/sanctions')}
+                                                title={iaStatus.hasActive
+                                                    ? `Falta activa en IA: ${iaStatus.mostSevereActive}. Expira: ${iaStatus.latestExpiryDateFormatted || ''} (${iaStatus.maxDaysRemaining}d restantes).\nClic para abrir expediente en Asuntos Internos.`
+                                                    : '0 faltas activas en IA.\nClic para ir a Asuntos Internos.'}
+                                            >
                                                 {iaStatus.hasActive ? (
                                                     <div
                                                         style={{
@@ -1554,21 +1562,29 @@ export default function PlantillaRosterTable({
                                                             fontWeight: 800,
                                                             display: 'inline-flex',
                                                             alignItems: 'center',
-                                                            gap: '2px'
+                                                            gap: '2px',
+                                                            transition: 'transform 0.15s ease'
                                                         }}
-                                                        title={`Falta activa en IA: ${iaStatus.mostSevereActive}. Expira: ${iaStatus.latestExpiryDateFormatted || ''} (${iaStatus.maxDaysRemaining}d restantes)`}
+                                                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
+                                                        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                                                     >
                                                         <span>⚠️ {iaStatus.activeCount}</span>
                                                     </div>
                                                 ) : (
-                                                    <span style={{
-                                                        fontSize: '0.64rem',
-                                                        color: '#6ee7b7',
-                                                        background: 'rgba(16, 185, 129, 0.1)',
-                                                        padding: '1px 3px',
-                                                        borderRadius: '3px',
-                                                        fontWeight: 700
-                                                    }}>
+                                                    <span
+                                                        style={{
+                                                            fontSize: '0.64rem',
+                                                            color: '#6ee7b7',
+                                                            background: 'rgba(16, 185, 129, 0.1)',
+                                                            padding: '1px 3px',
+                                                            borderRadius: '3px',
+                                                            fontWeight: 700,
+                                                            display: 'inline-block',
+                                                            transition: 'transform 0.15s ease'
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
+                                                        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                                    >
                                                         ✅ 0
                                                     </span>
                                                 )}

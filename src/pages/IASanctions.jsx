@@ -92,6 +92,7 @@ function IASanctions() {
                         nombre,
                         apellido,
                         no_placa,
+                        plantilla_agent_id,
                         created_at,
                         ia_sanctions (
                             id,
@@ -116,6 +117,51 @@ function IASanctions() {
                         sanctions: []
                     }));
                 }
+            }
+
+            // Asegurar que cada perfil cargue su plantilla_agent_id directamente desde la tabla
+            try {
+                const { data: metaRows } = await supabase
+                    .from('ia_subject_profiles')
+                    .select('id, plantilla_agent_id, no_placa, nombre, apellido');
+
+                const metaMap = {};
+                (metaRows || []).forEach(m => { metaMap[m.id] = m; });
+
+                const agentsList = plantillaAgents.length > 0 ? plantillaAgents : (await fetchPlantillaAgents()) || [];
+
+                loadedProfiles = loadedProfiles.map(p => {
+                    const meta = metaMap[p.id] || {};
+                    let agentId = meta.plantilla_agent_id || p.plantilla_agent_id || null;
+
+                    // Si no está vinculado aún por ID, buscar coincidencia en la plantilla para auto-vincular
+                    if (!agentId && agentsList.length > 0) {
+                        const pFullName = `${p.nombre || ''} ${p.apellido || ''}`.trim().toLowerCase();
+                        const matched = agentsList.find(a => {
+                            if (a.is_divider) return false;
+                            const aFullName = `${a.nombre || ''} ${a.apellido || ''}`.trim().toLowerCase();
+                            if (pFullName && aFullName && pFullName === aFullName) return true;
+                            if (p.no_placa && a.no_placa && p.no_placa.trim() === a.no_placa.trim() && p.no_placa.trim() !== 'S/P') return true;
+                            return false;
+                        });
+
+                        if (matched) {
+                            agentId = matched.id;
+                            // Persistir la vinculación en la base de datos de manera asíncrona
+                            supabase.from('ia_subject_profiles')
+                                .update({ plantilla_agent_id: matched.id })
+                                .eq('id', p.id)
+                                .then(() => {});
+                        }
+                    }
+
+                    return {
+                        ...p,
+                        plantilla_agent_id: agentId
+                    };
+                });
+            } catch (metaErr) {
+                console.warn('Could not enrich profile metadata:', metaErr);
             }
 
             setProfiles(loadedProfiles || []);
@@ -151,16 +197,21 @@ function IASanctions() {
         e.preventDefault();
         setLoadingAction(true);
         try {
+            const saveName = selectedPlantillaAgent ? (selectedPlantillaAgent.nombre || formData.nombre.trim()) : formData.nombre.trim();
+            const saveApellido = selectedPlantillaAgent ? (selectedPlantillaAgent.apellido || formData.apellido.trim()) : formData.apellido.trim();
+            const saveNoPlaca = selectedPlantillaAgent ? (selectedPlantillaAgent.no_placa || 'S/P') : (formData.no_placa.trim() || 'S/P');
+            const saveAgentId = selectedPlantillaAgent?.id || formData.plantilla_agent_id || null;
+
             if (editingId) {
                 let updated = false;
                 try {
                     const { error: directErr } = await supabase
                         .from('ia_subject_profiles')
                         .update({
-                            nombre: formData.nombre.trim(),
-                            apellido: formData.apellido.trim(),
-                            no_placa: formData.no_placa.trim(),
-                            plantilla_agent_id: formData.plantilla_agent_id || null
+                            nombre: saveName,
+                            apellido: saveApellido,
+                            no_placa: saveNoPlaca,
+                            plantilla_agent_id: saveAgentId
                         })
                         .eq('id', editingId);
                     if (!directErr) updated = true;
@@ -170,11 +221,17 @@ function IASanctions() {
                 if (!updated) {
                     const { error } = await supabase.rpc('update_ia_subject_profile', {
                         p_id: editingId,
-                        p_nombre: formData.nombre.trim(),
-                        p_apellido: formData.apellido.trim(),
-                        p_no_placa: formData.no_placa.trim()
+                        p_nombre: saveName,
+                        p_apellido: saveApellido,
+                        p_no_placa: saveNoPlaca
                     });
                     if (error) throw error;
+                    if (saveAgentId) {
+                        await supabase
+                            .from('ia_subject_profiles')
+                            .update({ plantilla_agent_id: saveAgentId })
+                            .eq('id', editingId);
+                    }
                 }
             } else {
                 let inserted = false;
@@ -182,22 +239,28 @@ function IASanctions() {
                     const { error: directErr } = await supabase
                         .from('ia_subject_profiles')
                         .insert([{
-                            nombre: formData.nombre.trim(),
-                            apellido: formData.apellido.trim(),
-                            no_placa: formData.no_placa.trim(),
-                            plantilla_agent_id: formData.plantilla_agent_id || null
+                            nombre: saveName,
+                            apellido: saveApellido,
+                            no_placa: saveNoPlaca,
+                            plantilla_agent_id: saveAgentId
                         }]);
                     if (!directErr) inserted = true;
                 } catch (e) {
                     console.warn('Direct insert fallback:', e);
                 }
                 if (!inserted) {
-                    const { error } = await supabase.rpc('create_ia_subject_profile', {
-                        p_nombre: formData.nombre.trim(),
-                        p_apellido: formData.apellido.trim(),
-                        p_no_placa: formData.no_placa.trim()
+                    const { data: rpcId, error } = await supabase.rpc('create_ia_subject_profile', {
+                        p_nombre: saveName,
+                        p_apellido: saveApellido,
+                        p_no_placa: saveNoPlaca
                     });
                     if (error) throw error;
+                    if (saveAgentId && rpcId) {
+                        await supabase
+                            .from('ia_subject_profiles')
+                            .update({ plantilla_agent_id: saveAgentId })
+                            .eq('id', rpcId);
+                    }
                 }
             }
             setShowModal(false);
@@ -237,10 +300,19 @@ function IASanctions() {
 
     const filteredProfiles = useMemo(() => {
         return processedProfiles.filter(p => {
+            const linked = plantillaAgents.find(a =>
+                (p.plantilla_agent_id && a.id === p.plantilla_agent_id) ||
+                (!p.plantilla_agent_id && p.no_placa && a.no_placa && a.no_placa.trim() === p.no_placa.trim())
+            );
+
             const fullName = `${p.nombre} ${p.apellido}`.toLowerCase();
+            const liveName = linked ? `${linked.nombre || ''} ${linked.apellido || ''}`.toLowerCase() : fullName;
             const badge = (p.no_placa || '').toLowerCase();
+            const liveBadge = (linked?.no_placa || '').toLowerCase();
+            const rank = (linked?.rank_name || '').toLowerCase();
+
             const query = searchTerm.toLowerCase();
-            const matchesQuery = fullName.includes(query) || badge.includes(query);
+            const matchesQuery = fullName.includes(query) || liveName.includes(query) || badge.includes(query) || liveBadge.includes(query) || rank.includes(query);
 
             if (!matchesQuery) return false;
 
@@ -597,35 +669,38 @@ function IASanctions() {
                                             {initials}
                                         </div>
 
-                                        {/* Name & Badge */}
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{
-                                                fontWeight: 700,
-                                                fontSize: '1.02rem',
-                                                color: '#ffffff',
-                                                letterSpacing: '-0.01em',
-                                                whiteSpace: 'nowrap',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis'
-                                            }}>
-                                                {profile.nombre} {profile.apellido}
-                                            </div>
+                                        {/* Name & Badge (Dynamically synced with Plantilla) */}
+                                        {(() => {
+                                            const linked = plantillaAgents.find(a =>
+                                                (profile.plantilla_agent_id && a.id === profile.plantilla_agent_id) ||
+                                                (!profile.plantilla_agent_id && profile.no_placa && a.no_placa && a.no_placa.trim() === profile.no_placa.trim())
+                                            );
+                                            const currentBadge = linked?.no_placa || profile.no_placa || 'S/P';
+                                            const currentName = linked ? `${linked.nombre || ''} ${linked.apellido || ''}`.trim() : `${profile.nombre} ${profile.apellido}`;
 
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '0.2rem', color: '#94a3b8', fontSize: '0.8rem', flexWrap: 'wrap' }}>
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-gold, #f59e0b)' }}>
-                                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                                                </svg>
-                                                <span>{language === 'es' ? 'Placa: ' : 'Badge: '}</span>
-                                                <span style={{ color: 'var(--accent-gold, #f59e0b)', fontWeight: 600 }}>#{profile.no_placa}</span>
+                                            return (
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{
+                                                        fontWeight: 700,
+                                                        fontSize: '1.02rem',
+                                                        color: '#ffffff',
+                                                        letterSpacing: '-0.01em',
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis'
+                                                    }}>
+                                                        {currentName}
+                                                    </div>
 
-                                                {/* Plantilla link badge if linked */}
-                                                {(() => {
-                                                    const linked = plantillaAgents.find(a =>
-                                                        (profile.plantilla_agent_id && a.id === profile.plantilla_agent_id) ||
-                                                        (profile.no_placa && a.no_placa && a.no_placa.trim() === profile.no_placa.trim())
-                                                    );
-                                                    if (linked) {
-                                                        return (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '0.2rem', color: '#94a3b8', fontSize: '0.8rem', flexWrap: 'wrap' }}>
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-gold, #f59e0b)' }}>
+                                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                                        </svg>
+                                                        <span>{language === 'es' ? 'Placa: ' : 'Badge: '}</span>
+                                                        <span style={{ color: 'var(--accent-gold, #f59e0b)', fontWeight: 600 }}>#{currentBadge}</span>
+
+                                                        {/* Plantilla link badge if linked */}
+                                                        {linked && (
                                                             <span style={{
                                                                 fontSize: '0.68rem',
                                                                 fontWeight: 800,
@@ -635,15 +710,14 @@ function IASanctions() {
                                                                 padding: '1px 6px',
                                                                 borderRadius: '4px',
                                                                 marginLeft: '4px'
-                                                            }} title={`Vinculado a plantilla: ${linked.rank_name || 'Agente'}`}>
+                                                            }} title={`Vinculado por ID a la plantilla (${linked.rank_name || 'Agente'}). La placa se actualiza sola si cambia en la plantilla.`}>
                                                                 🔗 {linked.rank_name || 'Plantilla'}
                                                             </span>
-                                                        );
-                                                    }
-                                                    return null;
-                                                })()}
-                                            </div>
-                                        </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Action Buttons in Horizontal Group */}
@@ -906,18 +980,26 @@ function IASanctions() {
 
                                     {selectedPlantillaAgent ? (
                                         <div style={{
-                                            marginTop: '6px',
+                                            marginTop: '8px',
                                             background: 'rgba(16, 185, 129, 0.15)',
                                             border: '1px solid rgba(16, 185, 129, 0.4)',
-                                            borderRadius: '6px',
-                                            padding: '4px 8px',
-                                            fontSize: '0.72rem',
+                                            borderRadius: '8px',
+                                            padding: '8px 12px',
+                                            fontSize: '0.78rem',
                                             color: '#6ee7b7',
                                             display: 'flex',
                                             alignItems: 'center',
-                                            justifyContent: 'space-between'
+                                            justifyContent: 'space-between',
+                                            gap: '8px'
                                         }}>
-                                            <span>🔗 {language === 'es' ? 'Vinculado a Plantilla:' : 'Linked to Roster:'} #{selectedPlantillaAgent.no_placa} {selectedPlantillaAgent.nombre} {selectedPlantillaAgent.apellido}</span>
+                                            <div>
+                                                <div style={{ fontWeight: 800 }}>
+                                                    🔗 {language === 'es' ? 'Vinculado a Plantilla:' : 'Linked to Roster:'} #{selectedPlantillaAgent.no_placa || 'S/P'} · {selectedPlantillaAgent.nombre} {selectedPlantillaAgent.apellido} ({selectedPlantillaAgent.rank_name || 'Agente'})
+                                                </div>
+                                                <div style={{ fontSize: '0.7rem', color: '#a7f3d0', marginTop: '2px' }}>
+                                                    {language === 'es' ? 'Ligado permanentemente por ID de agente. No requiere placa manual; si cambia en la plantilla se actualizará solo.' : 'Permanently linked by Agent ID. Placa changes in roster update automatically.'}
+                                                </div>
+                                            </div>
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -925,7 +1007,7 @@ function IASanctions() {
                                                     setFormData(prev => ({ ...prev, plantilla_agent_id: null }));
                                                     setAgentPickerSearch('');
                                                 }}
-                                                style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '0.75rem' }}
+                                                style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 800 }}
                                             >
                                                 ✕
                                             </button>
@@ -938,36 +1020,38 @@ function IASanctions() {
                                 </div>
 
                                 <div className="mac-form-group">
-                                    <label className="mac-form-label">{language === 'es' ? 'Nombre' : 'First Name'}</label>
+                                    <label className="mac-form-label">{language === 'es' ? 'Nombre' : 'First Name'} *</label>
                                     <input
                                         className="mac-form-input"
                                         required
                                         placeholder={language === 'es' ? 'Ej. John' : 'e.g. John'}
                                         value={formData.nombre}
                                         onChange={e => setFormData({ ...formData, nombre: e.target.value })}
+                                        disabled={Boolean(selectedPlantillaAgent)}
                                         autoFocus
                                     />
                                 </div>
 
                                 <div className="mac-form-group">
-                                    <label className="mac-form-label">{language === 'es' ? 'Apellido' : 'Last Name'}</label>
+                                    <label className="mac-form-label">{language === 'es' ? 'Apellido' : 'Last Name'} *</label>
                                     <input
                                         className="mac-form-input"
                                         required
                                         placeholder={language === 'es' ? 'Ej. Doe' : 'e.g. Doe'}
                                         value={formData.apellido}
                                         onChange={e => setFormData({ ...formData, apellido: e.target.value })}
+                                        disabled={Boolean(selectedPlantillaAgent)}
                                     />
                                 </div>
 
                                 <div className="mac-form-group">
-                                    <label className="mac-form-label">{language === 'es' ? 'Número de Placa' : 'Badge Number'}</label>
+                                    <label className="mac-form-label">{language === 'es' ? 'Número de Placa (Opcional)' : 'Badge Number (Optional)'}</label>
                                     <input
                                         className="mac-form-input"
-                                        required
-                                        placeholder={language === 'es' ? 'Ej. 742' : 'e.g. 742'}
-                                        value={formData.no_placa}
+                                        placeholder={language === 'es' ? (selectedPlantillaAgent ? `Sincronizada: #${selectedPlantillaAgent.no_placa || 'S/P'}` : 'Ej. 742 (opcional)') : 'e.g. 742 (optional)'}
+                                        value={selectedPlantillaAgent ? (selectedPlantillaAgent.no_placa || 'S/P') : formData.no_placa}
                                         onChange={e => setFormData({ ...formData, no_placa: e.target.value })}
+                                        disabled={Boolean(selectedPlantillaAgent)}
                                     />
                                 </div>
                             </div>

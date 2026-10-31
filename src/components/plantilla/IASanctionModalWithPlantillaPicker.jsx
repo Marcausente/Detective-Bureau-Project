@@ -89,12 +89,12 @@ export default function IASanctionModalWithPlantillaPicker({
         setErrorMsg(null);
         setSuccessNotice(null);
 
-        const nombreVal = formData.nombre.trim();
-        const apellidoVal = formData.apellido.trim();
-        const noPlacaVal = formData.no_placa.trim();
+        const nombreVal = selectedAgent ? (selectedAgent.nombre || '') : formData.nombre.trim();
+        const apellidoVal = selectedAgent ? (selectedAgent.apellido || '') : formData.apellido.trim();
+        const noPlacaVal = selectedAgent ? (selectedAgent.no_placa || 'S/P') : formData.no_placa.trim();
 
-        if (!nombreVal && !apellidoVal) {
-            setErrorMsg('Debes especificar al menos el nombre o apellido del oficial sancionado.');
+        if (!selectedAgent && !nombreVal && !apellidoVal) {
+            setErrorMsg('Debes seleccionar un oficial de la plantilla o escribir su nombre/apellido.');
             return;
         }
 
@@ -109,40 +109,29 @@ export default function IASanctionModalWithPlantillaPicker({
             // 1. Encontrar o crear perfil de sujeto en Asuntos Internos (ia_subject_profiles)
             let subjectProfileId = null;
 
-            // Intentar buscar por plantilla_agent_id si fue seleccionado de la plantilla
+            // Prioridad absoluta: buscar por plantilla_agent_id
             if (selectedAgent?.id) {
                 const { data: existingByAgent } = await supabase
                     .from('ia_subject_profiles')
-                    .select('id, plantilla_agent_id')
+                    .select('id, plantilla_agent_id, no_placa')
                     .eq('plantilla_agent_id', selectedAgent.id)
                     .maybeSingle();
 
                 if (existingByAgent) {
                     subjectProfileId = existingByAgent.id;
+                    // Mantener sincronizada la placa y nombre en el perfil por si cambió en la plantilla
+                    await supabase
+                        .from('ia_subject_profiles')
+                        .update({
+                            nombre: selectedAgent.nombre || 'Oficial',
+                            apellido: selectedAgent.apellido || '',
+                            no_placa: selectedAgent.no_placa || 'S/P'
+                        })
+                        .eq('id', existingByAgent.id);
                 }
             }
 
-            // Si aún no se encontró, buscar por placa si está disponible
-            if (!subjectProfileId && noPlacaVal) {
-                const { data: existingByPlaca } = await supabase
-                    .from('ia_subject_profiles')
-                    .select('id, plantilla_agent_id')
-                    .eq('no_placa', noPlacaVal)
-                    .maybeSingle();
-
-                if (existingByPlaca) {
-                    subjectProfileId = existingByPlaca.id;
-                    // Si se seleccionó de la plantilla y el perfil no estaba vinculado, lo vinculamos ahora
-                    if (selectedAgent?.id && !existingByPlaca.plantilla_agent_id) {
-                        await supabase
-                            .from('ia_subject_profiles')
-                            .update({ plantilla_agent_id: selectedAgent.id })
-                            .eq('id', existingByPlaca.id);
-                    }
-                }
-            }
-
-            // Si aún no se encontró, buscar por nombre y apellido
+            // Si aún no se encontró y hay agente seleccionado o nombre, buscar por nombre
             if (!subjectProfileId && nombreVal && apellidoVal) {
                 const { data: existingByName } = await supabase
                     .from('ia_subject_profiles')
@@ -153,19 +142,44 @@ export default function IASanctionModalWithPlantillaPicker({
 
                 if (existingByName) {
                     subjectProfileId = existingByName.id;
-                    if (selectedAgent?.id && !existingByName.plantilla_agent_id) {
+                    if (selectedAgent?.id) {
                         await supabase
                             .from('ia_subject_profiles')
-                            .update({ plantilla_agent_id: selectedAgent.id })
+                            .update({
+                                plantilla_agent_id: selectedAgent.id,
+                                no_placa: selectedAgent.no_placa || 'S/P'
+                            })
                             .eq('id', existingByName.id);
                     }
                 }
             }
 
-            // Si no existe, creamos el perfil en Asuntos Internos
+            // Si aún no se encontró, buscar por placa si está disponible
+            if (!subjectProfileId && noPlacaVal && noPlacaVal !== 'S/P') {
+                const { data: existingByPlaca } = await supabase
+                    .from('ia_subject_profiles')
+                    .select('id, plantilla_agent_id')
+                    .eq('no_placa', noPlacaVal)
+                    .maybeSingle();
+
+                if (existingByPlaca) {
+                    subjectProfileId = existingByPlaca.id;
+                    if (selectedAgent?.id) {
+                        await supabase
+                            .from('ia_subject_profiles')
+                            .update({
+                                plantilla_agent_id: selectedAgent.id,
+                                no_placa: selectedAgent.no_placa || 'S/P'
+                            })
+                            .eq('id', existingByPlaca.id);
+                    }
+                }
+            }
+
+            // Si no existe perfil en Asuntos Internos, crearlo
             if (!subjectProfileId) {
                 const newProfilePayload = {
-                    nombre: nombreVal || 'Agente',
+                    nombre: nombreVal || 'Oficial',
                     apellido: apellidoVal || 'Sin Apellido',
                     no_placa: noPlacaVal || 'S/P',
                     plantilla_agent_id: selectedAgent?.id || null
@@ -178,7 +192,7 @@ export default function IASanctionModalWithPlantillaPicker({
                     .single();
 
                 if (profileErr) {
-                    // Fallback RPC create_ia_subject_profile si tabla no permite insert directo
+                    // Fallback RPC create_ia_subject_profile
                     const { data: rpcId, error: rpcErr } = await supabase.rpc('create_ia_subject_profile', {
                         p_nombre: newProfilePayload.nombre,
                         p_apellido: newProfilePayload.apellido,
@@ -186,6 +200,13 @@ export default function IASanctionModalWithPlantillaPicker({
                     });
                     if (rpcErr) throw rpcErr;
                     subjectProfileId = rpcId;
+
+                    if (selectedAgent?.id && subjectProfileId) {
+                        await supabase
+                            .from('ia_subject_profiles')
+                            .update({ plantilla_agent_id: selectedAgent.id })
+                            .eq('id', subjectProfileId);
+                    }
                 } else {
                     subjectProfileId = newProfile.id;
                 }
@@ -524,37 +545,91 @@ export default function IASanctionModalWithPlantillaPicker({
                                 )}
                             </div>
 
-                            {/* Status indicator badge */}
+                            {/* Status indicator / Selected Agent Card */}
                             <div style={{ marginTop: '0.75rem' }}>
                                 {selectedAgent ? (
                                     <div style={{
-                                        background: 'rgba(16, 185, 129, 0.15)',
-                                        border: '1px solid rgba(16, 185, 129, 0.4)',
-                                        borderRadius: '8px',
-                                        padding: '0.5rem 0.85rem',
+                                        background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98))',
+                                        border: '1.5px solid rgba(59, 130, 246, 0.5)',
+                                        borderRadius: '12px',
+                                        padding: '0.85rem 1rem',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        justifyContent: 'space-between'
+                                        justifyContent: 'space-between',
+                                        gap: '1rem',
+                                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)'
                                     }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ fontSize: '1rem' }}>🔗</span>
-                                            <span style={{ fontSize: '0.82rem', color: '#6ee7b7', fontWeight: 700 }}>
-                                                Vinculado a plantilla: [{selectedAgent.rank_name || 'Agente'}] {selectedAgent.nombre} {selectedAgent.apellido} (#{selectedAgent.no_placa || 'S/P'})
-                                            </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                                            <div style={{
+                                                width: '44px',
+                                                height: '44px',
+                                                borderRadius: '12px',
+                                                background: 'rgba(59, 130, 246, 0.2)',
+                                                border: '1.5px solid rgba(59, 130, 246, 0.5)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '1.25rem',
+                                                fontWeight: 800,
+                                                color: '#93c5fd',
+                                                flexShrink: 0
+                                            }}>
+                                                🛡️
+                                            </div>
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                    <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
+                                                        {selectedAgent.nombre} {selectedAgent.apellido}
+                                                    </span>
+                                                    <span style={{
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 700,
+                                                        background: 'rgba(245, 158, 11, 0.15)',
+                                                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                                                        color: '#fbbf24',
+                                                        padding: '1px 7px',
+                                                        borderRadius: '4px'
+                                                    }}>
+                                                        Placa actual: #{selectedAgent.no_placa || 'S/P'}
+                                                    </span>
+                                                    {selectedAgent.rank_name && (
+                                                        <span style={{
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 700,
+                                                            background: 'rgba(255, 255, 255, 0.08)',
+                                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                                            color: '#cbd5e1',
+                                                            padding: '1px 7px',
+                                                            borderRadius: '4px'
+                                                        }}>
+                                                            {selectedAgent.rank_name}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div style={{ fontSize: '0.72rem', color: '#93c5fd', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <span>🔗</span>
+                                                    <span>Vinculado permanentemente por ID. No requiere placa manual; si cambia en la plantilla se actualizará solo.</span>
+                                                </div>
+                                            </div>
                                         </div>
+
                                         <button
                                             type="button"
                                             onClick={handleClearSelection}
                                             style={{
-                                                background: 'transparent',
-                                                border: 'none',
+                                                background: 'rgba(239, 68, 68, 0.15)',
+                                                border: '1px solid rgba(239, 68, 68, 0.35)',
                                                 color: '#f87171',
-                                                fontSize: '0.72rem',
+                                                borderRadius: '8px',
+                                                padding: '6px 12px',
+                                                fontSize: '0.75rem',
                                                 fontWeight: 800,
-                                                cursor: 'pointer'
+                                                cursor: 'pointer',
+                                                whiteSpace: 'nowrap'
                                             }}
+                                            title="Cambiar oficial seleccionado o escribir manualmente"
                                         >
-                                            Desvincular
+                                            Cambiar Oficial
                                         </button>
                                     </div>
                                 ) : (
@@ -570,9 +645,9 @@ export default function IASanctionModalWithPlantillaPicker({
                                         <span style={{ fontSize: '1rem' }}>ℹ️</span>
                                         <span style={{ fontSize: '0.78rem', color: '#fef08a' }}>
                                             {searchTerm.trim() ? (
-                                                `Perfil independiente: Se creará un expediente en Asuntos Internos para "${searchTerm.trim()}" sin vincular a la plantilla.`
+                                                `Perfil sin vincular: Se creará un expediente en Asuntos Internos para "${searchTerm.trim()}". Para vincularlo a la plantilla, selecciónalo de la lista desplegable superior.`
                                             ) : (
-                                                'Puedes buscar un agente de la plantilla o escribir un nombre manualmente para un perfil libre en Asuntos Internos.'
+                                                'Selecciona un oficial de la plantilla para vincular la sanción de forma permanente sin depender del número de placa.'
                                             )}
                                         </span>
                                     </div>
@@ -580,73 +655,83 @@ export default function IASanctionModalWithPlantillaPicker({
                             </div>
                         </div>
 
-                        {/* Officer Personal Data Inputs (Editable in case unlinked or overrides) */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.85rem' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                    Nombre *
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="Nombre del oficial"
-                                    value={formData.nombre}
-                                    onChange={e => setFormData({ ...formData, nombre: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        background: 'rgba(15, 23, 42, 0.8)',
-                                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                                        borderRadius: '8px',
-                                        padding: '0.5rem 0.75rem',
-                                        color: '#f8fafc',
-                                        fontSize: '0.85rem'
-                                    }}
-                                />
-                            </div>
+                        {/* Officer Personal Data Inputs (Shown ONLY if NOT linked to a roster agent) */}
+                        {!selectedAgent && (
+                            <div style={{
+                                background: 'rgba(255, 255, 255, 0.03)',
+                                border: '1px dashed rgba(255, 255, 255, 0.12)',
+                                borderRadius: '10px',
+                                padding: '0.85rem',
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                                gap: '0.85rem'
+                            }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                        Nombre *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required={!selectedAgent}
+                                        placeholder="Nombre del oficial"
+                                        value={formData.nombre}
+                                        onChange={e => setFormData({ ...formData, nombre: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            background: 'rgba(15, 23, 42, 0.8)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '8px',
+                                            padding: '0.5rem 0.75rem',
+                                            color: '#f8fafc',
+                                            fontSize: '0.85rem'
+                                        }}
+                                    />
+                                </div>
 
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                    Apellido *
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="Apellido del oficial"
-                                    value={formData.apellido}
-                                    onChange={e => setFormData({ ...formData, apellido: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        background: 'rgba(15, 23, 42, 0.8)',
-                                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                                        borderRadius: '8px',
-                                        padding: '0.5rem 0.75rem',
-                                        color: '#f8fafc',
-                                        fontSize: '0.85rem'
-                                    }}
-                                />
-                            </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                        Apellido *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required={!selectedAgent}
+                                        placeholder="Apellido del oficial"
+                                        value={formData.apellido}
+                                        onChange={e => setFormData({ ...formData, apellido: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            background: 'rgba(15, 23, 42, 0.8)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '8px',
+                                            padding: '0.5rem 0.75rem',
+                                            color: '#f8fafc',
+                                            fontSize: '0.85rem'
+                                        }}
+                                    />
+                                </div>
 
-                            <div>
-                                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>
-                                    Nº Placa
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="Ej: 701"
-                                    value={formData.no_placa}
-                                    onChange={e => setFormData({ ...formData, no_placa: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        background: 'rgba(15, 23, 42, 0.8)',
-                                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                                        borderRadius: '8px',
-                                        padding: '0.5rem 0.75rem',
-                                        color: '#f8fafc',
-                                        fontSize: '0.85rem'
-                                    }}
-                                />
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                        Nº Placa (Opcional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Ej: 701 (opcional)"
+                                        value={formData.no_placa}
+                                        onChange={e => setFormData({ ...formData, no_placa: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            background: 'rgba(15, 23, 42, 0.8)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '8px',
+                                            padding: '0.5rem 0.75rem',
+                                            color: '#f8fafc',
+                                            fontSize: '0.85rem'
+                                        }}
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Sanction Type and Date */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
