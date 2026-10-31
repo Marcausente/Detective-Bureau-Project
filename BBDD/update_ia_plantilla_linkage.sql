@@ -1,30 +1,23 @@
 -- ==============================================================================
--- ACTUALIZACIÓN DE VINCULACIÓN ENTRE ASUNTOS INTERNOS (IA) Y PLANTILLA DE AGENTES
--- Permite que las sanciones y perfiles de Asuntos Internos estén ligados al ID
+-- ACTUALIZACION DE VINCULACION ENTRE ASUNTOS INTERNOS (IA) Y PLANTILLA DE AGENTES
+-- Permite que las sanciones y perfiles de Asuntos Internos esten ligados al ID
 -- inmutable del agente en la plantilla, haciendo que los cambios de placa o rango
--- en la plantilla se sincronicen y reflejen automáticamente.
+-- en la plantilla se sincronicen y reflejen automaticamente.
 -- ==============================================================================
 
--- 1. Asegurar columna plantilla_agent_id e índice en ia_subject_profiles
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_schema = 'public' 
-          AND table_name = 'ia_subject_profiles' 
-          AND column_name = 'plantilla_agent_id'
-    ) THEN
-        ALTER TABLE public.ia_subject_profiles 
-        ADD COLUMN plantilla_agent_id UUID REFERENCES public.plantilla_agents(id) ON DELETE SET NULL;
-    END IF;
-END $$;
+-- 1. Asegurar columna plantilla_agent_id e indice en ia_subject_profiles
+ALTER TABLE public.ia_subject_profiles 
+ADD COLUMN IF NOT EXISTS plantilla_agent_id UUID REFERENCES public.plantilla_agents(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_ia_subject_profiles_plantilla_agent 
 ON public.ia_subject_profiles(plantilla_agent_id);
 
 -- 2. Actualizar get_ia_subjects_full para incluir plantilla_agent_id
 CREATE OR REPLACE FUNCTION public.get_ia_subjects_full()
-RETURNS JSON AS $$
+RETURNS JSON 
+LANGUAGE plpgsql 
+SECURITY DEFINER 
+AS $$
 DECLARE
   v_result JSON;
 BEGIN
@@ -58,23 +51,25 @@ BEGIN
 
   RETURN COALESCE(v_result, '[]'::json);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 GRANT EXECUTE ON FUNCTION public.get_ia_subjects_full() TO authenticated, service_role;
 
 -- 3. Funciones create_ia_subject_profile (con y sin plantilla_agent_id)
--- Eliminar versiones anteriores de forma limpia
 DROP FUNCTION IF EXISTS public.create_ia_subject_profile(TEXT, TEXT, TEXT, UUID);
 DROP FUNCTION IF EXISTS public.create_ia_subject_profile(TEXT, TEXT, TEXT);
 
--- Función principal con 4 parámetros
+-- Funcion principal con 4 parametros
 CREATE OR REPLACE FUNCTION public.create_ia_subject_profile(
   p_nombre TEXT,
   p_apellido TEXT,
   p_no_placa TEXT,
   p_plantilla_agent_id UUID
 )
-RETURNS UUID AS $$
+RETURNS UUID 
+LANGUAGE plpgsql 
+SECURITY DEFINER 
+AS $$
 DECLARE
   v_id UUID;
 BEGIN
@@ -83,21 +78,24 @@ BEGIN
   RETURNING id INTO v_id;
   RETURN v_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 GRANT EXECUTE ON FUNCTION public.create_ia_subject_profile(TEXT, TEXT, TEXT, UUID) TO authenticated, service_role;
 
--- Sobrecarga de compatibilidad con 3 parámetros para código existente
+-- Sobrecarga de compatibilidad con 3 parametros para llamadas existentes
 CREATE OR REPLACE FUNCTION public.create_ia_subject_profile(
   p_nombre TEXT,
   p_apellido TEXT,
   p_no_placa TEXT
 )
-RETURNS UUID AS $$
+RETURNS UUID 
+LANGUAGE plpgsql 
+SECURITY DEFINER 
+AS $$
 BEGIN
   RETURN public.create_ia_subject_profile(p_nombre, p_apellido, p_no_placa, NULL::UUID);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 GRANT EXECUTE ON FUNCTION public.create_ia_subject_profile(TEXT, TEXT, TEXT) TO authenticated, service_role;
 
@@ -105,7 +103,7 @@ GRANT EXECUTE ON FUNCTION public.create_ia_subject_profile(TEXT, TEXT, TEXT) TO 
 DROP FUNCTION IF EXISTS public.update_ia_subject_profile(UUID, TEXT, TEXT, TEXT, UUID);
 DROP FUNCTION IF EXISTS public.update_ia_subject_profile(UUID, TEXT, TEXT, TEXT);
 
--- Función principal con 5 parámetros
+-- Funcion principal con 5 parametros
 CREATE OR REPLACE FUNCTION public.update_ia_subject_profile(
   p_id UUID,
   p_nombre TEXT,
@@ -113,7 +111,10 @@ CREATE OR REPLACE FUNCTION public.update_ia_subject_profile(
   p_no_placa TEXT,
   p_plantilla_agent_id UUID
 )
-RETURNS VOID AS $$
+RETURNS VOID 
+LANGUAGE plpgsql 
+SECURITY DEFINER 
+AS $$
 BEGIN
   UPDATE public.ia_subject_profiles
   SET 
@@ -123,21 +124,24 @@ BEGIN
     plantilla_agent_id = COALESCE(p_plantilla_agent_id, plantilla_agent_id)
   WHERE id = p_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 GRANT EXECUTE ON FUNCTION public.update_ia_subject_profile(UUID, TEXT, TEXT, TEXT, UUID) TO authenticated, service_role;
 
--- Sobrecarga de compatibilidad con 4 parámetros
+-- Sobrecarga de compatibilidad con 4 parametros
 CREATE OR REPLACE FUNCTION public.update_ia_subject_profile(
   p_id UUID,
   p_nombre TEXT,
   p_apellido TEXT,
   p_no_placa TEXT
 )
-RETURNS VOID AS $$
+RETURNS VOID 
+LANGUAGE plpgsql 
+SECURITY DEFINER 
+AS $$
 BEGIN
   PERFORM public.update_ia_subject_profile(p_id, p_nombre, p_apellido, p_no_placa, NULL::UUID);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 GRANT EXECUTE ON FUNCTION public.update_ia_subject_profile(UUID, TEXT, TEXT, TEXT) TO authenticated, service_role;
