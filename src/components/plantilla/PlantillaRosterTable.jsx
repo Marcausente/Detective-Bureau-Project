@@ -3,6 +3,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import {
     calculatePromotionDays,
     sortAgentsByRankHierarchy,
+    sortAgentsByBadge,
     updateAgentsOrder,
     savePlantillaAgent,
     deletePlantillaAgent,
@@ -72,11 +73,9 @@ export default function PlantillaRosterTable({
         setShowAgentModal(true);
     };
 
-    // Save agent handler with AUTOMATIC hierarchical reordering when rank changes
+    // Save agent handler (ordered by badge by default for new agents, manual positions preserved on edit)
     const handleSaveAgent = async (agentData) => {
-        const prevAgent = agents.find(a => a.id === agentData.id);
-        const rankChanged = !prevAgent || (prevAgent.rank_name || '').trim().toLowerCase() !== (agentData.rank_name || '').trim().toLowerCase();
-
+        const isNewAgent = !agentData.id;
         const saved = await savePlantillaAgent(agentData);
         let updatedList;
         if (agentData.id) {
@@ -85,17 +84,19 @@ export default function PlantillaRosterTable({
             updatedList = [...agents, saved];
         }
 
-        // Si el rango cambió o es un nuevo agente, ordenar jerárquicamente de inmediato
-        if (rankChanged) {
-            const sorted = sortAgentsByRankHierarchy(updatedList, ranks);
+        // Si es un nuevo agente, ordenar por número de placa por defecto
+        if (isNewAgent) {
+            const sorted = sortAgentsByBadge(updatedList);
             if (onAgentsUpdated) onAgentsUpdated(sorted);
             try {
                 const persisted = await updateAgentsOrder(sorted);
                 if (onAgentsUpdated) onAgentsUpdated(persisted);
             } catch (err) {
-                console.error('Error auto-ordering agents by hierarchy:', err);
+                console.error('Error auto-ordering agents by badge:', err);
             }
         } else {
+            // En edición, preservar la posición actual del agente
+            updatedList = updatedList.map((item, idx) => ({ ...item, order_index: idx + 1 }));
             if (onAgentsUpdated) onAgentsUpdated(updatedList);
             try {
                 const persisted = await updateAgentsOrder(updatedList);
@@ -208,7 +209,19 @@ export default function PlantillaRosterTable({
         }
     };
 
-    // Internal hierarchical sorting (applied automatically on rank update)
+    // Sort by badge number (# placa) ascending
+    const handleSortByBadge = async () => {
+        const sorted = sortAgentsByBadge(agents);
+        if (onAgentsUpdated) onAgentsUpdated(sorted);
+        try {
+            const persisted = await updateAgentsOrder(sorted);
+            if (onAgentsUpdated) onAgentsUpdated(persisted);
+        } catch (e) {
+            console.error('Error sorting agents by badge:', e);
+        }
+    };
+
+    // Optional manual hierarchical sorting (only if user explicitly clicks in rank manager)
     const handleSortByRankHierarchy = async (customRanks) => {
         const effectiveRanks = customRanks || ranks;
         const sorted = sortAgentsByRankHierarchy(agents, effectiveRanks);
@@ -221,10 +234,9 @@ export default function PlantillaRosterTable({
         }
     };
 
-    // Rank update handler (reorders agents to match new rank hierarchy)
+    // Rank update handler (preserves manual agent positions)
     const handleRanksUpdated = async (newRanks) => {
         if (onRanksUpdated) onRanksUpdated(newRanks);
-        await handleSortByRankHierarchy(newRanks);
     };
 
     // Quick toggle activity status
@@ -742,6 +754,29 @@ export default function PlantillaRosterTable({
                         <span>Añadir Sección / Divisoria</span>
                     </button>
 
+                    {/* Sort by Badge */}
+                    <button
+                        type="button"
+                        onClick={handleSortByBadge}
+                        style={{
+                            background: 'rgba(56, 189, 248, 0.15)',
+                            border: '1px solid rgba(56, 189, 248, 0.4)',
+                            color: '#7dd3fc',
+                            padding: '0.32rem 0.65rem',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                            fontSize: '0.74rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                        }}
+                        title="Ordenar agentes por número de placa (ascendente) por defecto"
+                    >
+                        <span>🔢</span>
+                        <span>Ordenar por Placa</span>
+                    </button>
+
                     {/* Manage Ranks */}
                     <button
                         type="button"
@@ -879,8 +914,26 @@ export default function PlantillaRosterTable({
                                 <th style={{ padding: '3px 3px', color: '#cbd5e1', fontSize: '0.67rem', fontWeight: 800, textTransform: 'uppercase', width: '60px', minWidth: '52px' }}>
                                     Nombre
                                 </th>
-                                <th style={{ padding: '3px 1px', textAlign: 'center', color: '#cbd5e1', fontSize: '0.67rem', fontWeight: 800, textTransform: 'uppercase', width: '38px', minWidth: '36px' }}>
-                                    # Placa
+                                <th
+                                    onClick={handleSortByBadge}
+                                    style={{
+                                        padding: '3px 1px',
+                                        textAlign: 'center',
+                                        color: '#60a5fa',
+                                        fontSize: '0.67rem',
+                                        fontWeight: 800,
+                                        textTransform: 'uppercase',
+                                        width: '42px',
+                                        minWidth: '38px',
+                                        cursor: 'pointer',
+                                        userSelect: 'none'
+                                    }}
+                                    title="Clic para ordenar por número de placa (ascendente)"
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}>
+                                        <span># Placa</span>
+                                        <span style={{ fontSize: '0.58rem', opacity: 0.8 }}>⇅</span>
+                                    </div>
                                 </th>
                                 <th style={{ padding: '3px 4px', color: '#cbd5e1', fontSize: '0.67rem', fontWeight: 800, textTransform: 'uppercase', width: '130px', minWidth: '120px' }}>
                                     Rango

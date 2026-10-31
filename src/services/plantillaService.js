@@ -945,6 +945,73 @@ export function sortAgentsByRankHierarchy(agents, ranks) {
 }
 
 /**
+ * Sorts agents by badge number (# placa) ascending.
+ * If dividers exist, sorts agents within their respective sections.
+ */
+export function sortAgentsByBadge(agents) {
+    const parseBadgeNum = (placa) => {
+        if (!placa) return NaN;
+        const clean = String(placa).replace(/\D/g, '');
+        return clean.length > 0 ? parseInt(clean, 10) : NaN;
+    };
+
+    const sortSubgroup = (group) => {
+        return [...group].sort((a, b) => {
+            const numA = parseBadgeNum(a.no_placa);
+            const numB = parseBadgeNum(b.no_placa);
+            const hasNumA = !isNaN(numA);
+            const hasNumB = !isNaN(numB);
+
+            if (hasNumA && hasNumB) {
+                if (numA !== numB) return numA - numB;
+            } else if (hasNumA && !hasNumB) {
+                return -1;
+            } else if (!hasNumA && hasNumB) {
+                return 1;
+            }
+
+            // Fallback: Placa string
+            const strA = (a.no_placa || '').trim();
+            const strB = (b.no_placa || '').trim();
+            if (strA !== strB) {
+                return strA.localeCompare(strB);
+            }
+
+            // Fallback: Apellido, Nombre
+            const nameA = `${a.apellido || ''} ${a.nombre || ''}`.trim().toLowerCase();
+            const nameB = `${b.apellido || ''} ${b.nombre || ''}`.trim().toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+    };
+
+    const hasDividers = agents.some(a => a.is_divider);
+    if (!hasDividers) {
+        return sortSubgroup(agents).map((a, index) => ({ ...a, order_index: index + 1 }));
+    }
+
+    const result = [];
+    let currentSection = [];
+
+    agents.forEach(item => {
+        if (item.is_divider) {
+            if (currentSection.length > 0) {
+                result.push(...sortSubgroup(currentSection));
+                currentSection = [];
+            }
+            result.push(item);
+        } else {
+            currentSection.push(item);
+        }
+    });
+
+    if (currentSection.length > 0) {
+        result.push(...sortSubgroup(currentSection));
+    }
+
+    return result.map((a, index) => ({ ...a, order_index: index + 1 }));
+}
+
+/**
  * Fetches all IA Subject Profiles and active sanctions map
  * Returns maps to look up active sanction info by:
  * 1) plantilla_agent_id
