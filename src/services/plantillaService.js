@@ -949,133 +949,151 @@ export function sortAgentsByRankHierarchy(agents, ranks) {
  * Intelligently places agents in their matching section (Jefatura, Comisionado, Sargentos, Deputy, Trainee)
  * and sorts agents within each section by # placa.
  */
-export function sortAgentsByBadge(agents) {
-    const parseBadgeNum = (placa) => {
-        if (!placa) return NaN;
-        const clean = String(placa).replace(/\D/g, '');
-        return clean.length > 0 ? parseInt(clean, 10) : NaN;
-    };
+/**
+ * Helper to parse numerical badge number from placa string
+ */
+export const parseBadgeNum = (placa) => {
+    if (placa === null || placa === undefined) return NaN;
+    const clean = String(placa).replace(/\D/g, '');
+    return clean.length > 0 ? parseInt(clean, 10) : NaN;
+};
 
-    const sortSubgroup = (group) => {
-        return [...group].sort((a, b) => {
-            const numA = parseBadgeNum(a.no_placa);
-            const numB = parseBadgeNum(b.no_placa);
-            const hasNumA = !isNaN(numA);
-            const hasNumB = !isNaN(numB);
+/**
+ * Helper to sort a subgroup of agents by badge number (numeric first, then string, then name)
+ */
+export const sortSubgroup = (group) => {
+    return [...group].sort((a, b) => {
+        const numA = parseBadgeNum(a.no_placa);
+        const numB = parseBadgeNum(b.no_placa);
+        const hasNumA = !isNaN(numA);
+        const hasNumB = !isNaN(numB);
 
-            if (hasNumA && hasNumB) {
-                if (numA !== numB) return numA - numB;
-            } else if (hasNumA && !hasNumB) {
-                return -1;
-            } else if (!hasNumA && hasNumB) {
-                return 1;
-            }
+        if (hasNumA && hasNumB) {
+            if (numA !== numB) return numA - numB;
+        } else if (hasNumA && !hasNumB) {
+            return -1;
+        } else if (!hasNumA && hasNumB) {
+            return 1;
+        }
 
-            // Fallback: Placa string
-            const strA = (a.no_placa || '').trim();
-            const strB = (b.no_placa || '').trim();
-            if (strA !== strB) {
-                return strA.localeCompare(strB);
-            }
+        // Fallback: Placa string
+        const strA = (a.no_placa || '').trim();
+        const strB = (b.no_placa || '').trim();
+        if (strA !== strB) {
+            return strA.localeCompare(strB);
+        }
 
-            // Fallback: Apellido, Nombre
-            const nameA = `${a.apellido || ''} ${a.nombre || ''}`.trim().toLowerCase();
-            const nameB = `${b.apellido || ''} ${b.nombre || ''}`.trim().toLowerCase();
-            return nameA.localeCompare(nameB);
-        });
-    };
+        // Fallback: Apellido, Nombre
+        const nameA = `${a.apellido || ''} ${a.nombre || ''}`.trim().toLowerCase();
+        const nameB = `${b.apellido || ''} ${b.nombre || ''}`.trim().toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+};
 
-    const dividers = agents.filter(item => item.is_divider);
-    if (dividers.length === 0) {
-        return sortSubgroup(agents).map((a, index) => ({ ...a, order_index: index + 1 }));
+/**
+ * Finds the divider section whose established members have the badge number
+ * closest to targetPlaca.
+ * 
+ * Rules:
+ * 1. Always groups with the block that has the closest badge number (|target - existing|).
+ * 2. Ties are broken "desde arriba" (preferring the established badge <= target, or earlier block).
+ * 3. Graceful fallback if divider is empty or badge is non-numeric.
+ */
+export function findClosestDividerForBadge(targetPlaca, dividers = [], dividerSections = {}, fallbackRank = '') {
+    if (isNaN(targetPlaca)) {
+        if (fallbackRank) {
+            const rankLow = fallbackRank.toLowerCase();
+            const matched = dividers.find(d => {
+                const title = (d.title || d.nombre || '').toLowerCase();
+                return title && (rankLow.includes(title) || title.includes(rankLow));
+            });
+            if (matched) return matched.id;
+        }
+        return dividers[0]?.id || null;
     }
 
-    // Helper to match an agent to a section divider based on rank and badge number
-    const matchDividerForAgent = (agent) => {
-        const rank = (agent.rank_name || '').toLowerCase();
-        const placa = parseBadgeNum(agent.no_placa);
+    let bestDistance = Infinity;
+    let bestDividerId = null;
+    let bestRefPlate = null;
 
-        // 1. Match by rank keywords
-        if (rank.includes('sargento') || rank.includes('sergeant')) {
-            const d = dividers.find(div => (div.title || div.nombre || '').toLowerCase().includes('sargento'));
-            if (d) return d.id;
-        }
-        if (rank.includes('trainee') || rank.includes('cadete')) {
-            const d = dividers.find(div => {
-                const t = (div.title || div.nombre || '').toLowerCase();
-                return t.includes('trainee') || t.includes('cadete');
-            });
-            if (d) return d.id;
-        }
-        if (rank.includes('deputy') && !rank.includes('trainee')) {
-            const d = dividers.find(div => {
-                const t = (div.title || div.nombre || '').toLowerCase();
-                return t.includes('deputy') && !t.includes('trainee') && !t.includes('cadete');
-            });
-            if (d) return d.id;
-        }
-        if (rank.includes('teniente') || rank.includes('capitán') || rank.includes('capitan')) {
-            const d = dividers.find(div => {
-                const t = (div.title || div.nombre || '').toLowerCase();
-                return t.includes('comisionado') || t.includes('command') || t.includes('mando');
-            });
-            if (d) return d.id;
-        }
-        if (rank.includes('sheriff') && !rank.includes('deputy')) {
-            const d = dividers.find(div => {
-                const t = (div.title || div.nombre || '').toLowerCase();
-                return t.includes('jefatura');
-            });
-            if (d) return d.id;
-        }
+    dividers.forEach((div, divIdx) => {
+        const sectionAgents = dividerSections[div.id] || [];
+        sectionAgents.forEach(agent => {
+            const plate = parseBadgeNum(agent.no_placa);
+            if (isNaN(plate)) return;
 
-        // 2. Match by placa ranges if rank didn't match
-        if (!isNaN(placa)) {
-            if (placa >= 900) {
-                const d = dividers.find(div => (div.title || div.nombre || '').toLowerCase().includes('trainee'));
-                if (d) return d.id;
-            } else if (placa >= 800) {
-                const d = dividers.find(div => {
-                    const t = (div.title || div.nombre || '').toLowerCase();
-                    return t.includes('deputy') && !t.includes('trainee');
-                });
-                if (d) return d.id;
-            } else if (placa >= 708 && placa < 800) {
-                const d = dividers.find(div => (div.title || div.nombre || '').toLowerCase().includes('sargento'));
-                if (d) return d.id;
-            } else if (placa >= 700 && placa < 708) {
-                const d = dividers.find(div => (div.title || div.nombre || '').toLowerCase().includes('comisionado'));
-                if (d) return d.id;
-            } else if (placa < 700) {
-                const d = dividers.find(div => (div.title || div.nombre || '').toLowerCase().includes('jefatura'));
-                if (d) return d.id;
+            const dist = Math.abs(targetPlaca - plate);
+
+            if (dist < bestDistance) {
+                bestDistance = dist;
+                bestDividerId = div.id;
+                bestRefPlate = plate;
+            } else if (dist === bestDistance && bestDividerId !== null) {
+                // Criterio de desempate "desde arriba":
+                // 1. Preferir la placa que provenga de arriba (plate <= targetPlaca)
+                if (plate <= targetPlaca && bestRefPlate > targetPlaca) {
+                    bestDividerId = div.id;
+                    bestRefPlate = plate;
+                } else if ((plate <= targetPlaca) === (bestRefPlate <= targetPlaca)) {
+                    // 2. Si están al mismo lado, preferir el bloque superior en el roster
+                    const currentBestIdx = dividers.findIndex(d => d.id === bestDividerId);
+                    if (divIdx < currentBestIdx) {
+                        bestDividerId = div.id;
+                        bestRefPlate = plate;
+                    }
+                }
             }
-        }
-
-        return null;
-    };
-
-    // Partition agents into their matching divider sections
-    const sections = {};
-    dividers.forEach(d => {
-        sections[d.id] = [];
+        });
     });
-    const unassigned = [];
 
-    let currentDivId = null;
-    agents.forEach(item => {
+    if (bestDividerId) return bestDividerId;
+
+    // Fallback si no hay agentes con placa en los divisores
+    if (fallbackRank) {
+        const rankLow = fallbackRank.toLowerCase();
+        const matched = dividers.find(d => {
+            const title = (d.title || d.nombre || '').toLowerCase();
+            return title && (rankLow.includes(title) || title.includes(rankLow));
+        });
+        if (matched) return matched.id;
+    }
+
+    return dividers[0]?.id || null;
+}
+
+/**
+ * Inserts a new agent into the list of agents, placing them under the section
+ * of the closest badge number, and sorting that section numerically.
+ */
+export function insertAgentByClosestBadge(newAgent, currentAgents = []) {
+    const cleanList = currentAgents.filter(a => a.id !== newAgent.id);
+    const dividers = cleanList.filter(item => item.is_divider);
+
+    if (dividers.length === 0) {
+        return sortSubgroup([...cleanList, newAgent]).map((a, idx) => ({ ...a, order_index: idx + 1 }));
+    }
+
+    // Dividir cleanList en secciones existentes
+    const sections = {};
+    dividers.forEach(d => { sections[d.id] = []; });
+    let currentDivId = dividers[0]?.id || null;
+
+    cleanList.forEach(item => {
         if (item.is_divider) {
             currentDivId = item.id;
-        } else {
-            const matchedId = matchDividerForAgent(item);
-            const targetId = matchedId || currentDivId;
-            if (targetId && sections[targetId]) {
-                sections[targetId].push(item);
-            } else {
-                unassigned.push(item);
-            }
+        } else if (currentDivId && sections[currentDivId]) {
+            sections[currentDivId].push(item);
         }
     });
+
+    const targetPlaca = parseBadgeNum(newAgent.no_placa);
+    const targetDividerId = findClosestDividerForBadge(targetPlaca, dividers, sections, newAgent.rank_name);
+
+    if (sections[targetDividerId]) {
+        sections[targetDividerId].push(newAgent);
+    } else {
+        sections[dividers[0].id].push(newAgent);
+    }
 
     const result = [];
     dividers.forEach(div => {
@@ -1084,9 +1102,104 @@ export function sortAgentsByBadge(agents) {
         result.push(...sortSubgroup(group));
     });
 
-    if (unassigned.length > 0) {
-        result.push(...sortSubgroup(unassigned));
+    return result.map((a, index) => ({ ...a, order_index: index + 1 }));
+}
+
+/**
+ * Groups and sorts the roster by badge number:
+ * Always associates each agent to the section of the closest badge number,
+ * breaking ties "desde arriba" (approaching from smaller/preceding plate).
+ */
+export function sortAgentsByBadge(agents) {
+    const dividers = agents.filter(item => item.is_divider);
+    if (dividers.length === 0) {
+        return sortSubgroup(agents).map((a, index) => ({ ...a, order_index: index + 1 }));
     }
+
+    // 1. Agrupar los agentes según el divisor inmediatamente superior actual
+    const currentSections = {};
+    dividers.forEach(d => { currentSections[d.id] = []; });
+    let currentDivId = dividers[0]?.id || null;
+
+    agents.forEach(item => {
+        if (item.is_divider) {
+            currentDivId = item.id;
+        } else if (currentDivId && currentSections[currentDivId]) {
+            currentSections[currentDivId].push(item);
+        }
+    });
+
+    // 2. Para cada agente, calcular a qué divisor pertenece según la placa más cercana
+    const targetSections = {};
+    dividers.forEach(d => { targetSections[d.id] = []; });
+
+    const allAgents = agents.filter(item => !item.is_divider);
+
+    allAgents.forEach(agent => {
+        const targetPlaca = parseBadgeNum(agent.no_placa);
+        let myDivId = dividers[0]?.id;
+        for (const d of dividers) {
+            if (currentSections[d.id]?.some(a => a.id === agent.id)) {
+                myDivId = d.id;
+                break;
+            }
+        }
+
+        // Si el agente no tiene número de placa, permanece en su sección actual
+        if (isNaN(targetPlaca)) {
+            targetSections[myDivId].push(agent);
+            return;
+        }
+
+        // Distancia a otros agentes dentro de su propio divisor actual
+        let currentSecMinDist = Infinity;
+        const mySecAgents = currentSections[myDivId] || [];
+        mySecAgents.forEach(other => {
+            if (other.id === agent.id) return;
+            const p = parseBadgeNum(other.no_placa);
+            if (!isNaN(p)) {
+                const d = Math.abs(targetPlaca - p);
+                if (d < currentSecMinDist) currentSecMinDist = d;
+            }
+        });
+
+        // Si es el único en su sección, conserva su sección
+        if (currentSecMinDist === Infinity && mySecAgents.length === 1) {
+            targetSections[myDivId].push(agent);
+            return;
+        }
+
+        // Buscar si otro bloque tiene una placa estrictamente más cercana (ej. un agente fuera de lugar)
+        let bestDistance = currentSecMinDist;
+        let bestDividerId = myDivId;
+
+        dividers.forEach((div, divIdx) => {
+            if (div.id === myDivId) return; // ya evaluado
+            const secAgents = currentSections[div.id] || [];
+            secAgents.forEach(other => {
+                if (other.id && agent.id && other.id === agent.id) return;
+                const otherPlate = parseBadgeNum(other.no_placa);
+                if (isNaN(otherPlate)) return;
+
+                const dist = Math.abs(targetPlaca - otherPlate);
+
+                if (dist < bestDistance) {
+                    bestDistance = dist;
+                    bestDividerId = div.id;
+                }
+            });
+        });
+
+        targetSections[bestDividerId].push(agent);
+    });
+
+    // 3. Reconstruir lista ordenada manteniendo los divisores y ordenando cada subgrupo por placa
+    const result = [];
+    dividers.forEach(div => {
+        result.push(div);
+        const group = targetSections[div.id] || [];
+        result.push(...sortSubgroup(group));
+    });
 
     return result.map((a, index) => ({ ...a, order_index: index + 1 }));
 }

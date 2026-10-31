@@ -103,3 +103,4 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION update_ia_subject_profile TO authenticated;
+

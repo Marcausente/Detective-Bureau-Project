@@ -5,6 +5,7 @@ import {
     calculatePromotionDays,
     sortAgentsByRankHierarchy,
     sortAgentsByBadge,
+    insertAgentByClosestBadge,
     updateAgentsOrder,
     savePlantillaAgent,
     deletePlantillaAgent,
@@ -101,29 +102,25 @@ export default function PlantillaRosterTable({
         setShowAgentModal(true);
     };
 
-    // Save agent handler (ordered by badge by default for new agents, manual positions preserved on edit)
+    // Save agent handler (grouped into closest badge section on creation, manual positions preserved on edit)
     const handleSaveAgent = async (agentData) => {
         const isNewAgent = !agentData.id;
         const saved = await savePlantillaAgent(agentData);
         let updatedList;
-        if (agentData.id) {
-            updatedList = agents.map(a => a.id === agentData.id ? saved : a);
-        } else {
-            updatedList = [...agents, saved];
-        }
 
-        // Si es un nuevo agente, ordenar por número de placa por defecto
         if (isNewAgent) {
-            const sorted = sortAgentsByBadge(updatedList);
-            if (onAgentsUpdated) onAgentsUpdated(sorted);
+            // Detección inteligente: se agrupa en el bloque de la placa más cercana (y desde arriba en empates)
+            updatedList = insertAgentByClosestBadge(saved, agents);
+            if (onAgentsUpdated) onAgentsUpdated(updatedList);
             try {
-                const persisted = await updateAgentsOrder(sorted);
+                const persisted = await updateAgentsOrder(updatedList);
                 if (onAgentsUpdated) onAgentsUpdated(persisted);
             } catch (err) {
-                console.error('Error auto-ordering agents by badge:', err);
+                console.error('Error auto-ordering agents by closest badge:', err);
             }
         } else {
             // En edición, preservar la posición actual del agente
+            updatedList = agents.map(a => a.id === agentData.id ? saved : a);
             updatedList = updatedList.map((item, idx) => ({ ...item, order_index: idx + 1 }));
             if (onAgentsUpdated) onAgentsUpdated(updatedList);
             try {
