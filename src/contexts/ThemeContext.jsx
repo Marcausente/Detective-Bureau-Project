@@ -82,7 +82,12 @@ export const BRANDING_PRESETS = {
         orders_pdf_judge_title: 'Fiscalía General • Corte Superior de Justicia',
         orders_pdf_footer_legal: 'VALIDADO POR LA CORTE SUPERIOR Y DEPARTAMENTO DE JUSTICIA',
         orders_pdf_left_logo: '/logowebp/dojlogo.webp',
-        orders_pdf_right_logo: '/logowebp/sanandreas.webp'
+        orders_pdf_right_logo: '/logowebp/sanandreas.webp',
+        plantilla_dept_tag: 'SCUB',
+        plantilla_title: 'Plantilla SCUB • Comandancia',
+        plantilla_subtitle: '(Roster Jerárquico)',
+        plantilla_tab_name: 'Plantilla de Agentes',
+        plantilla_logo: '/logowebp/SCUB.webp'
     },
     DB: {
         topbar_name: 'DB',
@@ -162,7 +167,12 @@ export const BRANDING_PRESETS = {
         orders_pdf_judge_title: 'Fiscalía General • Corte Superior de Justicia',
         orders_pdf_footer_legal: 'VALIDADO POR LA CORTE SUPERIOR Y DEPARTAMENTO DE JUSTICIA',
         orders_pdf_left_logo: '/logowebp/dojlogo.webp',
-        orders_pdf_right_logo: '/logowebp/sanandreas.webp'
+        orders_pdf_right_logo: '/logowebp/sanandreas.webp',
+        plantilla_dept_tag: 'DB',
+        plantilla_title: 'Plantilla Detective Bureau • Comandancia',
+        plantilla_subtitle: '(Roster Jerárquico)',
+        plantilla_tab_name: 'Plantilla de Agentes',
+        plantilla_logo: '/logowebp/dblogo.webp'
     },
     LSSD: {
         topbar_name: 'LSSD',
@@ -242,7 +252,12 @@ export const BRANDING_PRESETS = {
         orders_pdf_judge_title: 'Fiscalía General • Corte Superior de Justicia',
         orders_pdf_footer_legal: 'VALIDADO POR LA CORTE SUPERIOR Y DEPARTAMENTO DE JUSTICIA',
         orders_pdf_left_logo: '/logowebp/dojlogo.webp',
-        orders_pdf_right_logo: '/logowebp/sanandreas.webp'
+        orders_pdf_right_logo: '/logowebp/sanandreas.webp',
+        plantilla_dept_tag: 'LSSD',
+        plantilla_title: 'Plantilla LSSD • Comandancia',
+        plantilla_subtitle: '(Roster Jerárquico)',
+        plantilla_tab_name: 'Plantilla de Agentes',
+        plantilla_logo: '/logowebp/LSSDlogo.webp'
     },
     SAPD: {
         topbar_name: 'SAPD',
@@ -322,7 +337,12 @@ export const BRANDING_PRESETS = {
         orders_pdf_judge_title: 'Fiscalía General • Corte Superior de Justicia',
         orders_pdf_footer_legal: 'VALIDADO POR LA CORTE SUPERIOR Y DEPARTAMENTO DE JUSTICIA',
         orders_pdf_left_logo: '/logowebp/dojlogo.webp',
-        orders_pdf_right_logo: '/logowebp/sanandreas.webp'
+        orders_pdf_right_logo: '/logowebp/sanandreas.webp',
+        plantilla_dept_tag: 'SAPD',
+        plantilla_title: 'Plantilla SAPD • Comandancia',
+        plantilla_subtitle: '(Roster Jerárquico)',
+        plantilla_tab_name: 'Plantilla de Agentes',
+        plantilla_logo: '/logowebp/sanandreas.webp'
     }
 };
 

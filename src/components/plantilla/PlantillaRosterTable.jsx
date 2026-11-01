@@ -635,8 +635,8 @@ export default function PlantillaRosterTable({
                         overflow: 'hidden',
                         flexShrink: 0
                     }}>
-                        {branding?.logo ? (
-                            <img src={branding.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        {(branding?.plantilla_logo || branding?.logo) ? (
+                            <img src={branding.plantilla_logo || branding.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         ) : (
                             <span>⭐</span>
                         )}
@@ -654,13 +654,13 @@ export default function PlantillaRosterTable({
                                 borderRadius: '4px',
                                 border: '1px solid rgba(234, 179, 8, 0.3)'
                             }}>
-                                {isLSSD ? 'LSSD' : 'LSPD'}
+                                {branding?.plantilla_dept_tag || (isLSSD ? 'LSSD' : 'LSPD')}
                             </span>
                             <span style={{ fontSize: '0.92rem', fontWeight: 900, color: '#f8fafc', letterSpacing: '-0.02em' }}>
-                                Plantilla {isLSSD ? 'LSSD' : 'LSPD'} • Comandancia
+                                {branding?.plantilla_title || `Plantilla ${isLSSD ? 'LSSD' : 'LSPD'} • Comandancia`}
                             </span>
                             <span style={{ fontSize: '0.68rem', color: '#64748b' }}>
-                                (Roster Jerárquico)
+                                {branding?.plantilla_subtitle || '(Roster Jerárquico)'}
                             </span>
                             <span style={{
                                 display: 'inline-flex',
@@ -1293,7 +1293,9 @@ export default function PlantillaRosterTable({
                                         let sectionAgentCount = 0;
                                         for (let i = index + 1; i < filteredAgents.length; i++) {
                                             if (filteredAgents[i].is_divider) break;
-                                            sectionAgentCount++;
+                                            if (isRealAgent(filteredAgents[i])) {
+                                                sectionAgentCount++;
+                                            }
                                         }
 
                                         const isBeingDragged = draggedItemId === agent.id;

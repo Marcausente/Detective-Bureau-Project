@@ -1166,7 +1166,7 @@ export default function Comandancia() {
                     }}
                 >
                     <span>📋</span>
-                    <span>Plantilla de Agentes</span>
+                    <span>{branding?.plantilla_tab_name || 'Plantilla de Agentes'}</span>
                     <span style={{
                         fontSize: '0.72rem',
                         padding: '2px 8px',

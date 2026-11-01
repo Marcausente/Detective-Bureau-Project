@@ -2114,6 +2114,127 @@ function Admin() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* BLOQUE 16: PLANTILLA DE AGENTES Y COMANDANCIA */}
+                            <div style={{ background: 'rgba(15, 23, 42, 0.7)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.65rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>📋</span>
+                                    <h4 style={{ margin: 0, color: 'var(--accent-gold)', fontSize: '1rem', fontWeight: 700 }}>
+                                        Plantilla de Agentes y Comandancia
+                                    </h4>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {/* 1. Título Principal del Roster */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Título Principal del Roster
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.plantilla_title || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, plantilla_title: e.target.value })}
+                                            placeholder={`Plantilla ${isLSSD ? 'LSSD' : 'LSPD'} • Comandancia`}
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                        <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px' }}>
+                                            Ej: Plantilla LSSD • Comandancia, Roster Oficial de Agentes, etc.
+                                        </span>
+                                    </div>
+
+                                    {/* 2. Siglas / Etiqueta del Departamento (Badge) */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Etiqueta / Siglas del Departamento (Badge)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.plantilla_dept_tag || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, plantilla_dept_tag: e.target.value })}
+                                            placeholder={isLSSD ? 'LSSD' : 'LSPD'}
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                        <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px' }}>
+                                            La pequeña insignia dorada arriba a la izquierda del encabezado (ej: LSSD, LSPD, SAPD, BCSO...)
+                                        </span>
+                                    </div>
+
+                                    {/* 3. Subtítulo / Aclaración */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Subtítulo / Aclaración del Roster
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.plantilla_subtitle || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, plantilla_subtitle: e.target.value })}
+                                            placeholder="(Roster Jerárquico)"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                        <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px' }}>
+                                            Texto secundario que acompaña al título (ej: (Roster Jerárquico), (Escalafón Oficial))
+                                        </span>
+                                    </div>
+
+                                    {/* 4. Nombre de la Pestaña en Comandancia */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Nombre de la Pestaña en Comandancia
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={brandingForm.plantilla_tab_name || ''}
+                                            onChange={(e) => setBrandingForm({ ...brandingForm, plantilla_tab_name: e.target.value })}
+                                            placeholder="Plantilla de Agentes"
+                                            className="mac-form-input"
+                                            style={{ width: '100%', padding: '0.6rem 0.8rem' }}
+                                        />
+                                        <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px' }}>
+                                            Nombre del botón en la barra superior de Comandancia
+                                        </span>
+                                    </div>
+
+                                    {/* 5. Logo / Insignia de la Plantilla */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            Logo / Insignia de la Plantilla
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            {(brandingForm.plantilla_logo || brandingForm.logo) && (
+                                                <img 
+                                                    src={brandingForm.plantilla_logo || brandingForm.logo} 
+                                                    alt="Preview" 
+                                                    style={{ width: '32px', height: '32px', objectFit: 'contain', background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '2px', border: '1px solid rgba(255,255,255,0.1)' }} 
+                                                />
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={brandingForm.plantilla_logo || ''}
+                                                onChange={(e) => setBrandingForm({ ...brandingForm, plantilla_logo: e.target.value })}
+                                                placeholder="/logowebp/LSSDlogo.webp o URL"
+                                                className="mac-form-input"
+                                                style={{ flex: 1, padding: '0.6rem 0.8rem' }}
+                                            />
+                                            <label className="mac-btn mac-btn-secondary" style={{ padding: '0.6rem 0.8rem', cursor: uploadingFields['plantilla_logo'] ? 'wait' : 'pointer', whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
+                                                {uploadingFields['plantilla_logo'] ? '...' : 'Subir'}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    disabled={uploadingFields['plantilla_logo']}
+                                                    onChange={(e) => { if (e.target.files?.[0]) handleFileUpload('plantilla_logo', e.target.files[0]); }}
+                                                />
+                                            </label>
+                                        </div>
+                                        <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px' }}>
+                                            Si se deja vacío, utilizará el logo general del departamento.
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Actions & Save Button */}
