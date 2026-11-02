@@ -544,7 +544,8 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
                                     }}
                                 >
                                     <option value="Activo">🟢 Activo / Activa</option>
-                                    <option value="Poco activa">🟡 Poco activa / Vacaciones</option>
+                                    <option value="Poco activa">🟡 Poco activa</option>
+                                    <option value="Vacaciones">🏖️ Vacaciones</option>
                                     <option value="Inactivo">🔴 Inactivo / No activa</option>
                                 </select>
                             </div>

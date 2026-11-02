@@ -460,8 +460,9 @@ export default function PlantillaRosterTable({
             if (activityFilter !== 'all') {
                 if (agent.is_placeholder || (!agent.nombre && !agent.apellido)) return false;
                 const act = (agent.activity_status || 'Activo').toLowerCase();
-                if (activityFilter === 'Activo' && !act.includes('activ')) return false;
-                if (activityFilter === 'Poco activa' && (!act.includes('poco') && !act.includes('vacacion'))) return false;
+                if (activityFilter === 'Activo' && (act.includes('inactiv') || act.includes('no activ') || act.includes('poco') || act.includes('vacacion'))) return false;
+                if (activityFilter === 'Poco activa' && !act.includes('poco')) return false;
+                if (activityFilter === 'Vacaciones' && !act.includes('vacacion')) return false;
                 if (activityFilter === 'Inactivo' && !act.includes('inactiv') && !act.includes('no activ')) return false;
             }
 
@@ -511,13 +512,15 @@ export default function PlantillaRosterTable({
         const realAgents = agents.filter(isRealAgent);
         let activos = 0;
         let poco = 0;
+        let vacaciones = 0;
         let inactivos = 0;
         let conFaltas = 0;
 
         realAgents.forEach(a => {
             const st = (a.activity_status || 'Activo').toLowerCase();
             if (st.includes('inactiv') || st.includes('no activ')) inactivos++;
-            else if (st.includes('poco') || st.includes('vacacion')) poco++;
+            else if (st.includes('vacacion')) vacaciones++;
+            else if (st.includes('poco')) poco++;
             else activos++;
 
             if (iaStatusMap?.getAgentStatus) {
@@ -530,6 +533,7 @@ export default function PlantillaRosterTable({
             total: realAgents.length,
             activos,
             poco,
+            vacaciones,
             inactivos,
             conFaltas
         };
@@ -639,8 +643,13 @@ export default function PlantillaRosterTable({
                         </div>
                         <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
                         <div>
-                            <div style={{ fontSize: '0.56rem', color: '#fde047', fontWeight: 800, textTransform: 'uppercase', lineHeight: 1 }}>Poco/Vac.</div>
+                            <div style={{ fontSize: '0.56rem', color: '#fde047', fontWeight: 800, textTransform: 'uppercase', lineHeight: 1 }}>Poco Act.</div>
                             <div style={{ fontSize: '0.90rem', fontWeight: 900, color: '#fbbf24', lineHeight: 1.1 }}>{summaryKPIs.poco}</div>
+                        </div>
+                        <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
+                        <div>
+                            <div style={{ fontSize: '0.56rem', color: '#7dd3fc', fontWeight: 800, textTransform: 'uppercase', lineHeight: 1 }}>Vacaciones</div>
+                            <div style={{ fontSize: '0.90rem', fontWeight: 900, color: '#38bdf8', lineHeight: 1.1 }}>{summaryKPIs.vacaciones}</div>
                         </div>
                         <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)' }} />
                         <div>
@@ -1030,13 +1039,14 @@ export default function PlantillaRosterTable({
                                 padding: '0.22rem 0.45rem',
                                 color: activityFilter !== 'all' ? '#6ee7b7' : '#f8fafc',
                                 fontSize: '0.72rem',
-                                maxWidth: '125px',
+                                maxWidth: '130px',
                                 outline: 'none'
                             }}
                         >
                             <option value="all">🔘 Estados</option>
                             <option value="Activo">🟢 Solo Activos</option>
-                            <option value="Poco activa">🟡 Poco / Vacaciones</option>
+                            <option value="Poco activa">🟡 Poco Activos</option>
+                            <option value="Vacaciones">🏖️ Vacaciones</option>
                             <option value="Inactivo">🔴 Solo Inactivos</option>
                         </select>
 
@@ -1829,30 +1839,51 @@ export default function PlantillaRosterTable({
                                             })}
 
                                             {/* Actividad */}
-                                            <td style={{ padding: '2px 2px', textAlign: 'center', width: '64px', minWidth: '60px', maxWidth: '66px', borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                            <td style={{ padding: '2px 2px', textAlign: 'center', width: '68px', minWidth: '64px', maxWidth: '72px', borderLeft: '1px solid rgba(255, 255, 255, 0.08)' }}>
                                                 {(() => {
                                                     const act = (agent.activity_status || 'Activo').toLowerCase();
-                                                    const isActivo = !act.includes('inactiv') && !act.includes('no activ') && !act.includes('poco') && !act.includes('vacacion');
-                                                    const isPoco = act.includes('poco') || act.includes('vacacion');
+                                                    const isVacacion = act.includes('vacacion');
+                                                    const isPoco = !isVacacion && act.includes('poco');
+                                                    const isInactive = !isVacacion && (act.includes('inactiv') || act.includes('no activ'));
+                                                    const isActivo = !isVacacion && !isPoco && !isInactive;
+
+                                                    let bg = 'rgba(16, 185, 129, 0.18)';
+                                                    let border = '1px solid rgba(16, 185, 129, 0.45)';
+                                                    let color = '#34d399';
+
+                                                    if (isVacacion) {
+                                                        bg = 'rgba(56, 189, 248, 0.20)';
+                                                        border = '1px solid rgba(56, 189, 248, 0.50)';
+                                                        color = '#38bdf8';
+                                                    } else if (isPoco) {
+                                                        bg = 'rgba(245, 158, 11, 0.18)';
+                                                        border = '1px solid rgba(245, 158, 11, 0.45)';
+                                                        color = '#fbbf24';
+                                                    } else if (isInactive) {
+                                                        bg = 'rgba(239, 68, 68, 0.18)';
+                                                        border = '1px solid rgba(239, 68, 68, 0.45)';
+                                                        color = '#f87171';
+                                                    }
 
                                                     return (
                                                         <select
                                                             value={agent.activity_status || 'Activo'}
                                                             onChange={e => handleQuickChangeActivity(agent, e.target.value)}
                                                             style={{
-                                                                background: isActivo ? 'rgba(16, 185, 129, 0.18)' : (isPoco ? 'rgba(245, 158, 11, 0.18)' : 'rgba(239, 68, 68, 0.18)'),
-                                                                border: isActivo ? '1px solid rgba(16, 185, 129, 0.45)' : (isPoco ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid rgba(239, 68, 68, 0.45)'),
-                                                                color: isActivo ? '#34d399' : (isPoco ? '#fbbf24' : '#f87171'),
+                                                                background: bg,
+                                                                border: border,
+                                                                color: color,
                                                                 borderRadius: '4px',
-                                                                padding: '1px 3px',
+                                                                padding: '1px 2px',
                                                                 fontSize: '0.67rem',
                                                                 fontWeight: 800,
                                                                 cursor: 'pointer',
-                                                                width: '58px'
+                                                                width: '64px'
                                                             }}
                                                         >
                                                             <option value="Activo">🟢 Si</option>
                                                             <option value="Poco activa">🟡 Poco</option>
+                                                            <option value="Vacaciones">🏖️ Vacac.</option>
                                                             <option value="Inactivo">🔴 No</option>
                                                         </select>
                                                     );

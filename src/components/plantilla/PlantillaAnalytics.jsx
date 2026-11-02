@@ -16,6 +16,7 @@ export default function PlantillaAnalytics({ agents = [], ranks = [], divisions 
 
         let activos = 0;
         let pocoActivos = 0;
+        let vacaciones = 0;
         let inactivos = 0;
         let conFaltasActivas = 0;
 
@@ -23,7 +24,9 @@ export default function PlantillaAnalytics({ agents = [], ranks = [], divisions 
             const status = (a.activity_status || 'Activo').toLowerCase();
             if (status.includes('inactiv') || status.includes('no activ')) {
                 inactivos++;
-            } else if (status.includes('poco') || status.includes('vacacion')) {
+            } else if (status.includes('vacacion')) {
+                vacaciones++;
+            } else if (status.includes('poco')) {
                 pocoActivos++;
             } else {
                 activos++;
@@ -78,6 +81,7 @@ export default function PlantillaAnalytics({ agents = [], ranks = [], divisions 
             totalAll: totalAssigned + totalPlaceholders,
             activos,
             pocoActivos,
+            vacaciones,
             inactivos,
             conFaltasActivas,
             rankCounts,
@@ -197,7 +201,7 @@ export default function PlantillaAnalytics({ agents = [], ranks = [], divisions 
                             </div>
                         </div>
 
-                        {/* Poco Activa / Vacaciones */}
+                        {/* Poco Activa */}
                         <div style={{
                             background: 'rgba(245, 158, 11, 0.1)',
                             border: '1px solid rgba(245, 158, 11, 0.3)',
@@ -205,13 +209,31 @@ export default function PlantillaAnalytics({ agents = [], ranks = [], divisions 
                             padding: '1rem 1.15rem'
                         }}>
                             <div style={{ fontSize: '0.72rem', color: '#fde047', fontWeight: 800, textTransform: 'uppercase' }}>
-                                🟡 Poco / Vacaciones
+                                🟡 Poco Activos
                             </div>
                             <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#fbbf24', marginTop: '0.2rem' }}>
                                 {stats.pocoActivos}
                             </div>
                             <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.15rem' }}>
-                                En permiso o actividad baja
+                                Actividad baja
+                            </div>
+                        </div>
+
+                        {/* Vacaciones */}
+                        <div style={{
+                            background: 'rgba(56, 189, 248, 0.1)',
+                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                            borderRadius: '14px',
+                            padding: '1rem 1.15rem'
+                        }}>
+                            <div style={{ fontSize: '0.72rem', color: '#7dd3fc', fontWeight: 800, textTransform: 'uppercase' }}>
+                                🏖️ Vacaciones
+                            </div>
+                            <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#38bdf8', marginTop: '0.2rem' }}>
+                                {stats.vacaciones}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.15rem' }}>
+                                En permiso o descanso
                             </div>
                         </div>
 
