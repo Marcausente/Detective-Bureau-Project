@@ -20,7 +20,8 @@ import {
     fetchPlantillaAgents,
     fetchPlantillaValoraciones,
     fetchActiveIASanctionsMap,
-    parseSettingsArray
+    parseSettingsArray,
+    registerRealtimeChannel
 } from '../services/plantillaService';
 import '../index.css';
 
@@ -101,8 +102,76 @@ export default function Comandancia() {
         loadData();
 
         // Suscripción Realtime en vivo para sincronización multiusuario sin recargar
-        const channel = supabase
-            .channel('comandancia_realtime_sync')
+        const channel = supabase.channel('comandancia_realtime_sync', {
+            config: {
+                broadcast: { self: false }
+            }
+        });
+        registerRealtimeChannel(channel);
+
+        channel
+            // ==========================================================
+            // 1. BROADCAST LISTENERS (Client-to-Client Instant Realtime <50ms)
+            // ==========================================================
+            .on(
+                'broadcast',
+                { event: 'roster_changed' },
+                (msg) => {
+                    const incomingAgents = msg?.payload?.agents;
+                    if (Array.isArray(incomingAgents) && incomingAgents.length > 0) {
+                        setPlantillaAgents(incomingAgents.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+                    } else {
+                        fetchPlantillaAgents().then(setPlantillaAgents).catch(() => {});
+                    }
+                }
+            )
+            .on(
+                'broadcast',
+                { event: 'ranks_changed' },
+                (msg) => {
+                    const incomingRanks = msg?.payload?.ranks;
+                    if (Array.isArray(incomingRanks) && incomingRanks.length > 0) {
+                        setPlantillaRanks(incomingRanks.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+                    } else {
+                        fetchPlantillaRanks().then(setPlantillaRanks).catch(() => {});
+                    }
+                }
+            )
+            .on(
+                'broadcast',
+                { event: 'divisions_changed' },
+                (msg) => {
+                    const incomingDivs = msg?.payload?.divisions;
+                    if (Array.isArray(incomingDivs) && incomingDivs.length > 0) {
+                        setPlantillaDivisions(incomingDivs.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+                    } else {
+                        fetchPlantillaDivisions().then(setPlantillaDivisions).catch(() => {});
+                    }
+                }
+            )
+            .on(
+                'broadcast',
+                { event: 'valoraciones_changed' },
+                (msg) => {
+                    const incomingVals = msg?.payload?.valoraciones;
+                    if (Array.isArray(incomingVals) && incomingVals.length > 0) {
+                        setPlantillaValoraciones(incomingVals.sort((a, b) => (a.order_index || 0) - (b.order_index || 0)));
+                    } else {
+                        fetchPlantillaValoraciones().then(setPlantillaValoraciones).catch(() => {});
+                    }
+                }
+            )
+            .on(
+                'broadcast',
+                { event: 'archived_changed' },
+                () => {
+                    // Refetch roster or relevant data if archived count changed
+                    fetchPlantillaAgents().then(setPlantillaAgents).catch(() => {});
+                }
+            )
+            // ==========================================================
+            // 2. POSTGRES CHANGES (Fallback for external/direct DB updates)
+            // ==========================================================
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'app_settings' },
@@ -191,6 +260,7 @@ export default function Comandancia() {
             .subscribe();
 
         return () => {
+            registerRealtimeChannel(null);
             supabase.removeChannel(channel);
         };
     }, []);

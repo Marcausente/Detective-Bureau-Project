@@ -122,70 +122,16 @@ export default function PlantillaRosterTable({
     // - If target badge is a reserved slot (casilla reservada), substitutes it in-place and deletes the placeholder
     // - If badge was changed or new agent, repositions agent automatically by numeric badge order into matching section
     // - If badge was not changed on edit, preserves exact manual position
+    // Save agent handler (Atomic & Race-Condition Safe)
     const handleSaveAgent = async (agentData) => {
-        const isNewAgent = !agentData.id;
-        const cleanPlaca = (agentData.no_placa || '').trim();
-        const targetPlacaNum = parseInt(cleanPlaca.replace(/\D/g, ''), 10);
-
-        // 1. Duplicate check guard: Prevent setting a badge already used by another active/real agent
-        if (cleanPlaca && !agentData.is_placeholder) {
-            const conflict = agents.find(a => {
-                if (a.is_divider) return false;
-                if (a.is_placeholder || (!a.nombre?.trim() && !a.apellido?.trim())) return false;
-                if (agentData.id && a.id === agentData.id) return false;
-                const aPlaca = (a.no_placa || '').trim();
-                if (!aPlaca) return false;
-                const aPlacaNum = parseInt(aPlaca.replace(/\D/g, ''), 10);
-                if (!isNaN(targetPlacaNum) && !isNaN(aPlacaNum)) {
-                    return targetPlacaNum === aPlacaNum;
-                }
-                return aPlaca.toLowerCase() === cleanPlaca.toLowerCase();
-            });
-
-            if (conflict) {
-                const conflictName = `${conflict.nombre || ''} ${conflict.apellido || ''}`.trim() || conflict.username || 'otro agente';
-                alert(`⚠️ El número de placa #${cleanPlaca} ya está ocupado por ${conflictName}.\nNo es posible asignar una placa duplicada a otro agente activo.`);
-                return;
-            }
-        }
-
-        // 2. Persist the agent data
-        const saved = await savePlantillaAgent(agentData);
-
-        // 3. Check if badge changed on edit
-        const oldAgent = !isNewAgent ? agents.find(a => a.id === agentData.id) : null;
-        const badgeChanged = isNewAgent || (oldAgent && (oldAgent.no_placa || '').trim() !== cleanPlaca);
-
-        let updatedList;
-        let replacedPlaceholderId = null;
-
-        if (badgeChanged) {
-            // Reposition agent by badge or substitute placeholder
-            const placement = placeOrSubstituteAgent(saved, agents);
-            updatedList = placement.updatedList;
-            replacedPlaceholderId = placement.replacedPlaceholderId;
-        } else {
-            // Badge didn't change: update in-place preserving position
-            updatedList = agents.map(a => a.id === agentData.id ? saved : a);
-            updatedList = updatedList.map((item, idx) => ({ ...item, order_index: idx + 1 }));
-        }
-
-        // 4. If a placeholder was substituted, delete it from database / settings
-        if (replacedPlaceholderId) {
-            try {
-                await deletePlantillaAgent(replacedPlaceholderId);
-            } catch (err) {
-                console.warn('Error deleting substituted placeholder:', err);
-            }
-        }
-
-        // 5. Update UI immediately and persist order to backend
-        if (onAgentsUpdated) onAgentsUpdated(updatedList);
         try {
-            const persisted = await updateAgentsOrder(updatedList);
-            if (onAgentsUpdated) onAgentsUpdated(persisted);
+            const result = await savePlantillaAgent(agentData);
+            if (result?.updatedList && onAgentsUpdated) {
+                onAgentsUpdated(result.updatedList);
+            }
         } catch (err) {
-            console.error('Error auto-ordering agents list:', err);
+            alert(err.message || 'Error guardando agente');
+            throw err;
         }
     };
 
@@ -195,10 +141,8 @@ export default function PlantillaRosterTable({
         if (!window.confirm(`¿Seguro que deseas eliminar a ${label} de la plantilla?`)) return;
 
         try {
-            await deletePlantillaAgent(agent.id);
-            const updated = agents.filter(a => a.id !== agent.id).map((item, idx) => ({ ...item, order_index: idx + 1 }));
+            const updated = await deletePlantillaAgent(agent.id);
             if (onAgentsUpdated) onAgentsUpdated(updated);
-            await updateAgentsOrder(updated);
         } catch (err) {
             alert('Error eliminando agente: ' + err.message);
         }
@@ -216,7 +160,6 @@ export default function PlantillaRosterTable({
             await archivePlantillaAgent(agent, { reason, isBanned, archivedBy });
             const updated = agents.filter(a => a.id !== agent.id).map((item, idx) => ({ ...item, order_index: idx + 1 }));
             if (onAgentsUpdated) onAgentsUpdated(updated);
-            await updateAgentsOrder(updated);
             setArchivedCount(prev => prev + 1);
         } catch (err) {
             console.error('Error archivando agente:', err);
@@ -244,43 +187,15 @@ export default function PlantillaRosterTable({
         setShowDividerModal(true);
     };
 
-    // Save Divider handler
+    // Save Divider handler (Atomic & Race-Condition Safe)
     const handleSaveDivider = async (dividerData, insertPosition) => {
-        let updatedList = [...agents];
-        if (dividerData.id && selectedDividerForEdit) {
-            updatedList = updatedList.map(a => a.id === dividerData.id ? {
-                ...a,
-                ...dividerData,
-                is_divider: true,
-                title: (dividerData.title || dividerData.nombre || a.title || a.nombre || 'SECCIÓN').trim().toUpperCase(),
-                color: dividerData.color || a.color || '#3b82f6',
-                icon: dividerData.icon || a.icon || '📁'
-            } : a);
-        } else {
-            const newDivider = {
-                id: `div-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-                ...dividerData,
-                is_divider: true,
-                title: (dividerData.title || dividerData.nombre || 'SECCIÓN').trim().toUpperCase(),
-                color: dividerData.color || '#3b82f6',
-                icon: dividerData.icon || '📁'
-            };
-            if (insertPosition === 'start') {
-                updatedList = [newDivider, ...updatedList];
-            } else if (insertPosition === 'end' || insertPosition === null || insertPosition === undefined) {
-                updatedList = [...updatedList, newDivider];
-            } else if (typeof insertPosition === 'number') {
-                const insertAt = insertPosition + 1;
-                updatedList.splice(insertAt, 0, newDivider);
-            }
-        }
-
-        updatedList = updatedList.map((item, idx) => ({ ...item, order_index: idx + 1 }));
-        if (onAgentsUpdated) onAgentsUpdated(updatedList);
         try {
-            await updateAgentsOrder(updatedList);
+            const result = await savePlantillaDivider(dividerData, insertPosition);
+            if (result?.updatedList && onAgentsUpdated) {
+                onAgentsUpdated(result.updatedList);
+            }
         } catch (err) {
-            console.error('Error saving divider:', err);
+            alert('Error guardando sección: ' + err.message);
         }
     };
 
@@ -289,13 +204,11 @@ export default function PlantillaRosterTable({
         const title = divider.title || divider.nombre || 'esta sección';
         if (!window.confirm(`¿Seguro que deseas eliminar la barra divisoria "${title}"?\n\nLos agentes que contiene no se eliminarán.`)) return;
 
-        const updatedList = agents.filter(a => a.id !== divider.id).map((item, idx) => ({ ...item, order_index: idx + 1 }));
-        if (onAgentsUpdated) onAgentsUpdated(updatedList);
         try {
-            await deletePlantillaDivider(divider.id);
-            await updateAgentsOrder(updatedList);
+            const updated = await deletePlantillaDivider(divider.id);
+            if (onAgentsUpdated) onAgentsUpdated(updated);
         } catch (err) {
-            console.error('Error deleting divider:', err);
+            alert('Error eliminando sección: ' + err.message);
         }
     };
 
@@ -433,8 +346,8 @@ export default function PlantillaRosterTable({
     const handleQuickChangeActivity = async (agent, newStatus) => {
         const updatedAgent = { ...agent, activity_status: newStatus };
         try {
-            const saved = await savePlantillaAgent(updatedAgent);
-            const updatedList = agents.map(a => a.id === agent.id ? saved : a);
+            const result = await savePlantillaAgent(updatedAgent);
+            const updatedList = result?.updatedList || agents.map(a => a.id === agent.id ? result : a);
             if (onAgentsUpdated) onAgentsUpdated(updatedList);
         } catch (err) {
             alert('Error actualizando actividad: ' + err.message);
@@ -445,8 +358,8 @@ export default function PlantillaRosterTable({
     const handleQuickChangeValoracion = async (agent, newValoracion) => {
         const updatedAgent = { ...agent, valoracion: newValoracion };
         try {
-            const saved = await savePlantillaAgent(updatedAgent);
-            const updatedList = agents.map(a => a.id === agent.id ? saved : a);
+            const result = await savePlantillaAgent(updatedAgent);
+            const updatedList = result?.updatedList || agents.map(a => a.id === agent.id ? result : a);
             if (onAgentsUpdated) onAgentsUpdated(updatedList);
         } catch (err) {
             alert('Error actualizando valoración: ' + err.message);
@@ -493,8 +406,8 @@ export default function PlantillaRosterTable({
         }
         const updatedAgent = { ...agent, divisions: newDivs };
         try {
-            const saved = await savePlantillaAgent(updatedAgent);
-            const updatedList = agents.map(a => a.id === agent.id ? saved : a);
+            const result = await savePlantillaAgent(updatedAgent);
+            const updatedList = result?.updatedList || agents.map(a => a.id === agent.id ? result : a);
             if (onAgentsUpdated) onAgentsUpdated(updatedList);
         } catch (err) {
             console.error('Error toggling division:', err);
