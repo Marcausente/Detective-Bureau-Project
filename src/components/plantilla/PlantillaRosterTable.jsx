@@ -86,6 +86,25 @@ export default function PlantillaRosterTable({
     const [valoracionFilter, setValoracionFilter] = useState('all');
     const [iaSanctionFilter, setIaSanctionFilter] = useState('all'); // 'all' | 'active_only'
 
+    // Filter active check & reset
+    const hasActiveFilters = Boolean(
+        (searchTerm && searchTerm.trim() !== '') ||
+        rankFilter !== 'all' ||
+        divisionFilter !== 'all' ||
+        activityFilter !== 'all' ||
+        valoracionFilter !== 'all' ||
+        iaSanctionFilter !== 'all'
+    );
+
+    const handleResetFilters = () => {
+        setSearchTerm('');
+        setRankFilter('all');
+        setDivisionFilter('all');
+        setActivityFilter('all');
+        setValoracionFilter('all');
+        setIaSanctionFilter('all');
+    };
+
     // Open Add Agent modal
     const handleOpenAddAgent = () => {
         setSelectedAgentForEdit(null);
@@ -751,379 +770,463 @@ export default function PlantillaRosterTable({
                 </div>
             </div>
 
-            {/* ACTION TOOLBAR & FILTERS (Ultra-Compact) */}
+            {/* ACTION TOOLBAR & FILTERS (Ultra-Compact & Responsive) */}
             <div style={{
                 background: 'rgba(30, 41, 59, 0.55)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: '12px',
-                padding: '0.3rem 0.65rem',
+                padding: '0.4rem 0.65rem',
                 display: 'flex',
-                flexWrap: 'wrap',
-                gap: '0.45rem',
-                alignItems: 'center',
-                justifyContent: 'space-between'
+                flexDirection: 'column',
+                gap: '0.35rem'
             }}>
-                {/* Search & Filters */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center', flex: 1, minWidth: '220px' }}>
-                    {/* Search Input */}
-                    <div style={{ position: 'relative', width: '175px' }}>
-                        <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#94a3b8' }}>
-                            🔍
-                        </span>
-                        <input
-                            type="text"
-                            placeholder="Buscar agente, placa..."
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
+                {/* FILA 1: ACCIONES PRINCIPALES Y GESTIÓN */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.35rem',
+                    width: '100%'
+                }}>
+                    {/* Botones Primarios de Edición/Tabla */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        {/* Añadir Agente */}
+                        <button
+                            type="button"
+                            onClick={handleOpenAddAgent}
                             style={{
-                                width: '100%',
-                                background: 'rgba(15, 23, 42, 0.8)',
-                                border: '1px solid rgba(255, 255, 255, 0.12)',
+                                background: 'linear-gradient(135deg, #10b981, #059669)',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '0.26rem 0.62rem',
                                 borderRadius: '6px',
-                                padding: '0.24rem 0.5rem 0.24rem 1.6rem',
-                                color: '#f8fafc',
-                                fontSize: '0.74rem'
+                                fontWeight: 800,
+                                fontSize: '0.72rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)',
+                                whiteSpace: 'nowrap'
                             }}
-                        />
-                        {searchTerm && (
+                        >
+                            <span>➕</span>
+                            <span>Añadir Agente / Fila</span>
+                        </button>
+
+                        {/* Añadir Sección */}
+                        <button
+                            type="button"
+                            onClick={() => handleOpenAddDivider()}
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.85), rgba(37, 99, 235, 0.95))',
+                                color: '#ffffff',
+                                border: '1px solid rgba(147, 197, 253, 0.4)',
+                                padding: '0.26rem 0.62rem',
+                                borderRadius: '6px',
+                                fontWeight: 800,
+                                fontSize: '0.72rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)',
+                                whiteSpace: 'nowrap'
+                            }}
+                            title="Añadir una barra divisoria para separar agentes por apartados (Jefatura, Sargentos, Detectives...)"
+                        >
+                            <span>📑</span>
+                            <span>Añadir Sección / Divisoria</span>
+                        </button>
+
+                        {/* Ordenar por Placa */}
+                        <button
+                            type="button"
+                            onClick={handleSortByBadge}
+                            style={{
+                                background: 'rgba(56, 189, 248, 0.12)',
+                                border: '1px solid rgba(56, 189, 248, 0.35)',
+                                color: '#7dd3fc',
+                                padding: '0.26rem 0.58rem',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                                fontSize: '0.72rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                whiteSpace: 'nowrap'
+                            }}
+                            title="Ordenar agentes por número de placa (ascendente) por defecto"
+                        >
+                            <span>🔢</span>
+                            <span>Ordenar por Placa</span>
+                        </button>
+                    </div>
+
+                    {/* Modales y Herramientas de Gestión */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        {/* Gestionar Rangos */}
+                        <button
+                            type="button"
+                            onClick={() => setShowRanksManager(true)}
+                            style={{
+                                background: 'rgba(99, 102, 241, 0.12)',
+                                border: '1px solid rgba(129, 140, 248, 0.3)',
+                                color: '#c7d2fe',
+                                padding: '0.25rem 0.52rem',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                                fontSize: '0.70rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                whiteSpace: 'nowrap'
+                            }}
+                            title="Gestionar y ordenar la escala de rangos"
+                        >
+                            <span>🎖️</span>
+                            <span>Gestionar Rangos</span>
+                        </button>
+
+                        {/* Gestionar Divisiones */}
+                        <button
+                            type="button"
+                            onClick={() => setShowDivisionsManager(true)}
+                            style={{
+                                background: 'rgba(14, 165, 233, 0.12)',
+                                border: '1px solid rgba(56, 189, 248, 0.3)',
+                                color: '#bae6fd',
+                                padding: '0.25rem 0.52rem',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                                fontSize: '0.70rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                whiteSpace: 'nowrap'
+                            }}
+                            title="Gestionar divisiones de la facción"
+                        >
+                            <span>🏢</span>
+                            <span>Gestionar Divisiones</span>
+                        </button>
+
+                        {/* Gestionar Acotaciones */}
+                        <button
+                            type="button"
+                            onClick={() => setShowValoracionesManager(true)}
+                            style={{
+                                background: 'rgba(234, 179, 8, 0.12)',
+                                border: '1px solid rgba(250, 204, 21, 0.3)',
+                                color: '#fef08a',
+                                padding: '0.25rem 0.52rem',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                                fontSize: '0.70rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                whiteSpace: 'nowrap'
+                            }}
+                            title="Gestionar acotaciones y valoraciones de conducta"
+                        >
+                            <span>🏷️</span>
+                            <span>Gestionar Acotaciones</span>
+                        </button>
+
+                        {/* Analíticas & Gráfica */}
+                        <button
+                            type="button"
+                            onClick={() => setShowAnalytics(true)}
+                            style={{
+                                background: 'rgba(168, 85, 247, 0.12)',
+                                border: '1px solid rgba(192, 132, 252, 0.3)',
+                                color: '#e9d5ff',
+                                padding: '0.25rem 0.52rem',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                                fontSize: '0.70rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                whiteSpace: 'nowrap'
+                            }}
+                            title="Ver analíticas, estadísticas y gráficos de la plantilla"
+                        >
+                            <span>📊</span>
+                            <span>Analíticas & Gráfica</span>
+                        </button>
+
+                        {/* Antiguos Miembros */}
+                        <button
+                            type="button"
+                            onClick={() => setShowArchivedModal(true)}
+                            style={{
+                                background: 'rgba(245, 158, 11, 0.12)',
+                                border: '1px solid rgba(251, 191, 36, 0.3)',
+                                color: '#fef08a',
+                                padding: '0.25rem 0.52rem',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                                fontSize: '0.70rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                whiteSpace: 'nowrap'
+                            }}
+                            title="Ver registro histórico de antiguos miembros y bajas de la facción"
+                        >
+                            <span>🗄️</span>
+                            <span>Antiguos Miembros</span>
+                            {archivedCount > 0 && (
+                                <span style={{
+                                    background: 'rgba(245, 158, 11, 0.35)',
+                                    color: '#fde047',
+                                    fontSize: '0.62rem',
+                                    fontWeight: 900,
+                                    padding: '1px 5px',
+                                    borderRadius: '9999px',
+                                    border: '1px solid rgba(245, 158, 11, 0.5)'
+                                }}>
+                                    {archivedCount}
+                                </span>
+                            )}
+                        </button>
+                    </div>
+                </div>
+
+                {/* FILA 2: BÚSQUEDA Y FILTROS */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.35rem',
+                    width: '100%',
+                    paddingTop: '0.35rem',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.06)'
+                }}>
+                    {/* Filtros agrupados */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        flexWrap: 'wrap',
+                        flex: '1 1 auto',
+                        minWidth: '240px'
+                    }}>
+                        {/* Search Input */}
+                        <div style={{ position: 'relative', width: '175px', minWidth: '145px' }}>
+                            <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.70rem', color: '#94a3b8' }}>
+                                🔍
+                            </span>
+                            <input
+                                type="text"
+                                placeholder="Buscar agente, placa..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    background: 'rgba(15, 23, 42, 0.8)',
+                                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                                    borderRadius: '6px',
+                                    padding: '0.22rem 0.5rem 0.22rem 1.6rem',
+                                    color: '#f8fafc',
+                                    fontSize: '0.72rem',
+                                    outline: 'none'
+                                }}
+                            />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchTerm('')}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '6px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#94a3b8',
+                                        cursor: 'pointer',
+                                        fontSize: '0.70rem'
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Rank Filter */}
+                        <select
+                            value={rankFilter}
+                            onChange={e => setRankFilter(e.target.value)}
+                            style={{
+                                background: 'rgba(15, 23, 42, 0.8)',
+                                border: rankFilter !== 'all' ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid rgba(255, 255, 255, 0.12)',
+                                borderRadius: '6px',
+                                padding: '0.22rem 0.45rem',
+                                color: rankFilter !== 'all' ? '#c7d2fe' : '#f8fafc',
+                                fontSize: '0.72rem',
+                                maxWidth: '135px',
+                                outline: 'none'
+                            }}
+                        >
+                            <option value="all">🎖️ Rangos</option>
+                            {ranks.map(r => (
+                                <option key={r.id || r.name} value={r.name}>{r.name}</option>
+                            ))}
+                        </select>
+
+                        {/* Division Filter */}
+                        <select
+                            value={divisionFilter}
+                            onChange={e => setDivisionFilter(e.target.value)}
+                            style={{
+                                background: 'rgba(15, 23, 42, 0.8)',
+                                border: divisionFilter !== 'all' ? '1px solid rgba(56, 189, 248, 0.5)' : '1px solid rgba(255, 255, 255, 0.12)',
+                                borderRadius: '6px',
+                                padding: '0.22rem 0.45rem',
+                                color: divisionFilter !== 'all' ? '#bae6fd' : '#f8fafc',
+                                fontSize: '0.72rem',
+                                maxWidth: '135px',
+                                outline: 'none'
+                            }}
+                        >
+                            <option value="all">🏢 Divisiones</option>
+                            {divisions.map(d => (
+                                <option key={d.id || d.name} value={d.short_name || d.name}>{d.name} ({d.short_name})</option>
+                            ))}
+                        </select>
+
+                        {/* Activity Filter */}
+                        <select
+                            value={activityFilter}
+                            onChange={e => setActivityFilter(e.target.value)}
+                            style={{
+                                background: 'rgba(15, 23, 42, 0.8)',
+                                border: activityFilter !== 'all' ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(255, 255, 255, 0.12)',
+                                borderRadius: '6px',
+                                padding: '0.22rem 0.45rem',
+                                color: activityFilter !== 'all' ? '#6ee7b7' : '#f8fafc',
+                                fontSize: '0.72rem',
+                                maxWidth: '125px',
+                                outline: 'none'
+                            }}
+                        >
+                            <option value="all">🔘 Estados</option>
+                            <option value="Activo">🟢 Solo Activos</option>
+                            <option value="Poco activa">🟡 Poco / Vacaciones</option>
+                            <option value="Inactivo">🔴 Solo Inactivos</option>
+                        </select>
+
+                        {/* Valoración Filter */}
+                        <select
+                            value={valoracionFilter}
+                            onChange={e => setValoracionFilter(e.target.value)}
+                            style={{
+                                background: 'rgba(15, 23, 42, 0.8)',
+                                border: valoracionFilter !== 'all' ? '1px solid rgba(250, 204, 21, 0.5)' : '1px solid rgba(255, 255, 255, 0.12)',
+                                borderRadius: '6px',
+                                padding: '0.22rem 0.45rem',
+                                color: valoracionFilter !== 'all' ? '#fef08a' : '#f8fafc',
+                                fontSize: '0.72rem',
+                                maxWidth: '130px',
+                                outline: 'none'
+                            }}
+                        >
+                            <option value="all">🏷️ Valoraciones</option>
+                            <option value="none">⚪ Sin Valoración</option>
+                            {activeValoraciones.map(v => (
+                                <option key={v.id || v.name} value={v.name}>
+                                    ● {v.name}
+                                </option>
+                            ))}
+                        </select>
+
+                        {/* Toggle Faltas IA Activas Filter */}
+                        <button
+                            type="button"
+                            onClick={() => setIaSanctionFilter(prev => prev === 'all' ? 'active_only' : 'all')}
+                            style={{
+                                background: iaSanctionFilter === 'active_only' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                                border: iaSanctionFilter === 'active_only' ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(255, 255, 255, 0.12)',
+                                color: iaSanctionFilter === 'active_only' ? '#fca5a5' : '#cbd5e1',
+                                borderRadius: '6px',
+                                padding: '0.22rem 0.5rem',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            <span>⚖️</span>
+                            <span>{iaSanctionFilter === 'active_only' ? 'Con Falta IA' : 'Faltas IA'}</span>
+                        </button>
+
+                        {/* Botón Limpiar Filtros (visible sólo si hay algún filtro activo) */}
+                        {hasActiveFilters && (
                             <button
                                 type="button"
-                                onClick={() => setSearchTerm('')}
+                                onClick={handleResetFilters}
                                 style={{
-                                    position: 'absolute',
-                                    right: '6px',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: '#94a3b8',
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                                    color: '#fca5a5',
+                                    borderRadius: '6px',
+                                    padding: '0.22rem 0.5rem',
+                                    fontSize: '0.70rem',
+                                    fontWeight: 700,
                                     cursor: 'pointer',
-                                    fontSize: '0.72rem'
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    whiteSpace: 'nowrap'
                                 }}
+                                title="Restablecer todos los filtros"
                             >
-                                ✕
+                                <span>✕</span>
+                                <span>Limpiar filtros</span>
+                                <span style={{ opacity: 0.8, fontSize: '0.65rem' }}>
+                                    ({filteredAgents.filter(isRealAgent).length})
+                                </span>
                             </button>
                         )}
                     </div>
 
-                    {/* Rank Filter */}
-                    <select
-                        value={rankFilter}
-                        onChange={e => setRankFilter(e.target.value)}
-                        style={{
-                            background: 'rgba(15, 23, 42, 0.8)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            borderRadius: '6px',
-                            padding: '0.24rem 0.5rem',
-                            color: '#f8fafc',
-                            fontSize: '0.73rem'
-                        }}
-                    >
-                        <option value="all">🎖️ Rangos</option>
-                        {ranks.map(r => (
-                            <option key={r.id || r.name} value={r.name}>{r.name}</option>
-                        ))}
-                    </select>
-
-                    {/* Division Filter */}
-                    <select
-                        value={divisionFilter}
-                        onChange={e => setDivisionFilter(e.target.value)}
-                        style={{
-                            background: 'rgba(15, 23, 42, 0.8)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            borderRadius: '6px',
-                            padding: '0.24rem 0.5rem',
-                            color: '#f8fafc',
-                            fontSize: '0.73rem'
-                        }}
-                    >
-                        <option value="all">🏢 Divisiones</option>
-                        {divisions.map(d => (
-                            <option key={d.id || d.name} value={d.short_name || d.name}>{d.name} ({d.short_name})</option>
-                        ))}
-                    </select>
-
-                    {/* Activity Filter */}
-                    <select
-                        value={activityFilter}
-                        onChange={e => setActivityFilter(e.target.value)}
-                        style={{
-                            background: 'rgba(15, 23, 42, 0.8)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            borderRadius: '6px',
-                            padding: '0.24rem 0.5rem',
-                            color: '#f8fafc',
-                            fontSize: '0.73rem'
-                        }}
-                    >
-                        <option value="all">🔘 Estados</option>
-                        <option value="Activo">🟢 Solo Activos</option>
-                        <option value="Poco activa">🟡 Poco / Vacaciones</option>
-                        <option value="Inactivo">🔴 Solo Inactivos</option>
-                    </select>
-
-                    {/* Valoración Filter */}
-                    <select
-                        value={valoracionFilter}
-                        onChange={e => setValoracionFilter(e.target.value)}
-                        style={{
-                            background: 'rgba(15, 23, 42, 0.8)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            borderRadius: '6px',
-                            padding: '0.24rem 0.5rem',
-                            color: '#f8fafc',
-                            fontSize: '0.73rem'
-                        }}
-                    >
-                        <option value="all">🏷️ Valoraciones</option>
-                        <option value="none">⚪ Sin Valoración</option>
-                        {activeValoraciones.map(v => (
-                            <option key={v.id || v.name} value={v.name}>
-                                ● {v.name}
-                            </option>
-                        ))}
-                    </select>
-
-                    {/* Toggle Faltas IA Activas Filter */}
-                    <button
-                        type="button"
-                        onClick={() => setIaSanctionFilter(prev => prev === 'all' ? 'active_only' : 'all')}
-                        style={{
-                            background: iaSanctionFilter === 'active_only' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                            border: iaSanctionFilter === 'active_only' ? '1px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(255, 255, 255, 0.12)',
-                            color: iaSanctionFilter === 'active_only' ? '#fca5a5' : '#cbd5e1',
-                            borderRadius: '6px',
-                            padding: '0.24rem 0.55rem',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                        }}
-                    >
-                        <span>⚖️</span>
-                        <span>{iaSanctionFilter === 'active_only' ? 'Con Falta IA' : 'Faltas IA'}</span>
-                    </button>
-                </div>
-
-                {/* Management Action Buttons */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center' }}>
-                    {/* Add Agent */}
-                    <button
-                        type="button"
-                        onClick={handleOpenAddAgent}
-                        style={{
-                            background: 'linear-gradient(135deg, #10b981, #059669)',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '0.32rem 0.7rem',
-                            borderRadius: '6px',
-                            fontWeight: 800,
-                            fontSize: '0.74rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
-                        }}
-                    >
-                        <span>➕</span>
-                        <span>Añadir Agente / Fila</span>
-                    </button>
-
-                    {/* Add Section Divider */}
-                    <button
-                        type="button"
-                        onClick={() => handleOpenAddDivider()}
-                        style={{
-                            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.85), rgba(37, 99, 235, 0.95))',
-                            color: '#ffffff',
-                            border: '1px solid rgba(147, 197, 253, 0.4)',
-                            padding: '0.32rem 0.7rem',
-                            borderRadius: '6px',
-                            fontWeight: 800,
-                            fontSize: '0.74rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
-                        }}
-                        title="Añadir una barra divisoria para separar agentes por apartados (Jefatura, Sargentos, Detectives...)"
-                    >
-                        <span>📑</span>
-                        <span>Añadir Sección / Divisoria</span>
-                    </button>
-
-                    {/* Sort by Badge */}
-                    <button
-                        type="button"
-                        onClick={handleSortByBadge}
-                        style={{
-                            background: 'rgba(56, 189, 248, 0.15)',
-                            border: '1px solid rgba(56, 189, 248, 0.4)',
-                            color: '#7dd3fc',
-                            padding: '0.32rem 0.65rem',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            fontSize: '0.74rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '5px'
-                        }}
-                        title="Ordenar agentes por número de placa (ascendente) por defecto"
-                    >
-                        <span>🔢</span>
-                        <span>Ordenar por Placa</span>
-                    </button>
-
                     {/* Drag & Drop Reorder Tip */}
-                    <div
-                        style={{
-                            background: 'rgba(56, 189, 248, 0.08)',
-                            border: '1px solid rgba(56, 189, 248, 0.22)',
-                            color: '#7dd3fc',
-                            padding: '0.30rem 0.55rem',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            fontSize: '0.68rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            userSelect: 'none'
-                        }}
-                        title="Arrastra cualquier sección o agente desde el icono ⠿ para recolocarlo al instante"
-                    >
-                        <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>⠿</span>
-                        <span>Arrastra para reordenar</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                        <div
+                            style={{
+                                background: 'rgba(56, 189, 248, 0.08)',
+                                border: '1px solid rgba(56, 189, 248, 0.22)',
+                                color: '#7dd3fc',
+                                padding: '0.22rem 0.45rem',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                                fontSize: '0.67rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                userSelect: 'none',
+                                whiteSpace: 'nowrap'
+                            }}
+                            title="Arrastra cualquier sección o agente desde el icono ⠿ para recolocarlo al instante"
+                        >
+                            <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>⠿</span>
+                            <span>Arrastra para reordenar</span>
+                        </div>
                     </div>
-
-                    {/* Manage Ranks */}
-                    <button
-                        type="button"
-                        onClick={() => setShowRanksManager(true)}
-                        style={{
-                            background: 'rgba(99, 102, 241, 0.15)',
-                            border: '1px solid rgba(129, 140, 248, 0.35)',
-                            color: '#c7d2fe',
-                            padding: '0.32rem 0.65rem',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            fontSize: '0.74rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '5px'
-                        }}
-                    >
-                        <span>🎖️</span>
-                        <span>Gestionar Rangos</span>
-                    </button>
-
-                    {/* Manage Divisions */}
-                    <button
-                        type="button"
-                        onClick={() => setShowDivisionsManager(true)}
-                        style={{
-                            background: 'rgba(14, 165, 233, 0.15)',
-                            border: '1px solid rgba(56, 189, 248, 0.35)',
-                            color: '#bae6fd',
-                            padding: '0.32rem 0.65rem',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            fontSize: '0.74rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '5px'
-                        }}
-                    >
-                        <span>🏢</span>
-                        <span>Gestionar Divisiones</span>
-                    </button>
-
-                    {/* Manage Valoraciones / Acotaciones */}
-                    <button
-                        type="button"
-                        onClick={() => setShowValoracionesManager(true)}
-                        style={{
-                            background: 'rgba(234, 179, 8, 0.15)',
-                            border: '1px solid rgba(250, 204, 21, 0.35)',
-                            color: '#fef08a',
-                            padding: '0.32rem 0.65rem',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            fontSize: '0.74rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '5px'
-                        }}
-                    >
-                        <span>🏷️</span>
-                        <span>Gestionar Acotaciones</span>
-                    </button>
-
-                    {/* View Analytics */}
-                    <button
-                        type="button"
-                        onClick={() => setShowAnalytics(true)}
-                        style={{
-                            background: 'rgba(168, 85, 247, 0.15)',
-                            border: '1px solid rgba(192, 132, 252, 0.35)',
-                            color: '#e9d5ff',
-                            padding: '0.32rem 0.65rem',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            fontSize: '0.74rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '5px'
-                        }}
-                    >
-                        <span>📊</span>
-                        <span>Analíticas & Gráfica</span>
-                    </button>
-
-                    {/* Antiguos Miembros / Archivo de Bajas */}
-                    <button
-                        type="button"
-                        onClick={() => setShowArchivedModal(true)}
-                        style={{
-                            background: 'rgba(245, 158, 11, 0.15)',
-                            border: '1px solid rgba(251, 191, 36, 0.35)',
-                            color: '#fef08a',
-                            padding: '0.32rem 0.65rem',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            fontSize: '0.74rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '5px'
-                        }}
-                        title="Ver registro histórico de antiguos miembros y bajas de la facción"
-                    >
-                        <span>🗄️</span>
-                        <span>Antiguos Miembros</span>
-                        {archivedCount > 0 && (
-                            <span style={{
-                                background: 'rgba(245, 158, 11, 0.35)',
-                                color: '#fde047',
-                                fontSize: '0.62rem',
-                                fontWeight: 900,
-                                padding: '1px 5px',
-                                borderRadius: '9999px',
-                                border: '1px solid rgba(245, 158, 11, 0.5)'
-                            }}>
-                                {archivedCount}
-                            </span>
-                        )}
-                    </button>
                 </div>
             </div>
 
