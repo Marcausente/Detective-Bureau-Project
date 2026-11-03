@@ -8,6 +8,84 @@ import SebRosterDiscord from '../components/SebRosterDiscord';
 import DivisionPresentationDiscord from '../components/DivisionPresentationDiscord';
 import '../index.css';
 
+/**
+ * Concurrency-safe merge of tactical board elements.
+ * Prevents race conditions, zombie elements, and overwriting concurrent user updates.
+ */
+function mergeBoardElements(localElements, incomingElements, { activeLocalId = null, deletedMap = new Map() } = {}) {
+    if (!Array.isArray(incomingElements)) return localElements || [];
+    if (!Array.isArray(localElements) || localElements.length === 0) {
+        return incomingElements.filter(el => !deletedMap.has(el.id));
+    }
+
+    const localMap = new Map(localElements.map(el => [el.id, el]));
+    const incomingMap = new Map(incomingElements.map(el => [el.id, el]));
+    const mergedMap = new Map();
+
+    // 1. Process all incoming elements from remote/server
+    for (const [id, incEl] of incomingMap.entries()) {
+        const deletedAt = deletedMap.get(id);
+        const incTime = Number(incEl.updated_at) || 0;
+
+        // If this element was deleted locally at or after the incoming update time, suppress it
+        if (deletedAt && deletedAt >= incTime) {
+            continue;
+        }
+
+        // If local user is actively manipulating this element (dragging/resizing), protect local state
+        if (id === activeLocalId && localMap.has(id)) {
+            mergedMap.set(id, localMap.get(id));
+            continue;
+        }
+
+        if (localMap.has(id)) {
+            const locEl = localMap.get(id);
+            const locTime = Number(locEl.updated_at) || 0;
+
+            // Pick the element with the newest timestamp
+            if (incTime >= locTime) {
+                mergedMap.set(id, incEl);
+            } else {
+                mergedMap.set(id, locEl);
+            }
+        } else {
+            // New element created by peer
+            mergedMap.set(id, incEl);
+        }
+    }
+
+    // 2. Process local elements that were not in incoming
+    const now = Date.now();
+    for (const [id, locEl] of localMap.entries()) {
+        if (!mergedMap.has(id)) {
+            const deletedAt = deletedMap.get(id);
+            if (deletedAt) continue;
+
+            const locTime = Number(locEl.updated_at) || 0;
+
+            // If locally modified/created recently (<20s) or actively in use, preserve it
+            if (now - locTime < 20000 || id === activeLocalId) {
+                mergedMap.set(id, locEl);
+            }
+            // Otherwise, it was deleted by the other peer, so we do not revive it
+        }
+    }
+
+    // 3. Clean up dangling threads
+    const nonThreadIds = new Set(
+        Array.from(mergedMap.values())
+            .filter(el => el.type !== 'thread')
+            .map(el => el.id)
+    );
+
+    return Array.from(mergedMap.values()).filter(el => {
+        if (el.type === 'thread') {
+            return nonThreadIds.has(el.sourceId) && nonThreadIds.has(el.targetId);
+        }
+        return true;
+    });
+}
+
 function SEB() {
     const navigate = useNavigate();
     const { language } = useLanguage();
@@ -77,7 +155,7 @@ function SEB() {
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [savingBoard, setSavingBoard] = useState(false);
     
-    // Realtime Synchronization State & Refs
+    // Realtime Synchronization State & Concurrency Protection
     const clientIdRef = useRef(
         typeof crypto !== 'undefined' && crypto.randomUUID
             ? crypto.randomUUID()
@@ -85,6 +163,9 @@ function SEB() {
     );
     const sebChannelRef = useRef(null);
     const isRemoteUpdateRef = useRef(false);
+    const isSavingRef = useRef(false);
+    const pendingSaveRef = useRef(null);
+    const deletedElementsRef = useRef(new Map()); // id -> deletedAt timestamp
     const [remoteSyncUser, setRemoteSyncUser] = useState(null);
     const remoteSyncTimerRef = useRef(null);
 
@@ -98,7 +179,7 @@ function SEB() {
     const boardRef = useRef(null);
     const fileInputRef = useRef(null);
 
-    // Keep active refs for callbacks inside realtime subscriptions
+    // Keep active refs for callbacks inside realtime subscriptions, async save, and timers
     const selectedOpRef = useRef(selectedOp);
     useEffect(() => {
         selectedOpRef.current = selectedOp;
@@ -108,6 +189,26 @@ function SEB() {
     useEffect(() => {
         operationsRef.current = operations;
     }, [operations]);
+
+    const boardElementsRef = useRef(boardElements);
+    useEffect(() => {
+        boardElementsRef.current = boardElements;
+    }, [boardElements]);
+
+    const isDraggingRef = useRef(isDragging);
+    useEffect(() => {
+        isDraggingRef.current = isDragging;
+    }, [isDragging]);
+
+    const isResizingRef = useRef(isResizing);
+    useEffect(() => {
+        isResizingRef.current = isResizing;
+    }, [isResizing]);
+
+    const selectedElementIdRef = useRef(selectedElementId);
+    useEffect(() => {
+        selectedElementIdRef.current = selectedElementId;
+    }, [selectedElementId]);
 
     useEffect(() => {
         loadUserProfile();
@@ -120,7 +221,7 @@ function SEB() {
         }
     }, [profile]);
 
-    // Supabase Realtime Subscription for Live Multi-User Tactical Board
+    // Supabase Realtime Subscription for Live Multi-User Tactical Board (Race-Condition Free)
     useEffect(() => {
         const channel = supabase.channel('seb_tactical_realtime', {
             config: {
@@ -134,11 +235,29 @@ function SEB() {
                 const payload = msg?.payload;
                 if (!payload || payload.senderId === clientIdRef.current) return;
 
-                // Si tenemos la misma operacion abierta, actualizamos los elementos visuales
+                // Sync remote deleted IDs into deletedElementsRef
+                if (Array.isArray(payload.deletedIds)) {
+                    payload.deletedIds.forEach(id => {
+                        if (!deletedElementsRef.current.has(id)) {
+                            deletedElementsRef.current.set(id, Date.now());
+                        }
+                    });
+                }
+
+                // Si tenemos la misma operacion abierta, hacemos merge concurrente seguro
                 if (selectedOpRef.current && selectedOpRef.current.id === payload.opId) {
-                    isRemoteUpdateRef.current = true;
                     if (Array.isArray(payload.boardElements)) {
-                        setBoardElements(payload.boardElements);
+                        const activeId = (isDraggingRef.current || isResizingRef.current) ? selectedElementIdRef.current : null;
+                        const merged = mergeBoardElements(boardElementsRef.current, payload.boardElements, {
+                            activeLocalId: activeId,
+                            deletedMap: deletedElementsRef.current
+                        });
+
+                        // Solo actualizar si hay cambios reales en los elementos
+                        if (JSON.stringify(merged) !== JSON.stringify(boardElementsRef.current)) {
+                            isRemoteUpdateRef.current = true;
+                            setBoardElements(merged);
+                        }
                     }
                     if (payload.senderName) {
                         setRemoteSyncUser(payload.senderName);
@@ -186,18 +305,20 @@ function SEB() {
                 } else if (payload.eventType === 'UPDATE' && payload.new) {
                     const updatedOp = payload.new;
                     setOperations(prev => prev.map(o => o.id === updatedOp.id ? { ...o, ...updatedOp } : o));
-                    if (selectedOpRef.current?.id === updatedOp.id) {
+                    if (selectedOpRef.current?.id === updatedOp.id && !isSavingRef.current) {
                         const remoteElements = typeof updatedOp.board_data === 'string'
                             ? JSON.parse(updatedOp.board_data)
                             : (updatedOp.board_data || []);
-                        setBoardElements(prev => {
-                            if (JSON.stringify(prev) !== JSON.stringify(remoteElements)) {
-                                isRemoteUpdateRef.current = true;
-                                return remoteElements;
-                            }
-                            return prev;
+                        const activeId = (isDraggingRef.current || isResizingRef.current) ? selectedElementIdRef.current : null;
+                        const merged = mergeBoardElements(boardElementsRef.current, remoteElements, {
+                            activeLocalId: activeId,
+                            deletedMap: deletedElementsRef.current
                         });
-                        setSelectedOp(prev => ({ ...prev, ...updatedOp, board_data: remoteElements }));
+                        if (JSON.stringify(merged) !== JSON.stringify(boardElementsRef.current)) {
+                            isRemoteUpdateRef.current = true;
+                            setBoardElements(merged);
+                        }
+                        setSelectedOp(prev => ({ ...prev, ...updatedOp, board_data: merged }));
                     }
                 } else if (payload.eventType === 'DELETE' && payload.old) {
                     const deletedId = payload.old.id;
@@ -286,6 +407,7 @@ function SEB() {
         pastedElement.id = newId;
         pastedElement.zIndex = maxZ + 1;
         pastedElement.isLocked = false;
+        pastedElement.updated_at = Date.now();
 
         if (typeof pastedElement.x === 'number') {
             pastedElement.x += 30;
@@ -316,6 +438,7 @@ function SEB() {
         clone.id = newId;
         clone.zIndex = maxZ + 1;
         clone.isLocked = false;
+        clone.updated_at = Date.now();
 
         if (typeof clone.x === 'number') {
             clone.x += 30;
@@ -716,40 +839,85 @@ function SEB() {
         setPan({ x: 0, y: 0 });
     };
 
-    const handleSaveBoard = async (elementsToSave = boardElements) => {
-        if (!selectedOp) return;
+    const handleSaveBoard = async (elementsToSave = boardElementsRef.current) => {
+        if (!selectedOpRef.current) return;
+        const opId = selectedOpRef.current.id;
+
+        // Mutex / Cola de guardado concurrente: evita condiciones de carrera por peticiones desordenadas
+        if (isSavingRef.current) {
+            pendingSaveRef.current = elementsToSave;
+            return;
+        }
+
+        isSavingRef.current = true;
         setSavingBoard(true);
 
         try {
-            const { error } = await supabase
+            // 1. Obtener datos frescos del servidor para no sobreescribir cambios concurrentes de otros usuarios
+            let finalElements = elementsToSave;
+            const { data: serverOp, error: fetchErr } = await supabase
                 .from('seb_operations')
-                .update({ board_data: elementsToSave, updated_at: new Date().toISOString() })
-                .eq('id', selectedOp.id);
+                .select('board_data, updated_at')
+                .eq('id', opId)
+                .single();
 
-            if (error) {
-                const updatedOps = operations.map(o => o.id === selectedOp.id ? { ...o, board_data: elementsToSave } : o);
+            if (!fetchErr && serverOp?.board_data) {
+                const serverElements = typeof serverOp.board_data === 'string'
+                    ? JSON.parse(serverOp.board_data)
+                    : (serverOp.board_data || []);
+
+                const activeId = (isDraggingRef.current || isResizingRef.current) ? selectedElementIdRef.current : null;
+                finalElements = mergeBoardElements(elementsToSave, serverElements, {
+                    activeLocalId: activeId,
+                    deletedMap: deletedElementsRef.current
+                });
+            }
+
+            // 2. Persistir en la base de datos de manera atómica
+            const { error: updateErr } = await supabase
+                .from('seb_operations')
+                .update({ board_data: finalElements, updated_at: new Date().toISOString() })
+                .eq('id', opId);
+
+            if (updateErr) {
+                const updatedOps = operationsRef.current.map(o => o.id === opId ? { ...o, board_data: finalElements } : o);
                 setOperations(updatedOps);
                 localStorage.setItem('seb_operations', JSON.stringify(updatedOps));
             } else {
-                setOperations(operations.map(o => o.id === selectedOp.id ? { ...o, board_data: elementsToSave } : o));
+                setOperations(operationsRef.current.map(o => o.id === opId ? { ...o, board_data: finalElements } : o));
             }
 
-            // Emitir actualización inmediata a todos los clientes conectados a la pizarra
+            // Si el merge incorporó elementos remotos adicionales, sincronizamos el estado local
+            if (JSON.stringify(boardElementsRef.current) !== JSON.stringify(finalElements)) {
+                isRemoteUpdateRef.current = true;
+                setBoardElements(finalElements);
+            }
+
+            // 3. Emitir actualización inmediata a todos los clientes conectados a la pizarra
             sebChannelRef.current?.send({
                 type: 'broadcast',
                 event: 'seb_board_updated',
                 payload: {
-                    opId: selectedOp.id,
-                    boardElements: elementsToSave,
+                    opId,
+                    boardElements: finalElements,
+                    deletedIds: Array.from(deletedElementsRef.current.keys()),
                     senderId: clientIdRef.current,
                     senderName: profile?.nombre ? `${profile.nombre} ${profile.apellido || ''}`.trim() : (profile?.rango || 'Operador SEB'),
                     updatedAt: new Date().toISOString()
                 }
             });
         } catch (err) {
-            console.error('Error saving board state:', err);
+            console.error('Error in atomic handleSaveBoard:', err);
         } finally {
+            isSavingRef.current = false;
             setSavingBoard(false);
+
+            // Si se encoló otro guardado mientras este estaba en vuelo, ejecutarlo de inmediato
+            if (pendingSaveRef.current) {
+                const nextElements = pendingSaveRef.current;
+                pendingSaveRef.current = null;
+                handleSaveBoard(nextElements);
+            }
         }
     };
 
@@ -770,7 +938,8 @@ function SEB() {
                 y: 100 - pan.y + (boardElements.length * 20),
                 width: 320,
                 height: 240,
-                zIndex: maxZ + 1
+                zIndex: maxZ + 1,
+                updated_at: Date.now()
             };
 
             pushHistory([...boardElements, newImageElement]);
@@ -821,7 +990,8 @@ function SEB() {
             updateElement(noteForm.id, {
                 title: noteForm.title.trim(),
                 category: noteForm.title.trim() || 'Nota Táctica',
-                content: noteForm.content
+                content: noteForm.content,
+                updated_at: Date.now()
             });
         } else {
             const maxZ = boardElements.reduce((max, el) => Math.max(max, el.zIndex || 1), 1);
@@ -836,7 +1006,8 @@ function SEB() {
                 width: 280,
                 height: 180,
                 zIndex: maxZ + 1,
-                isLocked: false
+                isLocked: false,
+                updated_at: Date.now()
             };
 
             pushHistory([...boardElements, newNoteElement]);
@@ -863,7 +1034,8 @@ function SEB() {
             width: 240,
             height: 60,
             zIndex: maxZ + 1,
-            isLocked: false
+            isLocked: false,
+            updated_at: Date.now()
         };
 
         pushHistory([...boardElements, newTextElement]);
@@ -877,7 +1049,7 @@ function SEB() {
     const handleEditThreadLabel = (thread) => {
         const updatedLabel = prompt(language === 'es' ? 'Editar texto / etiqueta del hilo conector:' : 'Edit connector thread label:', thread.label || '');
         if (updatedLabel === null) return;
-        updateElement(thread.id, { label: updatedLabel });
+        updateElement(thread.id, { label: updatedLabel, updated_at: Date.now() });
     };
 
     const startConnectingThread = (sourceId) => {
@@ -899,7 +1071,8 @@ function SEB() {
             type: 'thread',
             sourceId: connectingSourceId,
             targetId: targetId,
-            label: label
+            label: label,
+            updated_at: Date.now()
         };
 
         pushHistory([...boardElements, newThread]);
@@ -907,16 +1080,17 @@ function SEB() {
     };
 
     const updateElement = (id, newProps) => {
-        pushHistory(boardElements.map(el => el.id === id ? { ...el, ...newProps } : el));
+        pushHistory(boardElements.map(el => el.id === id ? { ...el, ...newProps, updated_at: Date.now() } : el));
     };
 
     const toggleLockElement = (id) => {
         const el = boardElements.find(item => item.id === id);
         if (!el) return;
-        updateElement(id, { isLocked: !el.isLocked });
+        updateElement(id, { isLocked: !el.isLocked, updated_at: Date.now() });
     };
 
     const handleDeleteElement = (id) => {
+        deletedElementsRef.current.set(id, Date.now());
         pushHistory(boardElements.filter(el => el.id !== id && el.sourceId !== id && el.targetId !== id));
         if (selectedElementId === id) setSelectedElementId(null);
         if (connectingSourceId === id) setConnectingSourceId(null);
@@ -924,6 +1098,9 @@ function SEB() {
 
     const handleClearDrawings = () => {
         if (confirm(language === 'es' ? '¿Borrar todos los trazos de dibujo del tablero?' : 'Clear all freehand drawings on the board?')) {
+            boardElements.filter(el => el.type === 'drawing').forEach(el => {
+                deletedElementsRef.current.set(el.id, Date.now());
+            });
             pushHistory(boardElements.filter(el => el.type !== 'drawing'));
         }
     };
@@ -1216,7 +1393,8 @@ function SEB() {
                     points: currentPoints,
                     shape: pencilShape,
                     color: pencilColor,
-                    strokeWidth: pencilWidth
+                    strokeWidth: pencilWidth,
+                    updated_at: Date.now()
                 };
                 pushHistory([...boardElements, newDrawing]);
             }
