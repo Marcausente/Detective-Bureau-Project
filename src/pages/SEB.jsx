@@ -77,6 +77,17 @@ function SEB() {
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [savingBoard, setSavingBoard] = useState(false);
     
+    // Realtime Synchronization State & Refs
+    const clientIdRef = useRef(
+        typeof crypto !== 'undefined' && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `seb-client-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+    );
+    const sebChannelRef = useRef(null);
+    const isRemoteUpdateRef = useRef(false);
+    const [remoteSyncUser, setRemoteSyncUser] = useState(null);
+    const remoteSyncTimerRef = useRef(null);
+
     // Image Preview Modal
     const [expandedImage, setExpandedImage] = useState(null);
 
@@ -86,6 +97,17 @@ function SEB() {
     const [dragDrawingStart, setDragDrawingStart] = useState({ startX: 0, startY: 0, initialPoints: [] });
     const boardRef = useRef(null);
     const fileInputRef = useRef(null);
+
+    // Keep active refs for callbacks inside realtime subscriptions
+    const selectedOpRef = useRef(selectedOp);
+    useEffect(() => {
+        selectedOpRef.current = selectedOp;
+    }, [selectedOp]);
+
+    const operationsRef = useRef(operations);
+    useEffect(() => {
+        operationsRef.current = operations;
+    }, [operations]);
 
     useEffect(() => {
         loadUserProfile();
@@ -97,6 +119,103 @@ function SEB() {
             fetchSEBPersonnel();
         }
     }, [profile]);
+
+    // Supabase Realtime Subscription for Live Multi-User Tactical Board
+    useEffect(() => {
+        const channel = supabase.channel('seb_tactical_realtime', {
+            config: {
+                broadcast: { self: false }
+            }
+        });
+        sebChannelRef.current = channel;
+
+        channel
+            .on('broadcast', { event: 'seb_board_updated' }, (msg) => {
+                const payload = msg?.payload;
+                if (!payload || payload.senderId === clientIdRef.current) return;
+
+                // Si tenemos la misma operacion abierta, actualizamos los elementos visuales
+                if (selectedOpRef.current && selectedOpRef.current.id === payload.opId) {
+                    isRemoteUpdateRef.current = true;
+                    if (Array.isArray(payload.boardElements)) {
+                        setBoardElements(payload.boardElements);
+                    }
+                    if (payload.senderName) {
+                        setRemoteSyncUser(payload.senderName);
+                        if (remoteSyncTimerRef.current) clearTimeout(remoteSyncTimerRef.current);
+                        remoteSyncTimerRef.current = setTimeout(() => setRemoteSyncUser(null), 3000);
+                    }
+                }
+
+                // Mantener sincronizado el listado de operaciones en memoria
+                setOperations(prev => prev.map(o => o.id === payload.opId ? { ...o, board_data: payload.boardElements } : o));
+            })
+            .on('broadcast', { event: 'seb_operations_changed' }, (msg) => {
+                const payload = msg?.payload;
+                if (!payload || payload.senderId === clientIdRef.current) return;
+
+                const { action, opId, operation, status } = payload;
+                if (action === 'create' && operation) {
+                    setOperations(prev => {
+                        if (prev.some(o => o.id === operation.id)) return prev;
+                        return [operation, ...prev];
+                    });
+                } else if (action === 'delete' && opId) {
+                    setOperations(prev => prev.filter(o => o.id !== opId));
+                    if (selectedOpRef.current?.id === opId) {
+                        setSelectedOp(null);
+                    }
+                } else if (action === 'update' && operation && opId) {
+                    setOperations(prev => prev.map(o => o.id === opId ? { ...o, ...operation } : o));
+                    if (selectedOpRef.current?.id === opId) {
+                        setSelectedOp(prev => prev ? { ...prev, ...operation } : null);
+                    }
+                } else if (action === 'status_change' && opId && status) {
+                    setOperations(prev => prev.map(o => o.id === opId ? { ...o, status } : o));
+                    if (selectedOpRef.current?.id === opId) {
+                        setSelectedOp(prev => prev ? { ...prev, status } : null);
+                    }
+                }
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'seb_operations' }, (payload) => {
+                if (payload.eventType === 'INSERT' && payload.new) {
+                    setOperations(prev => {
+                        if (prev.some(o => o.id === payload.new.id)) return prev;
+                        return [payload.new, ...prev];
+                    });
+                } else if (payload.eventType === 'UPDATE' && payload.new) {
+                    const updatedOp = payload.new;
+                    setOperations(prev => prev.map(o => o.id === updatedOp.id ? { ...o, ...updatedOp } : o));
+                    if (selectedOpRef.current?.id === updatedOp.id) {
+                        const remoteElements = typeof updatedOp.board_data === 'string'
+                            ? JSON.parse(updatedOp.board_data)
+                            : (updatedOp.board_data || []);
+                        setBoardElements(prev => {
+                            if (JSON.stringify(prev) !== JSON.stringify(remoteElements)) {
+                                isRemoteUpdateRef.current = true;
+                                return remoteElements;
+                            }
+                            return prev;
+                        });
+                        setSelectedOp(prev => ({ ...prev, ...updatedOp, board_data: remoteElements }));
+                    }
+                } else if (payload.eventType === 'DELETE' && payload.old) {
+                    const deletedId = payload.old.id;
+                    if (deletedId) {
+                        setOperations(prev => prev.filter(o => o.id !== deletedId));
+                        if (selectedOpRef.current?.id === deletedId) {
+                            setSelectedOp(null);
+                        }
+                    }
+                }
+            })
+            .subscribe();
+
+        return () => {
+            if (remoteSyncTimerRef.current) clearTimeout(remoteSyncTimerRef.current);
+            supabase.removeChannel(channel);
+        };
+    }, []);
 
     // Mouse wheel zoom event handler for canvas
     const handleWheelCanvas = useCallback((e) => {
@@ -399,18 +518,29 @@ function SEB() {
                 .select()
                 .single();
 
-            if (!error && data) {
-                setOperations([data, ...operations]);
-            } else {
-                const localOp = {
-                    ...opToInsert,
-                    id: 'op-' + Date.now(),
-                    created_at: new Date().toISOString()
-                };
-                const updated = [localOp, ...operations];
-                setOperations(updated);
+            const finalCreatedOp = (!error && data) ? data : {
+                ...opToInsert,
+                id: 'op-' + Date.now(),
+                created_at: new Date().toISOString()
+            };
+
+            const updated = [finalCreatedOp, ...operations];
+            setOperations(updated);
+            if (error || !data) {
                 localStorage.setItem('seb_operations', JSON.stringify(updated));
             }
+
+            // Emitir broadcast de creación a otros mandos en tiempo real
+            sebChannelRef.current?.send({
+                type: 'broadcast',
+                event: 'seb_operations_changed',
+                payload: {
+                    action: 'create',
+                    opId: finalCreatedOp.id,
+                    operation: finalCreatedOp,
+                    senderId: clientIdRef.current
+                }
+            });
         } catch (err) {
             console.error('Error saving new operation:', err);
         }
@@ -443,6 +573,17 @@ function SEB() {
             if (selectedOp?.id === opId) {
                 setSelectedOp(null);
             }
+
+            // Emitir broadcast de eliminación en tiempo real
+            sebChannelRef.current?.send({
+                type: 'broadcast',
+                event: 'seb_operations_changed',
+                payload: {
+                    action: 'delete',
+                    opId,
+                    senderId: clientIdRef.current
+                }
+            });
         } catch (err) {
             console.error('Error deleting operation:', err);
         }
@@ -463,6 +604,18 @@ function SEB() {
             if (selectedOp?.id === op.id) {
                 setSelectedOp({ ...selectedOp, status: newStatus });
             }
+
+            // Emitir broadcast de cambio de estado en tiempo real
+            sebChannelRef.current?.send({
+                type: 'broadcast',
+                event: 'seb_operations_changed',
+                payload: {
+                    action: 'status_change',
+                    opId: op.id,
+                    status: newStatus,
+                    senderId: clientIdRef.current
+                }
+            });
         } catch (err) {
             console.error('Error updating operation status:', err);
         }
@@ -505,6 +658,18 @@ function SEB() {
             if (selectedOp?.id === editingOp.id) {
                 setSelectedOp({ ...selectedOp, ...editingOp });
             }
+
+            // Emitir broadcast de edición en tiempo real
+            sebChannelRef.current?.send({
+                type: 'broadcast',
+                event: 'seb_operations_changed',
+                payload: {
+                    action: 'update',
+                    opId: editingOp.id,
+                    operation: editingOp,
+                    senderId: clientIdRef.current
+                }
+            });
         } catch (err) {
             console.error('Error saving edited operation:', err);
         }
@@ -513,7 +678,7 @@ function SEB() {
         setEditingOp(null);
     };
 
-    // Auto-save board state whenever boardElements change (Debounced 800ms)
+    // Auto-save board state whenever boardElements change (Debounced 500ms)
     const isFirstRenderRef = useRef(true);
 
     useEffect(() => {
@@ -524,9 +689,15 @@ function SEB() {
             return;
         }
 
+        // Si el cambio vino de un broadcast remoto, no lo re-guardamos para evitar bucles o sobreescritura
+        if (isRemoteUpdateRef.current) {
+            isRemoteUpdateRef.current = false;
+            return;
+        }
+
         const saveTimer = setTimeout(() => {
             handleSaveBoard(boardElements);
-        }, 800);
+        }, 500);
 
         return () => clearTimeout(saveTimer);
     }, [boardElements]);
@@ -562,6 +733,19 @@ function SEB() {
             } else {
                 setOperations(operations.map(o => o.id === selectedOp.id ? { ...o, board_data: elementsToSave } : o));
             }
+
+            // Emitir actualización inmediata a todos los clientes conectados a la pizarra
+            sebChannelRef.current?.send({
+                type: 'broadcast',
+                event: 'seb_board_updated',
+                payload: {
+                    opId: selectedOp.id,
+                    boardElements: elementsToSave,
+                    senderId: clientIdRef.current,
+                    senderName: profile?.nombre ? `${profile.nombre} ${profile.apellido || ''}`.trim() : (profile?.rango || 'Operador SEB'),
+                    updatedAt: new Date().toISOString()
+                }
+            });
         } catch (err) {
             console.error('Error saving board state:', err);
         } finally {
@@ -1281,6 +1465,21 @@ function SEB() {
                         >
                             <span>⚡</span>
                             <span>{language === 'es' ? 'Tablón de Operaciones' : 'Operations Board'}</span>
+                            <span style={{
+                                fontSize: '0.62rem',
+                                fontWeight: 800,
+                                padding: '1px 6px',
+                                borderRadius: '9999px',
+                                background: activeTab === 'ops' ? 'rgba(15, 23, 42, 0.25)' : 'rgba(34, 197, 94, 0.2)',
+                                color: activeTab === 'ops' ? '#0f172a' : '#4ade80',
+                                border: `1px solid ${activeTab === 'ops' ? 'rgba(15, 23, 42, 0.35)' : 'rgba(34, 197, 94, 0.4)'}`,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                            }}>
+                                <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: activeTab === 'ops' ? '#0f172a' : '#4ade80' }}></span>
+                                ONLINE
+                            </span>
                         </button>
 
                         <button
@@ -1707,12 +1906,28 @@ function SEB() {
                         </div>
 
                         {/* Title & Info */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                             <h2 style={{ fontSize: '1.05rem', color: '#ffffff', margin: 0, fontWeight: 700, letterSpacing: '-0.01em' }}>
                                 {selectedOp.title}
                             </h2>
                             <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
                                 📍 {selectedOp.location} • <span style={{ color: '#eab308' }}>{selectedOp.type}</span>
+                            </span>
+                            <span style={{
+                                fontSize: '0.66rem',
+                                fontWeight: 800,
+                                padding: '2px 8px',
+                                borderRadius: '9999px',
+                                background: 'rgba(34, 197, 94, 0.15)',
+                                border: '1px solid rgba(34, 197, 94, 0.35)',
+                                color: '#4ade80',
+                                letterSpacing: '0.04em',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px'
+                            }}>
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80' }}></span>
+                                TIEMPO REAL
                             </span>
                         </div>
 
@@ -1920,30 +2135,37 @@ function SEB() {
                                 {connectingSourceId ? 'Haz clic en el 2º elemento...' : 'Unir con Hilo Rojo'}
                             </button>
 
-                            {/* Live Auto-Save Status Indicator */}
+                            {/* Live Auto-Save / Realtime Online Status Indicator */}
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.4rem',
+                                gap: '0.45rem',
                                 fontSize: '0.78rem',
                                 fontWeight: 600,
-                                color: savingBoard ? '#eab308' : '#22c55e',
-                                background: savingBoard ? 'rgba(234, 179, 8, 0.12)' : 'rgba(34, 197, 94, 0.12)',
-                                border: `1px solid ${savingBoard ? 'rgba(234, 179, 8, 0.25)' : 'rgba(34, 197, 94, 0.25)'}`,
+                                color: remoteSyncUser ? '#38bdf8' : (savingBoard ? '#eab308' : '#22c55e'),
+                                background: remoteSyncUser ? 'rgba(56, 189, 248, 0.15)' : (savingBoard ? 'rgba(234, 179, 8, 0.12)' : 'rgba(34, 197, 94, 0.12)'),
+                                border: `1px solid ${remoteSyncUser ? 'rgba(56, 189, 248, 0.35)' : (savingBoard ? 'rgba(234, 179, 8, 0.25)' : 'rgba(34, 197, 94, 0.25)')}`,
                                 padding: '0.5rem 0.9rem',
                                 borderRadius: '10px',
                                 backdropFilter: 'blur(10px)',
-                                boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+                                transition: 'all 0.25s ease'
                             }}>
                                 <span style={{ 
-                                    width: '7px', 
-                                    height: '7px', 
+                                    width: '8px', 
+                                    height: '8px', 
                                     borderRadius: '50%', 
-                                    background: savingBoard ? '#eab308' : '#22c55e', 
-                                    boxShadow: `0 0 6px ${savingBoard ? '#eab308' : '#22c55e'}`,
+                                    background: remoteSyncUser ? '#38bdf8' : (savingBoard ? '#eab308' : '#22c55e'), 
+                                    boxShadow: `0 0 8px ${remoteSyncUser ? '#38bdf8' : (savingBoard ? '#eab308' : '#22c55e')}`,
                                     display: 'inline-block' 
                                 }}></span>
-                                {savingBoard ? 'Guardando cambios en la nube...' : 'Guardado automáticamente'}
+                                {remoteSyncUser ? (
+                                    <span>⚡ Actualizado por <strong>{remoteSyncUser}</strong></span>
+                                ) : savingBoard ? (
+                                    <span>Guardando cambios en la nube...</span>
+                                ) : (
+                                    <span>● EN VIVO • Sincronizado</span>
+                                )}
                             </div>
                         </div>
                     </div>
