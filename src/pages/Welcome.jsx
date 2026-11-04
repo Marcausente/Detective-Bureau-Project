@@ -44,6 +44,7 @@ function Welcome() {
                     const div = Array.isArray(data.divisions) ? data.divisions : [];
                     const sub = Array.isArray(data.subdivisions) ? data.subdivisions : [];
                     const userRoleLower = (data.rol || '').trim().toLowerCase();
+                    const userRankLower = (data.rango || '').trim().toLowerCase();
                     const isAdmin = userRoleLower === 'administrador' || userRoleLower === 'superadmin';
                     const isComisionado = userRoleLower === 'comisionado';
                     const isCoordinador = ['coordinador', 'coordinacion', 'coordinación'].includes(userRoleLower);
@@ -53,7 +54,16 @@ function Welcome() {
                     const hasIA = isAdmin || isComisionado || div.includes('Internal Affairs') || sub.includes('Internal Affairs');
                     const hasSEB = isAdmin || isComisionado || div.includes('SEB') || sub.includes('SEB');
                     const hasASD = isAdmin || isComisionado || div.includes('ASD') || sub.includes('ASD');
-                    const hasDOJ = isAdmin || isComisionado || div.includes('DOJ') || sub.includes('DOJ');
+                    const isDOJ = userRoleLower === 'doj' || 
+                        userRoleLower.includes('doj') || 
+                        userRoleLower.includes('fiscal') || 
+                        userRoleLower.includes('juez') || 
+                        userRankLower.includes('doj') || 
+                        userRankLower.includes('fiscal') || 
+                        userRankLower.includes('juez') || 
+                        div.includes('DOJ') || 
+                        sub.includes('DOJ');
+                    const hasDOJ = isAdmin || isComisionado || isDOJ;
                     const hasTraining = isAdmin || isComisionado || isCoordinador || isDB || div.includes('DTP') || sub.includes('DTP');
                     const hasCoord = isAdmin || isComisionado || isCoordinador;
 

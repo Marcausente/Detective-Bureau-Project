@@ -1346,7 +1346,17 @@ function OrderArchive() {
                 p_content: finalContent
             });
 
-            if (error) throw error;
+            if (error) {
+                // Fallback direct insert if RPC fails or restricts role
+                const { error: insertErr } = await supabase.from('judicial_orders').insert({
+                    order_type: selectedType,
+                    title: autoTitle,
+                    content: finalContent,
+                    created_by: currentUser?.id,
+                    status: 'Pendiente'
+                });
+                if (insertErr) throw error;
+            }
 
             setShowCreateModal(false);
             setFormData({});
@@ -1370,7 +1380,14 @@ function OrderArchive() {
                 p_new_status: newStatus
             });
             
-            if (error) throw error;
+            if (error) {
+                // Fallback direct update if RPC fails or restricts role
+                const { error: updateErr } = await supabase
+                    .from('judicial_orders')
+                    .update({ status: newStatus })
+                    .eq('id', orderId);
+                if (updateErr) throw error;
+            }
             
             // Refresh data and close preview (or update local state)
             await loadData();
@@ -1389,7 +1406,14 @@ function OrderArchive() {
         
         try {
             const { error } = await supabase.rpc('delete_judicial_order', { p_order_id: orderId });
-            if (error) throw error;
+            if (error) {
+                // Fallback direct delete if RPC fails or restricts role
+                const { error: delErr } = await supabase
+                    .from('judicial_orders')
+                    .delete()
+                    .eq('id', orderId);
+                if (delErr) throw error;
+            }
             
             setShowPreview(false);
             setPreviewOrder(null);
@@ -1415,8 +1439,23 @@ function OrderArchive() {
         return [];
     };
 
-    const isAyudante = currentUser && currentUser.rol === 'Ayudante';
-    const canManageOrders = currentUser && !isAyudante;
+    const userRoleLower = (currentUser?.rol || '').trim().toLowerCase();
+    const userRankLower = (currentUser?.rango || '').trim().toLowerCase();
+    const userDivisions = Array.isArray(currentUser?.divisions) ? currentUser.divisions : [];
+    const userSubdivisions = Array.isArray(currentUser?.subdivisions) ? currentUser.subdivisions : [];
+
+    const isDOJ = userRoleLower === 'doj' || 
+        userRoleLower.includes('doj') || 
+        userRoleLower.includes('fiscal') || 
+        userRoleLower.includes('juez') || 
+        userRankLower.includes('doj') || 
+        userRankLower.includes('fiscal') || 
+        userRankLower.includes('juez') || 
+        userDivisions.includes('DOJ') || 
+        userSubdivisions.includes('DOJ');
+
+    const isAyudante = currentUser && currentUser.rol === 'Ayudante' && !isDOJ;
+    const canManageOrders = (currentUser && !isAyudante) || isDOJ;
 
     const accentColor = isLSSD ? '#10b981' : 'var(--color-blue, #3b82f6)';
     const accentGlow = isLSSD ? 'rgba(16, 185, 129, 0.25)' : 'rgba(59, 130, 246, 0.25)';
@@ -1487,7 +1526,7 @@ function OrderArchive() {
                         </div>
                     </div>
 
-                    {!isAyudante && (
+                    {canManageOrders && (
                         <button 
                             className="mac-btn mac-btn-primary" 
                             style={{

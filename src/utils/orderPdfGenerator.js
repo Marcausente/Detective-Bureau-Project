@@ -204,9 +204,16 @@ export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 
     doc.setFontSize(9);
     doc.setTextColor(textDark[0], textDark[1], textDark[2]);
     const defaultJudgeName = cleanPDFText(branding?.orders_pdf_judge_name || "FISCAL JOHN ROXTON").toUpperCase();
+    const authorRankClean = (order.author_rank || '').trim();
+    const isGenericRank = !authorRankClean || authorRankClean === 'Sin Rango' || authorRankClean === 'Civil';
+    const rankPrefix = isGenericRank ? '' : `${authorRankClean} `;
+    const isDojAuthor = authorRankClean.toLowerCase().includes('doj') || 
+                        authorRankClean.toLowerCase().includes('fiscal') || 
+                        authorRankClean.toLowerCase().includes('juez') ||
+                        isGenericRank;
     const authorityText = isPublicExecutionOrder
         ? defaultJudgeName
-        : cleanPDFText(`${order.author_rank || 'Agente'} ${order.author_name || 'Desconocido'}`).toUpperCase();
+        : cleanPDFText(`${rankPrefix}${order.author_name || 'Desconocido'}`).trim().toUpperCase();
     doc.text(authorityText, boxX + 41, y + 15);
 
     // Status Badge inside PDF
@@ -517,7 +524,7 @@ export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 
     doc.setTextColor(textDark[0], textDark[1], textDark[2]);
     const signatureTitleLine = isPublicExecutionOrder
         ? cleanPDFText(branding?.orders_pdf_judge_name || "FISCAL JOHN ROXTON").toUpperCase()
-        : cleanPDFText(`${order.author_rank || 'Agente'} ${signatureName}`).toUpperCase();
+        : cleanPDFText(`${rankPrefix}${signatureName}`).trim().toUpperCase();
     doc.text(signatureTitleLine, pageWidth - 14, y + 10, { align: 'right' });
     
     doc.setFont('helvetica', 'normal');
@@ -525,7 +532,7 @@ export const generateOrderPDF = async (order, config, isLSSDOverride, pdfType = 
     doc.setTextColor(textMuted[0], textMuted[1], textMuted[2]);
     const defaultSignatureSubline = isPublicExecutionOrder
         ? (branding?.orders_pdf_judge_title || "Fiscalía General • Corte Superior de Justicia")
-        : (branding?.orders_pdf_signature_dept || (isLSSD ? 'Sheriff Criminal Unit Bureau, LSSD' : 'Detective Bureau, LSPD'));
+        : (isDojAuthor ? "Departamento de Justicia • San Andreas" : (branding?.orders_pdf_signature_dept || (isLSSD ? 'Sheriff Criminal Unit Bureau, LSSD' : 'Detective Bureau, LSPD')));
     const signatureSubline = cleanPDFText(defaultSignatureSubline);
     doc.text(signatureSubline, pageWidth - 14, y + 14, { align: 'right' });
 

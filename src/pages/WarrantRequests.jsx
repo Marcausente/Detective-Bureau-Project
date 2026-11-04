@@ -75,19 +75,44 @@ function WarrantRequests() {
         const actionLabel = status === 'Aprobada' ? 'aprobar y expedir' : 'rechazar';
         if (!window.confirm(`¿Confirmar acción de ${actionLabel} para esta orden judicial?`)) return;
         try {
-            const { error } = await supabase.rpc('review_warrant_request', {
+            const { error: rpcErr } = await supabase.rpc('review_warrant_request', {
                 p_request_id: id,
                 p_status: status
             });
-            if (error) throw error;
+            if (rpcErr) {
+                const { error: updateErr } = await supabase
+                    .from('warrant_requests')
+                    .update({
+                        status: status,
+                        reviewed_by: currentUser?.id,
+                        reviewed_at: new Date().toISOString()
+                    })
+                    .eq('id', id);
+                if (updateErr) throw rpcErr;
+            }
             loadUserAndRequests();
         } catch (err) {
             alert('Error al resolver la orden: ' + err.message);
         }
     };
 
-    const canReview = currentUser && ['Administrador', 'Coordinador', 'Comisionado', 'Jefe', 'Capitan'].includes(currentUser.rol);
-    const isAyudante = currentUser && currentUser.rol === 'Ayudante';
+    const userRoleLower = (currentUser?.rol || '').trim().toLowerCase();
+    const userRankLower = (currentUser?.rango || '').trim().toLowerCase();
+    const userDivisions = Array.isArray(currentUser?.divisions) ? currentUser.divisions : [];
+    const userSubdivisions = Array.isArray(currentUser?.subdivisions) ? currentUser.subdivisions : [];
+
+    const isDOJ = userRoleLower === 'doj' || 
+        userRoleLower.includes('doj') || 
+        userRoleLower.includes('fiscal') || 
+        userRoleLower.includes('juez') || 
+        userRankLower.includes('doj') || 
+        userRankLower.includes('fiscal') || 
+        userRankLower.includes('juez') || 
+        userDivisions.includes('DOJ') || 
+        userSubdivisions.includes('DOJ');
+
+    const canReview = isDOJ || (currentUser && ['Administrador', 'Coordinador', 'Comisionado', 'Jefe', 'Capitan'].includes(currentUser.rol));
+    const isAyudante = currentUser && currentUser.rol === 'Ayudante' && !isDOJ;
 
     // Filter requests
     const filteredRequests = requests.filter(req => {

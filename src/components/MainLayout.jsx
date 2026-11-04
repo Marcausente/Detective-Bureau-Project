@@ -312,6 +312,7 @@ function MainLayout() {
     // - Regular users: Require the corresponding division for each specific module
     const userRole = (profile?.rol || '').trim();
     const userRoleLower = userRole.toLowerCase();
+    const userRankLower = (profile?.rango || '').trim().toLowerCase();
     const isAdmin = userRoleLower === 'administrador' || userRoleLower === 'superadmin';
     const isComisionado = userRoleLower === 'comisionado';
     const isCoordinador = ['coordinador', 'coordinacion', 'coordinación'].includes(userRoleLower);
@@ -320,19 +321,28 @@ function MainLayout() {
     const userDivisions = Array.isArray(profile?.divisions) ? profile.divisions : [];
     const userSubdivisions = Array.isArray(profile?.subdivisions) ? profile.subdivisions : [];
 
+    const isDOJ = userRoleLower === 'doj' || 
+        userRoleLower.includes('doj') || 
+        userRoleLower.includes('fiscal') || 
+        userRoleLower.includes('juez') || 
+        userRankLower.includes('doj') || 
+        userRankLower.includes('fiscal') || 
+        userRankLower.includes('juez') || 
+        userDivisions.includes('DOJ') || 
+        userSubdivisions.includes('DOJ');
+
     const hasDBDivision = userDivisions.includes('Detective Bureau');
     const hasDBAccess = isAdmin || isComisionado || isCoordinador || isDetective || hasDBDivision;
 
     const hasDOJDivision = userDivisions.includes('DOJ') || userSubdivisions.includes('DOJ');
-    const hasDOJAccess = isAdmin || isComisionado || hasDOJDivision;
+    const hasDOJAccess = isAdmin || isComisionado || isDOJ;
 
-    const hasWarrantsAccess = isAdmin || isComisionado || isCoordinador || hasDBDivision || hasDOJDivision;
+    const hasWarrantsAccess = isAdmin || isComisionado || isCoordinador || hasDBDivision || isDOJ;
 
     const hasIADivision = userDivisions.includes('Internal Affairs') || userSubdivisions.includes('Internal Affairs');
     const hasIAAccess = isAdmin || isComisionado || hasIADivision;
 
     const hasComandanciaDivision = userDivisions.includes('Comandancia') || userSubdivisions.includes('Comandancia');
-    const userRankLower = (profile?.rango || '').trim().toLowerCase();
     const isSargento = userRankLower.includes('sargento') || userRankLower.includes('sergeant') || userRoleLower.includes('sargento');
     const hasComandanciaAccess = isAdmin || isComisionado || hasComandanciaDivision;
     const hasSanctionsAccess = hasIAAccess || hasComandanciaAccess || isSargento;
@@ -514,7 +524,7 @@ function MainLayout() {
 
     // Force items into "Más ▾" in exact order, keeping user's primary/assigned divisions visible directly in the dock
     const forcedMorePaths = [
-        '/warrants',
+        ...(isDOJ && !hasDBAccess ? [] : ['/warrants']),
         '/training',
         ...(hasIAAccess && !hasDBAccess ? [] : ['/internal-affairs']),
         ...(hasDOJAccess && !hasDBAccess ? [] : ['/doj']),
