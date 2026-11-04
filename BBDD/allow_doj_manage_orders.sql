@@ -208,3 +208,4 @@ BEGIN
   WHERE id = p_request_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+

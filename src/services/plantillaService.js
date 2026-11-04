@@ -258,12 +258,12 @@ export async function savePlantillaRank(rankData) {
         };
 
         const finalRank = { ...rankData, ...payload };
+        let updatedList = [];
 
         // 1. Save directly into app_settings as primary store
         try {
             const currentRanks = await fetchPlantillaRanks();
             const existingIndex = currentRanks.findIndex(r => r.id === finalRank.id || (r.name && r.name.trim().toLowerCase() === finalRank.name.toLowerCase()));
-            let updatedList;
             if (existingIndex >= 0) {
                 updatedList = [...currentRanks];
                 updatedList[existingIndex] = { ...updatedList[existingIndex], ...finalRank };
@@ -310,7 +310,7 @@ export async function savePlantillaRank(rankData) {
         // 3. Broadcast Realtime
         await broadcastPlantillaEvent('ranks_changed', { ranks: updatedList });
 
-        return finalRank;
+        return Object.assign({ ...finalRank }, { savedRank: finalRank, updatedList });
     } catch (err) {
         console.error('Error in savePlantillaRank:', err);
         throw err;
@@ -451,12 +451,12 @@ export async function savePlantillaDivision(divData) {
         };
 
         const finalDiv = { ...divData, ...payload };
+        let updatedList = [];
 
         // 1. Update app_settings first as primary store
         try {
             const currentDivisions = await fetchPlantillaDivisions();
             const existingIndex = currentDivisions.findIndex(d => d.id === finalDiv.id || (d.name && d.name.trim().toLowerCase() === finalDiv.name.toLowerCase()));
-            let updatedList;
             if (existingIndex >= 0) {
                 updatedList = [...currentDivisions];
                 updatedList[existingIndex] = { ...updatedList[existingIndex], ...finalDiv };
@@ -503,7 +503,7 @@ export async function savePlantillaDivision(divData) {
         // 3. Broadcast Realtime
         await broadcastPlantillaEvent('divisions_changed', { divisions: updatedList });
 
-        return finalDiv;
+        return Object.assign({ ...finalDiv }, { savedDivision: finalDiv, updatedList });
     } catch (err) {
         console.error('Error in savePlantillaDivision:', err);
         throw err;
