@@ -2200,20 +2200,54 @@ function Personnel() {
                                         <span>Licencias y Habilitaciones ({formData.licenses?.length || 0})</span>
                                     </label>
                                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', background: 'rgba(15, 23, 42, 0.65)', padding: '0.75rem', borderRadius: '10px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
-                                        {availableLicenses.length === 0 ? (
+                                        {availableLicenses.length === 0 && (formData.licenses || []).length === 0 ? (
                                             <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>No hay licencias registradas en Coordinación.</span>
                                         ) : (
-                                            availableLicenses.map(lic => {
-                                                const isChecked = formData.licenses?.includes(lic.name);
-                                                const licColor = lic.color || '#10b981';
-                                                return (
+                                            <>
+                                                {availableLicenses.map(lic => {
+                                                    const isChecked = (formData.licenses || []).some(l => (l || '').trim().toLowerCase() === (lic.name || '').trim().toLowerCase());
+                                                    const licColor = lic.color || '#10b981';
+                                                    return (
+                                                        <button
+                                                            key={lic.name}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const targetLower = (lic.name || '').trim().toLowerCase();
+                                                                const newLics = isChecked
+                                                                    ? (formData.licenses || []).filter(l => (l || '').trim().toLowerCase() !== targetLower)
+                                                                    : [...(formData.licenses || []), lic.name];
+                                                                setFormData({ ...formData, licenses: newLics });
+                                                            }}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '6px',
+                                                                padding: '5px 10px',
+                                                                borderRadius: '8px',
+                                                                background: isChecked ? `${licColor}33` : 'rgba(255, 255, 255, 0.04)',
+                                                                border: isChecked ? `1px solid ${licColor}` : '1px solid rgba(255, 255, 255, 0.1)',
+                                                                color: isChecked ? '#ffffff' : '#94a3b8',
+                                                                fontSize: '0.8rem',
+                                                                fontWeight: isChecked ? 700 : 500,
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.15s'
+                                                            }}
+                                                            title={lic.description || lic.name}
+                                                        >
+                                                            <span>{lic.icon || '🪪'}</span>
+                                                            <span>{lic.code ? `${lic.code} - ` : ''}{lic.name}</span>
+                                                            {isChecked && <span style={{ color: licColor, marginLeft: '2px', fontWeight: 800 }}>✓</span>}
+                                                        </button>
+                                                    );
+                                                })}
+                                                {/* Licencias huérfanas / eliminadas del catálogo que aún tiene el agente */}
+                                                {(formData.licenses || []).filter(licName => !availableLicenses.some(al => (al.name || '').trim().toLowerCase() === (licName || '').trim().toLowerCase())).map(orphanName => (
                                                     <button
-                                                        key={lic.name}
+                                                        key={orphanName}
                                                         type="button"
                                                         onClick={() => {
-                                                            const newLics = isChecked
-                                                                ? formData.licenses.filter(l => l !== lic.name)
-                                                                : [...(formData.licenses || []), lic.name];
+                                                            const targetLower = (orphanName || '').trim().toLowerCase();
+                                                            const newLics = (formData.licenses || []).filter(l => (l || '').trim().toLowerCase() !== targetLower);
                                                             setFormData({ ...formData, licenses: newLics });
                                                         }}
                                                         style={{
@@ -2222,22 +2256,22 @@ function Personnel() {
                                                             gap: '6px',
                                                             padding: '5px 10px',
                                                             borderRadius: '8px',
-                                                            background: isChecked ? `${licColor}33` : 'rgba(255, 255, 255, 0.04)',
-                                                            border: isChecked ? `1px solid ${licColor}` : '1px solid rgba(255, 255, 255, 0.1)',
-                                                            color: isChecked ? '#ffffff' : '#94a3b8',
+                                                            background: 'rgba(239, 68, 68, 0.22)',
+                                                            border: '1.5px solid #ef4444',
+                                                            color: '#fca5a5',
                                                             fontSize: '0.8rem',
-                                                            fontWeight: isChecked ? 700 : 500,
+                                                            fontWeight: 700,
                                                             cursor: 'pointer',
                                                             transition: 'all 0.15s'
                                                         }}
-                                                        title={lic.description || lic.name}
+                                                        title={`La licencia "${orphanName}" fue eliminada del catálogo. Haz clic para retirarla de este agente.`}
                                                     >
-                                                        <span>{lic.icon || '🪪'}</span>
-                                                        <span>{lic.code ? `${lic.code} - ` : ''}{lic.name}</span>
-                                                        {isChecked && <span style={{ color: licColor, marginLeft: '2px', fontWeight: 800 }}>✓</span>}
+                                                        <span>🗑️</span>
+                                                        <span>{orphanName} <em style={{ fontSize: '0.72rem', opacity: 0.8 }}>(Eliminada)</em></span>
+                                                        <span style={{ color: '#ef4444', fontWeight: 900, marginLeft: '3px' }}>✕ Quitar</span>
                                                     </button>
-                                                );
-                                            })
+                                                ))}
+                                            </>
                                         )}
                                     </div>
                                 </div>

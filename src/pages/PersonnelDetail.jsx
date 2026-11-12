@@ -188,9 +188,11 @@ function PersonnelDetail() {
         try {
             setLicenseSaving(true);
             const currentLicenses = getUserLicenses(user) || user.licenses || [];
+            const targetLower = (licName || '').trim().toLowerCase();
+            const exists = currentLicenses.some(l => (l || '').trim().toLowerCase() === targetLower);
             let newLicenses;
-            if (currentLicenses.includes(licName)) {
-                newLicenses = currentLicenses.filter(l => l !== licName);
+            if (exists) {
+                newLicenses = currentLicenses.filter(l => (l || '').trim().toLowerCase() !== targetLower);
             } else {
                 newLicenses = [...currentLicenses, licName];
             }
@@ -621,17 +623,48 @@ function PersonnelDetail() {
 
                                 {viewer && ['Detective', 'Coordinador', 'Administrador', 'Comisionado'].includes(viewer.rol) ? (
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
-                                        {availableLicenses.length === 0 ? (
+                                        {availableLicenses.length === 0 && (user.licenses || []).length === 0 ? (
                                             <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', fontStyle: 'italic' }}>No hay licencias configuradas en Coordinación.</span>
                                         ) : (
-                                            availableLicenses.map(lic => {
-                                                const isActive = (user.licenses || []).includes(lic.name);
-                                                const licColor = lic.color || '#10b981';
-                                                return (
+                                            <>
+                                                {availableLicenses.map(lic => {
+                                                    const isActive = (user.licenses || []).some(l => (l || '').trim().toLowerCase() === (lic.name || '').trim().toLowerCase());
+                                                    const licColor = lic.color || '#10b981';
+                                                    return (
+                                                        <button
+                                                            key={lic.name}
+                                                            type="button"
+                                                            onClick={() => handleToggleLicense(lic.name)}
+                                                            disabled={licenseSaving}
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '6px',
+                                                                padding: '6px 12px',
+                                                                borderRadius: '10px',
+                                                                background: isActive ? `${licColor}33` : 'rgba(255, 255, 255, 0.03)',
+                                                                border: isActive ? `1.5px solid ${licColor}` : '1px solid rgba(255, 255, 255, 0.1)',
+                                                                color: isActive ? '#ffffff' : '#94a3b8',
+                                                                fontSize: '0.82rem',
+                                                                fontWeight: isActive ? 700 : 500,
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.15s',
+                                                                boxShadow: isActive ? `0 0 12px ${licColor}44` : 'none'
+                                                            }}
+                                                            title={lic.description ? `${lic.name} (${lic.code}): ${lic.description}` : lic.name}
+                                                        >
+                                                            <span style={{ fontSize: '1rem' }}>{lic.icon || '🪪'}</span>
+                                                            <span>{lic.name} ({lic.code || 'LIC'})</span>
+                                                            {isActive && <span style={{ color: licColor, fontWeight: 800, marginLeft: '2px' }}>✓</span>}
+                                                        </button>
+                                                    );
+                                                })}
+                                                {/* Licencias huérfanas / eliminadas del catálogo pero que aún están asignadas al usuario */}
+                                                {(user.licenses || []).filter(licName => !availableLicenses.some(al => (al.name || '').trim().toLowerCase() === (licName || '').trim().toLowerCase())).map(orphanName => (
                                                     <button
-                                                        key={lic.name}
+                                                        key={orphanName}
                                                         type="button"
-                                                        onClick={() => handleToggleLicense(lic.name)}
+                                                        onClick={() => handleToggleLicense(orphanName)}
                                                         disabled={licenseSaving}
                                                         style={{
                                                             display: 'inline-flex',
@@ -639,23 +672,23 @@ function PersonnelDetail() {
                                                             gap: '6px',
                                                             padding: '6px 12px',
                                                             borderRadius: '10px',
-                                                            background: isActive ? `${licColor}33` : 'rgba(255, 255, 255, 0.03)',
-                                                            border: isActive ? `1.5px solid ${licColor}` : '1px solid rgba(255, 255, 255, 0.1)',
-                                                            color: isActive ? '#ffffff' : '#94a3b8',
+                                                            background: 'rgba(239, 68, 68, 0.22)',
+                                                            border: '1.5px solid #ef4444',
+                                                            color: '#fca5a5',
                                                             fontSize: '0.82rem',
-                                                            fontWeight: isActive ? 700 : 500,
+                                                            fontWeight: 700,
                                                             cursor: 'pointer',
-                                                            transition: 'all 0.15s',
-                                                            boxShadow: isActive ? `0 0 12px ${licColor}44` : 'none'
+                                                            boxShadow: '0 0 10px rgba(239, 68, 68, 0.3)',
+                                                            transition: 'all 0.15s'
                                                         }}
-                                                        title={lic.description ? `${lic.name} (${lic.code}): ${lic.description}` : lic.name}
+                                                        title={`La licencia "${orphanName}" fue eliminada del catálogo. Haz clic para retirársela a este agente.`}
                                                     >
-                                                        <span style={{ fontSize: '1rem' }}>{lic.icon || '🪪'}</span>
-                                                        <span>{lic.name} ({lic.code || 'LIC'})</span>
-                                                        {isActive && <span style={{ color: licColor, fontWeight: 800, marginLeft: '2px' }}>✓</span>}
+                                                        <span style={{ fontSize: '1rem' }}>🗑️</span>
+                                                        <span>{orphanName} <em style={{ fontSize: '0.72rem', opacity: 0.8 }}>(Eliminada)</em></span>
+                                                        <span style={{ color: '#ef4444', fontWeight: 900, marginLeft: '4px' }}>✕ Quitar</span>
                                                     </button>
-                                                );
-                                            })
+                                                ))}
+                                            </>
                                         )}
                                     </div>
                                 ) : (

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getInternalRanks, createInternalRank, deleteInternalRank } from '../utils/internalRanks';
 import { getSubdivisions, createSubdivision, updateSubdivision, deleteSubdivision, getSubdivisionAbbrev, getSubdivisionClass } from '../utils/subdivisions';
-import { getLicenses, createLicense, updateLicense, deleteLicense } from '../utils/licenses';
+import { getLicenses, createLicense, updateLicense, deleteLicense, cleanupOrphanedLicenses } from '../utils/licenses';
 
 const LICENSE_COLOR_PRESETS = [
     { label: 'Esmeralda', hex: '#10b981' },
@@ -62,6 +62,7 @@ function CoordinationRolesConfig() {
     const [editLicColor, setEditLicColor] = useState('#10b981');
     const [editLicIcon, setEditLicIcon] = useState('🪪');
     const [editLicSaving, setEditLicSaving] = useState(false);
+    const [cleaningOrphans, setCleaningOrphans] = useState(false);
 
     useEffect(() => {
         loadAll();
@@ -281,6 +282,29 @@ function CoordinationRolesConfig() {
             await loadLicensesData();
         } catch (err) {
             alert(err.message || 'Error al eliminar la licencia.');
+        }
+    };
+
+    const handleCleanupOrphans = async () => {
+        if (!window.confirm('¿Deseas depurar las licencias obsoletas o eliminadas de todos los agentes?\n\nEsto escaneará a todos los agentes y retirará automáticamente cualquier licencia que ya no exista en el catálogo oficial.')) return;
+
+        setCleaningOrphans(true);
+        try {
+            const res = await cleanupOrphanedLicenses();
+            if (res.success) {
+                if (res.removedLicensesCount > 0) {
+                    alert(`¡Depuración completada!\n\nSe retiraron ${res.removedLicensesCount} licencias obsoletas en ${res.cleanedUsersCount} agente(s).`);
+                } else {
+                    alert('Todos los expedientes están al día: no se encontraron licencias obsoletas en ningún agente.');
+                }
+            } else {
+                alert('Ocurrió un error al depurar las licencias: ' + (res.error || 'Error desconocido'));
+            }
+        } catch (err) {
+            console.error('Error cleaning orphaned licenses:', err);
+            alert('Error al depurar licencias: ' + err.message);
+        } finally {
+            setCleaningOrphans(false);
         }
     };
 
@@ -1014,21 +1038,51 @@ function CoordinationRolesConfig() {
                         padding: '1.75rem',
                         backdropFilter: 'blur(20px)'
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-                            <h3 style={{ margin: 0, color: '#ffffff', fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.01em' }}>
-                                Catálogo de Licencias del Departamento
-                            </h3>
-                            <span style={{
-                                background: 'rgba(16, 185, 129, 0.2)',
-                                color: '#6ee7b7',
-                                border: '1px solid rgba(16, 185, 129, 0.4)',
-                                padding: '2px 10px',
-                                borderRadius: '12px',
-                                fontSize: '0.75rem',
-                                fontWeight: 700
-                            }}>
-                                {licenses.length} Registradas
-                            </span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                            <div>
+                                <h3 style={{ margin: 0, color: '#ffffff', fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.01em' }}>
+                                    Catálogo de Licencias del Departamento
+                                </h3>
+                                <p style={{ margin: '4px 0 0 0', color: '#94a3b8', fontSize: '0.8rem' }}>
+                                    Gestiona las habilitaciones y acreditaciones oficiales para el personal.
+                                </p>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={handleCleanupOrphans}
+                                    disabled={cleaningOrphans}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '5px 12px',
+                                        borderRadius: '10px',
+                                        background: 'rgba(239, 68, 68, 0.15)',
+                                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                                        color: '#fca5a5',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 600,
+                                        cursor: cleaningOrphans ? 'not-allowed' : 'pointer',
+                                        transition: 'all 0.15s'
+                                    }}
+                                    title="Escanear y retirar licencias borradas que aún aparezcan en perfiles de agentes"
+                                >
+                                    <span>🧹</span>
+                                    <span>{cleaningOrphans ? 'Depurando...' : 'Depurar Licencias Eliminadas en Agentes'}</span>
+                                </button>
+                                <span style={{
+                                    background: 'rgba(16, 185, 129, 0.2)',
+                                    color: '#6ee7b7',
+                                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                                    padding: '3px 10px',
+                                    borderRadius: '12px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700
+                                }}>
+                                    {licenses.length} Registradas
+                                </span>
+                            </div>
                         </div>
 
                         {licensesLoading ? (

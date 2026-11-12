@@ -234,16 +234,19 @@ export async function updateLicense(id, oldName, { name, code, description, colo
 }
 
 /**
- * Delete a license.
+ * Delete a license and purge it from all users who held it.
  */
 export async function deleteLicense(id, name) {
+    const cleanName = (name || '').trim();
+    const targetLower = cleanName.toLowerCase();
+
     // 1. Try Supabase delete
     try {
         let query = supabase.from('coordination_licenses').delete();
         if (id && !id.startsWith('default-') && !id.startsWith('lic-custom-')) {
             query = query.eq('id', id);
         } else {
-            query = query.eq('name', name);
+            query = query.eq('name', cleanName);
         }
         const { error } = await query;
         if (error) console.warn('Supabase license delete error:', error);
@@ -251,22 +254,22 @@ export async function deleteLicense(id, name) {
         console.warn('Supabase delete failed for license:', err);
     }
 
-    // 2. Update localStorage
+    // 2. Update localStorage catalog
     const current = await getLicenses();
-    const updated = current.filter(lic => lic.id !== id && lic.name !== name);
+    const updated = current.filter(lic => lic.id !== id && (lic.name || '').trim().toLowerCase() !== targetLower);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
-    // 3. Remove license from any users who had it
+    // 3. Remove license from any users who had it (robust cleanup)
     try {
-        const { data: usersWithLic } = await supabase
-            .from('users')
-            .select('id, licenses')
-            .contains('licenses', [name]);
-
-        if (usersWithLic && usersWithLic.length > 0) {
-            for (const u of usersWithLic) {
-                const newLics = (u.licenses || []).filter(l => l !== name);
-                await supabase.from('users').update({ licenses: newLics }).eq('id', u.id);
+        const { data: allUsers } = await supabase.from('users').select('id, licenses');
+        if (allUsers && allUsers.length > 0) {
+            for (const u of allUsers) {
+                const currentLics = getUserLicenses(u) || u.licenses || [];
+                const hasLic = currentLics.some(l => (l || '').trim().toLowerCase() === targetLower);
+                if (hasLic) {
+                    const newLics = currentLics.filter(l => (l || '').trim().toLowerCase() !== targetLower);
+                    await updateUserLicenses(u.id, newLics);
+                }
             }
         }
     } catch (e) {
@@ -274,6 +277,42 @@ export async function deleteLicense(id, name) {
     }
 
     return true;
+}
+
+/**
+ * Scans all users and removes any assigned license that no longer exists in the active catalog.
+ */
+export async function cleanupOrphanedLicenses() {
+    try {
+        const catalog = await getLicenses();
+        const validNames = new Set(catalog.map(l => (l.name || '').trim().toLowerCase()));
+
+        let cleanedUsersCount = 0;
+        let removedLicensesCount = 0;
+
+        const { data: allUsers } = await supabase.from('users').select('id, licenses');
+        if (allUsers && allUsers.length > 0) {
+            for (const u of allUsers) {
+                const currentLics = getUserLicenses(u) || u.licenses || [];
+                const filtered = currentLics.filter(l => l && validNames.has(l.trim().toLowerCase()));
+                if (filtered.length !== currentLics.length) {
+                    const diff = currentLics.length - filtered.length;
+                    removedLicensesCount += diff;
+                    cleanedUsersCount += 1;
+                    await updateUserLicenses(u.id, filtered);
+                }
+            }
+        }
+
+        return {
+            success: true,
+            cleanedUsersCount,
+            removedLicensesCount
+        };
+    } catch (err) {
+        console.error('Error cleaning up orphaned licenses:', err);
+        return { success: false, error: err.message };
+    }
 }
 
 /**
