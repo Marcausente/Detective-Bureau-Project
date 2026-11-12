@@ -15,7 +15,9 @@ import {
     archivePlantillaAgent,
     fetchArchivedAgents,
     DEFAULT_VALORACIONES,
-    hexToRgba
+    hexToRgba,
+    isPlaceholderAgent,
+    isRealAgent
 } from '../../services/plantillaService';
 import PlantillaAgentModal from './PlantillaAgentModal';
 import PlantillaDividerModal from './PlantillaDividerModal';
@@ -39,7 +41,8 @@ export default function PlantillaRosterTable({
     onValoracionesUpdated,
     onRefreshIA
 }) {
-    const { isLSSD, branding } = useTheme();
+    const { isLSSD, branding, updateBranding } = useTheme();
+    const currentMode = branding?.plantilla_mode || 'reservas';
     const navigate = useNavigate();
 
     // Modals state
@@ -125,7 +128,10 @@ export default function PlantillaRosterTable({
     // Save agent handler (Atomic & Race-Condition Safe)
     const handleSaveAgent = async (agentData) => {
         try {
-            const result = await savePlantillaAgent(agentData);
+            const result = await savePlantillaAgent({
+                ...agentData,
+                plantillaMode: agentData.plantillaMode || currentMode
+            });
             if (result?.updatedList && onAgentsUpdated) {
                 onAgentsUpdated(result.updatedList);
             }
@@ -429,6 +435,11 @@ export default function PlantillaRosterTable({
                 return true;
             }
 
+            // Modo Libre: Ocultar casillas reservadas / vacantes
+            if (currentMode === 'libre' && isPlaceholderAgent(agent)) {
+                return false;
+            }
+
             // Text search
             if (searchTerm.trim()) {
                 const term = searchTerm.toLowerCase();
@@ -458,7 +469,7 @@ export default function PlantillaRosterTable({
 
             // Activity filter
             if (activityFilter !== 'all') {
-                if (agent.is_placeholder || (!agent.nombre && !agent.apellido)) return false;
+                if (isPlaceholderAgent(agent)) return false;
                 const act = (agent.activity_status || 'Activo').toLowerCase();
                 if (activityFilter === 'Activo' && (act.includes('inactiv') || act.includes('no activ') || act.includes('poco') || act.includes('vacacion'))) return false;
                 if (activityFilter === 'Poco activa' && !act.includes('poco')) return false;
@@ -485,16 +496,7 @@ export default function PlantillaRosterTable({
 
             return true;
         });
-    }, [agents, searchTerm, rankFilter, divisionFilter, activityFilter, valoracionFilter, iaSanctionFilter, iaStatusMap]);
-
-    // Helper to identify real agents vs reserved spaces / dividers
-    const isRealAgent = (a) => {
-        if (!a || a.is_divider || a.is_placeholder) return false;
-        const nombre = (a.nombre || '').trim();
-        const apellido = (a.apellido || '').trim();
-        const username = (a.username || '').trim();
-        return Boolean(nombre || apellido || username);
-    };
+    }, [agents, searchTerm, rankFilter, divisionFilter, activityFilter, valoracionFilter, iaSanctionFilter, iaStatusMap, currentMode]);
 
     // Ranks count for mini-summary box
     const ranksMiniSummary = useMemo(() => {
@@ -920,6 +922,45 @@ export default function PlantillaRosterTable({
                                     {archivedCount}
                                 </span>
                             )}
+                        </button>
+
+                        {/* Selector Rápido de Modo de Plantilla (Libre vs Reserva de Placas) */}
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                const nextMode = currentMode === 'libre' ? 'reservas' : 'libre';
+                                const msg = nextMode === 'libre'
+                                    ? '¿Cambiar a "Modo Libre"?\n\n- Las placas serán libres y personales para cada agente.\n- No habrá varemos fijos reservados ni se mostrarán casillas vacías [Reserva].\n- Los agentes conservarán su placa al cambiar de rango.'
+                                    : '¿Cambiar a "Modo Reserva de Placas"?\n\n- Cada rango tendrá sus placas fijas reservadas según su baremo.\n- Los números vacantes se mostrarán como [Reserva].\n- Al ascender o descender a alguien, su placa anterior quedará libre en su antiguo rango.';
+                                if (window.confirm(msg)) {
+                                    if (updateBranding) {
+                                        await updateBranding({ plantilla_mode: nextMode });
+                                    }
+                                }
+                            }}
+                            style={{
+                                background: currentMode === 'libre' 
+                                    ? 'linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(2, 132, 199, 0.32))' 
+                                    : 'linear-gradient(135deg, rgba(234, 179, 8, 0.20), rgba(202, 138, 4, 0.30))',
+                                border: currentMode === 'libre' 
+                                    ? '1px solid rgba(56, 189, 248, 0.5)' 
+                                    : '1px solid rgba(250, 204, 21, 0.5)',
+                                color: currentMode === 'libre' ? '#38bdf8' : '#fef08a',
+                                padding: '0.25rem 0.65rem',
+                                borderRadius: '6px',
+                                fontWeight: 800,
+                                fontSize: '0.70rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                whiteSpace: 'nowrap',
+                                boxShadow: currentMode === 'libre' ? '0 2px 8px rgba(14, 165, 233, 0.25)' : '0 2px 8px rgba(234, 179, 8, 0.25)'
+                            }}
+                            title="Haz clic para alternar entre Modo Libre y Modo Reserva de Placas"
+                        >
+                            <span>{currentMode === 'libre' ? '🕊️' : '📌'}</span>
+                            <span>Modo: {currentMode === 'libre' ? 'Libre' : 'Reserva de Placas'}</span>
                         </button>
                     </div>
                 </div>
@@ -1517,7 +1558,7 @@ export default function PlantillaRosterTable({
                                     const rankObj = ranks.find(r => (r.name || '').trim().toLowerCase() === (agent.rank_name || '').trim().toLowerCase());
                                     const promoDays = calculatePromotionDays(agent.last_promotion_date);
                                     const iaStatus = iaStatusMap?.getAgentStatus ? iaStatusMap.getAgentStatus(agent) : { hasActive: false, activeCount: 0 };
-                                    const isPlaceholder = agent.is_placeholder || (!agent.nombre && !agent.apellido);
+                                    const isPlaceholder = isPlaceholderAgent(agent);
 
                                     // Valoración / Acotación matching & row color styling
                                     const valObj = activeValoraciones.find(v => (v.name || '').trim().toLowerCase() === (agent.valoracion || '').trim().toLowerCase());
@@ -2020,7 +2061,7 @@ export default function PlantillaRosterTable({
                                                     >
                                                         ✏️
                                                     </button>
-                                                    {!agent.is_placeholder && (
+                                                    {!isPlaceholder && (
                                                         <button
                                                             type="button"
                                                             onClick={() => handleOpenArchiveAgent(agent)}
@@ -2094,6 +2135,7 @@ export default function PlantillaRosterTable({
                     ranks={ranks}
                     divisions={divisions}
                     valoraciones={activeValoraciones}
+                    plantillaMode={currentMode}
                     onClose={() => {
                         setShowAgentModal(false);
                         setSelectedAgentForEdit(null);

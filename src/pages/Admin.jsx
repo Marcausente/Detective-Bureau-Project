@@ -2233,6 +2233,80 @@ function Admin() {
                                             Si se deja vacío, utilizará el logo general del departamento.
                                         </span>
                                     </div>
+
+                                    {/* 6. Modo de Gestión de Plantilla */}
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 700, marginBottom: '0.5rem' }}>
+                                            Modo de Gestión de Plantilla y Placas
+                                        </label>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                                            {/* Modo Libre Card */}
+                                            <div
+                                                onClick={() => setBrandingForm({ ...brandingForm, plantilla_mode: 'libre' })}
+                                                style={{
+                                                    background: (brandingForm.plantilla_mode === 'libre') ? 'rgba(14, 165, 233, 0.15)' : 'rgba(15, 23, 42, 0.5)',
+                                                    border: (brandingForm.plantilla_mode === 'libre') ? '2px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.1)',
+                                                    borderRadius: '10px',
+                                                    padding: '1rem',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease',
+                                                    boxShadow: (brandingForm.plantilla_mode === 'libre') ? '0 0 15px rgba(56, 189, 248, 0.25)' : 'none'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ fontSize: '1.25rem' }}>🕊️</span>
+                                                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: (brandingForm.plantilla_mode === 'libre') ? '#38bdf8' : '#f8fafc' }}>
+                                                            1. Modo Libre
+                                                        </span>
+                                                    </div>
+                                                    <input
+                                                        type="radio"
+                                                        name="plantilla_mode"
+                                                        checked={brandingForm.plantilla_mode === 'libre'}
+                                                        onChange={() => setBrandingForm({ ...brandingForm, plantilla_mode: 'libre' })}
+                                                        style={{ accentColor: '#38bdf8', cursor: 'pointer' }}
+                                                    />
+                                                </div>
+                                                <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.45 }}>
+                                                    Se ordena por rango jerárquico y las <strong>placas son libres e independientes</strong>. El agente conserva su número de placa sin importar ascensos o descensos. No existen casillas reservadas ni varemos fijos.
+                                                </p>
+                                            </div>
+
+                                            {/* Modo Reserva Card */}
+                                            <div
+                                                onClick={() => setBrandingForm({ ...brandingForm, plantilla_mode: 'reservas' })}
+                                                style={{
+                                                    background: (brandingForm.plantilla_mode !== 'libre') ? 'rgba(234, 179, 8, 0.15)' : 'rgba(15, 23, 42, 0.5)',
+                                                    border: (brandingForm.plantilla_mode !== 'libre') ? '2px solid #eab308' : '1px solid rgba(255, 255, 255, 0.1)',
+                                                    borderRadius: '10px',
+                                                    padding: '1rem',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease',
+                                                    boxShadow: (brandingForm.plantilla_mode !== 'libre') ? '0 0 15px rgba(234, 179, 8, 0.25)' : 'none'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ fontSize: '1.25rem' }}>📌</span>
+                                                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: (brandingForm.plantilla_mode !== 'libre') ? '#fef08a' : '#f8fafc' }}>
+                                                            2. Modo Reserva de Placas
+                                                        </span>
+                                                    </div>
+                                                    <input
+                                                        type="radio"
+                                                        name="plantilla_mode"
+                                                        checked={brandingForm.plantilla_mode !== 'libre'}
+                                                        onChange={() => setBrandingForm({ ...brandingForm, plantilla_mode: 'reservas' })}
+                                                        style={{ accentColor: '#eab308', cursor: 'pointer' }}
+                                                    />
+                                                </div>
+                                                <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.45 }}>
+                                                    Cada rango tiene un <strong>baremo de placas reservadas</strong> (ej: Tenientes 701-703). Los números vacantes se muestran como [Reserva]. Al ascender o descender, la placa anterior queda vacante y se ocupa una nueva.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

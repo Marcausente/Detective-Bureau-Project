@@ -21,6 +21,199 @@ export const DEFAULT_RANKS = [
     { id: 'rank-17', name: 'DS Trainee', category: 'ESCALA BÁSICA', order_index: 17, color: '#94a3b8', badge_image_url: '' }
 ];
 
+
+export const DEFAULT_RANK_BAREMOS = {
+    '14. Sheriff': '500',
+    '13. Sheriff Adjunto': '',
+    '12. Sheriff Asistente': '',
+    '11. Division Chief': '',
+    '10. Comandante': '',
+    '09. Capitán': '700',
+    '08. Teniente': '701-703',
+    '09. Sargento II': '708-710',
+    '07. Sargento': '711-718',
+    '10. Detective III': '719-720',
+    '09. Detective II': '721-723',
+    '08. Detective I': '724-729',
+    'Oficial Master FTO': '730-739',
+    'Master FTO': '730-739',
+    'Deputy Sheriff Bonus II': '740-770',
+    'Deputy Sheriff Bonus I': '771-801',
+    'Deputy Sheriff': '803-850',
+    'DS Trainee': '901-910',
+    '14. Administrativo/a': '930-932'
+};
+
+/**
+ * Parses a badge range string like "701-703, 705" into an array of badge strings ["701", "702", "703", "705"].
+ */
+export function parseBadgeRange(rangeStr) {
+    if (!rangeStr || typeof rangeStr !== 'string') return [];
+    const tokens = rangeStr.split(/[,;\s]+/).map(t => t.trim()).filter(Boolean);
+    const badges = [];
+
+    tokens.forEach(token => {
+        if (token.includes('-')) {
+            const parts = token.split('-');
+            if (parts.length === 2) {
+                const start = parseInt(parts[0], 10);
+                const end = parseInt(parts[1], 10);
+                if (!isNaN(start) && !isNaN(end) && start <= end && (end - start) <= 150) {
+                    const padLength = Math.max(parts[0].length, parts[1].length);
+                    for (let i = start; i <= end; i++) {
+                        badges.push(String(i).padStart(padLength, '0'));
+                    }
+                    return;
+                }
+            }
+        }
+        if (token) {
+            badges.push(token);
+        }
+    });
+
+    return [...new Set(badges)];
+}
+
+/**
+ * Formats an array of badge strings back to readable range notation (e.g. "701-703, 705").
+ */
+export function formatBadgeRange(badges) {
+    if (!Array.isArray(badges) || badges.length === 0) return '';
+    const nums = badges.map(b => ({ raw: b, num: parseInt(b, 10) })).filter(x => !isNaN(x.num)).sort((a, b) => a.num - b.num);
+    if (nums.length === 0) return badges.join(', ');
+    const ranges = [];
+    let start = nums[0];
+    let prev = nums[0];
+    for (let i = 1; i < nums.length; i++) {
+        if (nums[i].num === prev.num + 1) {
+            prev = nums[i];
+        } else {
+            ranges.push(start.num === prev.num ? start.raw : start.raw + '-' + prev.raw);
+            start = nums[i];
+            prev = nums[i];
+        }
+    }
+    ranges.push(start.num === prev.num ? start.raw : start.raw + '-' + prev.raw);
+    return ranges.join(', ');
+}
+
+/**
+ * Gets configured or default baremo for a rank.
+ */
+export function getRankBaremo(rank) {
+    if (!rank) return '';
+    if (rank.badge_range !== undefined && rank.badge_range !== null) {
+        return String(rank.badge_range).trim();
+    }
+    return (DEFAULT_RANK_BAREMOS[rank.name] || '').trim();
+}
+
+/**
+ * Helper to identify if an item is a reserved slot / placeholder vs a real agent.
+ */
+export function isPlaceholderAgent(a) {
+    if (!a || a.is_divider) return false;
+    if (a.is_placeholder === true) return true;
+    const cleanNombre = (a.nombre || '').trim();
+    const cleanApellido = (a.apellido || '').trim();
+    const cleanUser = (a.username || '').trim().toLowerCase();
+
+    // Check if username indicates reservation
+    if (cleanUser.includes('[reserv') || cleanUser.includes('[reserva') || cleanUser === 'reserva' || cleanUser === 'reservado' || cleanUser === 'vacante') {
+        return true;
+    }
+
+    // Check if names are placeholder markers like '--', '-', '...', 'reserva', etc.
+    const isBlankOrDash = (str) => !str || str === '--' || str === '-' || str === '—' || str.toLowerCase() === 'reserva' || str.toLowerCase() === 'vacante' || str.toLowerCase() === '[reserva]' || str.toLowerCase() === '[reserv.]';
+    if (isBlankOrDash(cleanNombre) && isBlankOrDash(cleanApellido)) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Helper to identify real active or registered agents (not dividers, not placeholders).
+ */
+export function isRealAgent(a) {
+    if (!a || a.is_divider) return false;
+    return !isPlaceholderAgent(a);
+}
+
+/**
+ * Finds all vacant badges for a rank (in Modo Reserva de Placas).
+ */
+export function findVacantBadgesForRank(rankName, ranks = [], agents = []) {
+    if (!rankName) return [];
+    const rankObj = ranks.find(r => (r.name || '').trim().toLowerCase() === rankName.trim().toLowerCase());
+    const baremoStr = getRankBaremo(rankObj);
+    const baremoBadges = parseBadgeRange(baremoStr);
+
+    // Badges occupied by real/active agents
+    const occupied = new Set(
+        agents
+            .filter(isRealAgent)
+            .map(a => (a.no_placa || '').trim())
+            .filter(Boolean)
+    );
+
+    // Placeholders already in the roster for this rank
+    const existingPlaceholders = agents
+        .filter(a => !a.is_divider && isPlaceholderAgent(a) && (a.rank_name || '').trim().toLowerCase() === rankName.trim().toLowerCase())
+        .map(a => (a.no_placa || '').trim())
+        .filter(Boolean);
+
+    const vacantList = [
+        ...baremoBadges.filter(b => !occupied.has(b)),
+        ...existingPlaceholders
+    ];
+
+    const unique = [...new Set(vacantList)];
+    return unique.sort((a, b) => {
+        const numA = parseInt(a, 10);
+        const numB = parseInt(b, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return a.localeCompare(b);
+    });
+}
+
+/**
+ * Matches an agent's rank name to a divider section title.
+ */
+export function matchesRankToDivider(rankName = '', dividerTitle = '') {
+    const r = (rankName || '').toLowerCase().replace(/^\d+\.\s*/, '').trim();
+    const d = (dividerTitle || '').toLowerCase().trim();
+    if (!r || !d) return false;
+    if (r.includes(d) || d.includes(r)) return true;
+    if (r.includes('sheriff') && d.includes('jefatura')) return true;
+    if ((r.includes('capitan') || r.includes('capitán') || r.includes('teniente')) && d.includes('comisionado')) return true;
+    if (r.includes('sargento') && d.includes('sargento')) return true;
+    if (r.includes('detective') && d.includes('detective')) return true;
+    if (r.includes('fto') && (d.includes('fto') || d.includes('training'))) return true;
+    if (r.includes('trainee') && (d.includes('trainee') || d.includes('cadete'))) return true;
+    if (r.includes('bonus ii') && d.includes('bonus ii')) return true;
+    if (r.includes('bonus i') && d.includes('bonus i')) return true;
+    if (r.includes('deputy') && d.includes('deputy') && !r.includes('bonus') && !d.includes('bonus')) return true;
+    return false;
+}
+
+/**
+ * Fetches the active Plantilla mode: 'libre' or 'reservas' (defaults to 'reservas').
+ */
+export async function fetchPlantillaMode() {
+    try {
+        const { data } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'branding_plantilla_mode')
+            .maybeSingle();
+        return data?.value || 'reservas';
+    } catch {
+        return 'reservas';
+    }
+}
+
 export const DEFAULT_DIVISIONS = [
     { id: 'div-1', name: 'TRT / SEB', short_name: 'TRT', order_index: 1, color: '#15803d', badge_image_url: '' },
     { id: 'div-2', name: 'SCUB', short_name: 'SCUB', order_index: 2, color: '#0284c7', badge_image_url: '' },
@@ -220,7 +413,12 @@ export async function fetchPlantillaRanks() {
         if (!appError && appData) {
             const parsed = parseSettingsArray(appData.value);
             if (parsed !== null && parsed.length > 0) {
-                return parsed.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+                return parsed
+                    .map(r => ({
+                        ...r,
+                        badge_range: r.badge_range !== undefined ? r.badge_range : (DEFAULT_RANK_BAREMOS[r.name] || '')
+                    }))
+                    .sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
             }
         }
 
@@ -252,6 +450,7 @@ export async function savePlantillaRank(rankData) {
             name: rankData.name.trim(),
             category: rankData.category?.trim() || 'General',
             badge_image_url: rankData.badge_image_url || '',
+            badge_range: (rankData.badge_range !== undefined ? rankData.badge_range : (DEFAULT_RANK_BAREMOS[rankData.name] || '')).trim(),
             color: rankData.color || '#3b82f6',
             order_index: Number(rankData.order_index) || 1,
             updated_at: new Date().toISOString()
@@ -709,9 +908,18 @@ export async function savePlantillaAgent(agentData) {
             }
         }
 
-        // 3. Placement & Placeholder substitution
+        // 3. Placement & Placeholder substitution based on Plantilla Mode ('reservas' vs 'libre')
+        const mode = agentData.plantillaMode || (await fetchPlantillaMode());
         const oldAgent = !isNew ? currentList.find(a => a.id === finalAgent.id) : null;
         const badgeChanged = isNew || (oldAgent && (oldAgent.no_placa || '').trim() !== cleanPlaca);
+        const isRankChanged = Boolean(
+            !isNew && 
+            oldAgent && 
+            oldAgent.rank_name && 
+            finalAgent.rank_name && 
+            (oldAgent.rank_name.trim().toLowerCase() !== finalAgent.rank_name.trim().toLowerCase() || agentData.rankChanged) &&
+            !finalAgent.is_placeholder
+        );
 
         let updatedList;
         let replacedPlaceholderId = null;
@@ -723,8 +931,51 @@ export async function savePlantillaAgent(agentData) {
             } else {
                 updatedList = [...currentList, finalAgent];
             }
-        } else if (badgeChanged) {
-            const placement = placeOrSubstituteAgent(finalAgent, currentList);
+        } else if (mode === 'reservas' && isRankChanged) {
+            // MODO RESERVA DE PLACAS:
+            // Al cambiar de rango, la placa anterior queda como vacante reservada en el rango antiguo,
+            // y el agente pasa a ocupar su nueva placa en el nuevo rango.
+            const prevPlaca = (agentData.previousPlaca || oldAgent?.no_placa || '').trim();
+            const prevRank = (agentData.previousRank || oldAgent?.rank_name || '').trim();
+
+            if (prevPlaca) {
+                const vacancyRow = {
+                    id: crypto.randomUUID(),
+                    username: '',
+                    email: '',
+                    nombre: '',
+                    apellido: '',
+                    no_placa: prevPlaca,
+                    rank_name: prevRank,
+                    divisions: [],
+                    activity_status: 'Activo',
+                    valoracion: '',
+                    notes: '',
+                    avatar_url: '',
+                    is_placeholder: true,
+                    order_index: oldAgent?.order_index || 0,
+                    updated_at: new Date().toISOString()
+                };
+
+                const oldIdx = currentList.findIndex(a => a.id === finalAgent.id);
+                if (oldIdx >= 0) {
+                    currentList[oldIdx] = vacancyRow;
+                } else {
+                    currentList.push(vacancyRow);
+                }
+            }
+
+            const placement = placeOrSubstituteAgent(finalAgent, currentList, { mode: 'reservas' });
+            updatedList = placement.updatedList;
+            replacedPlaceholderId = placement.replacedPlaceholderId;
+        } else if (mode === 'libre' && isRankChanged) {
+            // MODO LIBRE:
+            // Al cambiar de rango, mantiene su misma placa y simplemente se recoloca en la seccion del nuevo rango.
+            // NO se genera ninguna casilla vacante.
+            const placement = placeOrSubstituteAgent(finalAgent, currentList, { mode: 'libre' });
+            updatedList = placement.updatedList;
+        } else if (badgeChanged || !oldAgent) {
+            const placement = placeOrSubstituteAgent(finalAgent, currentList, { mode });
             updatedList = placement.updatedList;
             replacedPlaceholderId = placement.replacedPlaceholderId;
         } else {
@@ -732,7 +983,7 @@ export async function savePlantillaAgent(agentData) {
             if (exists) {
                 updatedList = currentList.map(a => a.id === finalAgent.id ? finalAgent : a);
             } else {
-                const placement = placeOrSubstituteAgent(finalAgent, currentList);
+                const placement = placeOrSubstituteAgent(finalAgent, currentList, { mode });
                 updatedList = placement.updatedList;
                 replacedPlaceholderId = placement.replacedPlaceholderId;
             }
@@ -1246,16 +1497,17 @@ export function findClosestDividerForBadge(targetPlaca, dividers = [], dividerSe
  *    and inserts the agent inside that section, sorted numerically by badge number.
  *    Dividers NEVER move down unexpectedly when new agents are added.
  */
-export function placeOrSubstituteAgent(agentToPlace, currentAgents = []) {
+export function placeOrSubstituteAgent(agentToPlace, currentAgents = [], options = {}) {
+    const mode = options.mode || 'reservas';
     const targetPlaca = parseBadgeNum(agentToPlace.no_placa);
     const targetPlacaStr = (agentToPlace.no_placa || '').trim();
     const targetRank = (agentToPlace.rank_name || '').toLowerCase();
 
-    // 1. Placeholder / Casilla Reservada substitution
-    if (targetPlacaStr && !agentToPlace.is_placeholder) {
+    // 1. IN MODO RESERVAS: Placeholder / Casilla Reservada substitution
+    if (mode === 'reservas' && targetPlacaStr && !isPlaceholderAgent(agentToPlace)) {
         const placeholderIndex = currentAgents.findIndex(a =>
             !a.is_divider &&
-            Boolean(a.is_placeholder || (!a.nombre?.trim() && !a.apellido?.trim())) &&
+            isPlaceholderAgent(a) &&
             a.id !== agentToPlace.id &&
             (
                 (!isNaN(targetPlaca) && parseBadgeNum(a.no_placa) === targetPlaca) ||
@@ -1276,10 +1528,8 @@ export function placeOrSubstituteAgent(agentToPlace, currentAgents = []) {
         }
     }
 
-    // 2. Regular section-based placement
+    // 2. Build sections
     const cleanList = currentAgents.filter(a => a.id !== agentToPlace.id);
-
-    // Build sections:
     const sections = [];
     let currentSec = { divider: null, agents: [] };
     sections.push(currentSec);
@@ -1293,7 +1543,36 @@ export function placeOrSubstituteAgent(agentToPlace, currentAgents = []) {
         }
     });
 
+    // 3. Section matching
     let bestSecIdx = -1;
+
+    if (mode === 'libre') {
+        // IN MODO LIBRE: Placement is strictly based on matching the agent's rank to the divider section title!
+        bestSecIdx = sections.findIndex(sec => {
+            if (!sec.divider) return false;
+            const divTitle = (sec.divider.title || sec.divider.nombre || '').toLowerCase();
+            return matchesRankToDivider(targetRank, divTitle);
+        });
+
+        if (bestSecIdx === -1) {
+            bestSecIdx = sections.length - 1;
+        }
+
+        sections[bestSecIdx].agents.push(agentToPlace);
+
+        const result = [];
+        sections.forEach(sec => {
+            if (sec.divider) result.push(sec.divider);
+            result.push(...sec.agents);
+        });
+
+        return {
+            updatedList: result.map((item, idx) => ({ ...item, order_index: idx + 1 })),
+            replacedPlaceholderId: null
+        };
+    }
+
+    // IN MODO RESERVAS: Score by rank match + badge numerical range proximity
     let bestScore = -Infinity;
 
     sections.forEach((sec, sIdx) => {
@@ -1301,7 +1580,7 @@ export function placeOrSubstituteAgent(agentToPlace, currentAgents = []) {
         const divTitle = (sec.divider?.title || sec.divider?.nombre || '').toLowerCase();
 
         // Rank match with divider title
-        if (targetRank && divTitle && (targetRank.includes(divTitle) || divTitle.includes(targetRank))) {
+        if (targetRank && divTitle && (targetRank.includes(divTitle) || divTitle.includes(targetRank) || matchesRankToDivider(targetRank, divTitle))) {
             score += 5000;
         }
 
@@ -1320,7 +1599,6 @@ export function placeOrSubstituteAgent(agentToPlace, currentAgents = []) {
                 }
             }
         } else if (sec.divider) {
-            // Empty section with a divider
             let prevMax = -Infinity;
             for (let prevIdx = sIdx - 1; prevIdx >= 0; prevIdx--) {
                 const prevPlates = sections[prevIdx].agents.map(a => parseBadgeNum(a.no_placa)).filter(n => !isNaN(n));
@@ -1726,3 +2004,42 @@ export async function restoreArchivedAgent(archivedRecord) {
 }
 
 
+
+/**
+ * Synchronizes reserved rank vacancies in Modo Reserva:
+ * Ensures all badges defined in rank baremos are present in the roster (either occupied by real agent or as a placeholder).
+ */
+export function syncRankVacancies(currentAgents = [], ranks = []) {
+    let list = [...currentAgents];
+    ranks.forEach(rank => {
+        const baremoStr = getRankBaremo(rank);
+        if (!baremoStr) return;
+        const badges = parseBadgeRange(baremoStr);
+        badges.forEach(badge => {
+            const clean = badge.trim();
+            const exists = list.some(a => !a.is_divider && (a.no_placa || '').trim().toLowerCase() === clean.toLowerCase());
+            if (!exists) {
+                const placeholder = {
+                    id: crypto.randomUUID(),
+                    username: '',
+                    email: '',
+                    nombre: '',
+                    apellido: '',
+                    no_placa: clean,
+                    rank_name: rank.name,
+                    divisions: [],
+                    activity_status: 'Activo',
+                    valoracion: '',
+                    notes: '',
+                    avatar_url: '',
+                    is_placeholder: true,
+                    order_index: 999,
+                    updated_at: new Date().toISOString()
+                };
+                const res = placeOrSubstituteAgent(placeholder, list, { mode: 'reservas' });
+                list = res.updatedList;
+            }
+        });
+    });
+    return list.map((item, idx) => ({ ...item, order_index: idx + 1 }));
+}

@@ -87,7 +87,8 @@ export const BRANDING_PRESETS = {
         plantilla_title: 'Plantilla SCUB • Comandancia',
         plantilla_subtitle: '(Roster Jerárquico)',
         plantilla_tab_name: 'Plantilla de Agentes',
-        plantilla_logo: '/logowebp/SCUB.webp'
+        plantilla_logo: '/logowebp/SCUB.webp',
+        plantilla_mode: 'reservas'
     },
     DB: {
         topbar_name: 'DB',
@@ -172,7 +173,8 @@ export const BRANDING_PRESETS = {
         plantilla_title: 'Plantilla Detective Bureau • Comandancia',
         plantilla_subtitle: '(Roster Jerárquico)',
         plantilla_tab_name: 'Plantilla de Agentes',
-        plantilla_logo: '/logowebp/dblogo.webp'
+        plantilla_logo: '/logowebp/dblogo.webp',
+        plantilla_mode: 'reservas'
     },
     LSSD: {
         topbar_name: 'LSSD',
@@ -257,7 +259,8 @@ export const BRANDING_PRESETS = {
         plantilla_title: 'Plantilla LSSD • Comandancia',
         plantilla_subtitle: '(Roster Jerárquico)',
         plantilla_tab_name: 'Plantilla de Agentes',
-        plantilla_logo: '/logowebp/LSSDlogo.webp'
+        plantilla_logo: '/logowebp/LSSDlogo.webp',
+        plantilla_mode: 'reservas'
     },
     SAPD: {
         topbar_name: 'SAPD',
@@ -342,7 +345,8 @@ export const BRANDING_PRESETS = {
         plantilla_title: 'Plantilla SAPD • Comandancia',
         plantilla_subtitle: '(Roster Jerárquico)',
         plantilla_tab_name: 'Plantilla de Agentes',
-        plantilla_logo: '/logowebp/sanandreas.webp'
+        plantilla_logo: '/logowebp/sanandreas.webp',
+        plantilla_mode: 'reservas'
     }
 };
 

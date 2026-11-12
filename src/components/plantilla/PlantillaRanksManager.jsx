@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { uploadImageToStorage } from '../../utils/imageStorage';
-import { savePlantillaRank, deletePlantillaRank, updateRanksOrder } from '../../services/plantillaService';
+import { savePlantillaRank, deletePlantillaRank, updateRanksOrder, parseBadgeRange, formatBadgeRange, getRankBaremo } from '../../services/plantillaService';
 
 export default function PlantillaRanksManager({ ranks, onClose, onRanksUpdated, onApplyHierarchy }) {
     const [ranksList, setRanksList] = useState(ranks || []);
@@ -14,6 +14,7 @@ export default function PlantillaRanksManager({ ranks, onClose, onRanksUpdated, 
         name: '',
         category: 'COMMAND',
         badge_image_url: '',
+        badge_range: '',
         color: '#3b82f6',
         order_index: ranksList.length + 1
     });
@@ -24,6 +25,7 @@ export default function PlantillaRanksManager({ ranks, onClose, onRanksUpdated, 
             name: '',
             category: 'COMMAND',
             badge_image_url: '',
+            badge_range: '',
             color: '#3b82f6',
             order_index: ranksList.length + 1
         });
@@ -36,11 +38,23 @@ export default function PlantillaRanksManager({ ranks, onClose, onRanksUpdated, 
             name: rank.name,
             category: rank.category || 'General',
             badge_image_url: rank.badge_image_url || '',
+            badge_range: getRankBaremo(rank),
             color: rank.color || '#3b82f6',
             order_index: rank.order_index || 1
         });
         setIsCreating(true);
     };
+
+    const handleRemoveBadgeFromBaremo = (badgeToRemove) => {
+        const currentBadges = parseBadgeRange(formData.badge_range || '');
+        const filtered = currentBadges.filter(b => b !== badgeToRemove);
+        setFormData(prev => ({
+            ...prev,
+            badge_range: formatBadgeRange(filtered)
+        }));
+    };
+
+    const parsedBadges = parseBadgeRange(formData.badge_range || '');
 
     const handleBadgeUpload = async (file) => {
         if (!file) return;
@@ -378,6 +392,85 @@ export default function PlantillaRanksManager({ ranks, onClose, onRanksUpdated, 
                                     </div>
                                 </div>
 
+                                {/* Baremo / Placas Reservadas para este rango (Modo Reserva) */}
+                                <div style={{
+                                    background: 'rgba(15, 23, 42, 0.75)',
+                                    border: '1px solid rgba(234, 179, 8, 0.35)',
+                                    borderRadius: '10px',
+                                    padding: '0.9rem 1rem',
+                                    marginBottom: '1rem'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#fef08a', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                            <span>📌</span>
+                                            <span>Baremo de Placas Reservadas (Modo Reserva de Placas)</span>
+                                        </label>
+                                        <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                                            {parsedBadges.length} {parsedBadges.length === 1 ? 'placa asignada' : 'placas asignadas'}
+                                        </span>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Ej: 701-703 o 708, 709, 710 o 711-718..."
+                                        value={formData.badge_range || ''}
+                                        onChange={e => setFormData({ ...formData, badge_range: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            background: 'rgba(15, 23, 42, 0.9)',
+                                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                                            borderRadius: '8px',
+                                            padding: '0.55rem 0.85rem',
+                                            color: '#f8fafc',
+                                            fontSize: '0.85rem'
+                                        }}
+                                    />
+                                    <span style={{ fontSize: '0.70rem', color: '#64748b', display: 'block', marginTop: '4px' }}>
+                                        En Modo Reserva, estas placas estarán reservadas exclusivamente para este rango. Los números vacíos se mostrarán automáticamente en la plantilla como [Reserva].
+                                    </span>
+
+                                    {/* Badges Preview Chips */}
+                                    {parsedBadges.length > 0 && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '8px' }}>
+                                            {parsedBadges.map(badge => (
+                                                <span
+                                                    key={badge}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        background: 'rgba(234, 179, 8, 0.15)',
+                                                        border: '1px solid rgba(234, 179, 8, 0.4)',
+                                                        color: '#fef08a',
+                                                        borderRadius: '4px',
+                                                        padding: '1px 6px',
+                                                        fontSize: '0.70rem',
+                                                        fontWeight: 700
+                                                    }}
+                                                >
+                                                    #{badge}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveBadgeFromBaremo(badge)}
+                                                        style={{
+                                                            background: 'transparent',
+                                                            border: 'none',
+                                                            color: '#f87171',
+                                                            cursor: 'pointer',
+                                                            padding: 0,
+                                                            lineHeight: 1,
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 900
+                                                        }}
+                                                        title={`Quitar placa #${badge} del baremo`}
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>
@@ -591,8 +684,19 @@ export default function PlantillaRanksManager({ ranks, onClose, onRanksUpdated, 
 
                                         {/* Rank info */}
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {rank.name}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {rank.name}
+                                                </span>
+                                                {getRankBaremo(rank) ? (
+                                                    <span style={{ fontSize: '0.66rem', color: '#fef08a', background: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.35)', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                                                        📌 Placas: {getRankBaremo(rank)} ({parseBadgeRange(getRankBaremo(rank)).length})
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ fontSize: '0.66rem', color: '#64748b', fontStyle: 'italic' }}>
+                                                        Sin baremo
+                                                    </span>
+                                                )}
                                             </div>
                                             <div style={{ fontSize: '0.72rem', color: rank.color || '#94a3b8', fontWeight: 600 }}>
                                                 {rank.category || 'General'}

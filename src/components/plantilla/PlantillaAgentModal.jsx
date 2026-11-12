@@ -1,10 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import { uploadImageToStorage } from '../../utils/imageStorage';
-import { calculatePromotionDays, DEFAULT_VALORACIONES, hexToRgba } from '../../services/plantillaService';
+import { calculatePromotionDays, DEFAULT_VALORACIONES, hexToRgba, findVacantBadgesForRank, isPlaceholderAgent } from '../../services/plantillaService';
 
-export default function PlantillaAgentModal({ agent, agents = [], ranks, divisions, valoraciones = [], onClose, onSave }) {
+export default function PlantillaAgentModal({ agent, agents = [], ranks, divisions, valoraciones = [], plantillaMode = 'reservas', onClose, onSave }) {
     const isEdit = Boolean(agent && agent.id);
+    const initialRank = agent?.rank_name || '';
+    const initialPlaca = agent?.no_placa || '';
+    const isModoLibre = plantillaMode === 'libre';
+
     const [saving, setSaving] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -107,6 +111,18 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
 
     const promoDaysInfo = calculatePromotionDays(formData.last_promotion_date);
 
+    const rankChanged = Boolean(
+        isEdit &&
+        initialRank &&
+        formData.rank_name &&
+        initialRank.trim().toLowerCase() !== formData.rank_name.trim().toLowerCase()
+    );
+
+    const vacantBadgesForRank = useMemo(() => {
+        if (isModoLibre || !formData.rank_name) return [];
+        return findVacantBadgesForRank(formData.rank_name, ranks, agents);
+    }, [isModoLibre, formData.rank_name, ranks, agents]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
@@ -116,7 +132,7 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
                 const conflict = agents.find(a => {
                     if (a.is_divider) return false;
                     // Reservations / placeholders can be substituted, so they are not real conflicts
-                    if (a.is_placeholder || (!a.nombre?.trim() && !a.apellido?.trim())) return false;
+                    if (isPlaceholderAgent(a) || a.is_placeholder || (!a.nombre?.trim() && !a.apellido?.trim())) return false;
                     if (agent?.id && a.id === agent.id) return false;
                     const aPlaca = (a.no_placa || '').trim();
                     if (!aPlaca) return false;
@@ -140,7 +156,11 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
                 ...(agent?.id ? { id: agent.id } : {}),
                 ...formData,
                 rank_id: rankObj?.id || null,
-                order_index: agent?.order_index !== undefined ? agent.order_index : 999
+                order_index: agent?.order_index !== undefined ? agent.order_index : 999,
+                rankChanged,
+                previousRank: initialRank,
+                previousPlaca: initialPlaca,
+                plantillaMode
             };
             await onSave(payload);
             onClose();
@@ -226,24 +246,42 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            background: formData.is_placeholder ? 'rgba(234, 179, 8, 0.1)' : 'rgba(30, 41, 59, 0.5)',
-                            border: formData.is_placeholder ? '1px dashed rgba(234, 179, 8, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+                            background: isModoLibre 
+                                ? 'rgba(56, 189, 248, 0.08)' 
+                                : (formData.is_placeholder ? 'rgba(234, 179, 8, 0.1)' : 'rgba(30, 41, 59, 0.5)'),
+                            border: isModoLibre 
+                                ? '1px solid rgba(56, 189, 248, 0.3)' 
+                                : (formData.is_placeholder ? '1px dashed rgba(234, 179, 8, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)'),
                             borderRadius: '12px',
                             padding: '0.85rem 1rem',
                             flexWrap: 'wrap',
                             gap: '0.75rem'
                         }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
-                                <input
-                                    type="checkbox"
-                                    checked={formData.is_placeholder}
-                                    onChange={e => setFormData({ ...formData, is_placeholder: e.target.checked })}
-                                    style={{ width: '18px', height: '18px', accentColor: '#eab308', cursor: 'pointer' }}
-                                />
-                                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: formData.is_placeholder ? '#fef08a' : '#cbd5e1' }}>
-                                    📌 Marcar como Casilla Reservada / Plaza Vacante (Permite dejar nombre y usuario en blanco)
-                                </span>
-                            </label>
+                            {isModoLibre ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>🕊️</span>
+                                    <div>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#38bdf8', display: 'block' }}>
+                                            Modo Libre de Gestión Activo
+                                        </span>
+                                        <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block' }}>
+                                            Las placas son personales e independientes del rango. Al cambiar de rango, el agente conserva su misma placa.
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.is_placeholder}
+                                        onChange={e => setFormData({ ...formData, is_placeholder: e.target.checked })}
+                                        style={{ width: '18px', height: '18px', accentColor: '#eab308', cursor: 'pointer' }}
+                                    />
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: formData.is_placeholder ? '#fef08a' : '#cbd5e1' }}>
+                                        📌 Marcar como Casilla Reservada / Plaza Vacante (Permite dejar nombre y usuario en blanco)
+                                    </span>
+                                </label>
+                            )}
 
                             {!formData.is_placeholder && (
                                 <div style={{ position: 'relative' }} ref={userDropdownRef}>
@@ -550,6 +588,62 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
                                 </select>
                             </div>
                         </div>
+
+                        {/* Asistente de cambio de rango en Modo Reserva */}
+                        {!isModoLibre && rankChanged && (
+                            <div style={{
+                                background: 'rgba(234, 179, 8, 0.10)',
+                                border: '1px solid rgba(234, 179, 8, 0.4)',
+                                borderRadius: '10px',
+                                padding: '0.85rem 1rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#fef08a' }}>
+                                    <span>🔄</span>
+                                    <span>Cambio de Rango Detectado: {initialRank} ➔ {formData.rank_name}</span>
+                                </div>
+                                <p style={{ margin: 0, fontSize: '0.75rem', color: '#cbd5e1', lineHeight: 1.45 }}>
+                                    En <strong>Modo Reserva de Placas</strong>, la placa anterior <strong>#{initialPlaca}</strong> quedará registrada automáticamente como plaza vacante <em>[Reserva]</em> en <strong>{initialRank}</strong>.<br />
+                                    {vacantBadgesForRank.length > 0
+                                        ? `Selecciona una placa vacante para ${formData.rank_name} o escribe un número de placa arriba:`
+                                        : `Escribe en el campo superior "Nº Placa" el número correspondiente a su nuevo rango.`}
+                                </p>
+
+                                {vacantBadgesForRank.length > 0 && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '3px' }}>
+                                        <span style={{ fontSize: '0.70rem', color: '#94a3b8', fontWeight: 700 }}>
+                                            Placas vacantes disponibles en {formData.rank_name}:
+                                        </span>
+                                        {vacantBadgesForRank.map(badge => {
+                                            const isSelected = (formData.no_placa || '').trim() === badge;
+                                            return (
+                                                <button
+                                                    key={badge}
+                                                    type="button"
+                                                    onClick={() => setFormData(prev => ({ ...prev, no_placa: badge }))}
+                                                    style={{
+                                                        background: isSelected ? '#eab308' : 'rgba(234, 179, 8, 0.18)',
+                                                        color: isSelected ? '#000000' : '#fef08a',
+                                                        border: isSelected ? '1px solid #fde047' : '1px solid rgba(234, 179, 8, 0.4)',
+                                                        borderRadius: '6px',
+                                                        padding: '3px 8px',
+                                                        fontSize: '0.74rem',
+                                                        fontWeight: 800,
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.15s ease'
+                                                    }}
+                                                    title={`Asignar placa vacante #${badge}`}
+                                                >
+                                                    #{badge} {isSelected ? '✓' : ''}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Valoración / Acotación de Fila */}
                         {(() => {
