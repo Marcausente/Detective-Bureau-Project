@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { useTheme, BRANDING_PRESETS } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { uploadImageToStorage } from '../utils/imageStorage';
+import { fetchPlantillaRanks, syncAndPersistRankVacancies } from '../services/plantillaService';
 import '../index.css';
 
 function Admin() {
@@ -108,6 +109,14 @@ function Admin() {
         try {
             const res = await updateBranding(brandingForm);
             if (res.success) {
+                if (brandingForm.plantilla_mode === 'reservas') {
+                    try {
+                        const ranks = await fetchPlantillaRanks();
+                        await syncAndPersistRankVacancies(ranks);
+                    } catch (e) {
+                        console.warn('Sync rank vacancies warning in admin save:', e);
+                    }
+                }
                 setSaveSuccess(true);
                 setTimeout(() => setSaveSuccess(false), 4500);
             } else {

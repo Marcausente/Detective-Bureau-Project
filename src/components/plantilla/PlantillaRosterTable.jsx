@@ -928,49 +928,6 @@ export default function PlantillaRosterTable({
                                 </span>
                             )}
                         </button>
-
-                        {/* Selector Rápido de Modo de Plantilla (Libre vs Reserva de Placas) */}
-                        <button
-                            type="button"
-                            onClick={async () => {
-                                const nextMode = currentMode === 'libre' ? 'reservas' : 'libre';
-                                const msg = nextMode === 'libre'
-                                    ? '¿Cambiar a "Modo Libre"?\n\n- Las placas serán libres y personales para cada agente.\n- No habrá varemos fijos reservados ni se mostrarán casillas vacías [Reserva].\n- Los agentes conservarán su placa al cambiar de rango.'
-                                    : '¿Cambiar a "Modo Reserva de Placas"?\n\n- Cada rango tendrá sus placas fijas reservadas según su baremo.\n- Los números vacantes se mostrarán como [Reserva].\n- Al ascender o descender a alguien, su placa anterior quedará libre en su antiguo rango.';
-                                if (window.confirm(msg)) {
-                                    if (updateBranding) {
-                                        await updateBranding({ plantilla_mode: nextMode });
-                                    }
-                                    if (nextMode === 'reservas') {
-                                        const synced = await syncAndPersistRankVacancies(ranks, agents);
-                                        if (onAgentsUpdated) onAgentsUpdated(synced);
-                                    }
-                                }
-                            }}
-                            style={{
-                                background: currentMode === 'libre' 
-                                    ? 'linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(2, 132, 199, 0.32))' 
-                                    : 'linear-gradient(135deg, rgba(234, 179, 8, 0.20), rgba(202, 138, 4, 0.30))',
-                                border: currentMode === 'libre' 
-                                    ? '1px solid rgba(56, 189, 248, 0.5)' 
-                                    : '1px solid rgba(250, 204, 21, 0.5)',
-                                color: currentMode === 'libre' ? '#38bdf8' : '#fef08a',
-                                padding: '0.25rem 0.65rem',
-                                borderRadius: '6px',
-                                fontWeight: 800,
-                                fontSize: '0.70rem',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                whiteSpace: 'nowrap',
-                                boxShadow: currentMode === 'libre' ? '0 2px 8px rgba(14, 165, 233, 0.25)' : '0 2px 8px rgba(234, 179, 8, 0.25)'
-                            }}
-                            title="Haz clic para alternar entre Modo Libre y Modo Reserva de Placas"
-                        >
-                            <span>{currentMode === 'libre' ? '🕊️' : '📌'}</span>
-                            <span>Modo: {currentMode === 'libre' ? 'Libre' : 'Reserva de Placas'}</span>
-                        </button>
                     </div>
                 </div>
 
