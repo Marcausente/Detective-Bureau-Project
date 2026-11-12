@@ -17,7 +17,8 @@ import {
     DEFAULT_VALORACIONES,
     hexToRgba,
     isPlaceholderAgent,
-    isRealAgent
+    isRealAgent,
+    syncAndPersistRankVacancies
 } from '../../services/plantillaService';
 import PlantillaAgentModal from './PlantillaAgentModal';
 import PlantillaDividerModal from './PlantillaDividerModal';
@@ -343,9 +344,13 @@ export default function PlantillaRosterTable({
         }
     };
 
-    // Rank update handler (preserves manual agent positions)
+    // Rank update handler (preserves manual agent positions and syncs vacancies in Modo Reservas)
     const handleRanksUpdated = async (newRanks) => {
         if (onRanksUpdated) onRanksUpdated(newRanks);
+        if (currentMode === 'reservas') {
+            const synced = await syncAndPersistRankVacancies(newRanks, agents);
+            if (onAgentsUpdated) onAgentsUpdated(synced);
+        }
     };
 
     // Quick toggle activity status
@@ -935,6 +940,10 @@ export default function PlantillaRosterTable({
                                 if (window.confirm(msg)) {
                                     if (updateBranding) {
                                         await updateBranding({ plantilla_mode: nextMode });
+                                    }
+                                    if (nextMode === 'reservas') {
+                                        const synced = await syncAndPersistRankVacancies(ranks, agents);
+                                        if (onAgentsUpdated) onAgentsUpdated(synced);
                                     }
                                 }
                             }}
@@ -2164,8 +2173,10 @@ export default function PlantillaRosterTable({
             {showRanksManager && (
                 <PlantillaRanksManager
                     ranks={ranks}
+                    agents={agents}
                     onClose={() => setShowRanksManager(false)}
                     onRanksUpdated={handleRanksUpdated}
+                    onAgentsUpdated={onAgentsUpdated}
                     onApplyHierarchy={handleSortByRankHierarchy}
                 />
             )}

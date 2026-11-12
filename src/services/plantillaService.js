@@ -283,12 +283,18 @@ export function registerRealtimeChannel(channel) {
 
 export async function broadcastPlantillaEvent(event, payload = {}) {
     try {
-        const channel = activeRealtimeChannel || supabase.channel('comandancia_realtime_sync');
-        await channel.send({
-            type: 'broadcast',
-            event,
-            payload: { ...payload, timestamp: Date.now() }
-        });
+        if (!activeRealtimeChannel) {
+            return;
+        }
+        // Send broadcast with a safe 600ms timeout race so UI NEVER hangs or blocks
+        await Promise.race([
+            activeRealtimeChannel.send({
+                type: 'broadcast',
+                event,
+                payload: { ...payload, timestamp: Date.now() }
+            }),
+            new Promise(resolve => setTimeout(resolve, 600))
+        ]);
     } catch (err) {
         console.warn('Realtime broadcastPlantillaEvent warning:', err);
     }
@@ -509,7 +515,18 @@ export async function savePlantillaRank(rankData) {
         // 3. Broadcast Realtime
         await broadcastPlantillaEvent('ranks_changed', { ranks: updatedList });
 
-        return Object.assign({ ...finalRank }, { savedRank: finalRank, updatedList });
+        // 4. In Modo Reservas, automatically sync vacancies in the roster so newly added/removed baremo badges update immediately
+        let syncedAgents = null;
+        try {
+            const mode = await fetchPlantillaMode();
+            if (mode === 'reservas') {
+                syncedAgents = await syncAndPersistRankVacancies(updatedList);
+            }
+        } catch (syncErr) {
+            console.warn('Sync rank vacancies warning:', syncErr);
+        }
+
+        return Object.assign({ ...finalRank }, { savedRank: finalRank, updatedList, syncedAgents });
     } catch (err) {
         console.error('Error in savePlantillaRank:', err);
         throw err;
@@ -548,7 +565,17 @@ export async function deletePlantillaRank(rankId) {
 
         await broadcastPlantillaEvent('ranks_changed', { ranks: updated });
 
-        return true;
+        let syncedAgents = null;
+        try {
+            const mode = await fetchPlantillaMode();
+            if (mode === 'reservas') {
+                syncedAgents = await syncAndPersistRankVacancies(updated);
+            }
+        } catch (syncErr) {
+            console.warn('Sync rank vacancies warning:', syncErr);
+        }
+
+        return { success: true, updatedList: updated, syncedAgents };
     } catch (err) {
         console.error('Error in deletePlantillaRank:', err);
         throw err;
@@ -2007,10 +2034,34 @@ export async function restoreArchivedAgent(archivedRecord) {
 
 /**
  * Synchronizes reserved rank vacancies in Modo Reserva:
- * Ensures all badges defined in rank baremos are present in the roster (either occupied by real agent or as a placeholder).
+ * - Removes placeholders whose badge is no longer in their rank's baremo
+ * - Creates missing placeholders for all badges defined in rank baremos
+ * - Places placeholders into their matching rank sections in numerical order
  */
 export function syncRankVacancies(currentAgents = [], ranks = []) {
     let list = [...currentAgents];
+
+    // Build map of configured baremos per rank
+    const rankBaremoMap = new Map();
+    ranks.forEach(rank => {
+        const baremoStr = getRankBaremo(rank);
+        if (baremoStr) {
+            const badges = new Set(parseBadgeRange(baremoStr).map(b => b.trim().toLowerCase()));
+            rankBaremoMap.set((rank.name || '').trim().toLowerCase(), badges);
+        }
+    });
+
+    // 1. Clean up unused placeholders for ranks that have configured baremos
+    list = list.filter(a => {
+        if (a.is_divider || !isPlaceholderAgent(a)) return true; // keep real agents and dividers
+        const rName = (a.rank_name || '').trim().toLowerCase();
+        if (!rankBaremoMap.has(rName)) return true; // keep if rank has no configured baremo
+        const allowedBadges = rankBaremoMap.get(rName);
+        const placa = (a.no_placa || '').trim().toLowerCase();
+        return allowedBadges.has(placa);
+    });
+
+    // 2. Add missing placeholders for baremo badges
     ranks.forEach(rank => {
         const baremoStr = getRankBaremo(rank);
         if (!baremoStr) return;
@@ -2042,4 +2093,19 @@ export function syncRankVacancies(currentAgents = [], ranks = []) {
         });
     });
     return list.map((item, idx) => ({ ...item, order_index: idx + 1 }));
+}
+
+/**
+ * Synchronizes rank vacancies and persists the updated roster into app_settings / database.
+ */
+export async function syncAndPersistRankVacancies(ranks = [], currentAgents = null) {
+    try {
+        const agentsList = currentAgents || (await fetchPlantillaAgents());
+        const synced = syncRankVacancies(agentsList, ranks);
+        const updated = await updateAgentsOrder(synced);
+        return updated;
+    } catch (err) {
+        console.error('Error syncing and persisting rank vacancies:', err);
+        return currentAgents || [];
+    }
 }
