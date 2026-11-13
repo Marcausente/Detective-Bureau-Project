@@ -186,33 +186,6 @@ function Incidents() {
     // Filter to Informes Vinculados (gang-linked OR transferred to other jurisdiction)
     const linkedIncidents = useMemo(() => incidents.filter(i => i.gang_id || isTransferred(i)), [incidents, transferredIncidentIds]);
 
-    const visibleGeneralIncidents = useMemo(() => {
-        let list = generalIncidents;
-        if (isOtherJurisdictionFilterActive && onlyShowOtherJurisdictionMatches) {
-            list = list.filter(inc => searchMatches.includes(inc.record_id));
-        }
-        if (searchTerm || selectedGangName || isOtherJurisdictionFilterActive || searchParams.get('incident_id')) {
-            return list;
-        }
-        return list.slice(0, visibleGeneralCount);
-    }, [generalIncidents, visibleGeneralCount, searchTerm, selectedGangName, isOtherJurisdictionFilterActive, onlyShowOtherJurisdictionMatches, searchMatches, searchParams]);
-
-    const visibleLinkedIncidents = useMemo(() => {
-        let list = linkedIncidents;
-        if (isOtherJurisdictionFilterActive && onlyShowOtherJurisdictionMatches) {
-            list = list.filter(inc => searchMatches.includes(inc.record_id));
-        }
-        if (searchTerm || isOtherJurisdictionFilterActive || searchParams.get('incident_id')) {
-            return list;
-        }
-        return list.slice(0, visibleLinkedCount);
-    }, [linkedIncidents, visibleLinkedCount, searchTerm, isOtherJurisdictionFilterActive, onlyShowOtherJurisdictionMatches, searchMatches, searchParams]);
-
-    const visibleOutings = useMemo(() => {
-        if (searchParams.get('outing_id')) return outings;
-        return outings.slice(0, visibleOutingsCount);
-    }, [outings, visibleOutingsCount, searchParams]);
-
     // Compute search matches:
     // - If isOtherJurisdictionFilterActive -> Search incidents matching other jurisdiction subjects OR transferred
     // - If selectedGangName is set -> Search ONLY in generalIncidents (unlinked reports) for gang members
@@ -275,6 +248,33 @@ function Incidents() {
             );
         }).map(inc => inc.record_id);
     }, [incidents, generalIncidents, searchTerm, selectedGangName, gangs, isOtherJurisdictionFilterActive, transferredIncidentIds, matchedSubjectsMap]);
+
+    const visibleGeneralIncidents = useMemo(() => {
+        let list = generalIncidents;
+        if (isOtherJurisdictionFilterActive && onlyShowOtherJurisdictionMatches) {
+            list = list.filter(inc => searchMatches.includes(inc.record_id));
+        }
+        if (searchTerm || selectedGangName || isOtherJurisdictionFilterActive || searchParams.get('incident_id')) {
+            return list;
+        }
+        return list.slice(0, visibleGeneralCount);
+    }, [generalIncidents, visibleGeneralCount, searchTerm, selectedGangName, isOtherJurisdictionFilterActive, onlyShowOtherJurisdictionMatches, searchMatches, searchParams]);
+
+    const visibleLinkedIncidents = useMemo(() => {
+        let list = linkedIncidents;
+        if (isOtherJurisdictionFilterActive && onlyShowOtherJurisdictionMatches) {
+            list = list.filter(inc => searchMatches.includes(inc.record_id));
+        }
+        if (searchTerm || isOtherJurisdictionFilterActive || searchParams.get('incident_id')) {
+            return list;
+        }
+        return list.slice(0, visibleLinkedCount);
+    }, [linkedIncidents, visibleLinkedCount, searchTerm, isOtherJurisdictionFilterActive, onlyShowOtherJurisdictionMatches, searchMatches, searchParams]);
+
+    const visibleOutings = useMemo(() => {
+        if (searchParams.get('outing_id')) return outings;
+        return outings.slice(0, visibleOutingsCount);
+    }, [outings, visibleOutingsCount, searchParams]);
 
     const goToNextMatch = () => {
         if (searchMatches.length === 0) return;
