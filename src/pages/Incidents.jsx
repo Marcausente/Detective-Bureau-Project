@@ -5,6 +5,15 @@ import { uploadImageToStorage, uploadDocumentToStorage, processHtmlImages, getPr
 import IncidentCard from '../components/IncidentCard';
 import OutingCard from '../components/OutingCard';
 import { useLanguage } from '../contexts/LanguageContext';
+import {
+    getOtherJurisdictionSubjects,
+    saveOtherJurisdictionSubjects,
+    parseOtherJurisdictionText,
+    matchesOtherJurisdiction,
+    getTransferredIncidentIds,
+    setIncidentTransferred,
+    DEFAULT_OTHER_JURISDICTION_RAW
+} from '../utils/otherJurisdiction';
 import '../index.css';
 
 function Incidents() {
@@ -19,6 +28,16 @@ function Incidents() {
     const [selectedGangName, setSelectedGangName] = useState('');
     const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
     const searchHighlightedRef = useRef(null);
+
+    // --- OTRA JURISDICCIÓN STATE ---
+    const [otherJurisdictionRaw, setOtherJurisdictionRaw] = useState(DEFAULT_OTHER_JURISDICTION_RAW);
+    const [parsedOtherJurisdiction, setParsedOtherJurisdiction] = useState(() => parseOtherJurisdictionText(DEFAULT_OTHER_JURISDICTION_RAW));
+    const [transferredIncidentIds, setTransferredIncidentIds] = useState(new Set());
+    const [isOtherJurisdictionFilterActive, setIsOtherJurisdictionFilterActive] = useState(false);
+    const [onlyShowOtherJurisdictionMatches, setOnlyShowOtherJurisdictionMatches] = useState(false);
+    const [showOtherJurisdictionModal, setShowOtherJurisdictionModal] = useState(false);
+    const [tempOtherJurisdictionText, setTempOtherJurisdictionText] = useState(DEFAULT_OTHER_JURISDICTION_RAW);
+    const [isSavingSubjects, setIsSavingSubjects] = useState(false);
 
     // Modals
     const [showIncidentModal, setShowIncidentModal] = useState(false);
@@ -44,6 +63,7 @@ function Incidents() {
     const [incGangIds, setIncGangIds] = useState([]); // Changed to array for multiple gangs
     const [incInterrogationIds, setIncInterrogationIds] = useState([]); // Array of linked interrogation IDs
     const [incImages, setIncImages] = useState([]);
+    const [incTransferred, setIncTransferred] = useState(false);
 
     // --- FORM STATE: OUTING ---
     const [outTitle, setOutTitle] = useState('');
@@ -66,7 +86,78 @@ function Incidents() {
         fetchUsers();
         fetchGangs();
         fetchInterrogations();
+        loadOtherJurisdictionData();
     }, []);
+
+    const loadOtherJurisdictionData = async () => {
+        try {
+            const raw = await getOtherJurisdictionSubjects();
+            if (raw) {
+                setOtherJurisdictionRaw(raw);
+                setParsedOtherJurisdiction(parseOtherJurisdictionText(raw));
+                setTempOtherJurisdictionText(raw);
+            }
+            const transferred = await getTransferredIncidentIds();
+            setTransferredIncidentIds(new Set(transferred || []));
+        } catch (e) {
+            console.error('Error loading other jurisdiction data:', e);
+        }
+    };
+
+    const isTransferred = (inc) => {
+        if (!inc) return false;
+        const id = inc.record_id || inc.id;
+        return transferredIncidentIds.has(id);
+    };
+
+    const handleToggleTransfer = async (inc) => {
+        if (!inc) return;
+        const id = inc.record_id || inc.id;
+        const currentlyTransferred = isTransferred(inc);
+        const nextState = !currentlyTransferred;
+
+        setTransferredIncidentIds(prev => {
+            const next = new Set(prev);
+            if (nextState) next.add(id);
+            else next.delete(id);
+            return next;
+        });
+
+        await setIncidentTransferred(id, nextState);
+    };
+
+    const handleSaveOtherJurisdictionSubjects = async () => {
+        setIsSavingSubjects(true);
+        try {
+            const saved = await saveOtherJurisdictionSubjects(tempOtherJurisdictionText);
+            setOtherJurisdictionRaw(saved);
+            const parsed = parseOtherJurisdictionText(saved);
+            setParsedOtherJurisdiction(parsed);
+            setShowOtherJurisdictionModal(false);
+        } catch (e) {
+            alert('Error guardando la lista: ' + e.message);
+        } finally {
+            setIsSavingSubjects(false);
+        }
+    };
+
+    const handleRestoreDefaultSubjects = () => {
+        if (window.confirm('¿Restablecer la lista a los nombres y códigos oficiales por defecto?')) {
+            setTempOtherJurisdictionText(DEFAULT_OTHER_JURISDICTION_RAW);
+        }
+    };
+
+    const handleToggleOtherJurisdictionFilter = () => {
+        const nextState = !isOtherJurisdictionFilterActive;
+        setIsOtherJurisdictionFilterActive(nextState);
+        if (nextState) {
+            setSearchTerm('');
+            setSelectedGangName('');
+            setCurrentMatchIndex(0);
+        } else {
+            setOnlyShowOtherJurisdictionMatches(false);
+        }
+    };
 
     // Scroll to highlighted element after data loads
     useEffect(() => {
@@ -77,19 +168,45 @@ function Incidents() {
         }
     }, [loading]);
 
-    // Filter to only Informes Generales (unlinked incidents)
-    const generalIncidents = useMemo(() => incidents.filter(i => !i.gang_id), [incidents]);
-    const linkedIncidents = useMemo(() => incidents.filter(i => i.gang_id), [incidents]);
+    // Map each incident to its matched subject from Otra Jurisdicción
+    const matchedSubjectsMap = useMemo(() => {
+        const map = new Map();
+        if (!parsedOtherJurisdiction || parsedOtherJurisdiction.length === 0) return map;
+        for (const inc of incidents) {
+            const res = matchesOtherJurisdiction(inc, parsedOtherJurisdiction);
+            if (res.matches) {
+                map.set(inc.record_id, res.matchedSubject);
+            }
+        }
+        return map;
+    }, [incidents, parsedOtherJurisdiction]);
+
+    // Filter to only Informes Generales (unlinked incidents AND not transferred)
+    const generalIncidents = useMemo(() => incidents.filter(i => !i.gang_id && !isTransferred(i)), [incidents, transferredIncidentIds]);
+    // Filter to Informes Vinculados (gang-linked OR transferred to other jurisdiction)
+    const linkedIncidents = useMemo(() => incidents.filter(i => i.gang_id || isTransferred(i)), [incidents, transferredIncidentIds]);
 
     const visibleGeneralIncidents = useMemo(() => {
-        if (searchTerm || selectedGangName || searchParams.get('incident_id')) return generalIncidents;
-        return generalIncidents.slice(0, visibleGeneralCount);
-    }, [generalIncidents, visibleGeneralCount, searchTerm, selectedGangName, searchParams]);
+        let list = generalIncidents;
+        if (isOtherJurisdictionFilterActive && onlyShowOtherJurisdictionMatches) {
+            list = list.filter(inc => searchMatches.includes(inc.record_id));
+        }
+        if (searchTerm || selectedGangName || isOtherJurisdictionFilterActive || searchParams.get('incident_id')) {
+            return list;
+        }
+        return list.slice(0, visibleGeneralCount);
+    }, [generalIncidents, visibleGeneralCount, searchTerm, selectedGangName, isOtherJurisdictionFilterActive, onlyShowOtherJurisdictionMatches, searchMatches, searchParams]);
 
     const visibleLinkedIncidents = useMemo(() => {
-        if (searchTerm || searchParams.get('incident_id')) return linkedIncidents;
-        return linkedIncidents.slice(0, visibleLinkedCount);
-    }, [linkedIncidents, visibleLinkedCount, searchTerm, searchParams]);
+        let list = linkedIncidents;
+        if (isOtherJurisdictionFilterActive && onlyShowOtherJurisdictionMatches) {
+            list = list.filter(inc => searchMatches.includes(inc.record_id));
+        }
+        if (searchTerm || isOtherJurisdictionFilterActive || searchParams.get('incident_id')) {
+            return list;
+        }
+        return list.slice(0, visibleLinkedCount);
+    }, [linkedIncidents, visibleLinkedCount, searchTerm, isOtherJurisdictionFilterActive, onlyShowOtherJurisdictionMatches, searchMatches, searchParams]);
 
     const visibleOutings = useMemo(() => {
         if (searchParams.get('outing_id')) return outings;
@@ -97,9 +214,19 @@ function Incidents() {
     }, [outings, visibleOutingsCount, searchParams]);
 
     // Compute search matches:
+    // - If isOtherJurisdictionFilterActive -> Search incidents matching other jurisdiction subjects OR transferred
     // - If selectedGangName is set -> Search ONLY in generalIncidents (unlinked reports) for gang members
     // - If searchTerm is set -> Search across ALL incidents (General & Linked) for report number/text/author
     const searchMatches = useMemo(() => {
+        if (isOtherJurisdictionFilterActive) {
+            return incidents.filter(inc => {
+                const id = inc.record_id || inc.id;
+                const hasTransferred = transferredIncidentIds.has(id);
+                const hasMatch = matchedSubjectsMap.has(inc.record_id);
+                return hasTransferred || hasMatch;
+            }).map(inc => inc.record_id);
+        }
+
         if (selectedGangName && selectedGangName.trim() !== '') {
             const term = selectedGangName.toLowerCase().trim();
             const matchedGang = gangs.find(g => g.name && g.name.toLowerCase() === term);
@@ -147,7 +274,7 @@ function Incidents() {
                 (inc.record_id && inc.record_id.toLowerCase().includes(term))
             );
         }).map(inc => inc.record_id);
-    }, [incidents, generalIncidents, searchTerm, selectedGangName, gangs]);
+    }, [incidents, generalIncidents, searchTerm, selectedGangName, gangs, isOtherJurisdictionFilterActive, transferredIncidentIds, matchedSubjectsMap]);
 
     const goToNextMatch = () => {
         if (searchMatches.length === 0) return;
@@ -354,6 +481,12 @@ function Incidents() {
                 }
             }
 
+            // If marked as transferred to another jurisdiction, register it
+            if (incTransferred && newId) {
+                await setIncidentTransferred(newId, true);
+                setTransferredIncidentIds(prev => new Set([...prev, newId]));
+            }
+
             setShowIncidentModal(false);
             resetIncidentForm();
             loadData();
@@ -485,6 +618,8 @@ function Incidents() {
             setIncInterrogationIds([]);
         }
 
+        setIncTransferred(isTransferred(incident));
+
         setShowEditIncidentModal(true);
     };
 
@@ -574,6 +709,18 @@ function Incidents() {
                 if (!currentIntIds.includes(intId)) {
                     await supabase.rpc('link_incident_interrogation', { p_incident_id: editingIncident.record_id, p_interrogation_id: intId });
                 }
+            }
+
+            // Update transferred status
+            const currentId = editingIncident.record_id || editingIncident.id;
+            if (currentId) {
+                await setIncidentTransferred(currentId, incTransferred);
+                setTransferredIncidentIds(prev => {
+                    const next = new Set(prev);
+                    if (incTransferred) next.add(currentId);
+                    else next.delete(currentId);
+                    return next;
+                });
             }
 
             setShowEditIncidentModal(false);
@@ -742,7 +889,7 @@ function Incidents() {
 
     // --- HELPERS ---
     const resetIncidentForm = () => {
-        setIncTitle(''); setIncLocation(''); setIncDate(''); setIncTablet(''); setIncDesc(''); setIncGangIds([]); setIncInterrogationIds([]); setIncImages([]);
+        setIncTitle(''); setIncLocation(''); setIncDate(''); setIncTablet(''); setIncDesc(''); setIncGangIds([]); setIncInterrogationIds([]); setIncImages([]); setIncTransferred(false);
     };
     const resetOutingForm = () => {
         setOutTitle(''); setOutDate(''); setOutDetectives([]); setOutReason(''); setOutInfo(''); setOutGangIds([]); setOutInterrogationIds([]); setOutImages([]); setOutDocuments([]); setOutTag('');
@@ -806,7 +953,10 @@ function Incidents() {
                             value={searchTerm}
                             onChange={(e) => {
                                 setSearchTerm(e.target.value);
-                                if (e.target.value) setSelectedGangName('');
+                                if (e.target.value) {
+                                    setSelectedGangName('');
+                                    setIsOtherJurisdictionFilterActive(false);
+                                }
                                 setCurrentMatchIndex(0);
                             }}
                             style={{
@@ -840,7 +990,10 @@ function Incidents() {
                             value={selectedGangName}
                             onChange={(e) => {
                                 setSelectedGangName(e.target.value);
-                                if (e.target.value) setSearchTerm('');
+                                if (e.target.value) {
+                                    setSearchTerm('');
+                                    setIsOtherJurisdictionFilterActive(false);
+                                }
                                 setCurrentMatchIndex(0);
                             }}
                             style={{
@@ -865,6 +1018,68 @@ function Incidents() {
                             ))}
                         </select>
                     </div>
+
+                    {/* Botón Filtrar por Otra Jurisdicción */}
+                    <button
+                        type="button"
+                        onClick={handleToggleOtherJurisdictionFilter}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '7px',
+                            padding: '0.38rem 0.95rem',
+                            background: isOtherJurisdictionFilterActive ? 'rgba(56, 189, 248, 0.25)' : 'rgba(0, 0, 0, 0.4)',
+                            border: isOtherJurisdictionFilterActive ? '1.5px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.14)',
+                            borderRadius: '20px',
+                            color: isOtherJurisdictionFilterActive ? '#38bdf8' : '#94a3b8',
+                            fontSize: '0.82rem',
+                            fontWeight: isOtherJurisdictionFilterActive ? 700 : 500,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            whiteSpace: 'nowrap',
+                            boxShadow: isOtherJurisdictionFilterActive ? '0 0 12px rgba(56, 189, 248, 0.35)' : 'none'
+                        }}
+                        title="Filtrar y resaltar informes vinculados a sujetos de Otra Jurisdicción"
+                    >
+                        <span style={{ fontSize: '0.95rem' }}>🌐</span>
+                        <span>Otra Jurisdicción</span>
+                        {isOtherJurisdictionFilterActive && (
+                            <span style={{
+                                background: '#38bdf8', color: '#0f172a',
+                                borderRadius: '10px', padding: '1px 6px',
+                                fontSize: '0.7rem', fontWeight: 800
+                            }}>
+                                {searchMatches.length}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Botón Configurar / Gestionar Sujetos de Otra Jurisdicción */}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setTempOtherJurisdictionText(otherJurisdictionRaw);
+                            setShowOtherJurisdictionModal(true);
+                        }}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            padding: '0.38rem 0.85rem',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            borderRadius: '20px',
+                            color: '#cbd5e1',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            whiteSpace: 'nowrap'
+                        }}
+                        title="Gestionar lista de personas e identificadores de Otra Jurisdicción"
+                    >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                        <span>De otra Jurisdicción ({parsedOtherJurisdiction.length})</span>
+                    </button>
 
                     {/* Show-all pill button */}
                     {(searchParams.get('incident_id') || searchParams.get('outing_id')) && (
@@ -954,19 +1169,51 @@ function Incidents() {
                     border: '1px solid rgba(56,189,248,0.2)',
                     borderRadius: '10px',
                     flexShrink: 0,
+                    flexWrap: 'wrap',
+                    gap: '8px'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                         </svg>
-                        <span style={{ fontSize: '0.83rem', color: '#38bdf8', fontWeight: 500 }}>
-                            {selectedGangName
+                        <span style={{ fontSize: '0.83rem', color: '#38bdf8', fontWeight: 600 }}>
+                            {isOtherJurisdictionFilterActive
+                                ? `Coincidencia ${currentMatchIndex + 1} de ${searchMatches.length} — Sujetos de Otra Jurisdicción`
+                                : selectedGangName
                                 ? `Coincidencia ${currentMatchIndex + 1} de ${searchMatches.length} — banda: ${selectedGangName}`
                                 : `Coincidencia ${currentMatchIndex + 1} de ${searchMatches.length}`
                             }
                         </span>
+                        {isOtherJurisdictionFilterActive && (
+                            <button
+                                type="button"
+                                onClick={() => setOnlyShowOtherJurisdictionMatches(!onlyShowOtherJurisdictionMatches)}
+                                style={{
+                                    padding: '0.2rem 0.65rem',
+                                    borderRadius: '6px',
+                                    fontSize: '0.73rem',
+                                    fontWeight: 700,
+                                    border: '1px solid rgba(56,189,248,0.4)',
+                                    background: onlyShowOtherJurisdictionMatches ? 'rgba(56,189,248,0.3)' : 'rgba(0,0,0,0.35)',
+                                    color: '#38bdf8',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s'
+                                }}
+                            >
+                                {onlyShowOtherJurisdictionMatches ? '👁️ Ver todos (resaltando)' : '🔍 Solo coincidencias'}
+                            </button>
+                        )}
                     </div>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        {isOtherJurisdictionFilterActive && (
+                            <button
+                                type="button"
+                                onClick={() => { setIsOtherJurisdictionFilterActive(false); setOnlyShowOtherJurisdictionMatches(false); }}
+                                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.75rem', cursor: 'pointer', marginRight: '6px' }}
+                            >
+                                Salir del filtro ✕
+                            </button>
+                        )}
                         <button type="button" onClick={goToPrevMatch} className="mac-doc-tab" style={{ padding: '0.25rem 0.7rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15" /></svg>
                             Anterior
@@ -978,20 +1225,34 @@ function Incidents() {
                     </div>
                 </div>
             )}
-            {searchMatches.length === 0 && (searchTerm.trim() !== '' || selectedGangName.trim() !== '') && (
+            {searchMatches.length === 0 && (searchTerm.trim() !== '' || selectedGangName.trim() !== '' || isOtherJurisdictionFilterActive) && (
                 <div style={{
                     padding: '0.45rem 1.2rem', marginBottom: '0.7rem',
                     background: 'rgba(239,68,68,0.07)', borderRadius: '10px',
                     border: '1px solid rgba(239,68,68,0.15)',
-                    display: 'flex', alignItems: 'center', gap: '8px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     flexShrink: 0,
                 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                    </svg>
-                    <span style={{ fontSize: '0.83rem', color: '#f87171' }}>
-                        {selectedGangName ? `Sin resultados para la banda "${selectedGangName}"` : `Sin resultados para "${searchTerm}"`}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        <span style={{ fontSize: '0.83rem', color: '#f87171' }}>
+                            {isOtherJurisdictionFilterActive
+                                ? 'Sin informes coincidentes con sujetos de Otra Jurisdicción en los registros actuales.'
+                                : selectedGangName ? `Sin resultados para la banda "${selectedGangName}"` : `Sin resultados para "${searchTerm}"`
+                            }
+                        </span>
+                    </div>
+                    {isOtherJurisdictionFilterActive && (
+                        <button
+                            type="button"
+                            onClick={() => setIsOtherJurisdictionFilterActive(false)}
+                            style={{ background: 'none', border: 'none', color: '#f87171', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                        >
+                            Quitar filtro ✕
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -1038,7 +1299,16 @@ function Incidents() {
                                     const isSearchHighlighted = searchMatches.length > 0 && searchMatches[currentMatchIndex] === inc.record_id;
                                     return (
                                         <div key={inc.record_id} ref={isUrlHighlighted ? highlightedRef : (isSearchHighlighted ? searchHighlightedRef : null)}>
-                                            <IncidentCard data={inc} onExpand={setExpandedImage} onDelete={handleDeleteIncident} onEdit={handleEditIncident} isHighlighted={isUrlHighlighted || isSearchHighlighted} />
+                                            <IncidentCard
+                                                data={inc}
+                                                onExpand={setExpandedImage}
+                                                onDelete={handleDeleteIncident}
+                                                onEdit={handleEditIncident}
+                                                isHighlighted={isUrlHighlighted || isSearchHighlighted}
+                                                isTransferred={isTransferred(inc)}
+                                                onToggleTransfer={handleToggleTransfer}
+                                                matchedSubject={matchedSubjectsMap.get(inc.record_id) || null}
+                                            />
                                         </div>
                                     );
                                 })
@@ -1071,6 +1341,16 @@ function Incidents() {
                                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                             </svg>
                             <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#6ee7b7', letterSpacing: '-0.01em' }}>{t('linkedIncidentsCol')}</span>
+                            {linkedIncidents.filter(isTransferred).length > 0 && (
+                                <span style={{
+                                    fontSize: '0.68rem', fontWeight: 600,
+                                    color: '#c084fc', background: 'rgba(168, 85, 247, 0.15)',
+                                    border: '1px solid rgba(168, 85, 247, 0.3)',
+                                    borderRadius: '10px', padding: '1px 6px'
+                                }}>
+                                    🌐 {linkedIncidents.filter(isTransferred).length} traspasados
+                                </span>
+                            )}
                             <span style={{
                                 marginLeft: 'auto',
                                 fontSize: '0.72rem', fontWeight: 700,
@@ -1090,7 +1370,16 @@ function Incidents() {
                                     const isSearchHighlighted = searchMatches.length > 0 && searchMatches[currentMatchIndex] === inc.record_id;
                                     return (
                                         <div key={inc.record_id} ref={isUrlHighlighted ? highlightedRef : (isSearchHighlighted ? searchHighlightedRef : null)}>
-                                            <IncidentCard data={inc} onExpand={setExpandedImage} onDelete={handleDeleteIncident} onEdit={handleEditIncident} isHighlighted={isUrlHighlighted || isSearchHighlighted} />
+                                            <IncidentCard
+                                                data={inc}
+                                                onExpand={setExpandedImage}
+                                                onDelete={handleDeleteIncident}
+                                                onEdit={handleEditIncident}
+                                                isHighlighted={isUrlHighlighted || isSearchHighlighted}
+                                                isTransferred={isTransferred(inc)}
+                                                onToggleTransfer={handleToggleTransfer}
+                                                matchedSubject={matchedSubjectsMap.get(inc.record_id) || null}
+                                            />
                                         </div>
                                     );
                                 })
@@ -1208,6 +1497,34 @@ function Incidents() {
                             <div className="form-group"><label>{t('tabletNumberLabel')}</label><input className="form-input" value={incTablet} onChange={e => setIncTablet(e.target.value)} /></div>
                             <div className="form-group"><label>{t('descriptionLabel')}</label><textarea className="eval-textarea" rows="4" value={incDesc} onChange={e => setIncDesc(e.target.value)} /></div>
 
+                            {/* Campo: Traspasado a otra jurisdicción */}
+                            <div className="form-group" style={{
+                                background: incTransferred ? 'rgba(168, 85, 247, 0.18)' : 'rgba(255, 255, 255, 0.03)',
+                                border: incTransferred ? '1.5px solid rgba(168, 85, 247, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                                borderRadius: '10px',
+                                padding: '0.75rem',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }} onClick={() => setIncTransferred(!incTransferred)}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', margin: 0 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={incTransferred}
+                                        onChange={e => setIncTransferred(e.target.checked)}
+                                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                    />
+                                    <div>
+                                        <span style={{ fontWeight: 700, color: incTransferred ? '#d8b4fe' : '#ffffff', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                            <span>🌐</span>
+                                            <span>Traspasado a otra jurisdicción</span>
+                                        </span>
+                                        <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
+                                            Se moverá a la columna de <strong>Informes Vinculados</strong> (incluso si no pertenece a ningún grupo/banda).
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+
                             <div className="form-group">
                                 <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('imagesLabel')}</label>
                                 <label htmlFor="inc-file-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
@@ -1292,6 +1609,34 @@ function Incidents() {
                                 <div className="form-group"><label>{t('tabletNumberLabel')}</label><input className="form-input" value={incTablet} onChange={e => setIncTablet(e.target.value)} /></div>
                                 <div className="form-group"><label>{t('descriptionLabel')}</label><textarea className="eval-textarea" rows="4" value={incDesc} onChange={e => setIncDesc(e.target.value)} /></div>
 
+                                {/* Campo: Traspasado a otra jurisdicción */}
+                                <div className="form-group" style={{
+                                    background: incTransferred ? 'rgba(168, 85, 247, 0.18)' : 'rgba(255, 255, 255, 0.03)',
+                                    border: incTransferred ? '1.5px solid rgba(168, 85, 247, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                                    borderRadius: '10px',
+                                    padding: '0.75rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }} onClick={() => setIncTransferred(!incTransferred)}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', margin: 0 }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={incTransferred}
+                                            onChange={e => setIncTransferred(e.target.checked)}
+                                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                                        />
+                                        <div>
+                                            <span style={{ fontWeight: 700, color: incTransferred ? '#d8b4fe' : '#ffffff', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                <span>🌐</span>
+                                                <span>Traspasado a otra jurisdicción</span>
+                                            </span>
+                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
+                                                Se moverá a la columna de <strong>Informes Vinculados</strong> (incluso si no pertenece a ningún grupo/banda).
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+
                                 <div className="form-group">
                                     <label style={{ display: 'block', marginBottom: '0.5rem' }}>{t('imagesLabel')}</label>
                                     <label htmlFor="inc-edit-upload" className="login-button btn-secondary" style={{ width: 'auto', display: 'inline-block', cursor: 'pointer', textAlign: 'center' }}>
@@ -1327,7 +1672,149 @@ function Incidents() {
                                 </div>
                             </form >
                         </div >
-                    </div >
+                    </div>
+                )
+            }
+
+            {/* --- MODAL: DE OTRA JURISDICCIÓN --- */}
+            {
+                showOtherJurisdictionModal && (
+                    <div className="cropper-modal-overlay">
+                        <div className="cropper-modal-content" style={{ maxWidth: '680px', maxHeight: '92vh', overflowY: 'auto' }}>
+                            <div className="mac-window-dots" style={{ marginBottom: '1rem' }}>
+                                <span className="mac-window-dot close" onClick={() => setShowOtherJurisdictionModal(false)} title="Cerrar" />
+                                <span className="mac-window-dot min" />
+                                <span className="mac-window-dot max" />
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span style={{ fontSize: '1.5rem' }}>🌐</span>
+                                    <div>
+                                        <h3 className="section-title" style={{ margin: 0, color: '#38bdf8' }}>De Otra Jurisdicción</h3>
+                                        <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
+                                            Lista de personas e identificadores de otras agencias para filtrado y resalte.
+                                        </p>
+                                    </div>
+                                </div>
+                                <span style={{
+                                    fontSize: '0.75rem', fontWeight: 700,
+                                    color: '#38bdf8', background: 'rgba(56, 189, 248, 0.15)',
+                                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                                    borderRadius: '12px', padding: '3px 10px'
+                                }}>
+                                    {parseOtherJurisdictionText(tempOtherJurisdictionText).length} Sujetos reconocidos
+                                </span>
+                            </div>
+
+                            <div style={{
+                                background: 'rgba(56, 189, 248, 0.08)',
+                                border: '1px solid rgba(56, 189, 248, 0.25)',
+                                borderRadius: '8px',
+                                padding: '0.75rem 1rem',
+                                marginBottom: '1rem',
+                                fontSize: '0.78rem',
+                                color: '#cbd5e1',
+                                lineHeight: 1.5
+                            }}>
+                                💡 <strong>Formatos aceptados (uno por línea):</strong><br />
+                                • <code>Nombre Apellido [CODIGO]</code> — ej: <code>Alana Knox [L175B97K]</code><br />
+                                • <code>Nombre Apellido - CODIGO</code> — ej: <code>John Doe - AK8AJT62</code><br />
+                                • <code>Nombre Apellido (CODIGO)</code> o solo <code>Nombre Apellido</code>
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', marginBottom: '0.4rem', display: 'block' }}>
+                                    Lista de Nombres e Identificadores (puedes copiar y pegar directamente):
+                                </label>
+                                <textarea
+                                    className="eval-textarea"
+                                    rows={11}
+                                    value={tempOtherJurisdictionText}
+                                    onChange={e => setTempOtherJurisdictionText(e.target.value)}
+                                    placeholder="Pega aquí la lista de nombres y códigos..."
+                                    style={{
+                                        fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                                        fontSize: '0.85rem',
+                                        lineHeight: 1.6,
+                                        background: 'rgba(15, 23, 42, 0.85)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        borderRadius: '8px',
+                                        padding: '0.75rem',
+                                        color: '#f1f5f9'
+                                    }}
+                                />
+                            </div>
+
+                            {/* Vista previa en vivo de las personas reconocidas */}
+                            <div style={{ marginTop: '0.75rem', marginBottom: '1.25rem' }}>
+                                <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, display: 'block', marginBottom: '0.4rem' }}>
+                                    Vista previa de sujetos reconocidos:
+                                </span>
+                                <div style={{
+                                    display: 'flex', flexWrap: 'wrap', gap: '6px',
+                                    maxHeight: '130px', overflowY: 'auto',
+                                    background: 'rgba(0,0,0,0.35)', padding: '0.55rem',
+                                    borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)'
+                                }}>
+                                    {parseOtherJurisdictionText(tempOtherJurisdictionText).length === 0 ? (
+                                        <span style={{ fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic' }}>
+                                            No hay sujetos reconocidos todavía. Escribe o pega nombres arriba.
+                                        </span>
+                                    ) : (
+                                        parseOtherJurisdictionText(tempOtherJurisdictionText).map(item => (
+                                            <span key={item.id} style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                                padding: '2px 8px', borderRadius: '6px',
+                                                background: 'rgba(56, 189, 248, 0.15)',
+                                                border: '1px solid rgba(56, 189, 248, 0.3)',
+                                                color: '#e0f2fe', fontSize: '0.72rem', fontWeight: 600
+                                            }}>
+                                                <span>👤 {item.name}</span>
+                                                {item.code && (
+                                                    <span style={{ color: '#38bdf8', fontWeight: 700 }}>[{item.code}]</span>
+                                                )}
+                                            </span>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="cropper-actions" style={{ justifyContent: 'space-between', marginTop: '1.25rem', flexWrap: 'wrap', gap: '8px' }}>
+                                <button
+                                    type="button"
+                                    className="login-button btn-secondary"
+                                    onClick={handleRestoreDefaultSubjects}
+                                    style={{ width: 'auto', fontSize: '0.78rem', padding: '0.4rem 0.9rem' }}
+                                    title="Restablecer a la lista de ejemplo por defecto"
+                                >
+                                    🔄 Restablecer Ejemplo
+                                </button>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button
+                                        type="button"
+                                        className="login-button btn-secondary"
+                                        onClick={() => {
+                                            setTempOtherJurisdictionText(otherJurisdictionRaw);
+                                            setShowOtherJurisdictionModal(false);
+                                        }}
+                                        style={{ width: 'auto' }}
+                                    >
+                                        {t('cancelBtn')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="login-button"
+                                        onClick={handleSaveOtherJurisdictionSubjects}
+                                        disabled={isSavingSubjects}
+                                        style={{ width: 'auto', fontWeight: 700 }}
+                                    >
+                                        {isSavingSubjects ? 'Guardando...' : 'Guardar Lista'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 )
             }
 

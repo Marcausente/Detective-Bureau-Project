@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getProfileImage } from '../utils/imageStorage';
 import '../index.css';
 
-function IncidentCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
+function IncidentCard({ data, onExpand, onDelete, onEdit, isHighlighted, isTransferred = false, onToggleTransfer, matchedSubject = null }) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     useEffect(() => {
@@ -58,8 +58,70 @@ function IncidentCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
                             ))}
                         </div>
                     )}
+                    {isTransferred && (
+                        <div style={{
+                            marginTop: '0.45rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '3px 9px',
+                            borderRadius: '8px',
+                            background: 'rgba(168, 85, 247, 0.22)',
+                            border: '1px solid rgba(168, 85, 247, 0.5)',
+                            color: '#e9d5ff',
+                            fontSize: '0.72rem',
+                            fontWeight: 700
+                        }}>
+                            <span>🌐</span>
+                            <span>Traspasado a otra jurisdicción</span>
+                        </div>
+                    )}
+                    {matchedSubject && (
+                        <div style={{
+                            marginTop: '0.45rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '3px 9px',
+                            borderRadius: '8px',
+                            background: 'rgba(56, 189, 248, 0.2)',
+                            border: '1px solid rgba(56, 189, 248, 0.5)',
+                            color: '#7dd3fc',
+                            fontSize: '0.72rem',
+                            fontWeight: 700
+                        }}>
+                            <span>🎯</span>
+                            <span>Jurisdicción: {matchedSubject.name} {matchedSubject.code ? `[${matchedSubject.code}]` : ''}</span>
+                        </div>
+                    )}
                 </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {onToggleTransfer && (
+                        <button
+                            type="button"
+                            onClick={() => onToggleTransfer(data)}
+                            style={{
+                                background: isTransferred ? 'rgba(168, 85, 247, 0.28)' : 'rgba(255, 255, 255, 0.06)',
+                                border: isTransferred ? '1px solid #c084fc' : '1px solid rgba(255, 255, 255, 0.14)',
+                                color: isTransferred ? '#f5d0fe' : '#94a3b8',
+                                borderRadius: '6px',
+                                height: '26px',
+                                padding: '0 8px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                cursor: 'pointer',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                transition: 'all 0.2s',
+                                whiteSpace: 'nowrap'
+                            }}
+                            title={isTransferred ? "Quitar de otra jurisdicción (regresar a generales)" : "Marcar como traspasado a otra jurisdicción (mover a vinculados)"}
+                        >
+                            <span>🌐</span>
+                            <span>{isTransferred ? 'Traspasado' : 'Traspasar'}</span>
+                        </button>
+                    )}
                     {onEdit && data.can_delete && (
                         <button
                             onClick={() => onEdit(data)}
