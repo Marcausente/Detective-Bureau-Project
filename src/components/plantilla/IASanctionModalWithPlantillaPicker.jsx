@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import { sendIASanctionToDiscord, getIASanctionBanners } from '../../utils/discordWebhook';
+import { isPlaceholderAgent } from '../../services/plantillaService';
 
 export default function IASanctionModalWithPlantillaPicker({
     initialAgent,
@@ -49,7 +50,7 @@ export default function IASanctionModalWithPlantillaPicker({
     }, []);
 
     const filteredAgents = plantillaAgents.filter(a => {
-        if (a.is_divider || a.is_placeholder || (!a.nombre?.trim() && !a.apellido?.trim())) return false;
+        if (a.is_divider || isPlaceholderAgent(a)) return false;
         if (!searchTerm.trim()) return true;
         const term = searchTerm.toLowerCase();
         const fullName = `${a.nombre || ''} ${a.apellido || ''}`.toLowerCase();

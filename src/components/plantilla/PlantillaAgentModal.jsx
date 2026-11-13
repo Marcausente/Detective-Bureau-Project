@@ -15,6 +15,7 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
     const availableValoraciones = valoraciones && valoraciones.length > 0 ? valoraciones : DEFAULT_VALORACIONES;
 
     // Form state
+    const isInitialPlaceholder = Boolean(agent?.is_placeholder && isPlaceholderAgent(agent));
     const [formData, setFormData] = useState({
         username: agent?.username || '',
         email: agent?.email || '',
@@ -28,7 +29,7 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
         last_promotion_date: agent?.last_promotion_date ? agent.last_promotion_date.split('T')[0] : '',
         notes: agent?.notes || '',
         avatar_url: agent?.avatar_url || '',
-        is_placeholder: Boolean(agent?.is_placeholder)
+        is_placeholder: isInitialPlaceholder
     });
 
     // Registered users autocomplete state
@@ -127,12 +128,22 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
         e.preventDefault();
         try {
             const cleanPlaca = (formData.no_placa || '').trim();
-            if (cleanPlaca && !formData.is_placeholder) {
+            const cleanNombre = (formData.nombre || '').trim();
+            const cleanApellido = (formData.apellido || '').trim();
+            const cleanUser = (formData.username || '').trim();
+
+            const isBlankOrDash = (str) => !str || str === '--' || str === '-' || str === '—' || str.toLowerCase() === 'reserva' || str.toLowerCase() === 'vacante' || str.toLowerCase() === '[reserva]' || str.toLowerCase() === '[reserv.]';
+            const isReservationUser = (u) => !u || u === '--' || u.toLowerCase().includes('[reserv') || u.toLowerCase().includes('[reserva') || u.toLowerCase() === 'reserva' || u.toLowerCase() === 'reservado' || u.toLowerCase() === 'vacante';
+            const hasRealIdentity = !isBlankOrDash(cleanNombre) || !isBlankOrDash(cleanApellido) || (!isReservationUser(cleanUser) && Boolean(cleanUser));
+
+            const finalIsPlaceholder = hasRealIdentity ? false : Boolean(formData.is_placeholder);
+
+            if (cleanPlaca && !finalIsPlaceholder) {
                 const targetPlacaNum = parseInt(cleanPlaca.replace(/\D/g, ''), 10);
                 const conflict = agents.find(a => {
                     if (a.is_divider) return false;
                     // Reservations / placeholders can be substituted, so they are not real conflicts
-                    if (isPlaceholderAgent(a) || a.is_placeholder || (!a.nombre?.trim() && !a.apellido?.trim())) return false;
+                    if (isPlaceholderAgent(a) || (!a.nombre?.trim() && !a.apellido?.trim())) return false;
                     if (agent?.id && a.id === agent.id) return false;
                     const aPlaca = (a.no_placa || '').trim();
                     if (!aPlaca) return false;
@@ -155,6 +166,7 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
             const payload = {
                 ...(agent?.id ? { id: agent.id } : {}),
                 ...formData,
+                is_placeholder: finalIsPlaceholder,
                 rank_id: rankObj?.id || null,
                 order_index: agent?.order_index !== undefined ? agent.order_index : 999,
                 rankChanged,
@@ -455,7 +467,15 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
                                         type="text"
                                         placeholder="Ej: Matthew"
                                         value={formData.nombre}
-                                        onChange={e => setFormData({ ...formData, nombre: e.target.value })}
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            const isReal = val.trim() && val.trim() !== '--' && val.trim() !== '-';
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                nombre: val,
+                                                ...(isReal && prev.is_placeholder ? { is_placeholder: false } : {})
+                                            }));
+                                        }}
                                         style={{
                                             width: '100%',
                                             background: 'rgba(15, 23, 42, 0.8)',
@@ -476,7 +496,15 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
                                         type="text"
                                         placeholder="Ej: Kleiner"
                                         value={formData.apellido}
-                                        onChange={e => setFormData({ ...formData, apellido: e.target.value })}
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            const isReal = val.trim() && val.trim() !== '--' && val.trim() !== '-';
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                apellido: val,
+                                                ...(isReal && prev.is_placeholder ? { is_placeholder: false } : {})
+                                            }));
+                                        }}
                                         style={{
                                             width: '100%',
                                             background: 'rgba(15, 23, 42, 0.8)',
@@ -501,7 +529,15 @@ export default function PlantillaAgentModal({ agent, agents = [], ranks, divisio
                                     type="text"
                                     placeholder="Ej: marcuscurrie"
                                     value={formData.username}
-                                    onChange={e => setFormData({ ...formData, username: e.target.value })}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        const isReal = val.trim() && !val.toLowerCase().includes('[reserv') && val.trim() !== '--';
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            username: val,
+                                            ...(isReal && prev.is_placeholder ? { is_placeholder: false } : {})
+                                        }));
+                                    }}
                                     style={{
                                         width: '100%',
                                         background: 'rgba(15, 23, 42, 0.8)',

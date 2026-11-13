@@ -316,3 +316,4 @@ export async function setIncidentTransferred(incidentId, isTransferred) {
         return false;
     }
 }
+

@@ -111,21 +111,34 @@ export function getRankBaremo(rank) {
 
 /**
  * Helper to identify if an item is a reserved slot / placeholder vs a real agent.
+ * An item is ONLY a placeholder if it represents an unassigned vacancy.
+ * If an item has a real name or username, it is ALWAYS a real agent, NEVER a placeholder!
  */
 export function isPlaceholderAgent(a) {
     if (!a || a.is_divider) return false;
-    if (a.is_placeholder === true) return true;
+
     const cleanNombre = (a.nombre || '').trim();
     const cleanApellido = (a.apellido || '').trim();
     const cleanUser = (a.username || '').trim().toLowerCase();
 
-    // Check if username indicates reservation
-    if (cleanUser.includes('[reserv') || cleanUser.includes('[reserva') || cleanUser === 'reserva' || cleanUser === 'reservado' || cleanUser === 'vacante') {
-        return true;
+    const isBlankOrDash = (str) => !str || str === '--' || str === '-' || str === '—' || str.toLowerCase() === 'reserva' || str.toLowerCase() === 'vacante' || str.toLowerCase() === '[reserva]' || str.toLowerCase() === '[reserv.]';
+    const isReservationUser = (u) => !u || u === '--' || u.includes('[reserv') || u.includes('[reserva') || u === 'reserva' || u === 'reservado' || u === 'vacante';
+
+    // 1. If it has a real name (first or last) or a real non-reservation username, it CANNOT be a placeholder
+    if (!isBlankOrDash(cleanNombre) || !isBlankOrDash(cleanApellido)) {
+        return false;
+    }
+    if (cleanUser && !isReservationUser(cleanUser)) {
+        return false;
     }
 
-    // Check if names are placeholder markers like '--', '-', '...', 'reserva', etc.
-    const isBlankOrDash = (str) => !str || str === '--' || str === '-' || str === '—' || str.toLowerCase() === 'reserva' || str.toLowerCase() === 'vacante' || str.toLowerCase() === '[reserva]' || str.toLowerCase() === '[reserv.]';
+    // 2. Explicit placeholder flag
+    if (a.is_placeholder === true) return true;
+
+    // 3. Username indicates reservation
+    if (isReservationUser(cleanUser)) return true;
+
+    // 4. Both names blank/dash
     if (isBlankOrDash(cleanNombre) && isBlankOrDash(cleanApellido)) {
         return true;
     }
@@ -825,7 +838,15 @@ export async function fetchPlantillaAgents() {
         if (!appError && appData) {
             const parsed = parseSettingsArray(appData.value);
             if (parsed !== null && parsed.length > 0) {
-                return parsed.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+                const sanitized = parsed.map(item => {
+                    if (item.is_divider) return item;
+                    // Auto-repair: if flagged as placeholder but has real identity, clear placeholder flag
+                    if (item.is_placeholder && !isPlaceholderAgent(item)) {
+                        return { ...item, is_placeholder: false };
+                    }
+                    return item;
+                });
+                return sanitized.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
             }
         }
 
@@ -858,6 +879,10 @@ export async function fetchPlantillaAgents() {
                         };
                     } catch (e) { /* ignore */ }
                 }
+                // Auto-repair
+                if (item.is_placeholder && !isPlaceholderAgent(item)) {
+                    return { ...item, is_placeholder: false };
+                }
                 return item;
             });
         }
@@ -887,13 +912,25 @@ export async function savePlantillaAgent(agentData) {
         const dividerIcon = agentData.icon || agentData.divider_icon || '📁';
         const cleanPlaca = (agentData.no_placa || '').trim();
 
+        const cleanNombre = isDivider ? dividerTitle : (agentData.nombre || '').trim();
+        const cleanApellido = isDivider ? '' : (agentData.apellido || '').trim();
+        const cleanUser = isDivider ? '' : (agentData.username || '').trim();
+
+        const isBlankOrDash = (str) => !str || str === '--' || str === '-' || str === '—' || str.toLowerCase() === 'reserva' || str.toLowerCase() === 'vacante' || str.toLowerCase() === '[reserva]' || str.toLowerCase() === '[reserv.]';
+        const isReservationUser = (u) => !u || u === '--' || u.toLowerCase().includes('[reserv') || u.toLowerCase().includes('[reserva') || u.toLowerCase() === 'reserva' || u.toLowerCase() === 'reservado' || u.toLowerCase() === 'vacante';
+        const hasRealIdentity = !isBlankOrDash(cleanNombre) || !isBlankOrDash(cleanApellido) || (!isReservationUser(cleanUser) && Boolean(cleanUser));
+
+        const isActuallyPlaceholder = isDivider 
+            ? true 
+            : (hasRealIdentity ? false : Boolean(agentData.is_placeholder));
+
         const finalAgent = {
             ...agentData,
             id: agentId,
-            username: isDivider ? '' : (agentData.username || '').trim(),
+            username: isDivider ? '' : cleanUser,
             email: isDivider ? '' : (agentData.email || '').trim(),
-            nombre: isDivider ? dividerTitle : (agentData.nombre || '').trim(),
-            apellido: isDivider ? '' : (agentData.apellido || '').trim(),
+            nombre: isDivider ? dividerTitle : cleanNombre,
+            apellido: isDivider ? '' : cleanApellido,
             no_placa: isDivider ? '' : cleanPlaca,
             rank_id: isDivider ? null : (agentData.rank_id || null),
             rank_name: isDivider ? '' : (agentData.rank_name || '').trim(),
@@ -904,7 +941,7 @@ export async function savePlantillaAgent(agentData) {
             notes: isDivider ? JSON.stringify({ is_divider: true, title: dividerTitle, color: dividerColor, icon: dividerIcon }) : (agentData.notes || '').trim(),
             avatar_url: isDivider ? '' : (agentData.avatar_url || ''),
             order_index: Number(agentData.order_index) || 0,
-            is_placeholder: isDivider ? true : Boolean(agentData.is_placeholder),
+            is_placeholder: isActuallyPlaceholder,
             is_divider: isDivider,
             title: isDivider ? dividerTitle : undefined,
             color: isDivider ? dividerColor : undefined,
@@ -919,7 +956,7 @@ export async function savePlantillaAgent(agentData) {
         if (cleanPlaca && !finalAgent.is_placeholder && !finalAgent.is_divider) {
             const targetPlacaNum = parseBadgeNum(cleanPlaca);
             const conflict = currentList.find(a => {
-                if (a.id === finalAgent.id || a.is_divider || a.is_placeholder) return false;
+                if (a.id === finalAgent.id || a.is_divider || isPlaceholderAgent(a) || a.is_placeholder) return false;
                 const aPlaca = (a.no_placa || '').trim();
                 if (!aPlaca) return false;
                 const aPlacaNum = parseBadgeNum(aPlaca);

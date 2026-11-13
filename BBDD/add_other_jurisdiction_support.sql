@@ -29,3 +29,4 @@ CREATE POLICY "Anyone can read app_settings" ON public.app_settings FOR SELECT U
 
 DROP POLICY IF EXISTS "Authenticated users can insert or update app_settings" ON public.app_settings;
 CREATE POLICY "Authenticated users can insert or update app_settings" ON public.app_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
