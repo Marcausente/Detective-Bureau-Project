@@ -34,7 +34,7 @@ function Incidents() {
     const [parsedOtherJurisdiction, setParsedOtherJurisdiction] = useState(() => parseOtherJurisdictionText(DEFAULT_OTHER_JURISDICTION_RAW));
     const [transferredIncidentIds, setTransferredIncidentIds] = useState(new Set());
     const [isOtherJurisdictionFilterActive, setIsOtherJurisdictionFilterActive] = useState(false);
-    const [onlyShowOtherJurisdictionMatches, setOnlyShowOtherJurisdictionMatches] = useState(false);
+    const [onlyShowOtherJurisdictionMatches, setOnlyShowOtherJurisdictionMatches] = useState(true);
     const [showOtherJurisdictionModal, setShowOtherJurisdictionModal] = useState(false);
     const [tempOtherJurisdictionText, setTempOtherJurisdictionText] = useState(DEFAULT_OTHER_JURISDICTION_RAW);
     const [isSavingSubjects, setIsSavingSubjects] = useState(false);
@@ -154,8 +154,9 @@ function Incidents() {
             setSearchTerm('');
             setSelectedGangName('');
             setCurrentMatchIndex(0);
+            setOnlyShowOtherJurisdictionMatches(true);
         } else {
-            setOnlyShowOtherJurisdictionMatches(false);
+            setOnlyShowOtherJurisdictionMatches(true);
         }
     };
 
@@ -187,17 +188,15 @@ function Incidents() {
     const linkedIncidents = useMemo(() => incidents.filter(i => i.gang_id || isTransferred(i)), [incidents, transferredIncidentIds]);
 
     // Compute search matches:
-    // - If isOtherJurisdictionFilterActive -> Search incidents matching other jurisdiction subjects OR transferred
+    // - If isOtherJurisdictionFilterActive -> Search ONLY in generalIncidents (unlinked/untransferred reports) matching other jurisdiction
     // - If selectedGangName is set -> Search ONLY in generalIncidents (unlinked reports) for gang members
     // - If searchTerm is set -> Search across ALL incidents (General & Linked) for report number/text/author
     const searchMatches = useMemo(() => {
         if (isOtherJurisdictionFilterActive) {
-            return incidents.filter(inc => {
-                const id = inc.record_id || inc.id;
-                const hasTransferred = transferredIncidentIds.has(id);
-                const hasMatch = matchedSubjectsMap.has(inc.record_id);
-                return hasTransferred || hasMatch;
-            }).map(inc => inc.record_id);
+            // Solo buscar y coincidir en la columna de Informes Generales (avisos sin ligar y sin traspasar)
+            return generalIncidents
+                .filter(inc => matchedSubjectsMap.has(inc.record_id))
+                .map(inc => inc.record_id);
         }
 
         if (selectedGangName && selectedGangName.trim() !== '') {
@@ -261,15 +260,16 @@ function Incidents() {
     }, [generalIncidents, visibleGeneralCount, searchTerm, selectedGangName, isOtherJurisdictionFilterActive, onlyShowOtherJurisdictionMatches, searchMatches, searchParams]);
 
     const visibleLinkedIncidents = useMemo(() => {
-        let list = linkedIncidents;
-        if (isOtherJurisdictionFilterActive && onlyShowOtherJurisdictionMatches) {
-            list = list.filter(inc => searchMatches.includes(inc.record_id));
+        // Al filtrar por avisos de otra jurisdicción, solo se muestran avisos de informes generales y no los que ya están ligados
+        if (isOtherJurisdictionFilterActive) {
+            return [];
         }
-        if (searchTerm || isOtherJurisdictionFilterActive || searchParams.get('incident_id')) {
+        let list = linkedIncidents;
+        if (searchTerm || searchParams.get('incident_id')) {
             return list;
         }
         return list.slice(0, visibleLinkedCount);
-    }, [linkedIncidents, visibleLinkedCount, searchTerm, isOtherJurisdictionFilterActive, onlyShowOtherJurisdictionMatches, searchMatches, searchParams]);
+    }, [linkedIncidents, visibleLinkedCount, searchTerm, isOtherJurisdictionFilterActive, searchParams]);
 
     const visibleOutings = useMemo(() => {
         if (searchParams.get('outing_id')) return outings;
@@ -1239,7 +1239,7 @@ function Incidents() {
                         </svg>
                         <span style={{ fontSize: '0.83rem', color: '#f87171' }}>
                             {isOtherJurisdictionFilterActive
-                                ? 'Sin informes coincidentes con sujetos de Otra Jurisdicción en los registros actuales.'
+                                ? 'Sin avisos pendientes de Otra Jurisdicción en informes generales.'
                                 : selectedGangName ? `Sin resultados para la banda "${selectedGangName}"` : `Sin resultados para "${searchTerm}"`
                             }
                         </span>
@@ -1286,13 +1286,21 @@ function Incidents() {
                                 background: 'rgba(99,102,241,0.2)',
                                 border: '1px solid rgba(99,102,241,0.35)',
                                 borderRadius: '20px', padding: '0.1rem 0.55rem'
-                            }}>{generalIncidents.length}</span>
+                            }}>
+                                {isOtherJurisdictionFilterActive && onlyShowOtherJurisdictionMatches
+                                    ? `${visibleGeneralIncidents.length} de ${generalIncidents.length}`
+                                    : generalIncidents.length}
+                            </span>
                         </div>
 
                         {/* Cards */}
                         <div className="scroll-feed" style={{ flex: '1 1 0%', minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '1rem' }}>
-                            {generalIncidents.length === 0 ? (
-                                <div className="empty-list">{t('noIncidents')}</div>
+                            {visibleGeneralIncidents.length === 0 ? (
+                                <div className="empty-list">
+                                    {isOtherJurisdictionFilterActive
+                                        ? 'No hay avisos de Otra Jurisdicción pendientes en informes generales.'
+                                        : (selectedGangName ? `Sin resultados para la banda "${selectedGangName}"` : t('noIncidents'))}
+                                </div>
                             ) : (
                                 visibleGeneralIncidents.map(inc => {
                                     const isUrlHighlighted = searchParams.get('incident_id') === inc.record_id;
@@ -1358,12 +1366,16 @@ function Incidents() {
                                 background: 'rgba(16,185,129,0.2)',
                                 border: '1px solid rgba(16,185,129,0.35)',
                                 borderRadius: '20px', padding: '0.1rem 0.55rem'
-                            }}>{linkedIncidents.length}</span>
+                            }}>{isOtherJurisdictionFilterActive ? '0 (ocultos)' : linkedIncidents.length}</span>
                         </div>
 
                         <div className="scroll-feed" style={{ flex: '1 1 0%', minHeight: 0, overflowY: 'auto', paddingRight: '4px', paddingBottom: '1rem' }}>
-                            {linkedIncidents.length === 0 ? (
-                                <div className="empty-list">{t('noLinkedIncidents')}</div>
+                            {visibleLinkedIncidents.length === 0 ? (
+                                <div className="empty-list">
+                                    {isOtherJurisdictionFilterActive
+                                        ? 'Informes ligados ocultos durante el filtro de Otra Jurisdicción.'
+                                        : t('noLinkedIncidents')}
+                                </div>
                             ) : (
                                 visibleLinkedIncidents.map(inc => {
                                     const isUrlHighlighted = searchParams.get('incident_id') === inc.record_id;
