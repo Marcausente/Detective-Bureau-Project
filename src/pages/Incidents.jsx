@@ -1731,6 +1731,7 @@ function Incidents() {
                             }}>
                                 💡 <strong>Formatos aceptados (uno por línea):</strong><br />
                                 • <code>Nombre Apellido [CODIGO]</code> — ej: <code>Alana Knox [L175B97K]</code><br />
+                                • <code>Nombre Apellido CODIGO</code> — ej: <code>Andre Coleman B8255GVK</code><br />
                                 • <code>Nombre Apellido - CODIGO</code> — ej: <code>John Doe - AK8AJT62</code><br />
                                 • <code>Nombre Apellido (CODIGO)</code> o solo <code>Nombre Apellido</code>
                             </div>

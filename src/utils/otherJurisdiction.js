@@ -27,11 +27,12 @@ const SETTING_KEY_TRANSFERRED = 'incidents_transferred_jurisdiction';
  * - "[CODE] Name" -> name: "Name", code: "CODE"
  * - "Name - CODE" -> name: "Name", code: "CODE"
  * - "Name (CODE)" -> name: "Name", code: "CODE"
+ * - "Name Surname CODE" -> name: "Name Surname", code: "CODE" (e.g. "Andre Coleman B8255GVK")
  * - "Name"        -> name: "Name", code: ""
  */
 export function parseOtherJurisdictionEntry(rawLine) {
     if (!rawLine || typeof rawLine !== 'string') return null;
-    const trimmed = rawLine.trim();
+    const trimmed = rawLine.trim().replace(/[.,;:]+$/, '').trim();
     if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) return null;
 
     let name = '';
@@ -53,11 +54,11 @@ export function parseOtherJurisdictionEntry(rawLine) {
         if (dashMatch) {
             const p1 = dashMatch[1].trim();
             const p2 = dashMatch[2].trim();
-            // Check if p2 looks like an ID/badge (alphanumeric, no spaces, 3-15 chars)
-            if (/^[A-Za-z0-9#_]{3,15}$/.test(p2)) {
+            // Check if p2 looks like an ID/badge (alphanumeric, no spaces, 3-20 chars)
+            if (/^[A-Za-z0-9#_]{3,20}$/.test(p2)) {
                 name = p1;
                 code = p2;
-            } else if (/^[A-Za-z0-9#_]{3,15}$/.test(p1)) {
+            } else if (/^[A-Za-z0-9#_]{3,20}$/.test(p1)) {
                 code = p1;
                 name = p2;
             } else {
@@ -65,20 +66,58 @@ export function parseOtherJurisdictionEntry(rawLine) {
                 code = p2;
             }
         } else {
-            // 3. Parentheses format: "Name (CODE)"
-            const parenMatch = trimmed.match(/^(.*?)\s*\(([^)]+)\)$/);
+            // 3. Parentheses format: "Name (CODE)" or "(CODE) Name"
+            const parenMatch = trimmed.match(/^\(([^)]+)\)\s*(.*)$/) || trimmed.match(/^(.*?)\s*\(([^)]+)\)$/);
             if (parenMatch) {
-                name = parenMatch[1].trim();
-                code = parenMatch[2].trim();
+                if (trimmed.startsWith('(')) {
+                    code = parenMatch[1].trim();
+                    name = parenMatch[2].trim();
+                } else {
+                    name = parenMatch[1].trim();
+                    code = parenMatch[2].trim();
+                }
             } else {
-                name = trimmed;
-                code = '';
+                // 4. Space-separated format: "Nombre Apellido ID" (e.g. "Andre Coleman B8255GVK")
+                const tokens = trimmed.split(/\s+/);
+                if (tokens.length >= 2) {
+                    const lastToken = tokens[tokens.length - 1].replace(/[.,;:()[\]-]+$/, '').trim();
+                    const firstToken = tokens[0].replace(/[.,;:()[\]-]+$/, '').trim();
+
+                    const isIdLike = (str) => {
+                        if (!str || str.length < 3 || str.length > 25) return false;
+                        // Has digits (e.g. B8255GVK, HZ6423AB, 12345)
+                        if (/\d/.test(str)) return true;
+                        // Starts with '#' (e.g. #719)
+                        if (str.startsWith('#')) return true;
+                        // All uppercase letters/digits with length >= 4 (e.g. DNI, PASS, CODE)
+                        if (str.length >= 4 && str === str.toUpperCase() && /^[A-Z0-9_-]+$/.test(str)) return true;
+                        return false;
+                    };
+
+                    if (isIdLike(lastToken)) {
+                        code = lastToken;
+                        name = tokens.slice(0, -1).join(' ').trim();
+                    } else if (isIdLike(firstToken)) {
+                        code = firstToken;
+                        name = tokens.slice(1).join(' ').trim();
+                    } else if (tokens.length >= 3 && /^[A-Za-z0-9#_-]{3,20}$/.test(lastToken)) {
+                        // 3+ tokens, e.g. "Nombre Apellido ID"
+                        code = lastToken;
+                        name = tokens.slice(0, -1).join(' ').trim();
+                    } else {
+                        name = trimmed;
+                        code = '';
+                    }
+                } else {
+                    name = trimmed;
+                    code = '';
+                }
             }
         }
     }
 
-    const cleanName = (name || trimmed).trim();
-    const cleanCode = (code || '').trim().replace(/^#/, '');
+    const cleanName = (name || trimmed).trim().replace(/[.,;:]+$/, '').trim();
+    const cleanCode = (code || '').trim().replace(/^#/, '').replace(/[.,;:]+$/, '').trim();
 
     const terms = new Set();
     if (cleanName.length >= 2) terms.add(cleanName.toLowerCase());
@@ -148,6 +187,16 @@ export function matchesOtherJurisdiction(incident, parsedSubjects = []) {
             const nameLower = subj.name.toLowerCase();
             if (fullBlob.includes(nameLower)) {
                 return { matches: true, matchedSubject: subj };
+            }
+
+            // Check reversed name e.g. "Coleman, Andre" or "Coleman Andre"
+            const nParts = nameLower.split(/\s+/);
+            if (nParts.length === 2 && nParts[0].length >= 2 && nParts[1].length >= 2) {
+                const rev = `${nParts[1]} ${nParts[0]}`;
+                const revComma = `${nParts[1]}, ${nParts[0]}`;
+                if (fullBlob.includes(rev) || fullBlob.includes(revComma)) {
+                    return { matches: true, matchedSubject: subj };
+                }
             }
         }
 
