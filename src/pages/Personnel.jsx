@@ -380,7 +380,11 @@ function Personnel() {
         'Deputy Sheriff': 10
     };
 
-    const getRankPriority = (rank) => rankPriority[rank] || 0;
+    const getRankPriority = (rank) => {
+        if (!rank) return 0;
+        const clean = rank.trim().replace(/^\d+\.\s*/, '').trim();
+        return rankPriority[clean] || rankPriority[rank] || 0;
+    };
     const sortUsers = (a, b) => getRankPriority(b.rango) - getRankPriority(a.rango);
 
     // Search Filtering
@@ -398,8 +402,19 @@ function Personnel() {
     }, [users, searchTerm, availableLicenses]);
 
     // 4 Columnas del Directorio de Personal
+    const isDetective = (u) => {
+        const rank = (u.rango || '').trim().replace(/^\d+\.\s*/, '').trim();
+        return (
+            ['Detective III', 'Detective II', 'Detective I'].includes(rank) ||
+            rank.toLowerCase().startsWith('detective')
+        );
+    };
+
     const isCommandOrCommissioner = (u) => {
-        const rank = u.rango || '';
+        // Los detectives pertenecen siempre a la columna de Detectives
+        if (isDetective(u)) return false;
+
+        const rank = (u.rango || '').trim().replace(/^\d+\.\s*/, '').trim();
         const role = u.rol || '';
         const divisions = u.divisions || [];
         return (
@@ -410,22 +425,16 @@ function Personnel() {
         );
     };
 
-    const isDetective = (u) => {
-        if (isCommandOrCommissioner(u)) return false;
-        const rank = u.rango || '';
-        return ['Detective I', 'Detective II', 'Detective III'].includes(rank);
-    };
-
     const isAyudanteSCUB = (u) => {
-        if (isCommandOrCommissioner(u)) return false;
         if (isDetective(u)) return false;
+        if (isCommandOrCommissioner(u)) return false;
         const divisions = u.divisions || [];
         return divisions.includes('Detective Bureau');
     };
 
     const isAgenteOrdinario = (u) => {
-        if (isCommandOrCommissioner(u)) return false;
         if (isDetective(u)) return false;
+        if (isCommandOrCommissioner(u)) return false;
         if (isAyudanteSCUB(u)) return false;
         return true;
     };
