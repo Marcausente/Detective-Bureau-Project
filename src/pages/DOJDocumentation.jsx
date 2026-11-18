@@ -57,7 +57,7 @@ function DOJDocumentation() {
                 docUrl = await uploadImageToStorage(docUrl, 'documentation');
             }
 
-            // Try RPC first
+            // 1. Try modern RPC with p_category
             let { error } = await supabase.rpc('manage_doj_documentation', {
                 p_action: modalMode,
                 p_id: editingId,
@@ -67,12 +67,30 @@ function DOJDocumentation() {
                 p_category: targetCategory
             });
 
-            // If RPC fails (e.g. parameter mismatch), fallback to direct table operation
+            // 2. If modern RPC fails, try legacy RPC without p_category
             if (error) {
-                console.warn('RPC failed, falling back to direct table operation:', error);
+                console.warn('RPC with p_category failed, trying legacy RPC:', error);
+                const legacyRpc = await supabase.rpc('manage_doj_documentation', {
+                    p_action: modalMode,
+                    p_id: editingId,
+                    p_title: formData.title,
+                    p_description: formData.description,
+                    p_url: docUrl
+                });
+
+                if (!legacyRpc.error) {
+                    error = null;
+                } else {
+                    console.warn('Legacy RPC also failed, falling back to direct table operation:', legacyRpc.error);
+                }
+            }
+
+            // 3. Fallback to direct table operation
+            if (error) {
                 const { data: { user } } = await supabase.auth.getUser();
+
                 if (modalMode === 'create') {
-                    const fallback = await supabase
+                    const fallbackWithCat = await supabase
                         .from('doj_documentation')
                         .insert([{
                             title: formData.title,
@@ -81,9 +99,27 @@ function DOJDocumentation() {
                             category: targetCategory,
                             created_by: user ? user.id : null
                         }]);
-                    if (fallback.error) throw fallback.error;
+
+                    if (fallbackWithCat.error) {
+                        const errMsg = (fallbackWithCat.error.message || '').toLowerCase();
+                        // If column 'category' does not exist in schema cache, insert without it to never block user
+                        if (errMsg.includes('category') || fallbackWithCat.error.code === '42703' || fallbackWithCat.error.code === 'PGRST204') {
+                            console.warn('doj_documentation lacks category column, inserting without it:', fallbackWithCat.error);
+                            const fallbackWithoutCat = await supabase
+                                .from('doj_documentation')
+                                .insert([{
+                                    title: formData.title,
+                                    description: formData.description,
+                                    url: docUrl,
+                                    created_by: user ? user.id : null
+                                }]);
+                            if (fallbackWithoutCat.error) throw fallbackWithoutCat.error;
+                        } else {
+                            throw fallbackWithCat.error;
+                        }
+                    }
                 } else if (modalMode === 'update') {
-                    const fallback = await supabase
+                    const fallbackWithCat = await supabase
                         .from('doj_documentation')
                         .update({
                             title: formData.title,
@@ -92,7 +128,25 @@ function DOJDocumentation() {
                             category: targetCategory
                         })
                         .eq('id', editingId);
-                    if (fallback.error) throw fallback.error;
+
+                    if (fallbackWithCat.error) {
+                        const errMsg = (fallbackWithCat.error.message || '').toLowerCase();
+                        // If column 'category' does not exist in schema cache, update without it
+                        if (errMsg.includes('category') || fallbackWithCat.error.code === '42703' || fallbackWithCat.error.code === 'PGRST204') {
+                            console.warn('doj_documentation lacks category column, updating without it:', fallbackWithCat.error);
+                            const fallbackWithoutCat = await supabase
+                                .from('doj_documentation')
+                                .update({
+                                    title: formData.title,
+                                    description: formData.description,
+                                    url: docUrl
+                                })
+                                .eq('id', editingId);
+                            if (fallbackWithoutCat.error) throw fallbackWithoutCat.error;
+                        } else {
+                            throw fallbackWithCat.error;
+                        }
+                    }
                 }
             }
 

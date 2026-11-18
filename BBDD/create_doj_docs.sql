@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS public.doj_documentation (
   title TEXT NOT NULL,
   description TEXT,
   url TEXT, -- Link or Base64 image
+  category TEXT DEFAULT 'documentation',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_by UUID REFERENCES public.users(id) ON DELETE SET NULL
 );
@@ -19,16 +20,17 @@ CREATE OR REPLACE FUNCTION manage_doj_documentation(
   p_id UUID DEFAULT NULL,
   p_title TEXT DEFAULT NULL,
   p_description TEXT DEFAULT NULL,
-  p_url TEXT DEFAULT NULL
+  p_url TEXT DEFAULT NULL,
+  p_category TEXT DEFAULT 'documentation'
 )
 RETURNS VOID AS $$
 BEGIN
   IF p_action = 'create' THEN
-    INSERT INTO public.doj_documentation (title, description, url, created_by)
-    VALUES (p_title, p_description, p_url, auth.uid());
+    INSERT INTO public.doj_documentation (title, description, url, category, created_by)
+    VALUES (p_title, p_description, p_url, COALESCE(p_category, 'documentation'), auth.uid());
   ELSIF p_action = 'update' THEN
     UPDATE public.doj_documentation
-    SET title = p_title, description = p_description, url = p_url
+    SET title = p_title, description = p_description, url = p_url, category = COALESCE(p_category, 'documentation')
     WHERE id = p_id;
   ELSIF p_action = 'delete' THEN
     DELETE FROM public.doj_documentation WHERE id = p_id;
