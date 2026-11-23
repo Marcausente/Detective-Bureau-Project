@@ -10,7 +10,10 @@ function ComplaintCard({
     onStatusChange,
     onLinkCase,
     openCases = [],
-    isHighlighted
+    isHighlighted,
+    isAdmin,
+    isSelected,
+    onToggleSelect
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const { t } = useLanguage();
@@ -62,7 +65,10 @@ function ComplaintCard({
                 minWidth: 0,
                 overflow: 'hidden',
                 position: 'relative',
-                ...(isHighlighted ? {
+                ...(isSelected ? {
+                    border: '1.5px solid #10b981',
+                    boxShadow: '0 0 20px rgba(16, 185, 129, 0.35)'
+                } : isHighlighted ? {
                     background: 'rgba(30, 41, 59, 0.85)',
                     border: '2px solid #60a5fa',
                     boxShadow: '0 0 25px rgba(96, 165, 250, 0.35)'
@@ -74,6 +80,26 @@ function ComplaintCard({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
+                        {isAdmin && (
+                            <input
+                                type="checkbox"
+                                checked={Boolean(isSelected)}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => {
+                                    e.stopPropagation();
+                                    onToggleSelect && onToggleSelect(data.record_id);
+                                }}
+                                style={{
+                                    width: '16px',
+                                    height: '16px',
+                                    accentColor: '#10b981',
+                                    cursor: 'pointer',
+                                    marginRight: '4px'
+                                }}
+                                title="Seleccionar esta denuncia"
+                            />
+                        )}
+
                         {/* Complaint ID Badge */}
                         <span style={{
                             background: 'rgba(212, 175, 55, 0.12)',
@@ -94,6 +120,23 @@ function ComplaintCard({
                             </svg>
                             #DEN-{data.record_id.substring(0, 6).toUpperCase()}
                         </span>
+
+                        {isAdmin && data.wipe_folder && (
+                            <span style={{
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                color: '#94a3b8',
+                                padding: '3px 8px',
+                                borderRadius: '20px',
+                                fontSize: '0.68rem',
+                                fontWeight: 600,
+                                border: '1px solid rgba(255, 255, 255, 0.12)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }} title={`Carpeta de wipe: ${data.wipe_folder}`}>
+                                📁 {data.wipe_folder}
+                            </span>
+                        )}
 
                         {/* Status Badge */}
                         {isClosed ? (
