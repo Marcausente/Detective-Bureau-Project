@@ -4,6 +4,16 @@ import { supabase } from '../supabaseClient';
 import { uploadImageToStorage, uploadDocumentToStorage, processHtmlImages } from '../utils/imageStorage';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import {
+    DEFAULT_WIPE_FOLDER,
+    getActiveWipeFolder,
+    setActiveWipeFolder,
+    getWipeFoldersList,
+    createWipeFolder,
+    deleteWipeFolder,
+    moveCasesToWipeFolder,
+    getWipeFoldersStats
+} from '../services/casesWipeService';
 import '../index.css';
 
 function Cases() {
@@ -15,6 +25,22 @@ function Cases() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const { isLSSD, branding } = useTheme();
     const { t } = useLanguage();
+
+    // Wipe Folders State
+    const [activeWipeFolder, setActiveWipeFolderState] = useState(DEFAULT_WIPE_FOLDER);
+    const [viewingWipeFolder, setViewingWipeFolder] = useState(DEFAULT_WIPE_FOLDER);
+    const [wipeFolders, setWipeFolders] = useState([DEFAULT_WIPE_FOLDER]);
+    const [wipeStats, setWipeStats] = useState({});
+    const [selectedCaseIds, setSelectedCaseIds] = useState([]);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [showWipeManagerModal, setShowWipeManagerModal] = useState(false);
+    const [showMoveCasesModal, setShowMoveCasesModal] = useState(false);
+    const [moveScope, setMoveScope] = useState('selected'); // 'selected' | 'all'
+    const [moveTargetType, setMoveTargetType] = useState('existing'); // 'existing' | 'new'
+    const [targetMoveFolder, setTargetMoveFolder] = useState('');
+    const [newMoveFolderInput, setNewMoveFolderInput] = useState('');
+    const [newFolderInput, setNewFolderInput] = useState('');
+    const [wipeActionLoading, setWipeActionLoading] = useState(false);
 
     // Form State
     const [newCase, setNewCase] = useState({
@@ -30,6 +56,15 @@ function Cases() {
     const [submitting, setSubmitting] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
 
+    // Check if current user is an administrator
+    const isAdmin = Boolean(
+        currentUser && (
+            (currentUser.rol || '').toLowerCase().trim() === 'administrador' ||
+            (currentUser.rol || '').toLowerCase().trim() === 'superadmin' ||
+            (currentUser.rol || '').toLowerCase().includes('admin')
+        )
+    );
+
     useEffect(() => {
         let isMounted = true;
         const loadInitial = async () => {
@@ -40,91 +75,50 @@ function Cases() {
                 uProfile = data;
                 if (isMounted) setCurrentUser(data);
             }
+
+            // Load active wipe folder and folders list
+            const currentActive = await getActiveWipeFolder();
+            const folders = await getWipeFoldersList();
+            const stats = await getWipeFoldersStats();
+
             if (isMounted) {
-                fetchCases(uProfile);
+                setActiveWipeFolderState(currentActive);
+                setViewingWipeFolder(currentActive);
+                setWipeFolders(folders);
+                setWipeStats(stats);
+                fetchCases(uProfile, currentActive);
                 fetchUsers();
             }
         };
         loadInitial();
         return () => { isMounted = false; };
-    }, [filter]);
+    }, []);
 
-    const fetchCases = async (userProfile = currentUser) => {
+    // Re-fetch when filter or viewing wipe changes
+    useEffect(() => {
+        if (currentUser) {
+            fetchCases(currentUser, viewingWipeFolder);
+        }
+    }, [filter, viewingWipeFolder]);
+
+    const fetchCases = async (userProfile = currentUser, targetWipe = viewingWipeFolder) => {
         setLoading(true);
         try {
-            const isAyudante = (userProfile?.rol || currentUser?.rol || '').toLowerCase().trim() === 'ayudante';
-            const userId = userProfile?.id || currentUser?.id;
+            const user = userProfile || currentUser;
+            const userIsAdmin = user && (
+                (user.rol || '').toLowerCase().trim() === 'administrador' ||
+                (user.rol || '').toLowerCase().trim() === 'superadmin' ||
+                (user.rol || '').toLowerCase().includes('admin')
+            );
 
-            // If user has the Ayudante role, strictly load only cases where they are assigned or created by them
-            if (isAyudante && userId) {
-                const { data: assignments } = await supabase
-                    .from('case_assignments')
-                    .select('case_id')
-                    .eq('user_id', userId);
+            // Regular users ONLY see the active wipe folder. Admins can view any wipe folder.
+            const wipeToQuery = userIsAdmin 
+                ? (targetWipe || activeWipeFolder || DEFAULT_WIPE_FOLDER) 
+                : (activeWipeFolder || DEFAULT_WIPE_FOLDER);
 
-                const assignedIds = (assignments || []).map(a => a.case_id);
+            const isAyudante = (user?.rol || '').toLowerCase().trim() === 'ayudante';
+            const userId = user?.id;
 
-                let query = supabase
-                    .from('cases')
-                    .select(`
-                        id,
-                        case_number,
-                        title,
-                        status,
-                        location,
-                        occurred_at,
-                        created_at,
-                        created_by,
-                        is_pinned,
-                        case_assignments (
-                            user_id,
-                            users (
-                                profile_image
-                            )
-                        )
-                    `)
-                    .order('is_pinned', { ascending: false, nullsFirst: false })
-                    .order('case_number', { ascending: false });
-
-                if (filter) {
-                    query = query.ilike('status', filter);
-                }
-
-                if (assignedIds.length > 0) {
-                    query = query.or(`id.in.(${assignedIds.join(',')}),created_by.eq.${userId}`);
-                } else {
-                    query = query.eq('created_by', userId);
-                }
-
-                const { data: directData, error: directErr } = await query;
-                if (!directErr && directData) {
-                    const formatted = directData.map(c => ({
-                        id: c.id,
-                        case_number: c.case_number,
-                        title: c.title,
-                        status: c.status,
-                        location: c.location,
-                        occurred_at: c.occurred_at,
-                        created_at: c.created_at,
-                        is_pinned: Boolean(c.is_pinned),
-                        assigned_avatars: (c.case_assignments || [])
-                            .map(ca => ca.users?.profile_image)
-                            .filter(Boolean)
-                            .slice(0, 3)
-                    }));
-                    setCases(formatted);
-                    return;
-                }
-            }
-
-            // Normal flow for non-ayudantes:
-            const { data, error } = await supabase.rpc('get_cases', { p_status_filter: filter });
-            if (!error && data && data.length > 0) {
-                setCases(data);
-                return;
-            }
-
-            // Fallback: Query cases table directly if RPC returns empty or throws an error
             let query = supabase
                 .from('cases')
                 .select(`
@@ -137,6 +131,7 @@ function Cases() {
                     created_at,
                     created_by,
                     is_pinned,
+                    wipe_folder,
                     case_assignments (
                         user_id,
                         users (
@@ -151,8 +146,30 @@ function Cases() {
                 query = query.ilike('status', filter);
             }
 
+            // Wipe folder filter
+            if (!wipeToQuery || wipeToQuery === DEFAULT_WIPE_FOLDER) {
+                query = query.or(`wipe_folder.eq.${DEFAULT_WIPE_FOLDER},wipe_folder.is.null,wipe_folder.eq.`);
+            } else {
+                query = query.eq('wipe_folder', wipeToQuery);
+            }
+
+            // If user has the Ayudante role, strictly load only cases where they are assigned or created by them
+            if (isAyudante && userId) {
+                const { data: assignments } = await supabase
+                    .from('case_assignments')
+                    .select('case_id')
+                    .eq('user_id', userId);
+
+                const assignedIds = (assignments || []).map(a => a.case_id);
+                if (assignedIds.length > 0) {
+                    query = query.or(`id.in.(${assignedIds.join(',')}),created_by.eq.${userId}`);
+                } else {
+                    query = query.eq('created_by', userId);
+                }
+            }
+
             const { data: directData, error: directErr } = await query;
-            if (!directErr && directData && directData.length > 0) {
+            if (!directErr && directData) {
                 const formatted = directData.map(c => ({
                     id: c.id,
                     case_number: c.case_number,
@@ -162,14 +179,13 @@ function Cases() {
                     occurred_at: c.occurred_at,
                     created_at: c.created_at,
                     is_pinned: Boolean(c.is_pinned),
+                    wipe_folder: c.wipe_folder || DEFAULT_WIPE_FOLDER,
                     assigned_avatars: (c.case_assignments || [])
                         .map(ca => ca.users?.profile_image)
                         .filter(Boolean)
                         .slice(0, 3)
                 }));
                 setCases(formatted);
-            } else if (data) {
-                setCases(data);
             } else {
                 setCases([]);
             }
@@ -247,6 +263,15 @@ function Cases() {
                 }
             } else {
                 newId = data;
+            }
+
+            // Assign case to current active wipe folder
+            if (newId) {
+                const curActive = await getActiveWipeFolder();
+                await supabase
+                    .from('cases')
+                    .update({ wipe_folder: curActive || DEFAULT_WIPE_FOLDER })
+                    .eq('id', newId);
             }
 
             setShowCreateModal(false);
@@ -374,12 +399,186 @@ function Cases() {
                caseNumStr.includes(q);
     });
 
-    const openCount = cases.filter(c => c.status === 'Open').length;
+    // -------------------------------------------------------------
+    // WIPE MANAGEMENT HANDLERS (ADMIN ONLY)
+    // -------------------------------------------------------------
+
+    const handleChangeViewingWipe = (newFolder) => {
+        setViewingWipeFolder(newFolder);
+        setSelectedCaseIds([]);
+    };
+
+    const handleMakeActiveWipe = async (folder) => {
+        if (!isAdmin) return;
+        setWipeActionLoading(true);
+        try {
+            const ok = await setActiveWipeFolder(folder);
+            if (ok) {
+                setActiveWipeFolderState(folder);
+                const stats = await getWipeFoldersStats();
+                setWipeStats(stats);
+                alert(`✓ Carpeta "${folder}" establecida como la carpeta activa que se ve en la página.`);
+            }
+        } catch (err) {
+            alert('Error: ' + err.message);
+        } finally {
+            setWipeActionLoading(false);
+        }
+    };
+
+    const handleCreateNewFolder = async (e) => {
+        e?.preventDefault?.();
+        const trimmed = (newFolderInput || '').trim();
+        if (!trimmed) {
+            alert('Introduce un nombre para la carpeta de Wipe.');
+            return;
+        }
+
+        setWipeActionLoading(true);
+        try {
+            const updated = await createWipeFolder(trimmed);
+            setWipeFolders(updated);
+            setNewFolderInput('');
+            const stats = await getWipeFoldersStats();
+            setWipeStats(stats);
+            alert(`✓ Carpeta "${trimmed}" creada correctamente.`);
+        } catch (err) {
+            alert('Error: ' + err.message);
+        } finally {
+            setWipeActionLoading(false);
+        }
+    };
+
+    const handleDeleteFolder = async (folder) => {
+        if (!isAdmin) return;
+        if (folder === DEFAULT_WIPE_FOLDER) {
+            alert('No se puede eliminar la carpeta predeterminada "Actual".');
+            return;
+        }
+
+        const confirmDelete = window.confirm(
+            `¿Estás seguro de que deseas eliminar la carpeta de wipe "${folder}"?\n\n` +
+            `Si contiene casos guardados, serán transferidos automáticamente a la carpeta "${DEFAULT_WIPE_FOLDER}".`
+        );
+        if (!confirmDelete) return;
+
+        setWipeActionLoading(true);
+        try {
+            const updated = await deleteWipeFolder(folder, DEFAULT_WIPE_FOLDER);
+            setWipeFolders(updated);
+            if (viewingWipeFolder === folder) {
+                setViewingWipeFolder(DEFAULT_WIPE_FOLDER);
+            }
+            const active = await getActiveWipeFolder();
+            setActiveWipeFolderState(active);
+            const stats = await getWipeFoldersStats();
+            setWipeStats(stats);
+            await fetchCases(currentUser, viewingWipeFolder === folder ? DEFAULT_WIPE_FOLDER : viewingWipeFolder);
+            alert(`✓ Carpeta "${folder}" eliminada.`);
+        } catch (err) {
+            alert('Error eliminando carpeta: ' + err.message);
+        } finally {
+            setWipeActionLoading(false);
+        }
+    };
+
+    const handleOpenMoveModal = (scope = null) => {
+        if (scope === 'selected' || (selectedCaseIds.length > 0 && scope !== 'all')) {
+            setMoveScope('selected');
+        } else {
+            setMoveScope('all');
+        }
+
+        const otherFolder = wipeFolders.find(f => f !== viewingWipeFolder) || '';
+        if (otherFolder) {
+            setTargetMoveFolder(otherFolder);
+            setMoveTargetType('existing');
+        } else {
+            setTargetMoveFolder('');
+            setMoveTargetType('new');
+        }
+        setNewMoveFolderInput('');
+        setShowMoveCasesModal(true);
+    };
+
+    const handleConfirmMoveCases = async () => {
+        let destination = targetMoveFolder;
+        if (moveTargetType === 'new') {
+            destination = (newMoveFolderInput || '').trim();
+            if (!destination) {
+                alert('Por favor introduce un nombre para la nueva carpeta de Wipe.');
+                return;
+            }
+        }
+
+        if (!destination) {
+            alert('Por favor selecciona o crea una carpeta de destino.');
+            return;
+        }
+
+        if (destination === viewingWipeFolder && moveScope === 'all') {
+            alert('La carpeta de destino debe ser diferente a la carpeta actual.');
+            return;
+        }
+
+        setWipeActionLoading(true);
+        try {
+            if (moveScope === 'selected') {
+                if (selectedCaseIds.length === 0) {
+                    alert('No hay casos seleccionados a mano.');
+                    return;
+                }
+                await moveCasesToWipeFolder({
+                    caseIds: selectedCaseIds,
+                    targetFolder: destination
+                });
+                alert(`✓ Se han movido ${selectedCaseIds.length} caso(s) a la carpeta "${destination}".`);
+            } else {
+                await moveCasesToWipeFolder({
+                    caseIds: 'all',
+                    sourceFolder: viewingWipeFolder,
+                    targetFolder: destination
+                });
+                alert(`✓ Todos los casos de "${viewingWipeFolder}" se han almacenado en la carpeta de wipe "${destination}".`);
+            }
+
+            setShowMoveCasesModal(false);
+            setSelectedCaseIds([]);
+            setSelectionMode(false);
+
+            // Refrescar lista de carpetas, estadísticas y casos
+            const updatedFolders = await getWipeFoldersList();
+            setWipeFolders(updatedFolders);
+            const stats = await getWipeFoldersStats();
+            setWipeStats(stats);
+            await fetchCases(currentUser, viewingWipeFolder);
+        } catch (err) {
+            alert('Error al mover los casos: ' + err.message);
+        } finally {
+            setWipeActionLoading(false);
+        }
+    };
+
+    const toggleCaseSelection = (id) => {
+        setSelectedCaseIds(prev => 
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const handleSelectAllFiltered = () => {
+        const filteredIds = filteredCases.map(c => c.id);
+        const allAlreadySelected = filteredIds.length > 0 && filteredIds.every(id => selectedCaseIds.includes(id));
+        if (allAlreadySelected) {
+            setSelectedCaseIds(prev => prev.filter(id => !filteredIds.includes(id)));
+        } else {
+            setSelectedCaseIds(Array.from(new Set([...selectedCaseIds, ...filteredIds])));
+        }
+    };
 
     return (
         <div className="mac-dashboard-container">
             {/* Command Header Banner */}
-            <div className="mac-command-banner" style={{ marginBottom: '1.75rem' }}>
+            <div className="mac-command-banner" style={{ marginBottom: '1.25rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                     <img 
                         src={branding?.cases_logo || (isLSSD ? "/logowebp/Generalcrimes.webp" : "/logowebp/mcd.webp")} 
@@ -439,6 +638,213 @@ function Cases() {
                 </div>
             </div>
 
+            {/* Admin Wipe Management Bar (ONLY VISIBLE FOR ADMINISTRATORS) */}
+            {isAdmin && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.85))',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '14px',
+                    padding: '0.75rem 1.25rem',
+                    marginBottom: '1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.85rem',
+                    backdropFilter: 'blur(16px)',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <span style={{ fontSize: '1.05rem' }}>📁</span> Carpeta de Wipe:
+                        </span>
+
+                        <select
+                            className="mac-form-input"
+                            style={{
+                                padding: '0.35rem 0.8rem',
+                                fontSize: '0.84rem',
+                                width: 'auto',
+                                minWidth: '190px',
+                                background: 'rgba(0, 0, 0, 0.5)',
+                                color: '#ffffff',
+                                borderColor: viewingWipeFolder !== activeWipeFolder ? '#f59e0b' : 'rgba(255, 255, 255, 0.25)',
+                                fontWeight: 600
+                            }}
+                            value={viewingWipeFolder}
+                            onChange={(e) => handleChangeViewingWipe(e.target.value)}
+                        >
+                            {wipeFolders.map(folder => (
+                                <option key={folder} value={folder}>
+                                    {folder} {folder === activeWipeFolder ? '★ (Activa en la web)' : ''}
+                                </option>
+                            ))}
+                        </select>
+
+                        {viewingWipeFolder !== activeWipeFolder ? (
+                            <span style={{
+                                fontSize: '0.74rem',
+                                color: '#fbbf24',
+                                background: 'rgba(245, 158, 11, 0.18)',
+                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                padding: '0.22rem 0.65rem',
+                                borderRadius: '9999px',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.3rem'
+                            }}>
+                                🔒 Vista archivada (Solo Admin)
+                            </span>
+                        ) : (
+                            <span style={{
+                                fontSize: '0.74rem',
+                                color: '#34d399',
+                                background: 'rgba(16, 185, 129, 0.18)',
+                                border: '1px solid rgba(16, 185, 129, 0.35)',
+                                padding: '0.22rem 0.65rem',
+                                borderRadius: '9999px',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.3rem'
+                            }}>
+                                🌐 Activa (Visible para todos)
+                            </span>
+                        )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                        <button
+                            type="button"
+                            className={`mac-btn ${selectionMode ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
+                            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+                            onClick={() => {
+                                setSelectionMode(!selectionMode);
+                                if (selectionMode) setSelectedCaseIds([]);
+                            }}
+                        >
+                            {selectionMode ? '✕ Cancelar selección' : '☑️ Seleccionar a dedo'}
+                        </button>
+
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-secondary"
+                            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+                            onClick={() => handleOpenMoveModal()}
+                        >
+                            📦 Almacenar en Wipe
+                        </button>
+
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-secondary"
+                            style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+                            onClick={() => setShowWipeManagerModal(true)}
+                        >
+                            ⚙️ Gestión de Wipes
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Selection Toolbar (When selectionMode is active) */}
+            {isAdmin && selectionMode && (
+                <div style={{
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: '12px',
+                    padding: '0.65rem 1.1rem',
+                    marginBottom: '1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.75rem'
+                }}>
+                    <span style={{ fontSize: '0.86rem', color: '#10b981', fontWeight: 700 }}>
+                        ✓ {selectedCaseIds.length} caso(s) seleccionado(s) a dedo
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-secondary"
+                            style={{ fontSize: '0.76rem', padding: '0.35rem 0.65rem' }}
+                            onClick={handleSelectAllFiltered}
+                        >
+                            {filteredCases.every(c => selectedCaseIds.includes(c.id)) && filteredCases.length > 0
+                                ? 'Deseleccionar filtrados'
+                                : `Seleccionar todos (${filteredCases.length})`}
+                        </button>
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-secondary"
+                            style={{ fontSize: '0.76rem', padding: '0.35rem 0.65rem' }}
+                            onClick={() => setSelectedCaseIds([])}
+                            disabled={selectedCaseIds.length === 0}
+                        >
+                            Limpiar
+                        </button>
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-primary"
+                            style={{ fontSize: '0.76rem', padding: '0.35rem 0.85rem' }}
+                            disabled={selectedCaseIds.length === 0}
+                            onClick={() => handleOpenMoveModal('selected')}
+                        >
+                            Mover {selectedCaseIds.length} seleccionado(s)
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Archived Wipe Warning Banner (Admin Only) */}
+            {isAdmin && viewingWipeFolder !== activeWipeFolder && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(217, 119, 6, 0.08))',
+                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                    borderRadius: '12px',
+                    padding: '0.85rem 1.2rem',
+                    marginBottom: '1.5rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.85rem'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '1.4rem' }}>📁</span>
+                        <div>
+                            <strong style={{ color: '#fbbf24', fontSize: '0.92rem', display: 'block' }}>
+                                Viendo carpeta archivada: "{viewingWipeFolder}"
+                            </strong>
+                            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#cbd5e1' }}>
+                                Esta carpeta es privada y solo visible para administradores. Los usuarios regulares están viendo la carpeta activa "{activeWipeFolder}".
+                            </p>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.6rem' }}>
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-secondary"
+                            style={{ fontSize: '0.78rem', padding: '0.4rem 0.75rem' }}
+                            onClick={() => handleChangeViewingWipe(activeWipeFolder)}
+                        >
+                            ↩️ Volver a "{activeWipeFolder}"
+                        </button>
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-primary"
+                            style={{ fontSize: '0.78rem', padding: '0.4rem 0.85rem', background: '#d97706' }}
+                            onClick={() => handleMakeActiveWipe(viewingWipeFolder)}
+                            disabled={wipeActionLoading}
+                        >
+                            ⭐ Hacer carpeta activa en la web
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Filter Pill Tabs */}
             <div className="mac-doc-tabs" style={{ marginBottom: '1.75rem' }}>
                 {[
@@ -471,6 +877,7 @@ function Cases() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
                     {filteredCases.map(c => {
                         const isPinned = c.is_pinned;
+                        const isSelected = selectedCaseIds.includes(c.id);
                         const statusColor = c.status === 'Open' ? '#10b981' : c.status === 'Closed' ? '#ef4444' : '#64748b';
                         const statusText = c.status === 'Open' ? 'Abierto' : c.status === 'Closed' ? 'Cerrado' : 'Archivado';
 
@@ -485,21 +892,57 @@ function Cases() {
                                     position: 'relative',
                                     transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
                                     borderLeft: `4px solid ${statusColor}`,
+                                    borderColor: isSelected ? '#10b981' : undefined,
+                                    boxShadow: isSelected ? '0 0 0 2px #10b981, 0 12px 28px rgba(16, 185, 129, 0.25)' : undefined,
                                     padding: '1.35rem'
                                 }}
-                                onClick={() => navigate(`/cases/${c.id}`)}
+                                onClick={() => {
+                                    if (isAdmin && selectionMode) {
+                                        toggleCaseSelection(c.id);
+                                    } else {
+                                        navigate(`/cases/${c.id}`);
+                                    }
+                                }}
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.transform = 'translateY(-3px)';
-                                    e.currentTarget.style.boxShadow = '0 16px 36px rgba(0, 0, 0, 0.4)';
+                                    if (!isSelected) e.currentTarget.style.boxShadow = '0 16px 36px rgba(0, 0, 0, 0.4)';
                                 }}
                                 onMouseLeave={(e) => {
                                     e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = 'none';
+                                    if (!isSelected) e.currentTarget.style.boxShadow = 'none';
                                 }}
                             >
                                 {/* Card Header */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                        {/* Admin Selection Checkbox */}
+                                        {isAdmin && (
+                                            <div
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleCaseSelection(c.id);
+                                                }}
+                                                style={{
+                                                    cursor: 'pointer',
+                                                    background: isSelected ? '#10b981' : 'rgba(255, 255, 255, 0.08)',
+                                                    border: isSelected ? '1.5px solid #10b981' : '1.5px solid rgba(255, 255, 255, 0.3)',
+                                                    borderRadius: '5px',
+                                                    width: '18px',
+                                                    height: '18px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    color: '#ffffff',
+                                                    fontSize: '11px',
+                                                    fontWeight: 800,
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                title={isSelected ? "Deseleccionar caso" : "Seleccionar caso a dedo"}
+                                            >
+                                                {isSelected ? '✓' : ''}
+                                            </div>
+                                        )}
+
                                         <span style={{
                                             fontSize: '0.75rem',
                                             fontWeight: 800,
@@ -630,11 +1073,10 @@ function Cases() {
                 </div>
             )}
 
-            {/* macOS Glass Create Case Modal */}
+            {/* Modal 1: Create Case Modal */}
             {showCreateModal && (
                 <div className="mac-modal-overlay">
                     <div className="mac-modal-card" style={{ maxWidth: '640px' }}>
-                        {/* macOS Modal Header */}
                         <div className="mac-modal-header">
                             <div className="mac-window-dots">
                                 <div className="mac-window-dot close" onClick={() => setShowCreateModal(false)} title="Cerrar"></div>
@@ -647,7 +1089,6 @@ function Cases() {
                             <div style={{ width: 52 }} />
                         </div>
 
-                        {/* Modal Body */}
                         <div className="mac-modal-body">
                             <form onSubmit={handleCreateCase}>
                                 <div className="mac-form-group">
@@ -868,7 +1309,7 @@ function Cases() {
                                                 style={{
                                                     display: 'flex', 
                                                     alignItems: 'center', 
-                                                    padding: '0.45rem 0.6rem',
+                                                    padding: '0.45rem 0.6rem', 
                                                     cursor: 'pointer', 
                                                     background: newCase.assignments.includes(u.id) ? 'rgba(16, 185, 129, 0.18)' : 'transparent',
                                                     borderRadius: '8px',
@@ -897,10 +1338,382 @@ function Cases() {
                                         className="mac-btn mac-btn-primary" 
                                         disabled={submitting}
                                     >
-                                        {submitting ? (t('creatingCase') || 'Ariendo Expediente...') : (t('createCaseFileBtn') || 'Aperturar Expediente')}
+                                        {submitting ? (t('creatingCase') || 'Abriendo Expediente...') : (t('createCaseFileBtn') || 'Aperturar Expediente')}
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal 2: Wipe Manager Modal (ADMIN ONLY) */}
+            {isAdmin && showWipeManagerModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '680px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowWipeManagerModal(false)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">
+                                ⚙️ Gestión de Carpetas de Wipe (Solo Administradores)
+                            </span>
+                            <div style={{ width: 52 }} />
+                        </div>
+
+                        <div className="mac-modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+                            {/* Explanatory Banner */}
+                            <div style={{
+                                background: 'rgba(59, 130, 246, 0.1)',
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                borderRadius: '10px',
+                                padding: '0.85rem 1rem',
+                                marginBottom: '1.25rem',
+                                fontSize: '0.82rem',
+                                color: '#bfdbfe'
+                            }}>
+                                💡 <strong>¿Cómo funcionan las carpetas de Wipe?</strong>
+                                <ul style={{ margin: '0.4rem 0 0 1.2rem', padding: 0, lineHeight: 1.5 }}>
+                                    <li>La carpeta marcada como <strong>⭐ ACTIVA EN LA WEB</strong> es la única visible para los usuarios normales.</li>
+                                    <li>Las demás carpetas permanecen archivadas de forma segura y solo los administradores pueden verlas y gestionarlas.</li>
+                                    <li>Cada carpeta guarda todos los casos asociados (tanto abiertos, como cerrados y archivados).</li>
+                                </ul>
+                            </div>
+
+                            {/* Create New Folder Section */}
+                            <div style={{
+                                background: 'rgba(0, 0, 0, 0.25)',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                borderRadius: '10px',
+                                padding: '1rem',
+                                marginBottom: '1.25rem'
+                            }}>
+                                <label className="mac-form-label" style={{ fontSize: '0.84rem', marginBottom: '0.5rem' }}>
+                                    ➕ Crear Nueva Carpeta de Wipe
+                                </label>
+                                <div style={{ display: 'flex', gap: '0.6rem' }}>
+                                    <input
+                                        type="text"
+                                        className="mac-form-input"
+                                        style={{ flex: 1 }}
+                                        placeholder="Ej: Wipe 2026, Temporada 3, Wipe Invierno..."
+                                        value={newFolderInput}
+                                        onChange={(e) => setNewFolderInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleCreateNewFolder();
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="mac-btn mac-btn-primary"
+                                        style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}
+                                        disabled={wipeActionLoading || !newFolderInput.trim()}
+                                        onClick={handleCreateNewFolder}
+                                    >
+                                        Crear Carpeta
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Existing Folders List */}
+                            <label className="mac-form-label" style={{ fontSize: '0.84rem', marginBottom: '0.6rem', display: 'block' }}>
+                                📁 Carpetas Registradas ({wipeFolders.length})
+                            </label>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                {wipeFolders.map(folder => {
+                                    const isActive = folder === activeWipeFolder;
+                                    const isViewing = folder === viewingWipeFolder;
+                                    const stats = wipeStats[folder] || { total: 0, open: 0, closed: 0, archived: 0 };
+
+                                    return (
+                                        <div
+                                            key={folder}
+                                            style={{
+                                                background: isActive 
+                                                    ? 'rgba(16, 185, 129, 0.08)' 
+                                                    : 'rgba(0, 0, 0, 0.3)',
+                                                border: isActive 
+                                                    ? '1.5px solid rgba(16, 185, 129, 0.4)' 
+                                                    : '1px solid rgba(255, 255, 255, 0.08)',
+                                                borderRadius: '12px',
+                                                padding: '0.9rem 1.1rem',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '0.65rem'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                                    <span style={{ fontSize: '1.2rem' }}>📁</span>
+                                                    <span style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff' }}>
+                                                        {folder}
+                                                    </span>
+
+                                                    {isActive && (
+                                                        <span style={{
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: 800,
+                                                            color: '#34d399',
+                                                            background: 'rgba(16, 185, 129, 0.2)',
+                                                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                                                            padding: '0.15rem 0.55rem',
+                                                            borderRadius: '9999px',
+                                                            letterSpacing: '0.04em'
+                                                        }}>
+                                                            ★ ACTIVA EN LA WEB
+                                                        </span>
+                                                    )}
+
+                                                    {isViewing && (
+                                                        <span style={{
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: 700,
+                                                            color: '#60a5fa',
+                                                            background: 'rgba(59, 130, 246, 0.18)',
+                                                            border: '1px solid rgba(59, 130, 246, 0.35)',
+                                                            padding: '0.15rem 0.55rem',
+                                                            borderRadius: '9999px'
+                                                        }}>
+                                                            👁️ Viendo ahora
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Action Buttons */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                                    {!isViewing && (
+                                                        <button
+                                                            type="button"
+                                                            className="mac-btn mac-btn-secondary"
+                                                            style={{ fontSize: '0.76rem', padding: '0.35rem 0.65rem' }}
+                                                            onClick={() => {
+                                                                handleChangeViewingWipe(folder);
+                                                                setShowWipeManagerModal(false);
+                                                            }}
+                                                        >
+                                                            👁️ Ver casos
+                                                        </button>
+                                                    )}
+
+                                                    {!isActive && (
+                                                        <button
+                                                            type="button"
+                                                            className="mac-btn mac-btn-primary"
+                                                            style={{ fontSize: '0.76rem', padding: '0.35rem 0.65rem', background: '#059669' }}
+                                                            disabled={wipeActionLoading}
+                                                            onClick={() => handleMakeActiveWipe(folder)}
+                                                        >
+                                                            ⭐ Hacer Activa
+                                                        </button>
+                                                    )}
+
+                                                    {folder !== DEFAULT_WIPE_FOLDER && (
+                                                        <button
+                                                            type="button"
+                                                            className="mac-btn mac-btn-secondary"
+                                                            style={{ fontSize: '0.76rem', padding: '0.35rem 0.65rem', color: '#f87171' }}
+                                                            disabled={wipeActionLoading}
+                                                            onClick={() => handleDeleteFolder(folder)}
+                                                            title="Eliminar carpeta de wipe"
+                                                        >
+                                                            🗑️ Borrar
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Folder Statistics */}
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '1rem',
+                                                fontSize: '0.78rem',
+                                                color: '#94a3b8',
+                                                borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                                                paddingTop: '0.45rem',
+                                                flexWrap: 'wrap'
+                                            }}>
+                                                <span><strong>Total:</strong> {stats.total} caso(s)</span>
+                                                <span style={{ color: '#34d399' }}>🟢 Abiertos: {stats.open}</span>
+                                                <span style={{ color: '#f87171' }}>🔴 Cerrados: {stats.closed}</span>
+                                                <span style={{ color: '#94a3b8' }}>📁 Archivados: {stats.archived}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="mac-modal-actions">
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-primary"
+                                onClick={() => setShowWipeManagerModal(false)}
+                            >
+                                Listo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal 3: Move Cases into Wipe Folder Modal (ADMIN ONLY) */}
+            {isAdmin && showMoveCasesModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '560px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowMoveCasesModal(false)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">
+                                📦 Almacenar Casos en Carpeta de Wipe
+                            </span>
+                            <div style={{ width: 52 }} />
+                        </div>
+
+                        <div className="mac-modal-body">
+                            {/* Scope Selector */}
+                            <div className="mac-form-group">
+                                <label className="mac-form-label">¿Qué casos deseas trasladar?</label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                    {selectedCaseIds.length > 0 && (
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.6rem',
+                                            background: moveScope === 'selected' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 0, 0, 0.3)',
+                                            border: moveScope === 'selected' ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.1)',
+                                            borderRadius: '8px',
+                                            padding: '0.65rem 0.85rem',
+                                            cursor: 'pointer',
+                                            color: '#ffffff',
+                                            fontSize: '0.85rem'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name="moveScope"
+                                                value="selected"
+                                                checked={moveScope === 'selected'}
+                                                onChange={() => setMoveScope('selected')}
+                                            />
+                                            <span>
+                                                Mover los <strong>{selectedCaseIds.length}</strong> casos seleccionados a mano
+                                            </span>
+                                        </label>
+                                    )}
+
+                                    <label style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.6rem',
+                                        background: moveScope === 'all' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 0, 0, 0.3)',
+                                        border: moveScope === 'all' ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.1)',
+                                        borderRadius: '8px',
+                                        padding: '0.65rem 0.85rem',
+                                        cursor: 'pointer',
+                                        color: '#ffffff',
+                                        fontSize: '0.85rem'
+                                    }}>
+                                        <input
+                                            type="radio"
+                                            name="moveScope"
+                                            value="all"
+                                            checked={moveScope === 'all'}
+                                            onChange={() => setMoveScope('all')}
+                                        />
+                                        <span>
+                                            Mover <strong>TODOS</strong> los casos de la carpeta "{viewingWipeFolder}" (Total: {wipeStats[viewingWipeFolder]?.total || cases.length} casos: abiertos, cerrados y archivados)
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Destination Selector */}
+                            <div className="mac-form-group">
+                                <label className="mac-form-label">Carpeta de Wipe de Destino</label>
+                                
+                                <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '0.6rem' }}>
+                                    <button
+                                        type="button"
+                                        className={`mac-btn ${moveTargetType === 'existing' ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
+                                        style={{ flex: 1, fontSize: '0.8rem', padding: '0.45rem' }}
+                                        onClick={() => setMoveTargetType('existing')}
+                                    >
+                                        Elegir existente
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`mac-btn ${moveTargetType === 'new' ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
+                                        style={{ flex: 1, fontSize: '0.8rem', padding: '0.45rem' }}
+                                        onClick={() => setMoveTargetType('new')}
+                                    >
+                                        ➕ Crear nueva carpeta
+                                    </button>
+                                </div>
+
+                                {moveTargetType === 'existing' ? (
+                                    <select
+                                        className="mac-form-input"
+                                        value={targetMoveFolder}
+                                        onChange={(e) => setTargetMoveFolder(e.target.value)}
+                                    >
+                                        <option value="">-- Selecciona una carpeta existente --</option>
+                                        {wipeFolders.map(folder => (
+                                            <option key={folder} value={folder} disabled={folder === viewingWipeFolder && moveScope === 'all'}>
+                                                {folder} {folder === viewingWipeFolder ? '(Carpeta actual)' : ''} {folder === activeWipeFolder ? '★ (Activa en la web)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        className="mac-form-input"
+                                        placeholder="Nombre de la nueva carpeta (ej: Wipe 2026, Wipe 2025...)"
+                                        value={newMoveFolderInput}
+                                        onChange={(e) => setNewMoveFolderInput(e.target.value)}
+                                        autoFocus
+                                    />
+                                )}
+                            </div>
+
+                            {/* Info note */}
+                            <div style={{
+                                background: 'rgba(255, 255, 255, 0.04)',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                borderRadius: '8px',
+                                padding: '0.75rem',
+                                fontSize: '0.78rem',
+                                color: '#94a3b8'
+                            }}>
+                                ℹ️ Los casos mantendrán todas sus novedades, investigaciones, fotografías, evidencias adjuntas y su estado actual (abierto, cerrado o archivado).
+                            </div>
+                        </div>
+
+                        <div className="mac-modal-actions">
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-secondary"
+                                onClick={() => setShowMoveCasesModal(false)}
+                                disabled={wipeActionLoading}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-primary"
+                                onClick={handleConfirmMoveCases}
+                                disabled={wipeActionLoading}
+                            >
+                                {wipeActionLoading ? 'Almacenando casos...' : 'Confirmar y Almacenar'}
+                            </button>
                         </div>
                     </div>
                 </div>

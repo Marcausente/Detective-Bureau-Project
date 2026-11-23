@@ -1295,6 +1295,19 @@ function CaseDetail() {
                     <span style={{ fontSize: '0.68rem', fontWeight: 800, color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}33`, padding: '0.15rem 0.5rem', borderRadius: '6px', textTransform: 'uppercase' }}>
                         {statusText}
                     </span>
+                    {info.wipe_folder && (
+                        <span style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            color: '#94a3b8',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '6px'
+                        }}>
+                            📁 {info.wipe_folder}
+                        </span>
+                    )}
                 </div>
                 <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.25rem', display: 'flex', gap: '0.8rem' }}>
                     <span>📍 {info.location || 'Ubicación no especificada'}</span>
