@@ -2,7 +2,19 @@ import { useState, useEffect } from 'react';
 import { getProfileImage } from '../utils/imageStorage';
 import '../index.css';
 
-function IncidentCard({ data, onExpand, onDelete, onEdit, isHighlighted, isTransferred = false, onToggleTransfer, matchedSubject = null }) {
+function IncidentCard({
+    data,
+    onExpand,
+    onDelete,
+    onEdit,
+    isHighlighted,
+    isTransferred = false,
+    onToggleTransfer,
+    matchedSubject = null,
+    isAdmin = false,
+    isSelected = false,
+    onToggleSelect = null
+}) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     useEffect(() => {
@@ -14,18 +26,60 @@ function IncidentCard({ data, onExpand, onDelete, onEdit, isHighlighted, isTrans
     return (
         <div className="announcement-card" style={{
             marginBottom: '1rem',
-            background: isHighlighted ? 'rgba(var(--color-blue-rgb), 0.12)' : 'rgba(var(--secondary-rgb), 0.4)',
+            background: isSelected ? 'rgba(16, 185, 129, 0.08)' : (isHighlighted ? 'rgba(var(--color-blue-rgb), 0.12)' : 'rgba(var(--secondary-rgb), 0.4)'),
             padding: '1rem',
             wordWrap: 'break-word',
             overflowWrap: 'anywhere',
-            border: isHighlighted ? '2px solid var(--color-blue-light)' : '2px solid transparent',
+            border: isSelected ? '2px solid #10b981' : (isHighlighted ? '2px solid var(--color-blue-light)' : '2px solid transparent'),
             borderRadius: '8px',
-            boxShadow: isHighlighted ? '0 0 20px rgba(var(--color-blue-rgb), 0.3)' : 'none',
+            boxShadow: isSelected ? '0 0 16px rgba(16, 185, 129, 0.35)' : (isHighlighted ? '0 0 20px rgba(var(--color-blue-rgb), 0.3)' : 'none'),
             transition: 'all 0.3s'
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>{data.title}</h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        {isAdmin && onToggleSelect && (
+                            <div
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggleSelect(data.record_id);
+                                }}
+                                style={{
+                                    cursor: 'pointer',
+                                    background: isSelected ? '#10b981' : 'rgba(255, 255, 255, 0.08)',
+                                    border: isSelected ? '1.5px solid #10b981' : '1.5px solid rgba(255, 255, 255, 0.3)',
+                                    borderRadius: '5px',
+                                    width: '18px',
+                                    height: '18px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#ffffff',
+                                    fontSize: '11px',
+                                    fontWeight: 800,
+                                    flexShrink: 0,
+                                    transition: 'all 0.15s ease'
+                                }}
+                                title={isSelected ? "Deseleccionar informe" : "Seleccionar informe a dedo"}
+                            >
+                                {isSelected ? '✓' : ''}
+                            </div>
+                        )}
+                        <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>{data.title}</h4>
+                        {data.wipe_folder && data.wipe_folder !== 'Actual' && (
+                            <span style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                color: '#94a3b8',
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                border: '1px solid rgba(255, 255, 255, 0.15)',
+                                padding: '0.1rem 0.45rem',
+                                borderRadius: '4px'
+                            }}>
+                                📁 {data.wipe_folder}
+                            </span>
+                        )}
+                    </div>
                     {data.tablet_incident_number && <div style={{ fontSize: '0.8rem', color: 'var(--accent-gold)', marginTop: '2px' }}>Tablet #: {data.tablet_incident_number}</div>}
                     {data.gang_names && data.gang_names.length > 0 && (
                         <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
