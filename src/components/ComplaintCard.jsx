@@ -12,6 +12,7 @@ function ComplaintCard({
     openCases = [],
     isHighlighted,
     isAdmin,
+    selectionMode,
     isSelected,
     onToggleSelect
 }) {
@@ -80,7 +81,7 @@ function ComplaintCard({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
-                        {isAdmin && (
+                        {isAdmin && selectionMode && (
                             <input
                                 type="checkbox"
                                 checked={Boolean(isSelected)}
@@ -121,7 +122,7 @@ function ComplaintCard({
                             #DEN-{data.record_id.substring(0, 6).toUpperCase()}
                         </span>
 
-                        {isAdmin && data.wipe_folder && (
+                        {isAdmin && data.wipe_folder && data.wipe_folder !== 'Actual' && (
                             <span style={{
                                 background: 'rgba(255, 255, 255, 0.08)',
                                 color: '#94a3b8',

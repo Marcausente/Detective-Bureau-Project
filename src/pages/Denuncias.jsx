@@ -1149,7 +1149,7 @@ function Denuncias() {
                     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
                     gap: '1.25rem',
                     width: '100%',
-                    height: 'calc(100% - 70px)',
+                    flex: 1,
                     minHeight: 0
                 }}>
                     {/* Column 1: Denuncias Abiertas */}
@@ -1195,6 +1195,7 @@ function Denuncias() {
                                                 openCases={openCases}
                                                 isHighlighted={isHighlighted}
                                                 isAdmin={isAdmin}
+                                                selectionMode={selectionMode}
                                                 isSelected={selectedDenunciaIds.includes(item.record_id)}
                                                 onToggleSelect={toggleDenunciaSelection}
                                             />
@@ -1247,6 +1248,7 @@ function Denuncias() {
                                                 openCases={openCases}
                                                 isHighlighted={isHighlighted}
                                                 isAdmin={isAdmin}
+                                                selectionMode={selectionMode}
                                                 isSelected={selectedDenunciaIds.includes(item.record_id)}
                                                 onToggleSelect={toggleDenunciaSelection}
                                             />
@@ -1298,6 +1300,7 @@ function Denuncias() {
                                                 onStatusChange={handleStatusChange}
                                                 isHighlighted={isHighlighted}
                                                 isAdmin={isAdmin}
+                                                selectionMode={selectionMode}
                                                 isSelected={selectedDenunciaIds.includes(item.record_id)}
                                                 onToggleSelect={toggleDenunciaSelection}
                                             />
