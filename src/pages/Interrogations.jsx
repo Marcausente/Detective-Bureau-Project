@@ -2,6 +2,16 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
+import {
+    DEFAULT_WIPE_FOLDER,
+    getActiveInterrogationsWipeFolder,
+    setActiveInterrogationsWipeFolder,
+    getInterrogationsWipeFoldersList,
+    createInterrogationsWipeFolder,
+    deleteInterrogationsWipeFolder,
+    moveInterrogationsToWipeFolder,
+    getInterrogationsWipeFoldersStats
+} from '../services/interrogationsWipeService';
 import '../index.css';
 
 function Interrogations() {
@@ -10,6 +20,21 @@ function Interrogations() {
     const [interrogations, setInterrogations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // --- WIPE MANAGEMENT STATE ---
+    const [activeWipeFolder, setActiveWipeFolderState] = useState(DEFAULT_WIPE_FOLDER);
+    const [viewingWipeFolder, setViewingWipeFolder] = useState(DEFAULT_WIPE_FOLDER);
+    const [wipeFolders, setWipeFolders] = useState([DEFAULT_WIPE_FOLDER]);
+    const [wipeStats, setWipeStats] = useState({});
+    const [selectedInterrogationIds, setSelectedInterrogationIds] = useState([]);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [showWipeManagerModal, setShowWipeManagerModal] = useState(false);
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [newWipeFolderName, setNewWipeFolderName] = useState('');
+    const [targetMoveFolder, setTargetMoveFolder] = useState('');
+    const [isCreatingNewMoveFolder, setIsCreatingNewMoveFolder] = useState(false);
+    const [moveMode, setMoveMode] = useState('selected'); // 'selected' | 'all'
+    const [wipeActionLoading, setWipeActionLoading] = useState(false);
 
     // Personnel State (for Agent Selection)
     const [personnel, setPersonnel] = useState([]);
@@ -33,30 +58,235 @@ function Interrogations() {
     const [submitLoading, setSubmitLoading] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
 
+    const isAdmin = Boolean(
+        currentUser && (
+            (currentUser.rol || '').toLowerCase().trim() === 'administrador' ||
+            (currentUser.rol || '').toLowerCase().trim() === 'superadmin' ||
+            (currentUser.rol || '').toLowerCase().includes('admin')
+        )
+    );
+    const isAyudante = (currentUser?.rol || '').toLowerCase().trim() === 'ayudante';
+
     useEffect(() => {
-        const getCurrentUser = async () => {
+        let isMounted = true;
+        const loadInitial = async () => {
             const { data: { user } } = await supabase.auth.getUser();
+            let uProfile = null;
             if (user) {
-                const { data } = await supabase.from('users').select('rol').eq('id', user.id).single();
-                setCurrentUser(data);
+                const { data } = await supabase.from('users').select('id, rol').eq('id', user.id).single();
+                uProfile = data;
+                if (isMounted) setCurrentUser(data);
+            }
+
+            const activeWipe = await getActiveInterrogationsWipeFolder();
+            const folders = await getInterrogationsWipeFoldersList();
+            const stats = await getInterrogationsWipeFoldersStats();
+
+            if (isMounted) {
+                setActiveWipeFolderState(activeWipe);
+                setViewingWipeFolder(activeWipe);
+                setWipeFolders(folders);
+                setWipeStats(stats);
+                loadData(activeWipe, uProfile);
+                fetchPersonnel();
             }
         };
-        getCurrentUser();
-        loadData();
-        fetchPersonnel();
+        loadInitial();
+        return () => { isMounted = false; };
     }, []);
 
-    const loadData = async () => {
+    // Re-fetch when viewingWipeFolder changes
+    useEffect(() => {
+        if (currentUser) {
+            loadData(viewingWipeFolder);
+        }
+    }, [viewingWipeFolder]);
+
+    const loadData = async (targetWipe = viewingWipeFolder, userProfile = currentUser) => {
         try {
             setLoading(true);
-            const { data, error } = await supabase.rpc('get_interrogations', {});
-            if (error) throw error;
-            setInterrogations(data || []);
+            const user = userProfile || currentUser;
+            const userIsAdmin = Boolean(
+                user && (
+                    (user.rol || '').toLowerCase().trim() === 'administrador' ||
+                    (user.rol || '').toLowerCase().trim() === 'superadmin' ||
+                    (user.rol || '').toLowerCase().includes('admin')
+                )
+            );
+
+            const wipeToQuery = userIsAdmin
+                ? (targetWipe || activeWipeFolder || DEFAULT_WIPE_FOLDER)
+                : (activeWipeFolder || DEFAULT_WIPE_FOLDER);
+
+            const [rpcRes, wipesRes] = await Promise.allSettled([
+                supabase.rpc('get_interrogations', {}),
+                supabase.from('interrogations').select('id, wipe_folder')
+            ]);
+
+            const wipeMap = new Map();
+            if (wipesRes.status === 'fulfilled' && wipesRes.value?.data) {
+                wipesRes.value.data.forEach(r => {
+                    wipeMap.set(r.id, (r.wipe_folder || '').trim() || DEFAULT_WIPE_FOLDER);
+                });
+            }
+
+            const rawData = (rpcRes.status === 'fulfilled' && !rpcRes.value.error)
+                ? (rpcRes.value.data || [])
+                : [];
+
+            const enriched = rawData.map(item => {
+                const folder = (item.wipe_folder || wipeMap.get(item.id) || DEFAULT_WIPE_FOLDER).trim();
+                return { ...item, wipe_folder: folder };
+            });
+
+            const filtered = enriched.filter(item => {
+                const f = item.wipe_folder || DEFAULT_WIPE_FOLDER;
+                if (wipeToQuery === DEFAULT_WIPE_FOLDER) {
+                    return !f || f === DEFAULT_WIPE_FOLDER;
+                }
+                return f.toLowerCase() === wipeToQuery.toLowerCase();
+            });
+
+            setInterrogations(filtered);
+
+            // Update stats
+            const stats = await getInterrogationsWipeFoldersStats();
+            setWipeStats(stats);
         } catch (err) {
             console.error('Error loading interrogations:', err.message || err);
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleChangeViewingWipe = (newFolder) => {
+        setViewingWipeFolder(newFolder);
+        setSelectedInterrogationIds([]);
+    };
+
+    const handleMakeActiveWipe = async (folder) => {
+        if (!folder) return;
+        setWipeActionLoading(true);
+        try {
+            await setActiveInterrogationsWipeFolder(folder);
+            setActiveWipeFolderState(folder);
+            alert(`Carpeta "${folder}" establecida como la carpeta activa visible para todos los agentes.`);
+        } catch (err) {
+            alert('Error al establecer carpeta activa: ' + err.message);
+        } finally {
+            setWipeActionLoading(false);
+        }
+    };
+
+    const handleCreateNewFolder = async () => {
+        const clean = newWipeFolderName.trim();
+        if (!clean) return;
+        setWipeActionLoading(true);
+        try {
+            const updated = await createInterrogationsWipeFolder(clean);
+            setWipeFolders(updated);
+            setNewWipeFolderName('');
+            setViewingWipeFolder(clean);
+            await loadData(clean);
+            alert(`Carpeta "${clean}" creada correctamente.`);
+        } catch (err) {
+            alert('Error al crear carpeta: ' + err.message);
+        } finally {
+            setWipeActionLoading(false);
+        }
+    };
+
+    const handleDeleteFolder = async (folder) => {
+        if (folder === DEFAULT_WIPE_FOLDER) {
+            alert('No puedes eliminar la carpeta base "Actual".');
+            return;
+        }
+        if (!window.confirm(`¿Estás seguro de eliminar la carpeta "${folder}"? Los interrogatorios en esta carpeta volverán a la carpeta "Actual".`)) {
+            return;
+        }
+        setWipeActionLoading(true);
+        try {
+            const updated = await deleteInterrogationsWipeFolder(folder, DEFAULT_WIPE_FOLDER);
+            setWipeFolders(updated);
+            if (viewingWipeFolder === folder) {
+                setViewingWipeFolder(DEFAULT_WIPE_FOLDER);
+                await loadData(DEFAULT_WIPE_FOLDER);
+            } else {
+                const stats = await getInterrogationsWipeFoldersStats();
+                setWipeStats(stats);
+            }
+            alert(`Carpeta "${folder}" eliminada.`);
+        } catch (err) {
+            alert('Error al eliminar carpeta: ' + err.message);
+        } finally {
+            setWipeActionLoading(false);
+        }
+    };
+
+    const handleOpenMoveModal = (scope = 'all') => {
+        setMoveMode(scope);
+        const diffFolder = wipeFolders.find(f => f !== viewingWipeFolder) || '';
+        setTargetMoveFolder(diffFolder);
+        setIsCreatingNewMoveFolder(false);
+        setShowMoveModal(true);
+    };
+
+    const handleExecuteMove = async () => {
+        const finalTarget = (targetMoveFolder || '').trim();
+        if (!finalTarget) {
+            alert('Selecciona o escribe una carpeta de destino válida.');
+            return;
+        }
+        if (finalTarget === viewingWipeFolder && moveMode === 'all') {
+            alert('La carpeta de destino debe ser diferente a la carpeta actual.');
+            return;
+        }
+        setWipeActionLoading(true);
+        try {
+            if (moveMode === 'selected') {
+                if (selectedInterrogationIds.length === 0) {
+                    alert('No hay interrogatorios seleccionados.');
+                    setWipeActionLoading(false);
+                    return;
+                }
+                await moveInterrogationsToWipeFolder({
+                    interrogationIds: selectedInterrogationIds,
+                    targetFolder: finalTarget
+                });
+            } else {
+                await moveInterrogationsToWipeFolder({
+                    interrogationIds: 'all',
+                    targetFolder: finalTarget,
+                    sourceFolder: viewingWipeFolder
+                });
+            }
+
+            const folders = await getInterrogationsWipeFoldersList();
+            setWipeFolders(folders);
+            setSelectedInterrogationIds([]);
+            setSelectionMode(false);
+            setShowMoveModal(false);
+            await loadData(viewingWipeFolder);
+            alert(`Interrogatorios trasladados exitosamente a la carpeta "${finalTarget}".`);
+        } catch (err) {
+            alert('Error al mover interrogatorios: ' + err.message);
+        } finally {
+            setWipeActionLoading(false);
+        }
+    };
+
+    const toggleInterrogationSelection = (id) => {
+        setSelectedInterrogationIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const selectAllInterrogations = () => {
+        setSelectedInterrogationIds(filteredItems.map(i => i.id));
+    };
+
+    const deselectAllInterrogations = () => {
+        setSelectedInterrogationIds([]);
     };
 
     const fetchPersonnel = async () => {
@@ -168,6 +398,26 @@ function Interrogations() {
                 p_url: formData.url
             });
             if (error) throw error;
+
+            if (modalMode === 'create') {
+                const folderToAssign = viewingWipeFolder || activeWipeFolder || DEFAULT_WIPE_FOLDER;
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user?.id) {
+                    const { data: latest } = await supabase
+                        .from('interrogations')
+                        .select('id')
+                        .eq('author_id', user.id)
+                        .order('created_at', { ascending: false })
+                        .limit(1);
+                    if (latest && latest[0]) {
+                        await supabase
+                            .from('interrogations')
+                            .update({ wipe_folder: folderToAssign })
+                            .eq('id', latest[0].id);
+                    }
+                }
+            }
+
             setShowModal(false);
             loadData();
         } catch (err) {
@@ -272,6 +522,79 @@ function Interrogations() {
 
                 {/* Right: Search & Action Buttons */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    {/* WIPE CONTROLS FOR ADMINS DIRECTLY IN NAVBAR */}
+                    {isAdmin && !isAyudante && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                background: 'rgba(0, 0, 0, 0.45)',
+                                border: viewingWipeFolder !== activeWipeFolder ? '1px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.15)',
+                                borderRadius: '20px',
+                                padding: '0.22rem 0.65rem',
+                                gap: '0.35rem'
+                            }}>
+                                <span style={{ fontSize: '0.8rem', color: viewingWipeFolder !== activeWipeFolder ? '#fbbf24' : '#94a3b8' }}>📁</span>
+                                <select
+                                    className="mac-select"
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: viewingWipeFolder !== activeWipeFolder ? '#fcd34d' : '#ffffff',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        padding: '0.1rem 0.2rem'
+                                    }}
+                                    value={viewingWipeFolder}
+                                    onChange={(e) => handleChangeViewingWipe(e.target.value)}
+                                    title="Carpeta de Wipe de interrogatorios"
+                                >
+                                    {wipeFolders.map(folder => (
+                                        <option key={folder} value={folder} style={{ background: '#1e293b', color: '#fff' }}>
+                                            {folder === activeWipeFolder ? `⭐ ${folder} (Activa)` : `📁 ${folder}`}
+                                            {wipeStats[folder]?.total != null ? ` (${wipeStats[folder].total})` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <button
+                                type="button"
+                                className={`mac-btn ${selectionMode ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
+                                style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem', border: '1px solid rgba(255,255,255,0.18)' }}
+                                onClick={() => {
+                                    setSelectionMode(!selectionMode);
+                                    if (selectionMode) setSelectedInterrogationIds([]);
+                                }}
+                                title="Seleccionar interrogatorios a dedo"
+                            >
+                                {selectionMode ? '✕ Cancelar' : '☑️ Seleccionar'}
+                            </button>
+
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-secondary"
+                                style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem', border: '1px solid rgba(255,255,255,0.18)' }}
+                                onClick={() => handleOpenMoveModal('all')}
+                                title="Almacenar interrogatorios de esta carpeta en otra"
+                            >
+                                📦 Mover
+                            </button>
+
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-secondary"
+                                style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem', border: '1px solid rgba(255,255,255,0.18)' }}
+                                onClick={() => setShowWipeManagerModal(true)}
+                                title="Gestión de carpetas de Wipe"
+                            >
+                                ⚙️ Wipes
+                            </button>
+                        </div>
+                    )}
+
                     {/* Clear URL ID parameter button */}
                     {searchParams.get('id') && (
                         <button
@@ -341,6 +664,57 @@ function Interrogations() {
                 </div>
             </div>
 
+            {/* Selection Toolbar (When selectionMode is active) */}
+            {isAdmin && !isAyudante && selectionMode && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    borderRadius: '12px',
+                    padding: '0.55rem 1rem',
+                    marginBottom: '0.75rem',
+                    flexShrink: 0,
+                    gap: '1rem',
+                    flexWrap: 'wrap'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#34d399', fontWeight: 700 }}>
+                            ☑️ {selectedInterrogationIds.length} seleccionado(s)
+                        </span>
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-secondary"
+                            style={{ fontSize: '0.74rem', padding: '0.25rem 0.6rem' }}
+                            onClick={selectAllInterrogations}
+                        >
+                            Seleccionar todos
+                        </button>
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-secondary"
+                            style={{ fontSize: '0.74rem', padding: '0.25rem 0.6rem' }}
+                            onClick={deselectAllInterrogations}
+                        >
+                            Deseleccionar
+                        </button>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-primary"
+                            style={{ fontSize: '0.78rem', padding: '0.35rem 0.85rem' }}
+                            disabled={selectedInterrogationIds.length === 0}
+                            onClick={() => handleOpenMoveModal('selected')}
+                        >
+                            📦 Mover seleccionados a...
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Main Content Area */}
             {loading ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#94a3b8', fontSize: '0.95rem' }}>
@@ -373,17 +747,45 @@ function Interrogations() {
                                 const isExpanded = !!expandedCards[item.id];
                                 const agentsList = item.agents_present ? item.agents_present.split(',').map(s => s.trim()).filter(Boolean) : [];
                                 const subjectsList = item.subjects ? item.subjects.split(',').map(s => s.trim()).filter(Boolean) : [];
+                                const isSelected = selectedInterrogationIds.includes(item.id);
 
                                 return (
                                     <div
                                         key={item.id}
                                         className="int-grid-card"
+                                        onClick={() => {
+                                            if (selectionMode) {
+                                                toggleInterrogationSelection(item.id);
+                                            }
+                                        }}
+                                        style={{
+                                            cursor: selectionMode ? 'pointer' : 'default',
+                                            boxShadow: isSelected
+                                                ? '0 0 0 2px #10b981, 0 8px 24px rgba(16, 185, 129, 0.25)'
+                                                : undefined
+                                        }}
                                     >
                                         <div>
                                             {/* Window Top Controls & Date Badge */}
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
                                                 {/* macOS window dots */}
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    {isAdmin && selectionMode && (
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={Boolean(isSelected)}
+                                                            onChange={() => toggleInterrogationSelection(item.id)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            style={{
+                                                                width: '16px',
+                                                                height: '16px',
+                                                                accentColor: '#10b981',
+                                                                cursor: 'pointer',
+                                                                marginRight: '6px'
+                                                            }}
+                                                            title="Seleccionar interrogatorio"
+                                                        />
+                                                    )}
                                                     <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }}></span>
                                                     <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }}></span>
                                                     <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
@@ -396,6 +798,19 @@ function Interrogations() {
                                                     }}>
                                                         #INT-{String(item.id).substring(0, 6).toUpperCase()}
                                                     </span>
+                                                    {isAdmin && item.wipe_folder && item.wipe_folder !== 'Actual' && (
+                                                        <span style={{
+                                                            fontSize: '0.68rem',
+                                                            padding: '0.12rem 0.45rem',
+                                                            borderRadius: '4px',
+                                                            background: 'rgba(255, 255, 255, 0.08)',
+                                                            color: '#94a3b8',
+                                                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                                                            marginLeft: '6px'
+                                                        }} title={`Carpeta de wipe: ${item.wipe_folder}`}>
+                                                            📁 {item.wipe_folder}
+                                                        </span>
+                                                    )}
                                                 </div>
 
                                                 {/* Date Badge */}
@@ -897,6 +1312,358 @@ function Interrogations() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Gestión de Carpetas de Wipe (ADMIN ONLY) */}
+            {isAdmin && showWipeManagerModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '640px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowWipeManagerModal(false)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">
+                                ⚙️ Gestión de Wipes - Interrogatorios
+                            </span>
+                            <div style={{ width: 52 }} />
+                        </div>
+
+                        <div className="mac-modal-body" style={{ maxHeight: '72vh', overflowY: 'auto' }}>
+                            <div style={{
+                                background: 'rgba(59, 130, 246, 0.1)',
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                borderRadius: '10px',
+                                padding: '0.85rem 1rem',
+                                marginBottom: '1.25rem',
+                                fontSize: '0.82rem',
+                                color: '#cbd5e1',
+                                lineHeight: 1.5
+                            }}>
+                                💡 <strong>Sistema de Wipes de Interrogatorios:</strong> Solo los administradores pueden gestionar y alternar entre carpetas. Los agentes regulares siempre verán únicamente la carpeta marcada como <strong>⭐ Activa</strong>.
+                            </div>
+
+                            {/* Create New Folder Section */}
+                            <div className="mac-form-group" style={{ marginBottom: '1.5rem' }}>
+                                <label className="mac-form-label" style={{ fontSize: '0.85rem', marginBottom: '0.4rem', display: 'block' }}>
+                                    ➕ Crear Nueva Carpeta de Wipe
+                                </label>
+                                <div style={{ display: 'flex', gap: '0.6rem' }}>
+                                    <input
+                                        type="text"
+                                        className="mac-input"
+                                        style={{ flex: 1 }}
+                                        placeholder="Ej: Wipe 2026, Temporada 3, Wipe Invierno..."
+                                        value={newWipeFolderName}
+                                        onChange={(e) => setNewWipeFolderName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleCreateNewFolder();
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="mac-btn mac-btn-primary"
+                                        style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}
+                                        disabled={wipeActionLoading || !newWipeFolderName.trim()}
+                                        onClick={handleCreateNewFolder}
+                                    >
+                                        Crear Carpeta
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Existing Folders List */}
+                            <label className="mac-form-label" style={{ fontSize: '0.84rem', marginBottom: '0.6rem', display: 'block' }}>
+                                📁 Carpetas Registradas ({wipeFolders.length})
+                            </label>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                {wipeFolders.map(folder => {
+                                    const isActive = folder === activeWipeFolder;
+                                    const isViewing = folder === viewingWipeFolder;
+                                    const stats = wipeStats[folder] || { total: 0, withMedia: 0 };
+
+                                    return (
+                                        <div
+                                            key={folder}
+                                            style={{
+                                                background: isActive 
+                                                    ? 'rgba(16, 185, 129, 0.08)' 
+                                                    : 'rgba(0, 0, 0, 0.3)',
+                                                border: isActive 
+                                                    ? '1.5px solid rgba(16, 185, 129, 0.4)' 
+                                                    : '1px solid rgba(255, 255, 255, 0.08)',
+                                                borderRadius: '12px',
+                                                padding: '0.9rem 1.1rem',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '0.65rem'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                                    <span style={{ fontSize: '1.2rem' }}>📁</span>
+                                                    <span style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff' }}>
+                                                        {folder}
+                                                    </span>
+
+                                                    {isActive && (
+                                                        <span style={{
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: 800,
+                                                            color: '#34d399',
+                                                            background: 'rgba(16, 185, 129, 0.2)',
+                                                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                                                            padding: '0.15rem 0.55rem',
+                                                            borderRadius: '9999px',
+                                                            letterSpacing: '0.04em'
+                                                        }}>
+                                                            ★ ACTIVA EN LA WEB
+                                                        </span>
+                                                    )}
+
+                                                    {isViewing && (
+                                                        <span style={{
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: 700,
+                                                            color: '#60a5fa',
+                                                            background: 'rgba(59, 130, 246, 0.18)',
+                                                            border: '1px solid rgba(59, 130, 246, 0.35)',
+                                                            padding: '0.15rem 0.55rem',
+                                                            borderRadius: '9999px'
+                                                        }}>
+                                                            👁️ Viendo ahora
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Action Buttons */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                                    {!isViewing && (
+                                                        <button
+                                                            type="button"
+                                                            className="mac-btn mac-btn-secondary"
+                                                            style={{ fontSize: '0.76rem', padding: '0.35rem 0.65rem' }}
+                                                            onClick={() => {
+                                                                handleChangeViewingWipe(folder);
+                                                                setShowWipeManagerModal(false);
+                                                            }}
+                                                        >
+                                                            👁️ Ver
+                                                        </button>
+                                                    )}
+
+                                                    {!isActive && (
+                                                        <button
+                                                            type="button"
+                                                            className="mac-btn mac-btn-primary"
+                                                            style={{ fontSize: '0.76rem', padding: '0.35rem 0.65rem', background: '#059669' }}
+                                                            disabled={wipeActionLoading}
+                                                            onClick={() => handleMakeActiveWipe(folder)}
+                                                        >
+                                                            ⭐ Hacer Activa
+                                                        </button>
+                                                    )}
+
+                                                    {folder !== DEFAULT_WIPE_FOLDER && (
+                                                        <button
+                                                            type="button"
+                                                            className="mac-btn mac-btn-secondary"
+                                                            style={{ fontSize: '0.76rem', padding: '0.35rem 0.65rem', color: '#f87171' }}
+                                                            disabled={wipeActionLoading}
+                                                            onClick={() => handleDeleteFolder(folder)}
+                                                            title="Eliminar carpeta de wipe"
+                                                        >
+                                                            🗑️ Borrar
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Folder Statistics */}
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '1rem',
+                                                fontSize: '0.78rem',
+                                                color: '#94a3b8',
+                                                borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                                                paddingTop: '0.45rem',
+                                                flexWrap: 'wrap'
+                                            }}>
+                                                <span><strong>Total:</strong> {stats.total} interrogatorio(s)</span>
+                                                <span style={{ color: '#4ade80' }}>🎥 Con grabación: {stats.withMedia}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="mac-modal-actions">
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-primary"
+                                onClick={() => setShowWipeManagerModal(false)}
+                            >
+                                Listo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Move Interrogations into Wipe Folder (ADMIN ONLY) */}
+            {isAdmin && showMoveModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '560px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowMoveModal(false)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">
+                                📦 Almacenar Interrogatorios en Wipe
+                            </span>
+                            <div style={{ width: 52 }} />
+                        </div>
+
+                        <div className="mac-modal-body">
+                            {/* Scope Selector */}
+                            <div className="mac-form-group">
+                                <label className="mac-form-label">¿Qué interrogatorios deseas trasladar?</label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                    {selectedInterrogationIds.length > 0 && (
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.6rem',
+                                            background: moveMode === 'selected' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 0, 0, 0.3)',
+                                            border: moveMode === 'selected' ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.1)',
+                                            borderRadius: '8px',
+                                            padding: '0.65rem 0.85rem',
+                                            cursor: 'pointer',
+                                            color: '#ffffff',
+                                            fontSize: '0.85rem'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name="moveMode"
+                                                value="selected"
+                                                checked={moveMode === 'selected'}
+                                                onChange={() => setMoveMode('selected')}
+                                            />
+                                            <span>
+                                                Mover los <strong>{selectedInterrogationIds.length}</strong> interrogatorios seleccionados a dedo
+                                            </span>
+                                        </label>
+                                    )}
+
+                                    <label style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.6rem',
+                                        background: moveMode === 'all' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 0, 0, 0.3)',
+                                        border: moveMode === 'all' ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.1)',
+                                        borderRadius: '8px',
+                                        padding: '0.65rem 0.85rem',
+                                        cursor: 'pointer',
+                                        color: '#ffffff',
+                                        fontSize: '0.85rem'
+                                    }}>
+                                        <input
+                                            type="radio"
+                                            name="moveMode"
+                                            value="all"
+                                            checked={moveMode === 'all'}
+                                            onChange={() => setMoveMode('all')}
+                                        />
+                                        <span>
+                                            Mover <strong>TODOS</strong> los interrogatorios de la carpeta "{viewingWipeFolder}" (Total: {wipeStats[viewingWipeFolder]?.total || interrogations.length})
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Destination Selector */}
+                            <div className="mac-form-group">
+                                <label className="mac-form-label">Carpeta de Destino</label>
+                                
+                                <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '0.6rem' }}>
+                                    <button
+                                        type="button"
+                                        className={`mac-btn ${!isCreatingNewMoveFolder ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
+                                        style={{ flex: 1, fontSize: '0.8rem', padding: '0.45rem' }}
+                                        onClick={() => setIsCreatingNewMoveFolder(false)}
+                                    >
+                                        Elegir existente
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`mac-btn ${isCreatingNewMoveFolder ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
+                                        style={{ flex: 1, fontSize: '0.8rem', padding: '0.45rem' }}
+                                        onClick={() => {
+                                            setIsCreatingNewMoveFolder(true);
+                                            setTargetMoveFolder('');
+                                        }}
+                                    >
+                                        ➕ Crear nueva
+                                    </button>
+                                </div>
+
+                                {!isCreatingNewMoveFolder ? (
+                                    <select
+                                        className="mac-select"
+                                        style={{ width: '100%', padding: '0.55rem' }}
+                                        value={targetMoveFolder}
+                                        onChange={(e) => setTargetMoveFolder(e.target.value)}
+                                    >
+                                        <option value="">-- Selecciona carpeta destino --</option>
+                                        {wipeFolders.map(f => (
+                                            <option key={f} value={f}>
+                                                📁 {f} {f === activeWipeFolder ? '(Activa en web)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        className="mac-input"
+                                        style={{ width: '100%' }}
+                                        placeholder="Nombre de la nueva carpeta de wipe..."
+                                        value={targetMoveFolder}
+                                        onChange={(e) => setTargetMoveFolder(e.target.value)}
+                                        autoFocus
+                                    />
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mac-modal-actions">
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-secondary"
+                                onClick={() => setShowMoveModal(false)}
+                                disabled={wipeActionLoading}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-primary"
+                                onClick={handleExecuteMove}
+                                disabled={wipeActionLoading || !targetMoveFolder.trim()}
+                            >
+                                {wipeActionLoading ? 'Moviendo...' : 'Confirmar Traslado'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

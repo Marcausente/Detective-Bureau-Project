@@ -4,6 +4,16 @@ import { supabase } from '../supabaseClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { parseMultipleBallisticReports, parseSingleBallisticReport } from '../utils/ballisticsParser';
+import {
+    DEFAULT_WIPE_FOLDER,
+    getActiveBallisticsWipeFolder,
+    setActiveBallisticsWipeFolder,
+    getBallisticsWipeFoldersList,
+    createBallisticsWipeFolder,
+    deleteBallisticsWipeFolder,
+    moveBallisticsToWipeFolder,
+    getBallisticsWipeFoldersStats
+} from '../services/ballisticsWipeService';
 import '../index.css';
 
 function Ballistics() {
@@ -23,6 +33,32 @@ function Ballistics() {
     const [submitting, setSubmitting] = useState(false);
     const [dbError, setDbError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // User & Wipe states
+    const [currentUser, setCurrentUser] = useState(null);
+    const [activeWipeFolder, setActiveWipeFolderState] = useState(DEFAULT_WIPE_FOLDER);
+    const [viewingWipeFolder, setViewingWipeFolder] = useState(DEFAULT_WIPE_FOLDER);
+    const [wipeFolders, setWipeFolders] = useState([DEFAULT_WIPE_FOLDER]);
+    const [wipeStats, setWipeStats] = useState({});
+    const [selectedBulletIds, setSelectedBulletIds] = useState([]);
+    const [selectedWeaponIds, setSelectedWeaponIds] = useState([]);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [showWipeManagerModal, setShowWipeManagerModal] = useState(false);
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [newWipeFolderName, setNewWipeFolderName] = useState('');
+    const [targetMoveFolder, setTargetMoveFolder] = useState('');
+    const [isCreatingNewMoveFolder, setIsCreatingNewMoveFolder] = useState(false);
+    const [moveMode, setMoveMode] = useState('selected'); // 'selected' | 'all'
+    const [wipeActionLoading, setWipeActionLoading] = useState(false);
+
+    const isAdmin = Boolean(
+        currentUser && (
+            (currentUser.rol || '').toLowerCase().trim() === 'administrador' ||
+            (currentUser.rol || '').toLowerCase().trim() === 'superadmin' ||
+            (currentUser.rol || '').toLowerCase().includes('admin')
+        )
+    );
+    const isAyudante = (currentUser?.rol || '').toLowerCase().trim() === 'ayudante';
 
     // Case Linking / Rejection Modals
     const [linkMatchModal, setLinkMatchModal] = useState({ open: false, group: null });
@@ -142,62 +178,150 @@ function Ballistics() {
 
     // Load initial data
     useEffect(() => {
-        loadData();
-        try {
-            const seen = JSON.parse(localStorage.getItem('seen_ballistics_matches') || '[]');
-            setSeenMatchIds(seen);
-        } catch (e) {
-            console.error("Error reading localStorage:", e);
-        }
+        let isMounted = true;
+        const loadInitial = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            let uProfile = null;
+            if (user) {
+                const { data } = await supabase.from('users').select('id, rol').eq('id', user.id).single();
+                uProfile = data;
+                if (isMounted) setCurrentUser(data);
+            }
+
+            const activeWipe = await getActiveBallisticsWipeFolder();
+            const folders = await getBallisticsWipeFoldersList();
+            const stats = await getBallisticsWipeFoldersStats();
+
+            if (isMounted) {
+                setActiveWipeFolderState(activeWipe);
+                setViewingWipeFolder(activeWipe);
+                setWipeFolders(folders);
+                setWipeStats(stats);
+                loadData(activeWipe, uProfile);
+            }
+
+            try {
+                const seen = JSON.parse(localStorage.getItem('seen_ballistics_matches') || '[]');
+                if (isMounted) setSeenMatchIds(seen);
+            } catch (e) {
+                console.error("Error reading localStorage:", e);
+            }
+        };
+        loadInitial();
+        return () => { isMounted = false; };
     }, []);
 
-    const loadData = async () => {
+    // Re-fetch when viewingWipeFolder changes
+    useEffect(() => {
+        if (currentUser) {
+            loadData(viewingWipeFolder);
+        }
+    }, [viewingWipeFolder]);
+
+    const loadData = async (targetWipe = viewingWipeFolder, userProfile = currentUser) => {
         setLoading(true);
         setDbError(null);
         try {
-            // Fetch Bullets
-            const { data: bulletsData, error: bulletsError } = await supabase.rpc('get_ballistics_bullets');
-            if (bulletsError) {
-                console.error("Error fetching bullets:", bulletsError);
-                if (bulletsError.message.includes("does not exist")) {
+            const user = userProfile || currentUser;
+            const userIsAdmin = Boolean(
+                user && (
+                    (user.rol || '').toLowerCase().trim() === 'administrador' ||
+                    (user.rol || '').toLowerCase().trim() === 'superadmin' ||
+                    (user.rol || '').toLowerCase().includes('admin')
+                )
+            );
+
+            const wipeToQuery = userIsAdmin
+                ? (targetWipe || activeWipeFolder || DEFAULT_WIPE_FOLDER)
+                : (activeWipeFolder || DEFAULT_WIPE_FOLDER);
+
+            // Fetch Bullets, Weapons, and their Wipe folders in parallel
+            const [bulletsRpcRes, weaponsRpcRes, bulletsWipeRes, weaponsWipeRes, matchesRes, casesRes] = await Promise.allSettled([
+                supabase.rpc('get_ballistics_bullets'),
+                supabase.rpc('get_ballistics_weapons'),
+                supabase.from('ballistics_bullets').select('id, wipe_folder'),
+                supabase.from('ballistics_weapons').select('id, wipe_folder'),
+                supabase.rpc('get_ballistics_matches'),
+                supabase.from('cases').select('id, title, case_number, status').order('case_number', { ascending: false })
+            ]);
+
+            if (bulletsRpcRes.status === 'fulfilled' && bulletsRpcRes.value.error) {
+                const bErr = bulletsRpcRes.value.error;
+                console.error("Error fetching bullets:", bErr);
+                if (bErr.message?.includes("does not exist")) {
                     setDbError("El sistema de base de datos de Balística no está inicializado. Por favor ejecuta el archivo SQL 'BBDD/link_cases_ballistics.sql' o 'BBDD/create_ballistics_system.sql' en tu panel de Supabase.");
                     setLoading(false);
                     return;
                 }
-                throw bulletsError;
+                throw bErr;
             }
 
-            // Fetch Weapons
-            const { data: weaponsData, error: weaponsError } = await supabase.rpc('get_ballistics_weapons');
-            if (weaponsError) throw weaponsError;
-
-            // Fetch Ballistics Matches Status
-            try {
-                const { data: matchesData } = await supabase.rpc('get_ballistics_matches');
-                setBallisticsMatches(matchesData || []);
-            } catch (mErr) {
-                console.warn("Could not fetch ballistics matches RPC:", mErr);
+            if (weaponsRpcRes.status === 'fulfilled' && weaponsRpcRes.value.error) {
+                throw weaponsRpcRes.value.error;
             }
 
-            // Fetch Cases list
-            try {
-                const { data: casesData } = await supabase
-                    .from('cases')
-                    .select('id, title, case_number, status')
-                    .order('case_number', { ascending: false });
-                setCasesList(casesData || []);
-            } catch (cErr) {
-                console.warn("Could not fetch cases list:", cErr);
+            const rawBullets = (bulletsRpcRes.status === 'fulfilled' && !bulletsRpcRes.value.error) ? (bulletsRpcRes.value.data || []) : [];
+            const rawWeapons = (weaponsRpcRes.status === 'fulfilled' && !weaponsRpcRes.value.error) ? (weaponsRpcRes.value.data || []) : [];
+
+            // Build wipe maps from direct table query
+            const bulletsWipeMap = new Map();
+            if (bulletsWipeRes.status === 'fulfilled' && bulletsWipeRes.value?.data) {
+                bulletsWipeRes.value.data.forEach(r => {
+                    bulletsWipeMap.set(r.id, (r.wipe_folder || '').trim() || DEFAULT_WIPE_FOLDER);
+                });
             }
 
-            const fetchedBullets = bulletsData || [];
-            const fetchedWeapons = weaponsData || [];
+            const weaponsWipeMap = new Map();
+            if (weaponsWipeRes.status === 'fulfilled' && weaponsWipeRes.value?.data) {
+                weaponsWipeRes.value.data.forEach(r => {
+                    weaponsWipeMap.set(r.id, (r.wipe_folder || '').trim() || DEFAULT_WIPE_FOLDER);
+                });
+            }
 
-            setBullets(fetchedBullets);
-            setWeapons(fetchedWeapons);
+            // Enrich and filter bullets by wipe
+            const filteredBullets = rawBullets
+                .map(b => ({
+                    ...b,
+                    wipe_folder: (b.wipe_folder || bulletsWipeMap.get(b.id) || DEFAULT_WIPE_FOLDER).trim()
+                }))
+                .filter(b => {
+                    const f = b.wipe_folder || DEFAULT_WIPE_FOLDER;
+                    if (wipeToQuery === DEFAULT_WIPE_FOLDER) {
+                        return !f || f === DEFAULT_WIPE_FOLDER;
+                    }
+                    return f.toLowerCase() === wipeToQuery.toLowerCase();
+                });
 
-            // Compute coincidences
-            recalculateCoincidences(fetchedBullets, fetchedWeapons);
+            // Enrich and filter weapons by wipe
+            const filteredWeapons = rawWeapons
+                .map(w => ({
+                    ...w,
+                    wipe_folder: (w.wipe_folder || weaponsWipeMap.get(w.id) || DEFAULT_WIPE_FOLDER).trim()
+                }))
+                .filter(w => {
+                    const f = w.wipe_folder || DEFAULT_WIPE_FOLDER;
+                    if (wipeToQuery === DEFAULT_WIPE_FOLDER) {
+                        return !f || f === DEFAULT_WIPE_FOLDER;
+                    }
+                    return f.toLowerCase() === wipeToQuery.toLowerCase();
+                });
+
+            if (matchesRes.status === 'fulfilled' && matchesRes.value?.data) {
+                setBallisticsMatches(matchesRes.value.data);
+            }
+            if (casesRes.status === 'fulfilled' && casesRes.value?.data) {
+                setCasesList(casesRes.value.data);
+            }
+
+            setBullets(filteredBullets);
+            setWeapons(filteredWeapons);
+
+            // Compute coincidences based on the filtered records of the current wipe folder
+            recalculateCoincidences(filteredBullets, filteredWeapons);
+
+            // Refresh wipe statistics
+            const stats = await getBallisticsWipeFoldersStats();
+            setWipeStats(stats);
 
         } catch (err) {
             console.error('Error loading ballistics data:', err);
@@ -205,6 +329,151 @@ function Ballistics() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleChangeViewingWipe = (newFolder) => {
+        setViewingWipeFolder(newFolder);
+        setSelectedBulletIds([]);
+        setSelectedWeaponIds([]);
+    };
+
+    const handleMakeActiveWipe = async (folder) => {
+        if (!folder) return;
+        setWipeActionLoading(true);
+        try {
+            await setActiveBallisticsWipeFolder(folder);
+            setActiveWipeFolderState(folder);
+            alert(`Carpeta "${folder}" establecida como la carpeta activa visible para todos los agentes.`);
+        } catch (err) {
+            alert('Error al establecer carpeta activa: ' + err.message);
+        } finally {
+            setWipeActionLoading(false);
+        }
+    };
+
+    const handleCreateNewFolder = async () => {
+        const clean = newWipeFolderName.trim();
+        if (!clean) return;
+        setWipeActionLoading(true);
+        try {
+            const updated = await createBallisticsWipeFolder(clean);
+            setWipeFolders(updated);
+            setNewWipeFolderName('');
+            setViewingWipeFolder(clean);
+            await loadData(clean);
+            alert(`Carpeta "${clean}" creada correctamente.`);
+        } catch (err) {
+            alert('Error al crear carpeta: ' + err.message);
+        } finally {
+            setWipeActionLoading(false);
+        }
+    };
+
+    const handleDeleteFolder = async (folder) => {
+        if (folder === DEFAULT_WIPE_FOLDER) {
+            alert('No puedes eliminar la carpeta base "Actual".');
+            return;
+        }
+        if (!window.confirm(`¿Estás seguro de eliminar la carpeta "${folder}"? Todos los casquillos y armas volverán a la carpeta "Actual".`)) {
+            return;
+        }
+        setWipeActionLoading(true);
+        try {
+            const updated = await deleteBallisticsWipeFolder(folder, DEFAULT_WIPE_FOLDER);
+            setWipeFolders(updated);
+            if (viewingWipeFolder === folder) {
+                setViewingWipeFolder(DEFAULT_WIPE_FOLDER);
+                await loadData(DEFAULT_WIPE_FOLDER);
+            } else {
+                const stats = await getBallisticsWipeFoldersStats();
+                setWipeStats(stats);
+            }
+            alert(`Carpeta "${folder}" eliminada.`);
+        } catch (err) {
+            alert('Error al eliminar carpeta: ' + err.message);
+        } finally {
+            setWipeActionLoading(false);
+        }
+    };
+
+    const handleOpenMoveModal = (scope = 'all') => {
+        setMoveMode(scope);
+        const diffFolder = wipeFolders.find(f => f !== viewingWipeFolder) || '';
+        setTargetMoveFolder(diffFolder);
+        setIsCreatingNewMoveFolder(false);
+        setShowMoveModal(true);
+    };
+
+    const handleExecuteMove = async () => {
+        const finalTarget = (targetMoveFolder || '').trim();
+        if (!finalTarget) {
+            alert('Selecciona o escribe una carpeta de destino válida.');
+            return;
+        }
+        if (finalTarget === viewingWipeFolder && moveMode === 'all') {
+            alert('La carpeta de destino debe ser diferente a la carpeta actual.');
+            return;
+        }
+        setWipeActionLoading(true);
+        try {
+            if (moveMode === 'selected') {
+                if (selectedBulletIds.length === 0 && selectedWeaponIds.length === 0) {
+                    alert('No hay elementos seleccionados para mover.');
+                    setWipeActionLoading(false);
+                    return;
+                }
+                await moveBallisticsToWipeFolder({
+                    bulletIds: selectedBulletIds,
+                    weaponIds: selectedWeaponIds,
+                    targetFolder: finalTarget
+                });
+            } else {
+                await moveBallisticsToWipeFolder({
+                    bulletIds: 'all',
+                    weaponIds: 'all',
+                    targetFolder: finalTarget,
+                    sourceFolder: viewingWipeFolder
+                });
+            }
+
+            const folders = await getBallisticsWipeFoldersList();
+            setWipeFolders(folders);
+            setSelectedBulletIds([]);
+            setSelectedWeaponIds([]);
+            setSelectionMode(false);
+            setShowMoveModal(false);
+            await loadData(viewingWipeFolder);
+            alert(`Elementos de balística trasladados exitosamente a la carpeta "${finalTarget}".`);
+        } catch (err) {
+            alert('Error al mover balística: ' + err.message);
+        } finally {
+            setWipeActionLoading(false);
+        }
+    };
+
+    const toggleBulletSelection = (id) => {
+        setSelectedBulletIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const toggleWeaponSelection = (id) => {
+        setSelectedWeaponIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const selectAllCurrentTab = () => {
+        if (activeTab === 'bullets') {
+            setSelectedBulletIds(filteredBullets.map(b => b.id));
+        } else if (activeTab === 'weapons') {
+            setSelectedWeaponIds(filteredWeapons.map(w => w.id));
+        }
+    };
+
+    const deselectAll = () => {
+        setSelectedBulletIds([]);
+        setSelectedWeaponIds([]);
     };
 
     const recalculateCoincidences = (bulletsList, weaponsList) => {
@@ -554,6 +823,19 @@ function Ballistics() {
                 alert(`🚨 ¡ALERTA BALÍSTICA: COINCIDENCIA ENTRE INCIDENTES!\n\nSe han registrado casquillos que demuestran que la MISMA ARMA ha disparado en diferentes incidentes:\n\n${summaryList}\n\nLos registros han quedado vinculados en el sistema.`);
             }
 
+            const curWipe = viewingWipeFolder || activeWipeFolder || DEFAULT_WIPE_FOLDER;
+            if (curWipe !== DEFAULT_WIPE_FOLDER) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user?.id) {
+                    await supabase
+                        .from('ballistics_bullets')
+                        .update({ wipe_folder: curWipe })
+                        .eq('author_id', user.id)
+                        .eq('incidente_relacionado', bulletBatchIncident.trim())
+                        .or(`wipe_folder.eq.${DEFAULT_WIPE_FOLDER},wipe_folder.is.null`);
+                }
+            }
+
             setShowBulletModal(false);
             await loadData();
         } catch (err) {
@@ -662,6 +944,19 @@ function Ballistics() {
                             });
                         }
                     }
+                }
+            }
+
+            const curWipe = viewingWipeFolder || activeWipeFolder || DEFAULT_WIPE_FOLDER;
+            if (curWipe !== DEFAULT_WIPE_FOLDER) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user?.id) {
+                    await supabase
+                        .from('ballistics_weapons')
+                        .update({ wipe_folder: curWipe })
+                        .eq('author_id', user.id)
+                        .eq('incidente_relacionado', weaponBatchIncident.trim())
+                        .or(`wipe_folder.eq.${DEFAULT_WIPE_FOLDER},wipe_folder.is.null`);
                 }
             }
 
@@ -1364,6 +1659,82 @@ function Ballistics() {
                         </button>
                     </div>
 
+                    {/* WIPE CONTROLS FOR ADMINS DIRECTLY IN NAVBAR */}
+                    {isAdmin && !isAyudante && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                background: 'rgba(0, 0, 0, 0.45)',
+                                border: viewingWipeFolder !== activeWipeFolder ? '1px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.15)',
+                                borderRadius: '20px',
+                                padding: '0.22rem 0.65rem',
+                                gap: '0.35rem'
+                            }}>
+                                <span style={{ fontSize: '0.8rem', color: viewingWipeFolder !== activeWipeFolder ? '#fbbf24' : '#94a3b8' }}>📁</span>
+                                <select
+                                    className="mac-select"
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: viewingWipeFolder !== activeWipeFolder ? '#fcd34d' : '#ffffff',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        padding: '0.1rem 0.2rem'
+                                    }}
+                                    value={viewingWipeFolder}
+                                    onChange={(e) => handleChangeViewingWipe(e.target.value)}
+                                    title="Carpeta de Wipe de balística"
+                                >
+                                    {wipeFolders.map(folder => (
+                                        <option key={folder} value={folder} style={{ background: '#1e293b', color: '#fff' }}>
+                                            {folder === activeWipeFolder ? `⭐ ${folder} (Activa)` : `📁 ${folder}`}
+                                            {wipeStats[folder]?.total != null ? ` (${wipeStats[folder].total})` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <button
+                                type="button"
+                                className={`mac-btn ${selectionMode ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
+                                style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem', border: '1px solid rgba(255,255,255,0.18)' }}
+                                onClick={() => {
+                                    setSelectionMode(!selectionMode);
+                                    if (selectionMode) {
+                                        setSelectedBulletIds([]);
+                                        setSelectedWeaponIds([]);
+                                    }
+                                }}
+                                title="Seleccionar elementos a dedo"
+                            >
+                                {selectionMode ? '✕ Cancelar' : '☑️ Seleccionar'}
+                            </button>
+
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-secondary"
+                                style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem', border: '1px solid rgba(255,255,255,0.18)' }}
+                                onClick={() => handleOpenMoveModal('all')}
+                                title="Almacenar balística de esta carpeta en otra"
+                            >
+                                📦 Mover
+                            </button>
+
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-secondary"
+                                style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem', border: '1px solid rgba(255,255,255,0.18)' }}
+                                onClick={() => setShowWipeManagerModal(true)}
+                                title="Gestión de carpetas de Wipe"
+                            >
+                                ⚙️ Wipes
+                            </button>
+                        </div>
+                    )}
+
                     {/* Action Buttons */}
                     <button
                         type="button"
@@ -1415,6 +1786,61 @@ function Ballistics() {
                     </button>
                 </div>
             </div>
+
+            {/* Selection Toolbar (When selectionMode is active) */}
+            {isAdmin && !isAyudante && selectionMode && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                    borderRadius: '12px',
+                    padding: '0.55rem 1rem',
+                    marginBottom: '0.75rem',
+                    flexShrink: 0,
+                    gap: '1rem',
+                    flexWrap: 'wrap'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '0.85rem', color: '#34d399', fontWeight: 700 }}>
+                            ☑️ {selectedBulletIds.length + selectedWeaponIds.length} elemento(s) seleccionado(s)
+                            {selectedBulletIds.length > 0 && ` (${selectedBulletIds.length} casquillo${selectedBulletIds.length > 1 ? 's' : ''})`}
+                            {selectedWeaponIds.length > 0 && ` (${selectedWeaponIds.length} arma${selectedWeaponIds.length > 1 ? 's' : ''})`}
+                        </span>
+                        {['bullets', 'weapons'].includes(activeTab) && (
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-secondary"
+                                style={{ fontSize: '0.74rem', padding: '0.25rem 0.6rem' }}
+                                onClick={selectAllCurrentTab}
+                            >
+                                Seleccionar todos ({activeTab === 'bullets' ? 'casquillos' : 'armas'})
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-secondary"
+                            style={{ fontSize: '0.74rem', padding: '0.25rem 0.6rem' }}
+                            onClick={deselectAll}
+                        >
+                            Deseleccionar
+                        </button>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <button
+                            type="button"
+                            className="mac-btn mac-btn-primary"
+                            style={{ fontSize: '0.78rem', padding: '0.35rem 0.85rem' }}
+                            disabled={selectedBulletIds.length === 0 && selectedWeaponIds.length === 0}
+                            onClick={() => handleOpenMoveModal('selected')}
+                        >
+                            📦 Mover seleccionados a...
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Float Alert Match Notification Banner */}
             {alertMatch && (
@@ -2018,16 +2444,26 @@ function Ballistics() {
                                     gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
                                     gap: '1.25rem'
                                 }}>
-                                    {filteredBullets.map(item => (
+                                    {filteredBullets.map(item => {
+                                        const isSelected = selectedBulletIds.includes(item.id);
+                                        return (
                                         <div
                                             key={item.id}
+                                            onClick={() => {
+                                                if (selectionMode) {
+                                                    toggleBulletSelection(item.id);
+                                                }
+                                            }}
                                             style={{
                                                 background: 'rgba(15, 23, 42, 0.65)',
                                                 backdropFilter: 'blur(16px)',
                                                 border: item.case_id ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
                                                 borderRadius: '16px',
                                                 padding: '1.15rem',
-                                                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                                                boxShadow: isSelected
+                                                    ? '0 0 0 2px #10b981, 0 8px 24px rgba(16, 185, 129, 0.25)'
+                                                    : '0 4px 20px rgba(0, 0, 0, 0.25)',
+                                                cursor: selectionMode ? 'pointer' : 'default',
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 justifyContent: 'space-between',
@@ -2038,9 +2474,38 @@ function Ballistics() {
                                                 {/* Header window controls & edit / trash buttons */}
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        {isAdmin && selectionMode && (
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={Boolean(isSelected)}
+                                                                onChange={() => toggleBulletSelection(item.id)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                style={{
+                                                                    width: '16px',
+                                                                    height: '16px',
+                                                                    accentColor: '#10b981',
+                                                                    cursor: 'pointer',
+                                                                    marginRight: '6px'
+                                                                }}
+                                                                title="Seleccionar casquillo"
+                                                            />
+                                                        )}
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }}></span>
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }}></span>
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
+                                                        {isAdmin && item.wipe_folder && item.wipe_folder !== 'Actual' && (
+                                                            <span style={{
+                                                                fontSize: '0.68rem',
+                                                                padding: '0.12rem 0.45rem',
+                                                                borderRadius: '4px',
+                                                                background: 'rgba(255, 255, 255, 0.08)',
+                                                                color: '#94a3b8',
+                                                                border: '1px solid rgba(255, 255, 255, 0.12)',
+                                                                marginLeft: '6px'
+                                                            }} title={`Carpeta de wipe: ${item.wipe_folder}`}>
+                                                                📁 {item.wipe_folder}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                         {item.case_id ? (
@@ -2232,7 +2697,7 @@ function Ballistics() {
                                                 <span>{new Date(item.created_at).toLocaleDateString()}</span>
                                             </div>
                                         </div>
-                                    ))}
+                                    ); })}
                                 </div>
                             )}
                         </div>
@@ -2267,16 +2732,26 @@ function Ballistics() {
                                     gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
                                     gap: '1.25rem'
                                 }}>
-                                    {filteredWeapons.map(item => (
+                                    {filteredWeapons.map(item => {
+                                        const isSelected = selectedWeaponIds.includes(item.id);
+                                        return (
                                         <div
                                             key={item.id}
+                                            onClick={() => {
+                                                if (selectionMode) {
+                                                    toggleWeaponSelection(item.id);
+                                                }
+                                            }}
                                             style={{
                                                 background: 'rgba(15, 23, 42, 0.65)',
                                                 backdropFilter: 'blur(16px)',
                                                 border: item.case_id ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
                                                 borderRadius: '16px',
                                                 padding: '1.15rem',
-                                                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+                                                boxShadow: isSelected
+                                                    ? '0 0 0 2px #10b981, 0 8px 24px rgba(16, 185, 129, 0.25)'
+                                                    : '0 4px 20px rgba(0, 0, 0, 0.25)',
+                                                cursor: selectionMode ? 'pointer' : 'default',
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 justifyContent: 'space-between',
@@ -2287,9 +2762,38 @@ function Ballistics() {
                                                 {/* Header window controls & edit / trash buttons */}
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        {isAdmin && selectionMode && (
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={Boolean(isSelected)}
+                                                                onChange={() => toggleWeaponSelection(item.id)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                style={{
+                                                                    width: '16px',
+                                                                    height: '16px',
+                                                                    accentColor: '#10b981',
+                                                                    cursor: 'pointer',
+                                                                    marginRight: '6px'
+                                                                }}
+                                                                title="Seleccionar arma"
+                                                            />
+                                                        )}
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ff5f56', display: 'inline-block' }}></span>
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#ffbd2e', display: 'inline-block' }}></span>
                                                         <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: '#27c93f', display: 'inline-block' }}></span>
+                                                        {isAdmin && item.wipe_folder && item.wipe_folder !== 'Actual' && (
+                                                            <span style={{
+                                                                fontSize: '0.68rem',
+                                                                padding: '0.12rem 0.45rem',
+                                                                borderRadius: '4px',
+                                                                background: 'rgba(255, 255, 255, 0.08)',
+                                                                color: '#94a3b8',
+                                                                border: '1px solid rgba(255, 255, 255, 0.12)',
+                                                                marginLeft: '6px'
+                                                            }} title={`Carpeta de wipe: ${item.wipe_folder}`}>
+                                                                📁 {item.wipe_folder}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                         {item.case_id ? (
@@ -2450,7 +2954,7 @@ function Ballistics() {
                                                 <span>{new Date(item.created_at).toLocaleDateString()}</span>
                                             </div>
                                         </div>
-                                    ))}
+                                    ); })}
                                 </div>
                             )}
                         </div>
@@ -3774,6 +4278,359 @@ function Ballistics() {
                                 }}
                             >
                                 {submitting ? 'Vinculando...' : 'Vincular Arma'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Gestión de Carpetas de Wipe (ADMIN ONLY) */}
+            {isAdmin && showWipeManagerModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '640px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowWipeManagerModal(false)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">
+                                ⚙️ Gestión de Wipes - Balística
+                            </span>
+                            <div style={{ width: 52 }} />
+                        </div>
+
+                        <div className="mac-modal-body" style={{ maxHeight: '72vh', overflowY: 'auto' }}>
+                            <div style={{
+                                background: 'rgba(59, 130, 246, 0.1)',
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                borderRadius: '10px',
+                                padding: '0.85rem 1rem',
+                                marginBottom: '1.25rem',
+                                fontSize: '0.82rem',
+                                color: '#cbd5e1',
+                                lineHeight: 1.5
+                            }}>
+                                💡 <strong>Sistema de Wipes de Balística:</strong> Solo los administradores pueden gestionar y alternar entre carpetas. Los agentes regulares siempre verán únicamente la carpeta marcada como <strong>⭐ Activa</strong>.
+                            </div>
+
+                            {/* Create New Folder Section */}
+                            <div className="mac-form-group" style={{ marginBottom: '1.5rem' }}>
+                                <label className="mac-form-label" style={{ fontSize: '0.85rem', marginBottom: '0.4rem', display: 'block' }}>
+                                    ➕ Crear Nueva Carpeta de Wipe
+                                </label>
+                                <div style={{ display: 'flex', gap: '0.6rem' }}>
+                                    <input
+                                        type="text"
+                                        className="mac-input"
+                                        style={{ flex: 1 }}
+                                        placeholder="Ej: Wipe 2026, Temporada 3, Wipe Invierno..."
+                                        value={newWipeFolderName}
+                                        onChange={(e) => setNewWipeFolderName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleCreateNewFolder();
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="mac-btn mac-btn-primary"
+                                        style={{ padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}
+                                        disabled={wipeActionLoading || !newWipeFolderName.trim()}
+                                        onClick={handleCreateNewFolder}
+                                    >
+                                        Crear Carpeta
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Existing Folders List */}
+                            <label className="mac-form-label" style={{ fontSize: '0.84rem', marginBottom: '0.6rem', display: 'block' }}>
+                                📁 Carpetas Registradas ({wipeFolders.length})
+                            </label>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                {wipeFolders.map(folder => {
+                                    const isActive = folder === activeWipeFolder;
+                                    const isViewing = folder === viewingWipeFolder;
+                                    const stats = wipeStats[folder] || { total: 0, bullets: 0, weapons: 0 };
+
+                                    return (
+                                        <div
+                                            key={folder}
+                                            style={{
+                                                background: isActive 
+                                                    ? 'rgba(16, 185, 129, 0.08)' 
+                                                    : 'rgba(0, 0, 0, 0.3)',
+                                                border: isActive 
+                                                    ? '1.5px solid rgba(16, 185, 129, 0.4)' 
+                                                    : '1px solid rgba(255, 255, 255, 0.08)',
+                                                borderRadius: '12px',
+                                                padding: '0.9rem 1.1rem',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '0.65rem'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                                    <span style={{ fontSize: '1.2rem' }}>📁</span>
+                                                    <span style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff' }}>
+                                                        {folder}
+                                                    </span>
+
+                                                    {isActive && (
+                                                        <span style={{
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: 800,
+                                                            color: '#34d399',
+                                                            background: 'rgba(16, 185, 129, 0.2)',
+                                                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                                                            padding: '0.15rem 0.55rem',
+                                                            borderRadius: '9999px',
+                                                            letterSpacing: '0.04em'
+                                                        }}>
+                                                            ★ ACTIVA EN LA WEB
+                                                        </span>
+                                                    )}
+
+                                                    {isViewing && (
+                                                        <span style={{
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: 700,
+                                                            color: '#60a5fa',
+                                                            background: 'rgba(59, 130, 246, 0.18)',
+                                                            border: '1px solid rgba(59, 130, 246, 0.35)',
+                                                            padding: '0.15rem 0.55rem',
+                                                            borderRadius: '9999px'
+                                                        }}>
+                                                            👁️ Viendo ahora
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Action Buttons */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                                                    {!isViewing && (
+                                                        <button
+                                                            type="button"
+                                                            className="mac-btn mac-btn-secondary"
+                                                            style={{ fontSize: '0.76rem', padding: '0.35rem 0.65rem' }}
+                                                            onClick={() => {
+                                                                handleChangeViewingWipe(folder);
+                                                                setShowWipeManagerModal(false);
+                                                            }}
+                                                        >
+                                                            👁️ Ver
+                                                        </button>
+                                                    )}
+
+                                                    {!isActive && (
+                                                        <button
+                                                            type="button"
+                                                            className="mac-btn mac-btn-primary"
+                                                            style={{ fontSize: '0.76rem', padding: '0.35rem 0.65rem', background: '#059669' }}
+                                                            disabled={wipeActionLoading}
+                                                            onClick={() => handleMakeActiveWipe(folder)}
+                                                        >
+                                                            ⭐ Hacer Activa
+                                                        </button>
+                                                    )}
+
+                                                    {folder !== DEFAULT_WIPE_FOLDER && (
+                                                        <button
+                                                            type="button"
+                                                            className="mac-btn mac-btn-secondary"
+                                                            style={{ fontSize: '0.76rem', padding: '0.35rem 0.65rem', color: '#f87171' }}
+                                                            disabled={wipeActionLoading}
+                                                            onClick={() => handleDeleteFolder(folder)}
+                                                            title="Eliminar carpeta de wipe"
+                                                        >
+                                                            🗑️ Borrar
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Folder Statistics */}
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '1rem',
+                                                fontSize: '0.78rem',
+                                                color: '#94a3b8',
+                                                borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                                                paddingTop: '0.45rem',
+                                                flexWrap: 'wrap'
+                                            }}>
+                                                <span><strong>Total:</strong> {stats.total} registros</span>
+                                                <span style={{ color: '#93c5fd' }}>🔹 Casquillos: {stats.bullets}</span>
+                                                <span style={{ color: '#fca5a5' }}>🔸 Armas: {stats.weapons}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="mac-modal-actions">
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-primary"
+                                onClick={() => setShowWipeManagerModal(false)}
+                            >
+                                Listo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Move Ballistics into Wipe Folder (ADMIN ONLY) */}
+            {isAdmin && showMoveModal && (
+                <div className="mac-modal-overlay">
+                    <div className="mac-modal-card" style={{ maxWidth: '560px' }}>
+                        <div className="mac-modal-header">
+                            <div className="mac-window-dots">
+                                <div className="mac-window-dot close" onClick={() => setShowMoveModal(false)} title="Cerrar"></div>
+                                <div className="mac-window-dot min"></div>
+                                <div className="mac-window-dot max"></div>
+                            </div>
+                            <span className="mac-modal-title">
+                                📦 Almacenar Balística en Wipe
+                            </span>
+                            <div style={{ width: 52 }} />
+                        </div>
+
+                        <div className="mac-modal-body">
+                            {/* Scope Selector */}
+                            <div className="mac-form-group">
+                                <label className="mac-form-label">¿Qué registros de balística deseas trasladar?</label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                    {(selectedBulletIds.length > 0 || selectedWeaponIds.length > 0) && (
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.6rem',
+                                            background: moveMode === 'selected' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 0, 0, 0.3)',
+                                            border: moveMode === 'selected' ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.1)',
+                                            borderRadius: '8px',
+                                            padding: '0.65rem 0.85rem',
+                                            cursor: 'pointer',
+                                            color: '#ffffff',
+                                            fontSize: '0.85rem'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name="moveMode"
+                                                value="selected"
+                                                checked={moveMode === 'selected'}
+                                                onChange={() => setMoveMode('selected')}
+                                            />
+                                            <span>
+                                                Mover los <strong>{selectedBulletIds.length + selectedWeaponIds.length}</strong> elementos seleccionados a dedo ({selectedBulletIds.length} casquillos, {selectedWeaponIds.length} armas)
+                                            </span>
+                                        </label>
+                                    )}
+
+                                    <label style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.6rem',
+                                        background: moveMode === 'all' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 0, 0, 0.3)',
+                                        border: moveMode === 'all' ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.1)',
+                                        borderRadius: '8px',
+                                        padding: '0.65rem 0.85rem',
+                                        cursor: 'pointer',
+                                        color: '#ffffff',
+                                        fontSize: '0.85rem'
+                                    }}>
+                                        <input
+                                            type="radio"
+                                            name="moveMode"
+                                            value="all"
+                                            checked={moveMode === 'all'}
+                                            onChange={() => setMoveMode('all')}
+                                        />
+                                        <span>
+                                            Mover <strong>TODOS</strong> los registros de la carpeta "{viewingWipeFolder}" (Total: {wipeStats[viewingWipeFolder]?.total || (bullets.length + weapons.length)})
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Destination Selector */}
+                            <div className="mac-form-group">
+                                <label className="mac-form-label">Carpeta de Destino</label>
+                                
+                                <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '0.6rem' }}>
+                                    <button
+                                        type="button"
+                                        className={`mac-btn ${!isCreatingNewMoveFolder ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
+                                        style={{ flex: 1, fontSize: '0.8rem', padding: '0.45rem' }}
+                                        onClick={() => setIsCreatingNewMoveFolder(false)}
+                                    >
+                                        Elegir existente
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`mac-btn ${isCreatingNewMoveFolder ? 'mac-btn-primary' : 'mac-btn-secondary'}`}
+                                        style={{ flex: 1, fontSize: '0.8rem', padding: '0.45rem' }}
+                                        onClick={() => {
+                                            setIsCreatingNewMoveFolder(true);
+                                            setTargetMoveFolder('');
+                                        }}
+                                    >
+                                        ➕ Crear nueva
+                                    </button>
+                                </div>
+
+                                {!isCreatingNewMoveFolder ? (
+                                    <select
+                                        className="mac-select"
+                                        style={{ width: '100%', padding: '0.55rem' }}
+                                        value={targetMoveFolder}
+                                        onChange={(e) => setTargetMoveFolder(e.target.value)}
+                                    >
+                                        <option value="">-- Selecciona carpeta destino --</option>
+                                        {wipeFolders.map(f => (
+                                            <option key={f} value={f}>
+                                                📁 {f} {f === activeWipeFolder ? '(Activa en web)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        className="mac-input"
+                                        style={{ width: '100%' }}
+                                        placeholder="Nombre de la nueva carpeta de wipe..."
+                                        value={targetMoveFolder}
+                                        onChange={(e) => setTargetMoveFolder(e.target.value)}
+                                        autoFocus
+                                    />
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mac-modal-actions">
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-secondary"
+                                onClick={() => setShowMoveModal(false)}
+                                disabled={wipeActionLoading}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className="mac-btn mac-btn-primary"
+                                onClick={handleExecuteMove}
+                                disabled={wipeActionLoading || !targetMoveFolder.trim()}
+                            >
+                                {wipeActionLoading ? 'Moviendo...' : 'Confirmar Traslado'}
                             </button>
                         </div>
                     </div>
