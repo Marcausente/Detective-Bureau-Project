@@ -221,9 +221,9 @@ export async function getOtherJurisdictionSubjects() {
             .from('app_settings')
             .select('value')
             .eq('key', SETTING_KEY_SUBJECTS)
-            .single();
+            .maybeSingle();
 
-        if (!error && data && data.value && data.value.trim().length > 0) {
+        if (!error && data && data.value !== null && data.value !== undefined) {
             localStorage.setItem(STORAGE_KEY_SUBJECTS, data.value);
             return data.value;
         }
@@ -234,7 +234,7 @@ export async function getOtherJurisdictionSubjects() {
     // 2. Fallback to localStorage
     try {
         const cached = localStorage.getItem(STORAGE_KEY_SUBJECTS);
-        if (cached && cached.trim().length > 0) {
+        if (cached !== null && cached !== undefined) {
             return cached;
         }
     } catch (e) {
@@ -255,17 +255,35 @@ export async function saveOtherJurisdictionSubjects(rawText) {
     // 1. LocalStorage
     localStorage.setItem(STORAGE_KEY_SUBJECTS, cleanText);
 
-    // 2. Supabase app_settings
+    // 2. Try RPC with SECURITY DEFINER first to avoid RLS permission blocks
+    let savedToDb = false;
     try {
-        await supabase
+        const { error: rpcErr } = await supabase.rpc('save_other_jurisdiction_subjects', {
+            p_text: cleanText
+        });
+        if (!rpcErr) {
+            savedToDb = true;
+        } else {
+            console.warn('RPC save_other_jurisdiction_subjects error, trying direct upsert:', rpcErr);
+        }
+    } catch (rpcEx) {
+        console.warn('RPC save_other_jurisdiction_subjects exception:', rpcEx);
+    }
+
+    // 3. Fallback to direct upsert on app_settings if RPC was not available
+    if (!savedToDb) {
+        const { error } = await supabase
             .from('app_settings')
             .upsert({
                 key: SETTING_KEY_SUBJECTS,
                 value: cleanText,
                 updated_at: new Date().toISOString()
             }, { onConflict: 'key' });
-    } catch (e) {
-        console.warn('Failed to persist other_jurisdiction_subjects to app_settings:', e);
+
+        if (error) {
+            console.error('Failed to save other_jurisdiction_subjects to app_settings:', error);
+            throw new Error(error.message || 'Error de permisos al guardar en la base de datos');
+        }
     }
 
     return cleanText;
@@ -283,7 +301,7 @@ export async function getTransferredIncidentIds() {
             .from('app_settings')
             .select('value')
             .eq('key', SETTING_KEY_TRANSFERRED)
-            .single();
+            .maybeSingle();
 
         if (!error && data && data.value) {
             try {
@@ -332,21 +350,36 @@ export async function setIncidentTransferred(incidentId, isTransferred) {
         }
 
         const updatedArray = Array.from(idSet);
+        const jsonArray = JSON.stringify(updatedArray);
 
         // 1. Update localStorage
-        localStorage.setItem(STORAGE_KEY_TRANSFERRED, JSON.stringify(updatedArray));
+        localStorage.setItem(STORAGE_KEY_TRANSFERRED, jsonArray);
 
-        // 2. Update app_settings
+        // 2. Update app_settings via RPC with fallback to direct upsert
+        let savedToDb = false;
         try {
-            await supabase
-                .from('app_settings')
-                .upsert({
-                    key: SETTING_KEY_TRANSFERRED,
-                    value: JSON.stringify(updatedArray),
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'key' });
-        } catch (dbErr) {
-            console.warn('Failed to upsert transferred incidents to app_settings:', dbErr);
+            const { error: rpcErr } = await supabase.rpc('save_transferred_incidents', {
+                p_json_array: jsonArray
+            });
+            if (!rpcErr) {
+                savedToDb = true;
+            }
+        } catch {
+            // fallback
+        }
+
+        if (!savedToDb) {
+            try {
+                await supabase
+                    .from('app_settings')
+                    .upsert({
+                        key: SETTING_KEY_TRANSFERRED,
+                        value: jsonArray,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'key' });
+            } catch (dbErr) {
+                console.warn('Failed to upsert transferred incidents to app_settings:', dbErr);
+            }
         }
 
         // 3. Optional direct table update if column exists
