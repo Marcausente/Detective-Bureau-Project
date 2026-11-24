@@ -410,10 +410,24 @@ function Interrogations() {
                         .order('created_at', { ascending: false })
                         .limit(1);
                     if (latest && latest[0]) {
-                        await supabase
-                            .from('interrogations')
-                            .update({ wipe_folder: folderToAssign })
-                            .eq('id', latest[0].id);
+                        try {
+                            const { error: rpcErr } = await supabase.rpc('move_interrogations_wipe', {
+                                p_interrogation_ids: [latest[0].id],
+                                p_target_folder: folderToAssign,
+                                p_source_folder: null
+                            });
+                            if (rpcErr) {
+                                await supabase
+                                    .from('interrogations')
+                                    .update({ wipe_folder: folderToAssign })
+                                    .eq('id', latest[0].id);
+                            }
+                        } catch {
+                            await supabase
+                                .from('interrogations')
+                                .update({ wipe_folder: folderToAssign })
+                                .eq('id', latest[0].id);
+                        }
                     }
                 }
             }

@@ -209,10 +209,17 @@ export async function deleteInterrogationsWipeFolder(folderName, fallbackFolder 
 
     // 1. Reasignar cualquier interrogatorio que perteneciera a esta carpeta
     try {
-        await supabase
-            .from('interrogations')
-            .update({ wipe_folder: fallbackFolder })
-            .eq('wipe_folder', cleanName);
+        const { error: rpcError } = await supabase.rpc('move_interrogations_wipe', {
+            p_interrogation_ids: null,
+            p_target_folder: fallbackFolder,
+            p_source_folder: cleanName
+        });
+        if (rpcError) {
+            await supabase
+                .from('interrogations')
+                .update({ wipe_folder: fallbackFolder })
+                .eq('wipe_folder', cleanName);
+        }
     } catch (err) {
         console.error('Error reassigning interrogations on wipe folder deletion:', err);
     }
@@ -245,8 +252,36 @@ export async function moveInterrogationsToWipeFolder({ interrogationIds, targetF
     // Asegurarse de que la carpeta de destino esté registrada en la lista
     await createInterrogationsWipeFolder(cleanTarget);
 
-    if (Array.isArray(interrogationIds) && interrogationIds.length > 0) {
-        // Mover interrogatorios seleccionados específicamente
+    const isSpecificList = Array.isArray(interrogationIds) && interrogationIds.length > 0;
+    const isAll = interrogationIds === 'all';
+
+    if (!isSpecificList && !isAll) {
+        throw new Error('No se han seleccionado interrogatorios para mover');
+    }
+
+    const cleanSource = (sourceFolder || DEFAULT_WIPE_FOLDER).trim();
+
+    // 1. Intentar mover mediante RPC con SECURITY DEFINER (para evitar bloqueos RLS)
+    try {
+        const { data, error } = await supabase.rpc('move_interrogations_wipe', {
+            p_interrogation_ids: isSpecificList ? interrogationIds : null,
+            p_target_folder: cleanTarget,
+            p_source_folder: isAll ? cleanSource : null
+        });
+
+        if (!error) {
+            return {
+                movedCount: typeof data === 'number' ? data : (isSpecificList ? interrogationIds.length : 'all'),
+                targetFolder: cleanTarget
+            };
+        }
+        console.warn('move_interrogations_wipe RPC error, falling back to direct update:', error);
+    } catch (rpcErr) {
+        console.warn('move_interrogations_wipe RPC exception, falling back:', rpcErr);
+    }
+
+    // 2. Fallback a UPDATE directo
+    if (isSpecificList) {
         const { error } = await supabase
             .from('interrogations')
             .update({ wipe_folder: cleanTarget })
@@ -254,9 +289,7 @@ export async function moveInterrogationsToWipeFolder({ interrogationIds, targetF
 
         if (error) throw error;
         return { movedCount: interrogationIds.length, targetFolder: cleanTarget };
-    } else if (interrogationIds === 'all') {
-        // Mover todos los interrogatorios de la carpeta origen
-        const cleanSource = (sourceFolder || DEFAULT_WIPE_FOLDER).trim();
+    } else {
         let query = supabase.from('interrogations').update({ wipe_folder: cleanTarget });
 
         if (cleanSource === DEFAULT_WIPE_FOLDER) {
@@ -270,8 +303,6 @@ export async function moveInterrogationsToWipeFolder({ interrogationIds, targetF
 
         return { movedCount: 'all', targetFolder: cleanTarget };
     }
-
-    throw new Error('No se han seleccionado interrogatorios para mover');
 }
 
 /**
