@@ -258,29 +258,21 @@ export async function deleteIncidentsWipeFolder(folderName, fallbackFolder = DEF
 }
 
 /**
- * Mueve incidentes (seleccionados o todos) a una carpeta de Wipe destino.
+ * Mueve incidentes y/o salidas (seleccionados o todos) a una carpeta de Wipe destino.
  * @param {Object} options
- * @param {string[]|'all'} options.incidentIds - Array de UUIDs de incidentes o 'all'
+ * @param {string[]|'all'} [options.incidentIds] - Array de UUIDs de incidentes o 'all'
+ * @param {string[]} [options.outingIds] - Array de UUIDs de salidas (outings)
  * @param {string} options.targetFolder - Nombre de la carpeta destino
  * @param {string} [options.sourceFolder] - Carpeta origen (si se mueven todos)
  */
-export async function moveIncidentsToWipeFolder({ incidentIds, targetFolder, sourceFolder }) {
+export async function moveIncidentsToWipeFolder({ incidentIds = [], outingIds = [], targetFolder, sourceFolder }) {
     const cleanTarget = (targetFolder || DEFAULT_WIPE_FOLDER).trim();
     if (!cleanTarget) throw new Error('Debes indicar una carpeta de destino válida');
 
     // Asegurarse de que la carpeta de destino esté registrada en la lista
     await createIncidentsWipeFolder(cleanTarget);
 
-    if (Array.isArray(incidentIds) && incidentIds.length > 0) {
-        // Mover incidentes seleccionados específicamente
-        const { error } = await supabase
-            .from('incidents')
-            .update({ wipe_folder: cleanTarget })
-            .in('id', incidentIds);
-
-        if (error) throw error;
-        return { movedCount: incidentIds.length, targetFolder: cleanTarget };
-    } else if (incidentIds === 'all') {
+    if (incidentIds === 'all') {
         // Mover todos los incidentes y salidas de la carpeta origen
         const cleanSource = (sourceFolder || DEFAULT_WIPE_FOLDER).trim();
         let queryInc = supabase.from('incidents').update({ wipe_folder: cleanTarget });
@@ -301,7 +293,42 @@ export async function moveIncidentsToWipeFolder({ incidentIds, targetFolder, sou
         return { movedCount: 'all', targetFolder: cleanTarget };
     }
 
-    throw new Error('No se han seleccionado incidentes para mover');
+    const incList = Array.isArray(incidentIds) ? incidentIds : [];
+    const outList = Array.isArray(outingIds) ? outingIds : [];
+
+    if (incList.length === 0 && outList.length === 0) {
+        throw new Error('No se han seleccionado elementos para mover');
+    }
+
+    const promises = [];
+    if (incList.length > 0) {
+        promises.push(
+            supabase
+                .from('incidents')
+                .update({ wipe_folder: cleanTarget })
+                .in('id', incList)
+        );
+    }
+    if (outList.length > 0) {
+        promises.push(
+            supabase
+                .from('outings')
+                .update({ wipe_folder: cleanTarget })
+                .in('id', outList)
+        );
+    }
+
+    const results = await Promise.all(promises);
+    for (const r of results) {
+        if (r.error) throw r.error;
+    }
+
+    return {
+        movedCount: incList.length + outList.length,
+        incidentsCount: incList.length,
+        outingsCount: outList.length,
+        targetFolder: cleanTarget
+    };
 }
 
 /**

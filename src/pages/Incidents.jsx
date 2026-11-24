@@ -43,6 +43,7 @@ function Incidents() {
     const [wipeFolders, setWipeFolders] = useState([DEFAULT_WIPE_FOLDER]);
     const [wipeStats, setWipeStats] = useState({});
     const [selectedIncidentIds, setSelectedIncidentIds] = useState([]);
+    const [selectedOutingIds, setSelectedOutingIds] = useState([]);
     const [selectionMode, setSelectionMode] = useState(false);
     const [showWipeManagerModal, setShowWipeManagerModal] = useState(false);
     const [showMoveIncidentsModal, setShowMoveIncidentsModal] = useState(false);
@@ -417,41 +418,51 @@ function Incidents() {
         const rawOutings = outRes.data || [];
 
         const filteredIncidents = rawIncidents.filter(inc => {
-            const itemWipe = inc.wipe_folder || incWipeMap.get(inc.record_id) || DEFAULT_WIPE_FOLDER;
+            const incId = inc.record_id || inc.id;
+            const itemWipe = (inc.wipe_folder || incWipeMap.get(incId) || DEFAULT_WIPE_FOLDER).trim();
             if (wipeToQuery === DEFAULT_WIPE_FOLDER) {
-                return itemWipe === DEFAULT_WIPE_FOLDER;
+                return !itemWipe || itemWipe === DEFAULT_WIPE_FOLDER;
             }
             return itemWipe === wipeToQuery;
         });
 
         const filteredOutings = rawOutings.filter(out => {
-            const itemWipe = out.wipe_folder || outWipeMap.get(out.id) || DEFAULT_WIPE_FOLDER;
+            const outId = out.record_id || out.id;
+            const itemWipe = (out.wipe_folder || outWipeMap.get(outId) || DEFAULT_WIPE_FOLDER).trim();
             if (wipeToQuery === DEFAULT_WIPE_FOLDER) {
-                return itemWipe === DEFAULT_WIPE_FOLDER;
+                return !itemWipe || itemWipe === DEFAULT_WIPE_FOLDER;
             }
             return itemWipe === wipeToQuery;
         });
 
-        const sanitizedIncidents = filteredIncidents.map(inc => ({
-            ...inc,
-            wipe_folder: inc.wipe_folder || incWipeMap.get(inc.record_id) || DEFAULT_WIPE_FOLDER,
-            images: filterBucketImages(inc.images),
-            author_avatar: getProfileImage(inc.author_avatar, '/logowebp/anon.webp'),
-            description: stripBase64FromHtml(inc.description),
-            gang_names: inc.gang_names || []
-        }));
+        const sanitizedIncidents = filteredIncidents.map(inc => {
+            const incId = inc.record_id || inc.id;
+            return {
+                ...inc,
+                record_id: incId,
+                wipe_folder: (inc.wipe_folder || incWipeMap.get(incId) || DEFAULT_WIPE_FOLDER).trim(),
+                images: filterBucketImages(inc.images),
+                author_avatar: getProfileImage(inc.author_avatar, '/logowebp/anon.webp'),
+                description: stripBase64FromHtml(inc.description),
+                gang_names: inc.gang_names || []
+            };
+        });
 
-        const sanitizedOutings = filteredOutings.map(out => ({
-            ...out,
-            wipe_folder: out.wipe_folder || outWipeMap.get(out.id) || DEFAULT_WIPE_FOLDER,
-            images: filterBucketImages(out.images),
-            documents: Array.isArray(out.documents) ? out.documents : [],
-            author_avatar: getProfileImage(out.author_avatar, '/logowebp/anon.webp'),
-            info_obtained: stripBase64FromHtml(out.info_obtained),
-            detectives: (out.detectives && Array.isArray(out.detectives))
-                ? out.detectives.map(d => ({ ...d, avatar: getProfileImage(d.avatar, '/logowebp/anon.webp') }))
-                : []
-        }));
+        const sanitizedOutings = filteredOutings.map(out => {
+            const outId = out.record_id || out.id;
+            return {
+                ...out,
+                record_id: outId,
+                wipe_folder: (out.wipe_folder || outWipeMap.get(outId) || DEFAULT_WIPE_FOLDER).trim(),
+                images: filterBucketImages(out.images),
+                documents: Array.isArray(out.documents) ? out.documents : [],
+                author_avatar: getProfileImage(out.author_avatar, '/logowebp/anon.webp'),
+                info_obtained: stripBase64FromHtml(out.info_obtained),
+                detectives: (out.detectives && Array.isArray(out.detectives))
+                    ? out.detectives.map(d => ({ ...d, avatar: getProfileImage(d.avatar, '/logowebp/anon.webp') }))
+                    : []
+            };
+        });
 
         setIncidents(sanitizedIncidents);
         setOutings(sanitizedOutings);
@@ -465,6 +476,7 @@ function Incidents() {
     const handleChangeViewingWipe = (newFolder) => {
         setViewingWipeFolder(newFolder);
         setSelectedIncidentIds([]);
+        setSelectedOutingIds([]);
     };
 
     const handleMakeActiveWipe = async (folder) => {
@@ -542,7 +554,8 @@ function Incidents() {
     };
 
     const handleOpenMoveModal = (scope = null) => {
-        if (scope === 'selected' || (selectedIncidentIds.length > 0 && scope !== 'all')) {
+        const totalSelected = selectedIncidentIds.length + selectedOutingIds.length;
+        if (scope === 'selected' || (totalSelected > 0 && scope !== 'all')) {
             setMoveScope('selected');
         } else {
             setMoveScope('all');
@@ -583,15 +596,17 @@ function Incidents() {
         setWipeActionLoading(true);
         try {
             if (moveScope === 'selected') {
-                if (selectedIncidentIds.length === 0) {
-                    alert('No hay informes seleccionados a mano.');
+                const totalSelected = selectedIncidentIds.length + selectedOutingIds.length;
+                if (totalSelected === 0) {
+                    alert('No hay informes ni salidas seleccionadas a mano.');
                     return;
                 }
                 await moveIncidentsToWipeFolder({
                     incidentIds: selectedIncidentIds,
+                    outingIds: selectedOutingIds,
                     targetFolder: destination
                 });
-                alert(`✓ Se han movido ${selectedIncidentIds.length} informe(s) a la carpeta "${destination}".`);
+                alert(`✓ Se han movido ${totalSelected} elemento(s) (${selectedIncidentIds.length} informe(s) y ${selectedOutingIds.length} salida(s)) a la carpeta "${destination}".`);
             } else {
                 await moveIncidentsToWipeFolder({
                     incidentIds: 'all',
@@ -603,6 +618,7 @@ function Incidents() {
 
             setShowMoveIncidentsModal(false);
             setSelectedIncidentIds([]);
+            setSelectedOutingIds([]);
             setSelectionMode(false);
 
             const updatedFolders = await getIncidentsWipeFoldersList();
@@ -611,7 +627,7 @@ function Incidents() {
             setWipeStats(stats);
             await loadData(viewingWipeFolder);
         } catch (err) {
-            alert('Error al mover los informes: ' + err.message);
+            alert('Error al mover los registros: ' + err.message);
         } finally {
             setWipeActionLoading(false);
         }
@@ -623,13 +639,26 @@ function Incidents() {
         );
     };
 
+    const toggleOutingSelection = (id) => {
+        setSelectedOutingIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
     const handleSelectAllVisible = () => {
-        const visibleIds = [...visibleGeneralIncidents, ...visibleLinkedIncidents].map(i => i.record_id);
-        const allAlreadySelected = visibleIds.length > 0 && visibleIds.every(id => selectedIncidentIds.includes(id));
-        if (allAlreadySelected) {
-            setSelectedIncidentIds(prev => prev.filter(id => !visibleIds.includes(id)));
+        const visibleIncIds = [...visibleGeneralIncidents, ...visibleLinkedIncidents].map(i => i.record_id);
+        const visibleOutIds = visibleOutings.map(o => o.record_id);
+        const allVisibleIds = [...visibleIncIds, ...visibleOutIds];
+
+        const allIncsSelected = visibleIncIds.length === 0 || visibleIncIds.every(id => selectedIncidentIds.includes(id));
+        const allOutsSelected = visibleOutIds.length === 0 || visibleOutIds.every(id => selectedOutingIds.includes(id));
+
+        if (allIncsSelected && allOutsSelected && allVisibleIds.length > 0) {
+            setSelectedIncidentIds(prev => prev.filter(id => !visibleIncIds.includes(id)));
+            setSelectedOutingIds(prev => prev.filter(id => !visibleOutIds.includes(id)));
         } else {
-            setSelectedIncidentIds(Array.from(new Set([...selectedIncidentIds, ...visibleIds])));
+            setSelectedIncidentIds(Array.from(new Set([...selectedIncidentIds, ...visibleIncIds])));
+            setSelectedOutingIds(Array.from(new Set([...selectedOutingIds, ...visibleOutIds])));
         }
     };
 
@@ -788,12 +817,12 @@ function Incidents() {
                 setTransferredIncidentIds(prev => new Set([...prev, newId]));
             }
 
-            // Assign incident to current active wipe folder
+            // Assign incident to current viewing or active wipe folder
             if (newId) {
-                const curActive = await getActiveIncidentsWipeFolder();
+                const folderToAssign = viewingWipeFolder || activeWipeFolder || DEFAULT_WIPE_FOLDER;
                 await supabase
                     .from('incidents')
-                    .update({ wipe_folder: curActive || DEFAULT_WIPE_FOLDER })
+                    .update({ wipe_folder: folderToAssign })
                     .eq('id', newId);
             }
 
@@ -859,12 +888,12 @@ function Incidents() {
                 }
             }
 
-            // Assign outing to current active wipe folder
+            // Assign outing to current viewing or active wipe folder
             if (newId) {
-                const curActive = await getActiveIncidentsWipeFolder();
+                const folderToAssign = viewingWipeFolder || activeWipeFolder || DEFAULT_WIPE_FOLDER;
                 await supabase
                     .from('outings')
-                    .update({ wipe_folder: curActive || DEFAULT_WIPE_FOLDER })
+                    .update({ wipe_folder: folderToAssign })
                     .eq('id', newId);
             }
 
@@ -1563,7 +1592,10 @@ function Incidents() {
                             style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem' }}
                             onClick={() => {
                                 setSelectionMode(!selectionMode);
-                                if (selectionMode) setSelectedIncidentIds([]);
+                                if (selectionMode) {
+                                    setSelectedIncidentIds([]);
+                                    setSelectedOutingIds([]);
+                                }
                             }}
                         >
                             {selectionMode ? '✕ Cancelar selección' : '☑️ Seleccionar a dedo'}
@@ -1606,7 +1638,12 @@ function Incidents() {
                     flexShrink: 0
                 }}>
                     <span style={{ fontSize: '0.84rem', color: '#10b981', fontWeight: 700 }}>
-                        ✓ {selectedIncidentIds.length} informe(s) seleccionado(s) a dedo
+                        ✓ {selectedIncidentIds.length + selectedOutingIds.length} elemento(s) seleccionado(s) a dedo
+                        {(selectedIncidentIds.length > 0 || selectedOutingIds.length > 0) && (
+                            <span style={{ fontSize: '0.75rem', color: '#cbd5e1', fontWeight: 400, marginLeft: '6px' }}>
+                                ({selectedIncidentIds.length} informe{selectedIncidentIds.length !== 1 ? 's' : ''}, {selectedOutingIds.length} salida{selectedOutingIds.length !== 1 ? 's' : ''})
+                            </span>
+                        )}
                     </span>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         <button
@@ -1615,16 +1652,21 @@ function Incidents() {
                             style={{ fontSize: '0.74rem', padding: '0.3rem 0.6rem' }}
                             onClick={handleSelectAllVisible}
                         >
-                            {visibleGeneralIncidents.concat(visibleLinkedIncidents).every(c => selectedIncidentIds.includes(c.record_id)) && (visibleGeneralIncidents.length + visibleLinkedIncidents.length > 0)
+                            {([...visibleGeneralIncidents, ...visibleLinkedIncidents].every(c => selectedIncidentIds.includes(c.record_id)) &&
+                              visibleOutings.every(o => selectedOutingIds.includes(o.record_id)) &&
+                              (visibleGeneralIncidents.length + visibleLinkedIncidents.length + visibleOutings.length > 0))
                                 ? 'Deseleccionar visibles'
-                                : `Seleccionar todos visibles (${visibleGeneralIncidents.length + visibleLinkedIncidents.length})`}
+                                : `Seleccionar todos visibles (${visibleGeneralIncidents.length + visibleLinkedIncidents.length + visibleOutings.length})`}
                         </button>
                         <button
                             type="button"
                             className="mac-btn mac-btn-secondary"
                             style={{ fontSize: '0.74rem', padding: '0.3rem 0.6rem' }}
-                            onClick={() => setSelectedIncidentIds([])}
-                            disabled={selectedIncidentIds.length === 0}
+                            onClick={() => {
+                                setSelectedIncidentIds([]);
+                                setSelectedOutingIds([]);
+                            }}
+                            disabled={selectedIncidentIds.length === 0 && selectedOutingIds.length === 0}
                         >
                             Limpiar
                         </button>
@@ -1632,10 +1674,10 @@ function Incidents() {
                             type="button"
                             className="mac-btn mac-btn-primary"
                             style={{ fontSize: '0.74rem', padding: '0.3rem 0.75rem' }}
-                            disabled={selectedIncidentIds.length === 0}
+                            disabled={selectedIncidentIds.length === 0 && selectedOutingIds.length === 0}
                             onClick={() => handleOpenMoveModal('selected')}
                         >
-                            Mover {selectedIncidentIds.length} seleccionado(s)
+                            Mover {selectedIncidentIds.length + selectedOutingIds.length} seleccionado(s)
                         </button>
                     </div>
                 </div>
@@ -1977,7 +2019,17 @@ function Incidents() {
                                     const isHighlighted = searchParams.get('outing_id') === out.record_id;
                                     return (
                                         <div key={out.record_id} ref={isHighlighted ? highlightedRef : null}>
-                                            <OutingCard data={out} onExpand={setExpandedImage} onDelete={handleDeleteOuting} onEdit={handleEditOuting} isHighlighted={isHighlighted} />
+                                            <OutingCard
+                                                data={out}
+                                                onExpand={setExpandedImage}
+                                                onDelete={handleDeleteOuting}
+                                                onEdit={handleEditOuting}
+                                                isHighlighted={isHighlighted}
+                                                isAdmin={isAdmin}
+                                                selectionMode={selectionMode}
+                                                isSelected={selectedOutingIds.includes(out.record_id)}
+                                                onToggleSelect={toggleOutingSelection}
+                                            />
                                         </div>
                                     );
                                 })
@@ -2989,7 +3041,7 @@ function Incidents() {
                                 <div className="mac-window-dot max"></div>
                             </div>
                             <span className="mac-modal-title">
-                                📦 Almacenar Incidentes en Carpeta de Wipe
+                                📦 Almacenar Incidentes y Salidas en Carpeta de Wipe
                             </span>
                             <div style={{ width: 52 }} />
                         </div>
@@ -2997,9 +3049,9 @@ function Incidents() {
                         <div className="mac-modal-body">
                             {/* Scope Selector */}
                             <div className="mac-form-group">
-                                <label className="mac-form-label">¿Qué informes deseas trasladar?</label>
+                                <label className="mac-form-label">¿Qué registros deseas trasladar?</label>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                                    {selectedIncidentIds.length > 0 && (
+                                    {(selectedIncidentIds.length > 0 || selectedOutingIds.length > 0) && (
                                         <label style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -3020,7 +3072,7 @@ function Incidents() {
                                                 onChange={() => setMoveScope('selected')}
                                             />
                                             <span>
-                                                Mover los <strong>{selectedIncidentIds.length}</strong> informes seleccionados a mano
+                                                Mover los <strong>{selectedIncidentIds.length + selectedOutingIds.length}</strong> registros seleccionados a mano ({selectedIncidentIds.length} informe{selectedIncidentIds.length !== 1 ? 's' : ''}, {selectedOutingIds.length} salida{selectedOutingIds.length !== 1 ? 's' : ''})
                                             </span>
                                         </label>
                                     )}

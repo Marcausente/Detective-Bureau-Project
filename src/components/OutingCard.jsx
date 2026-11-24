@@ -32,24 +32,75 @@ const getTagStyles = (tag) => {
     }
 };
 
-function OutingCard({ data, onExpand, onDelete, onEdit, isHighlighted }) {
+function OutingCard({ 
+    data, 
+    onExpand, 
+    onDelete, 
+    onEdit, 
+    isHighlighted,
+    isAdmin = false,
+    selectionMode = false,
+    isSelected = false,
+    onToggleSelect = null
+}) {
     const tagStyles = getTagStyles(data.tag);
     return (
         <div className="announcement-card" style={{
             marginBottom: '1rem',
-            background: isHighlighted ? 'rgba(212, 175, 55, 0.12)' : 'rgba(20, 20, 20, 0.6)',
+            background: isSelected ? 'rgba(16, 185, 129, 0.1)' : (isHighlighted ? 'rgba(212, 175, 55, 0.12)' : 'rgba(20, 20, 20, 0.6)'),
             padding: '1rem',
-            borderLeft: isHighlighted ? '4px solid #d4af37' : '2px solid var(--accent-gold)',
             wordWrap: 'break-word',
             overflowWrap: 'anywhere',
-            boxShadow: isHighlighted ? '0 0 20px rgba(212, 175, 55, 0.35)' : 'none',
-            borderRadius: isHighlighted ? '8px' : undefined,
+            border: isSelected ? '2px solid #10b981' : (isHighlighted ? '2px solid #d4af37' : '2px solid transparent'),
+            borderLeft: isSelected ? '4px solid #10b981' : (isHighlighted ? '4px solid #d4af37' : '2px solid var(--accent-gold)'),
+            boxShadow: isSelected ? '0 0 16px rgba(16, 185, 129, 0.35)' : (isHighlighted ? '0 0 20px rgba(212, 175, 55, 0.35)' : 'none'),
+            borderRadius: '8px',
             transition: 'all 0.3s'
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
+                        {isAdmin && onToggleSelect && (
+                            <div
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggleSelect(data.record_id);
+                                }}
+                                style={{
+                                    cursor: 'pointer',
+                                    background: isSelected ? '#10b981' : 'rgba(255, 255, 255, 0.08)',
+                                    border: isSelected ? '1.5px solid #10b981' : '1.5px solid rgba(255, 255, 255, 0.3)',
+                                    borderRadius: '5px',
+                                    width: '18px',
+                                    height: '18px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#ffffff',
+                                    fontSize: '11px',
+                                    fontWeight: 800,
+                                    flexShrink: 0,
+                                    transition: 'all 0.15s ease'
+                                }}
+                                title={isSelected ? "Deseleccionar salida" : "Seleccionar salida a dedo"}
+                            >
+                                {isSelected ? '✓' : ''}
+                            </div>
+                        )}
                         <h4 style={{ margin: 0, color: 'var(--accent-gold)' }}>{data.title}</h4>
+                        {data.wipe_folder && data.wipe_folder !== 'Actual' && (
+                            <span style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                color: '#fbbf24',
+                                background: 'rgba(245, 158, 11, 0.15)',
+                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                padding: '0.1rem 0.4rem',
+                                borderRadius: '4px'
+                            }}>
+                                📁 {data.wipe_folder}
+                            </span>
+                        )}
                         {data.tag && tagStyles && (
                             <span style={{
                                 fontSize: '0.7rem',
