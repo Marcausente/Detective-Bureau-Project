@@ -240,8 +240,15 @@ export default function Undercover() {
 
     const fetchGangs = async () => {
         try {
-            const { data } = await supabase.from('gangs').select('id, name, color, is_archived').order('name');
-            setGangs(data || []);
+            const { data } = await supabase
+                .from('gangs')
+                .select('id, name, color, is_archived, wipe_folder')
+                .order('name');
+            const currentGangs = (data || []).filter(g => {
+                const gw = (g.wipe_folder || 'Actual').trim();
+                return !gw || gw.toLowerCase() === 'actual';
+            });
+            setGangs(currentGangs);
         } catch (err) {
             console.error("Error fetching gangs:", err);
         }

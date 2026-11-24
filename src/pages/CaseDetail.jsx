@@ -355,8 +355,16 @@ function CaseDetail() {
             if (!error && data) {
                 setAvailableGangs(data);
             } else {
-                const { data: gangData } = await supabase.from('gangs').select('id, name, color, zones_image, is_archived').order('name');
-                setAvailableGangs(gangData || []);
+                const caseWipe = (caseData?.wipe_folder || 'Actual').trim();
+                const { data: gangData } = await supabase.from('gangs').select('id, name, color, zones_image, is_archived, wipe_folder').order('name');
+                const filtered = (gangData || []).filter(g => {
+                    const gw = (g.wipe_folder || 'Actual').trim();
+                    if (caseWipe.toLowerCase() === 'actual') {
+                        return !gw || gw.toLowerCase() === 'actual';
+                    }
+                    return gw.toLowerCase() === caseWipe.toLowerCase();
+                });
+                setAvailableGangs(filtered);
             }
         } catch (err) {
             console.error(err);

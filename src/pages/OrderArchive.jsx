@@ -1219,9 +1219,17 @@ function OrderArchive() {
             const { data: cases } = await supabase.from('cases').select('id, title');
             if (cases) setCasesList(cases.map(c => ({ label: c.title, value: c.title }))); // Store title for readability in JSON
             
-            // Gangs
-            const { data: gangs } = await supabase.from('gangs').select('id, name');
-            if (gangs) setGangsList(gangs.map(g => ({ label: g.name, value: g.name })));
+            // Gangs (solo bandas activas / carpeta actual)
+            const { data: gangs } = await supabase
+                .from('gangs')
+                .select('id, name, wipe_folder');
+            if (gangs) {
+                const currentGangs = gangs.filter(g => {
+                    const gw = (g.wipe_folder || 'Actual').trim();
+                    return !gw || gw.toLowerCase() === 'actual';
+                });
+                setGangsList(currentGangs.map(g => ({ label: g.name, value: g.name })));
+            }
         };
         fetchLists();
     }, []);

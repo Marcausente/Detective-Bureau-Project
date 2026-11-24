@@ -24,6 +24,7 @@ import {
     moveIncidentsToWipeFolder,
     getIncidentsWipeFoldersStats
 } from '../services/incidentsWipeService';
+import { getActiveGangsWipeFolder } from '../services/gangsWipeService';
 import '../index.css';
 
 function Incidents() {
@@ -142,7 +143,7 @@ function Incidents() {
                 setWipeStats(stats);
                 loadData(activeWipe, uProfile);
                 fetchUsers();
-                fetchGangs();
+                fetchGangs(activeWipe);
                 fetchInterrogations();
                 loadOtherJurisdictionData();
             }
@@ -155,6 +156,7 @@ function Incidents() {
     useEffect(() => {
         if (currentUser) {
             loadData(viewingWipeFolder);
+            fetchGangs(viewingWipeFolder);
         }
     }, [viewingWipeFolder]);
 
@@ -667,19 +669,61 @@ function Incidents() {
         setUsers(data || []);
     };
 
-    const fetchGangs = async () => {
-        // Fetch gangs and their members using get_gangs_data RPC to avoid RLS restrictions
-        const { data, error } = await supabase.rpc('get_gangs_data');
-        if (error) {
-            console.error("Error fetching gangs for incidents filter:", error);
-            return;
+    const fetchGangs = async (targetWipeFolder = viewingWipeFolder) => {
+        try {
+            // Fetch gangs and their members along with wipe_folder to only show gangs from current wipe folder
+            const [rpcRes, wipesRes, activeGangsRes] = await Promise.allSettled([
+                supabase.rpc('get_gangs_data'),
+                supabase.from('gangs').select('id, wipe_folder'),
+                getActiveGangsWipeFolder()
+            ]);
+
+            if (rpcRes.status === 'rejected' || rpcRes.value?.error) {
+                console.error("Error fetching gangs for incidents filter:", rpcRes.value?.error || rpcRes.reason);
+                return;
+            }
+
+            const gangWipeMap = new Map();
+            if (wipesRes.status === 'fulfilled' && wipesRes.value?.data) {
+                wipesRes.value.data.forEach(r => {
+                    gangWipeMap.set(r.id, (r.wipe_folder || '').trim() || DEFAULT_WIPE_FOLDER);
+                });
+            }
+
+            const rawGangs = rpcRes.value?.data || [];
+            const targetFolder = (targetWipeFolder || DEFAULT_WIPE_FOLDER).trim();
+            const activeGangsFolder = (activeGangsRes.status === 'fulfilled' && activeGangsRes.value)
+                ? activeGangsRes.value
+                : DEFAULT_WIPE_FOLDER;
+
+            const filteredGangs = rawGangs.filter(g => {
+                const itemWipe = (g.wipe_folder || gangWipeMap.get(g.gang_id) || gangWipeMap.get(g.id) || DEFAULT_WIPE_FOLDER).trim();
+                if (targetFolder.toLowerCase() === DEFAULT_WIPE_FOLDER.toLowerCase()) {
+                    return !itemWipe ||
+                           itemWipe.toLowerCase() === DEFAULT_WIPE_FOLDER.toLowerCase() ||
+                           itemWipe.toLowerCase() === activeGangsFolder.toLowerCase();
+                }
+                return itemWipe.toLowerCase() === targetFolder.toLowerCase();
+            });
+
+            const mappedGangs = filteredGangs.map(g => ({
+                id: g.gang_id,
+                name: g.name,
+                gang_members: g.members || [],
+                wipe_folder: (g.wipe_folder || gangWipeMap.get(g.gang_id) || gangWipeMap.get(g.id) || DEFAULT_WIPE_FOLDER).trim()
+            })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+            setGangs(mappedGangs);
+
+            // Si la banda seleccionada previamente ya no pertenece a la carpeta actual, limpiar selección
+            setSelectedGangName(prev => {
+                if (!prev) return '';
+                const stillExists = mappedGangs.some(g => g.name && g.name.toLowerCase() === prev.toLowerCase().trim());
+                return stillExists ? prev : '';
+            });
+        } catch (err) {
+            console.error("Error fetching gangs for incidents filter:", err);
         }
-        const mappedGangs = (data || []).map(g => ({
-            id: g.gang_id,
-            name: g.name,
-            gang_members: g.members || []
-        })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        setGangs(mappedGangs);
     };
 
     const fetchInterrogations = async () => {
