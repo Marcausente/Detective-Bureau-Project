@@ -52,6 +52,9 @@ function Denuncias() {
     const [newFolderInput, setNewFolderInput] = useState('');
     const [wipeActionLoading, setWipeActionLoading] = useState(false);
 
+    // Current User Profile State
+    const [currentUserProfile, setCurrentUserProfile] = useState(null);
+
     // Check if current user is an administrator
     const isAdmin = Boolean(
         currentUserProfile && (
@@ -60,6 +63,7 @@ function Denuncias() {
             (currentUserProfile.rol || '').toLowerCase().includes('admin')
         )
     );
+    const isAyudante = (currentUserProfile?.rol || '').toLowerCase().trim() === 'ayudante';
 
     // Search and Filter State
     const [searchTerm, setSearchTerm] = useState('');
@@ -93,7 +97,6 @@ function Denuncias() {
 
     // Discord Webhook State for SCUB Complaints
     const [showWebhookModal, setShowWebhookModal] = useState(false);
-    const [currentUserProfile, setCurrentUserProfile] = useState(null);
     const scubAvatarInputRef = useRef(null);
     const [uploadingScubAvatar, setUploadingScubAvatar] = useState(false);
     const [scubWebhook, setScubWebhook] = useState({
