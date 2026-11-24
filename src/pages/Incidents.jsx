@@ -70,13 +70,35 @@ function Incidents() {
     const searchHighlightedRef = useRef(null);
 
     // --- OTRA JURISDICCIÓN STATE ---
-    const [otherJurisdictionRaw, setOtherJurisdictionRaw] = useState(DEFAULT_OTHER_JURISDICTION_RAW);
-    const [parsedOtherJurisdiction, setParsedOtherJurisdiction] = useState(() => parseOtherJurisdictionText(DEFAULT_OTHER_JURISDICTION_RAW));
+    const [otherJurisdictionRaw, setOtherJurisdictionRaw] = useState(() => {
+        try {
+            const cached = localStorage.getItem('other_jurisdiction_subjects_v1');
+            return cached !== null && cached !== undefined ? cached : DEFAULT_OTHER_JURISDICTION_RAW;
+        } catch {
+            return DEFAULT_OTHER_JURISDICTION_RAW;
+        }
+    });
+    const [parsedOtherJurisdiction, setParsedOtherJurisdiction] = useState(() => {
+        try {
+            const cached = localStorage.getItem('other_jurisdiction_subjects_v1');
+            const initial = cached !== null && cached !== undefined ? cached : DEFAULT_OTHER_JURISDICTION_RAW;
+            return parseOtherJurisdictionText(initial);
+        } catch {
+            return parseOtherJurisdictionText(DEFAULT_OTHER_JURISDICTION_RAW);
+        }
+    });
     const [transferredIncidentIds, setTransferredIncidentIds] = useState(new Set());
     const [isOtherJurisdictionFilterActive, setIsOtherJurisdictionFilterActive] = useState(false);
     const [onlyShowOtherJurisdictionMatches, setOnlyShowOtherJurisdictionMatches] = useState(true);
     const [showOtherJurisdictionModal, setShowOtherJurisdictionModal] = useState(false);
-    const [tempOtherJurisdictionText, setTempOtherJurisdictionText] = useState(DEFAULT_OTHER_JURISDICTION_RAW);
+    const [tempOtherJurisdictionText, setTempOtherJurisdictionText] = useState(() => {
+        try {
+            const cached = localStorage.getItem('other_jurisdiction_subjects_v1');
+            return cached !== null && cached !== undefined ? cached : DEFAULT_OTHER_JURISDICTION_RAW;
+        } catch {
+            return DEFAULT_OTHER_JURISDICTION_RAW;
+        }
+    });
     const [isSavingSubjects, setIsSavingSubjects] = useState(false);
 
     // Modals
@@ -163,7 +185,7 @@ function Incidents() {
     const loadOtherJurisdictionData = async () => {
         try {
             const raw = await getOtherJurisdictionSubjects();
-            if (raw) {
+            if (raw !== null && raw !== undefined) {
                 setOtherJurisdictionRaw(raw);
                 setParsedOtherJurisdiction(parseOtherJurisdictionText(raw));
                 setTempOtherJurisdictionText(raw);
@@ -205,6 +227,7 @@ function Incidents() {
             const parsed = parseOtherJurisdictionText(saved);
             setParsedOtherJurisdiction(parsed);
             setShowOtherJurisdictionModal(false);
+            alert('✓ Lista de personas de Otra Jurisdicción guardada exitosamente.');
         } catch (e) {
             alert('Error guardando la lista: ' + e.message);
         } finally {

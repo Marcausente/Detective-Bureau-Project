@@ -43,9 +43,22 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION save_other_jurisdiction_subjects(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION save_other_jurisdiction_subjects(TEXT) TO authenticated, anon;
 
--- 4. RPC con SECURITY DEFINER para guardar la lista de incidentes traspasados
+-- 4. RPC con SECURITY DEFINER para leer los sujetos de Otra Jurisdicción
+CREATE OR REPLACE FUNCTION get_other_jurisdiction_subjects()
+RETURNS TEXT AS $$
+DECLARE
+    v_val TEXT;
+BEGIN
+    SELECT value INTO v_val FROM public.app_settings WHERE key = 'other_jurisdiction_subjects';
+    RETURN v_val;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION get_other_jurisdiction_subjects() TO authenticated, anon;
+
+-- 5. RPC con SECURITY DEFINER para guardar la lista de incidentes traspasados
 CREATE OR REPLACE FUNCTION save_transferred_incidents(p_json_array TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -58,4 +71,4 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION save_transferred_incidents(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION save_transferred_incidents(TEXT) TO authenticated, anon;

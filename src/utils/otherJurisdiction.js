@@ -215,7 +215,18 @@ export function matchesOtherJurisdiction(incident, parsedSubjects = []) {
  * Get raw subjects text from Supabase or localStorage.
  */
 export async function getOtherJurisdictionSubjects() {
-    // 1. Try Supabase app_settings
+    // 1. Try RPC with SECURITY DEFINER first to avoid any potential RLS restrictions
+    try {
+        const { data, error } = await supabase.rpc('get_other_jurisdiction_subjects');
+        if (!error && data !== null && data !== undefined) {
+            localStorage.setItem(STORAGE_KEY_SUBJECTS, data);
+            return data;
+        }
+    } catch {
+        // fallback
+    }
+
+    // 2. Try Supabase app_settings table select directly
     try {
         const { data, error } = await supabase
             .from('app_settings')
@@ -231,7 +242,7 @@ export async function getOtherJurisdictionSubjects() {
         console.warn('Error reading other_jurisdiction_subjects from app_settings:', e);
     }
 
-    // 2. Fallback to localStorage
+    // 3. Fallback to localStorage
     try {
         const cached = localStorage.getItem(STORAGE_KEY_SUBJECTS);
         if (cached !== null && cached !== undefined) {
@@ -241,7 +252,7 @@ export async function getOtherJurisdictionSubjects() {
         console.error('Error reading localStorage for other jurisdiction:', e);
     }
 
-    // 3. Default seed
+    // 4. Default seed
     localStorage.setItem(STORAGE_KEY_SUBJECTS, DEFAULT_OTHER_JURISDICTION_RAW);
     return DEFAULT_OTHER_JURISDICTION_RAW;
 }
