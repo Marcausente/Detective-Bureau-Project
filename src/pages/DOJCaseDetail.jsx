@@ -161,6 +161,37 @@ function DOJCaseDetail() {
         }
     };
 
+    const handleDeleteCase = async () => {
+        const confirmMsg = language === 'es'
+            ? "¿Estás seguro de eliminar PERMANENTEMENTE este caso del DOJ? Esta acción eliminará el sumario y no se puede deshacer."
+            : "Are you sure you want to PERMANENTLY DELETE this DOJ case? This action cannot be undone.";
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            setLoading(true);
+            const { data: result, error } = await supabase.rpc('delete_doj_case_fully', { p_case_id: id });
+            if (error) {
+                // Fallback direct delete
+                const fallback = await supabase.from('doj_cases').delete().eq('id', id);
+                if (fallback.error) throw fallback.error;
+            }
+            if (result === 'NOT_FOUND') {
+                alert(language === 'es' ? "Caso no encontrado durante la eliminación." : "Case ID not found during deletion.");
+            }
+            navigate('/doj/cases');
+        } catch (err) {
+            alert('Error deleting case: ' + err.message);
+            setLoading(false);
+        }
+    };
+
+    const canDeleteCase = Boolean(currentUser && (
+        ['Coordinador', 'Administrador', 'Comisionado', 'Director', 'Fundador', 'Superadmin'].includes(currentUser.rol) ||
+        (currentUser.rol || '').toLowerCase().includes('admin') ||
+        ['sheriff', 'undersheriff', 'assistant sheriff', 'division chief', 'comandante', 'capitan', 'teniente'].includes((currentUser.rango || '').toLowerCase().trim()) ||
+        (caseData?.info?.created_by && caseData.info.created_by === currentUser.id)
+    ));
+
     const handleSaveInfo = async (e) => {
         e.preventDefault();
         setSavingInfo(true);
@@ -532,6 +563,32 @@ function DOJCaseDetail() {
                             }}
                         >
                             {language === 'es' ? 'Reabrir Sumario' : 'Re-open Case'}
+                        </button>
+                    )}
+
+                    {canDeleteCase && (
+                        <button
+                            type="button"
+                            onClick={handleDeleteCase}
+                            style={{
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                border: '1px solid rgba(239, 68, 68, 0.35)',
+                                color: '#f87171',
+                                padding: '0.35rem 0.85rem',
+                                borderRadius: '10px',
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px'
+                            }}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                            <span>{language === 'es' ? 'Eliminar Sumario' : 'Delete Case'}</span>
                         </button>
                     )}
                 </div>

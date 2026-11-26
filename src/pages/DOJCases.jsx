@@ -33,6 +33,13 @@ function DOJCases() {
             (currentUser.rol || '').toLowerCase().includes('admin')
         )
     );
+    const canDeleteCases = Boolean(
+        currentUser && (
+            isAdmin ||
+            ['Coordinador', 'Administrador', 'Comisionado', 'Director', 'Fundador', 'Superadmin'].includes(currentUser.rol) ||
+            ['sheriff', 'undersheriff', 'assistant sheriff', 'division chief', 'comandante', 'capitan', 'teniente'].includes((currentUser.rango || '').toLowerCase().trim())
+        )
+    );
 
     // --- WIPE MANAGEMENT STATE ---
     const [activeWipeFolder, setActiveWipeFolderState] = useState(DEFAULT_WIPE_FOLDER);
@@ -223,6 +230,25 @@ function DOJCases() {
             alert('Error eliminando carpeta: ' + err.message);
         } finally {
             setWipeActionLoading(false);
+        }
+    };
+
+    const handleDeleteCase = async (e, caseId, caseNumber) => {
+        e.stopPropagation();
+        const confirmMsg = language === 'es'
+            ? `¿Estás seguro de que deseas eliminar PERMANENTEMENTE el caso DOJ #${String(caseNumber).padStart(3, '0')}? Esta acción no se puede deshacer.`
+            : `Are you sure you want to PERMANENTLY delete DOJ Case #${String(caseNumber).padStart(3, '0')}? This action cannot be undone.`;
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            const { error } = await supabase.rpc('delete_doj_case_fully', { p_case_id: caseId });
+            if (error) {
+                const fallback = await supabase.from('doj_cases').delete().eq('id', caseId);
+                if (fallback.error) throw fallback.error;
+            }
+            await fetchCases();
+        } catch (err) {
+            alert('Error deleting case: ' + err.message);
         }
     };
 
@@ -848,23 +874,58 @@ function DOJCases() {
                                         )}
                                     </div>
                                     
-                                    <span style={{ 
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '0.35rem',
-                                        fontSize: '0.75rem', 
-                                        fontWeight: 700, 
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.04em',
-                                        color: statusColor,
-                                        background: `${statusColor}18`,
-                                        border: `1px solid ${statusColor}35`,
-                                        padding: '0.2rem 0.65rem',
-                                        borderRadius: '9999px'
-                                    }}>
-                                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: statusColor }}></span>
-                                        {c.status}
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span style={{ 
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '0.35rem',
+                                            fontSize: '0.75rem', 
+                                            fontWeight: 700, 
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.04em',
+                                            color: statusColor,
+                                            background: `${statusColor}18`,
+                                            border: `1px solid ${statusColor}35`,
+                                            padding: '0.2rem 0.65rem',
+                                            borderRadius: '9999px'
+                                        }}>
+                                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: statusColor }}></span>
+                                            {c.status}
+                                        </span>
+
+                                        {canDeleteCases && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleDeleteCase(e, c.id, c.case_number)}
+                                                title={language === 'es' ? 'Eliminar Caso' : 'Delete Case'}
+                                                style={{
+                                                    background: 'rgba(239, 68, 68, 0.1)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                    color: '#f87171',
+                                                    borderRadius: '6px',
+                                                    padding: '0.2rem 0.45rem',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                onMouseEnter={e => {
+                                                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                                                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                                                }}
+                                                onMouseLeave={e => {
+                                                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                                                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+                                                }}
+                                            >
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="3 6 5 6 21 6" />
+                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Title */}
